@@ -33,8 +33,17 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# local sqlite (dev only — production uses Turso)
+local.db
+local.db-journal
+local.db-shm
+local.db-wal
+
 # vercel
 .vercel
+
+# claude code local settings (per-user)
+.claude/
 
 # typescript
 *.tsbuildinfo

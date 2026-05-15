@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import CitySearch from '@/components/CitySearch'
@@ -38,6 +38,26 @@ export default function Home() {
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
   })
+
+  // On entry: ask the server to refresh if the stored snapshot is older
+  // than the cooldown (4h). The endpoint returns `skipped:true` otherwise,
+  // so this is cheap when data is recent.
+  const autoRefreshDone = useRef(false)
+  useEffect(() => {
+    if (autoRefreshDone.current) return
+    autoRefreshDone.current = true
+    fetch('/api/refresh', { method: 'POST' })
+      .then(res => res.json())
+      .then(result => {
+        queryClient.invalidateQueries({ queryKey: ['refresh-status'] })
+        if (result?.skipped === false) {
+          queryClient.invalidateQueries({ queryKey: ['forecast'] })
+        }
+      })
+      .catch(() => {
+        // Non-fatal: the page still works against live Open-Meteo data.
+      })
+  }, [queryClient])
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['forecast', position[0], position[1], refreshStatus?.lastRefreshedAt ?? 0],

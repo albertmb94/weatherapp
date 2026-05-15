@@ -9,7 +9,7 @@ export interface WeatherModel {
 export const MODELS: WeatherModel[] = [
   { id: 'meteofrance_arome_france_hd', label: 'AROME-FR 1.3km', color: '#e6194B', maxHours: 48, weight: 32 },
   { id: 'dmi_harmonie_arome_europe', label: 'HARM-DK 2km', color: '#f58231', maxHours: 60, weight: 25 },
-  { id: 'cma_grapes_3km', label: 'CMA-GRAPES 3km', color: '#bfef45', maxHours: 72, weight: 15 },
+  { id: 'icon_d2', label: 'ICON-D2 2.8km', color: '#bfef45', maxHours: 48, weight: 15 },
   { id: 'knmi_harmonie_arome_europe', label: 'HARMONIE 5km', color: '#ffe119', maxHours: 60, weight: 8 },
   { id: 'icon_eu', label: 'ICON-EU 7km', color: '#3cb44b', maxHours: 120, weight: 6 },
   { id: 'meteofrance_arome_france', label: 'WRF 9km*', color: '#42d4f4', maxHours: 96, weight: 4 },

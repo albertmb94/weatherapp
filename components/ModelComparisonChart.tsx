@@ -64,23 +64,38 @@ function SyncScrollGroup({ children }: { children: (register: (el: HTMLDivElemen
   return <>{children(register)}</>
 }
 
-function computeAgreement(valuesAtHour: (number | null)[]): { cv: number | null; min: number | null; max: number | null; mean: number | null; std: number | null } {
+function computeAgreement(
+  valuesAtHour: (number | null)[],
+  metricId: string
+): { score: number | null; min: number | null; max: number | null; mean: number | null } {
   const valid = valuesAtHour.filter(v => v !== null && v !== undefined) as number[]
-  if (valid.length < 2) return { cv: null, min: valid[0] ?? null, max: valid[0] ?? null, mean: valid[0] ?? null, std: null }
-  const mean = valid.reduce((a, b) => a + b, 0) / valid.length
+  if (valid.length < 2) return { score: null, min: valid[0] ?? null, max: valid[0] ?? null, mean: valid[0] ?? null }
   const min = Math.min(...valid)
   const max = Math.max(...valid)
-  const variance = valid.reduce((s, v) => s + (v - mean) ** 2, 0) / valid.length
-  const std = Math.sqrt(variance)
-  const cv = mean !== 0 ? (std / Math.abs(mean)) * 100 : null
-  return { cv, min, max, mean, std }
+  const mean = valid.reduce((a, b) => a + b, 0) / valid.length
+  const range = max - min
+
+  let score: number
+  if (metricId === 'precipitation') {
+    score = Math.min(range / 5, 1) * 100
+  } else if (metricId === 'cloud_cover') {
+    score = Math.min(range / 50, 1) * 100
+  } else if (metricId === 'wind_speed' || metricId === 'wind_gusts') {
+    const cv = mean !== 0 ? (Math.sqrt(valid.reduce((s, v) => s + (v - mean) ** 2, 0) / valid.length) / Math.abs(mean)) * 100 : 0
+    score = Math.min(cv, 100)
+  } else {
+    const cv = mean !== 0 ? (Math.sqrt(valid.reduce((s, v) => s + (v - mean) ** 2, 0) / valid.length) / Math.abs(mean)) * 100 : 0
+    score = Math.min(cv, 100)
+  }
+
+  return { score, min, max, mean }
 }
 
-function agreementColor(cv: number | null): string {
-  if (cv === null) return '#2a2a2a'
-  if (cv < 5) return 'rgb(0,180,80)'
-  if (cv < 15) return 'rgb(180,180,0)'
-  if (cv < 30) return 'rgb(255,140,0)'
+function agreementColor(score: number | null): string {
+  if (score === null) return '#2a2a2a'
+  if (score < 10) return 'rgb(0,180,80)'
+  if (score < 25) return 'rgb(180,180,0)'
+  if (score < 50) return 'rgb(255,140,0)'
   return 'rgb(200,0,0)'
 }
 
@@ -161,14 +176,15 @@ export default function ModelComparisonChart({
   }, [displayTimes, activeModels, metric, series])
 
   const agreementRow = useMemo(() => {
+    const metricId = metric === 'all' ? 'temperature' : metric
     return displayTimes.map((_, i) => {
-      const valuesAtHour = activeModels.map(m => series[m.id]?.[metric === 'all' ? 'temperature' : metric]?.[i] ?? null)
-      return computeAgreement(valuesAtHour)
+      const valuesAtHour = activeModels.map(m => series[m.id]?.[metricId]?.[i] ?? null)
+      return computeAgreement(valuesAtHour, metricId)
     })
   }, [displayTimes, activeModels, metric, series])
 
   function formatHour(d: Date): string {
-    return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
+    return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
   }
 
   function formatDay(d: Date): string {
@@ -317,7 +333,7 @@ export default function ModelComparisonChart({
         </td>
         {displayTimes.map((_, i) => {
           const a = agreementRow[i]
-          const bg = agreementColor(a.cv)
+          const bg = agreementColor(a.score)
           const isHovered = i === activeHour
           return (
             <td
@@ -326,10 +342,10 @@ export default function ModelComparisonChart({
                 isHovered ? 'ring-1 ring-inset ring-white/60' : ''
               }`}
               style={{ backgroundColor: bg, color: getContrastText(bg) }}
-              title={`CV: ${a.cv !== null ? a.cv.toFixed(1) + '%' : 'N/A'} | Range: ${a.min !== null ? a.min.toFixed(1) : '-'}–${a.max !== null ? a.max.toFixed(1) : '-'}`}
+              title={`Spread: ${a.score !== null ? Math.round(a.score) + '%' : 'N/A'} | Range: ${a.min !== null ? a.min.toFixed(1) : '-'}–${a.max !== null ? a.max.toFixed(1) : '-'}`}
               onMouseEnter={() => { setLocalHover(i); onHourHover(i) }}
             >
-              {a.cv !== null ? `${Math.round(a.cv)}%` : '⊘'}
+              {a.score !== null ? `${Math.round(a.score)}%` : '⊘'}
             </td>
           )
         })}

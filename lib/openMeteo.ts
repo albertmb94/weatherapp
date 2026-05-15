@@ -23,7 +23,7 @@ export async function fetchForecast(
     hourly: hourlyParams,
     models: modelIds,
     forecast_days: forecastDays.toString(),
-    timezone: 'UTC',
+    timezone: 'auto',
   })
 
   const res = await fetch(`/api/forecast?${params}`, { signal })
@@ -59,7 +59,7 @@ export async function fetchSinglePoint(
     hourly: hourlyParam,
     models: modelId,
     forecast_days: forecastDays.toString(),
-    timezone: 'UTC',
+    timezone: 'auto',
   })
 
   const res = await fetch(`/api/forecast?${params}`, { signal })
@@ -109,7 +109,7 @@ export async function fetchHeatmapGrid(
     hourly: hourlyParam,
     models: modelsParam,
     forecast_days: forecastDays.toString(),
-    timezone: 'UTC',
+    timezone: 'auto',
   })
 
   const res = await fetch(`/api/forecast?${params}`, { signal })

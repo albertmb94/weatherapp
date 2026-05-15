@@ -151,9 +151,9 @@ export default function HomeContent() {
   const hourLabel = useMemo(() => {
     if (!data?.time?.[selectedHour]) return `+${selectedHour}h`
     const t = data.time[selectedHour]
-    const hh = t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
-    const dd = t.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' })
-    return `${dd} ${hh} UTC (+${selectedHour}h)`
+    const hh = t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
+    const dd = t.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' })
+    return `${dd} ${hh} (+${selectedHour}h)`
   }, [data, selectedHour])
 
   const maxModelHours = useMemo(() => {

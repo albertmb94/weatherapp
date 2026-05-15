@@ -11,7 +11,6 @@ import {
   HEATMAP_ROWS,
   HEATMAP_COLS,
   HEATMAP_DEBOUNCE_MS,
-  HEATMAP_FILL_OPACITY,
   HEATMAP_FORECAST_DAYS,
 } from '@/lib/heatmapConfig'
 
@@ -86,6 +85,51 @@ function roundBounds(bounds: L.LatLngBounds, precision = 1): string {
   return `${f(bounds.getSouth())},${f(bounds.getWest())},${f(bounds.getNorth())},${f(bounds.getEast())}`
 }
 
+function bilinearInterpolate(
+  lat: number,
+  lng: number,
+  gridCells: GridCell[],
+  values: number[],
+  rows: number,
+  cols: number
+): number | null {
+  const minLat = gridCells[0]?.lat ?? 0
+  const maxLat = gridCells[(rows - 1) * cols]?.lat ?? 0
+  const minLng = gridCells[0]?.lng ?? 0
+  const maxLng = gridCells[cols - 1]?.lng ?? 0
+
+  const stepLat = (maxLat - minLat) / (rows - 1 || 1)
+  const stepLng = (maxLng - minLng) / (cols - 1 || 1)
+
+  const fi = (lat - minLat) / stepLat
+  const fj = (lng - minLng) / stepLng
+
+  const i0 = Math.max(0, Math.min(rows - 2, Math.floor(fi)))
+  const j0 = Math.max(0, Math.min(cols - 2, Math.floor(fj)))
+  const i1 = i0 + 1
+  const j1 = j0 + 1
+
+  const ti = (fi - i0) || 0
+  const tj = (fj - j0) || 0
+
+  const v00 = values[i0 * cols + j0]
+  const v01 = values[i0 * cols + j1]
+  const v10 = values[i1 * cols + j0]
+  const v11 = values[i1 * cols + j1]
+
+  if (v00 === null || v01 === null || v10 === null || v11 === null) return null
+
+  const v0 = v00 * (1 - tj) + v01 * tj
+  const v1 = v10 * (1 - tj) + v11 * tj
+  return v0 * (1 - ti) + v1 * ti
+}
+
+function parseColor(color: string): [number, number, number] {
+  const match = color.match(/rgb\((\d+),(\d+),(\d+)\)/)
+  if (!match) return [42, 42, 42]
+  return [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])]
+}
+
 export default function MapPicker({
   position,
   recenterToken,
@@ -104,7 +148,8 @@ export default function MapPicker({
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFetchKey = useRef<string>('')
-  const overlayLayer = useRef<L.LayerGroup | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const renderFrameRef = useRef<number | null>(null)
 
   const effectiveMetric: Exclude<MetricId, 'all'> = metric === 'all' ? 'temperature' : metric
 
@@ -158,48 +203,85 @@ export default function MapPicker({
       })
   }, [showHeatmap, mapInstance, boundsTick, effectiveMetric, selectedModel])
 
+  const renderCanvas = useCallback(() => {
+    if (!mapInstance || !canvasRef.current || gridCells.length === 0 || gridSeries.length === 0) return
+
+    const canvas = canvasRef.current
+    const container = mapInstance.getContainer()
+    const width = container.clientWidth
+    const height = container.clientHeight
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+    }
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.clearRect(0, 0, width, height)
+
+    const values = gridSeries.map(series => series?.[hourIndex] ?? null)
+    const allNull = values.every(v => v === null)
+    if (allNull) return
+
+    const step = 4
+    const imageData = ctx.createImageData(width, height)
+    const data = imageData.data
+
+    for (let y = 0; y < height; y += step) {
+      for (let x = 0; x < width; x += step) {
+        const latLng = mapInstance.containerPointToLatLng(L.point(x, y))
+        const value = bilinearInterpolate(latLng.lat, latLng.lng, gridCells, values as number[], HEATMAP_ROWS, HEATMAP_COLS)
+        const color = getColor(effectiveMetric, value)
+        const [r, g, b] = parseColor(color)
+
+        for (let dy = 0; dy < step && y + dy < height; dy++) {
+          for (let dx = 0; dx < step && x + dx < width; dx++) {
+            const idx = ((y + dy) * width + (x + dx)) * 4
+            data[idx] = r
+            data[idx + 1] = g
+            data[idx + 2] = b
+            data[idx + 3] = value !== null ? 140 : 0
+          }
+        }
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0)
+  }, [mapInstance, gridCells, gridSeries, hourIndex, effectiveMetric])
+
+  useEffect(() => {
+    if (!showHeatmap || !mapInstance) return
+    if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current)
+    renderFrameRef.current = requestAnimationFrame(() => {
+      renderCanvas()
+      renderFrameRef.current = null
+    })
+    return () => {
+      if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current)
+    }
+  }, [showHeatmap, mapInstance, gridCells, gridSeries, hourIndex, effectiveMetric, renderCanvas])
+
   useEffect(() => {
     if (!mapInstance) return
-
-    if (!overlayLayer.current) {
-      overlayLayer.current = L.layerGroup()
-      overlayLayer.current.addTo(mapInstance)
+    const onMove = () => {
+      if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current)
+      renderFrameRef.current = requestAnimationFrame(() => {
+        renderCanvas()
+        renderFrameRef.current = null
+      })
     }
-    const layer = overlayLayer.current
-    layer.clearLayers()
-
-    if (!showHeatmap || gridCells.length === 0 || gridSeries.length === 0) return
-
-    const bounds = mapInstance.getBounds()
-    const stepLat = (bounds.getNorth() - bounds.getSouth()) / HEATMAP_ROWS
-    const stepLng = (bounds.getEast() - bounds.getWest()) / HEATMAP_COLS
-    const halfLat = stepLat / 2
-    const halfLng = stepLng / 2
-
-    for (let i = 0; i < gridCells.length; i++) {
-      const cell = gridCells[i]
-      const series = gridSeries[i]
-      const value = series?.[hourIndex] ?? null
-      const color = getColor(effectiveMetric, value)
-      L.rectangle(
-        [
-          [cell.lat - halfLat, cell.lng - halfLng],
-          [cell.lat + halfLat, cell.lng + halfLng],
-        ],
-        {
-          color: 'transparent',
-          fillColor: color,
-          fillOpacity: value !== null ? HEATMAP_FILL_OPACITY : 0,
-          weight: 0,
-          interactive: false,
-        }
-      ).addTo(layer)
+    mapInstance.on('move', onMove)
+    return () => {
+      mapInstance.off('move', onMove)
     }
-  }, [mapInstance, showHeatmap, gridCells, gridSeries, hourIndex, effectiveMetric])
+  }, [mapInstance, renderCanvas])
 
   useEffect(() => {
-    if (!showHeatmap && overlayLayer.current) {
-      overlayLayer.current.clearLayers()
+    if (!showHeatmap && canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d')
+      if (ctx) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
     }
   }, [showHeatmap])
 
@@ -232,6 +314,11 @@ export default function MapPicker({
         <MapRecenter center={position} token={recenterToken} />
         <MapReady onReady={handleMapReady} />
       </MapContainer>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ zIndex: 400 }}
+      />
       {statusLine && (
         <div className="absolute top-2 left-2 z-[1000] bg-gray-900/80 px-2 py-1 rounded text-xs text-gray-300 pointer-events-none">
           {statusLine}

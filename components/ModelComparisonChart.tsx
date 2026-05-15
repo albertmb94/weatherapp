@@ -64,39 +64,20 @@ function SyncScrollGroup({ children }: { children: (register: (el: HTMLDivElemen
   return <>{children(register)}</>
 }
 
-function computeAgreement(
+function computeWeightedAvg(
   valuesAtHour: (number | null)[],
-  metricId: string
-): { score: number | null; min: number | null; max: number | null; mean: number | null } {
-  const valid = valuesAtHour.filter(v => v !== null && v !== undefined) as number[]
-  if (valid.length < 2) return { score: null, min: valid[0] ?? null, max: valid[0] ?? null, mean: valid[0] ?? null }
-  const min = Math.min(...valid)
-  const max = Math.max(...valid)
-  const mean = valid.reduce((a, b) => a + b, 0) / valid.length
-  const range = max - min
-
-  let score: number
-  if (metricId === 'precipitation') {
-    score = Math.min(range / 5, 1) * 100
-  } else if (metricId === 'cloud_cover') {
-    score = Math.min(range / 50, 1) * 100
-  } else if (metricId === 'wind_speed' || metricId === 'wind_gusts') {
-    const cv = mean !== 0 ? (Math.sqrt(valid.reduce((s, v) => s + (v - mean) ** 2, 0) / valid.length) / Math.abs(mean)) * 100 : 0
-    score = Math.min(cv, 100)
-  } else {
-    const cv = mean !== 0 ? (Math.sqrt(valid.reduce((s, v) => s + (v - mean) ** 2, 0) / valid.length) / Math.abs(mean)) * 100 : 0
-    score = Math.min(cv, 100)
+  weights: number[]
+): number | null {
+  let sum = 0
+  let wSum = 0
+  for (let i = 0; i < valuesAtHour.length; i++) {
+    const v = valuesAtHour[i]
+    if (v !== null && v !== undefined) {
+      sum += v * weights[i]
+      wSum += weights[i]
+    }
   }
-
-  return { score, min, max, mean }
-}
-
-function agreementColor(score: number | null): string {
-  if (score === null) return '#2a2a2a'
-  if (score < 10) return 'rgb(0,180,80)'
-  if (score < 25) return 'rgb(180,180,0)'
-  if (score < 50) return 'rgb(255,140,0)'
-  return 'rgb(200,0,0)'
+  return wSum > 0 ? Math.round(sum / wSum) : null
 }
 
 export default function ModelComparisonChart({
@@ -175,11 +156,12 @@ export default function ModelComparisonChart({
     })
   }, [displayTimes, activeModels, metric, series])
 
-  const agreementRow = useMemo(() => {
+  const weightedAvgRow = useMemo(() => {
     const metricId = metric === 'all' ? 'temperature' : metric
+    const weights = activeModels.map(m => m.weight)
     return displayTimes.map((_, i) => {
       const valuesAtHour = activeModels.map(m => series[m.id]?.[metricId]?.[i] ?? null)
-      return computeAgreement(valuesAtHour, metricId)
+      return computeWeightedAvg(valuesAtHour, weights)
     })
   }, [displayTimes, activeModels, metric, series])
 
@@ -188,7 +170,7 @@ export default function ModelComparisonChart({
   }
 
   function formatDay(d: Date): string {
-    return `${DAYS_ES[d.getUTCDay()]} ${d.getUTCDate()}`
+    return `${DAYS_ES[d.getDay()]} ${d.getDate()}`
   }
 
   const dayGroups = useMemo(() => {
@@ -325,27 +307,29 @@ export default function ModelComparisonChart({
     })
   }
 
-  function renderAgreementRow() {
+  function renderWeightedAvgRow() {
     return (
       <tr className="hover:bg-gray-800/50">
         <td className="sticky left-0 bg-gray-900 px-2 py-0.5 text-right pr-3 z-10 whitespace-nowrap border-r border-gray-700">
-          <span className="text-gray-300 text-[11px]">Agreement</span>
+          <span className="text-gray-300 text-[11px]">W-Avg</span>
         </td>
         {displayTimes.map((_, i) => {
-          const a = agreementRow[i]
-          const bg = agreementColor(a.score)
+          const v = weightedAvgRow[i]
+          const bg = getColor(displayMetric, v)
+          const textColor = v !== null ? getContrastText(bg) : '#888'
           const isHovered = i === activeHour
+          const isNoData = v === null
           return (
             <td
               key={i}
               className={`px-0.5 py-0.5 text-center min-w-[42px] font-mono cursor-crosshair transition-all ${
                 isHovered ? 'ring-1 ring-inset ring-white/60' : ''
-              }`}
-              style={{ backgroundColor: bg, color: getContrastText(bg) }}
-              title={`Spread: ${a.score !== null ? Math.round(a.score) + '%' : 'N/A'} | Range: ${a.min !== null ? a.min.toFixed(1) : '-'}–${a.max !== null ? a.max.toFixed(1) : '-'}`}
+              } ${isNoData ? 'no-data-cell' : ''}`}
+              style={{ backgroundColor: bg, color: textColor }}
+              title={`Weighted Avg @ +${i}h: ${v !== null ? v : 'No data'} ${unit}`}
               onMouseEnter={() => { setLocalHover(i); onHourHover(i) }}
             >
-              {a.score !== null ? `${Math.round(a.score)}%` : '⊘'}
+              {v !== null ? v : <span className="text-gray-600">⊘</span>}
             </td>
           )
         })}
@@ -425,7 +409,7 @@ export default function ModelComparisonChart({
                     <thead>{headerRow}</thead>
                     <tbody>
                       {renderModelRows()}
-                      {renderAgreementRow()}
+                      {renderWeightedAvgRow()}
                     </tbody>
                   </table>
                 </div>
@@ -441,7 +425,7 @@ export default function ModelComparisonChart({
                     <thead>{headerRow}</thead>
                     <tbody>
                       {renderModelRows()}
-                      {renderAgreementRow()}
+                      {renderWeightedAvgRow()}
                     </tbody>
                   </table>
                 </div>

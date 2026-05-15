@@ -9,7 +9,10 @@ interface UrlState {
   hour: number
   range: number
   showMap: boolean
+  showRadar: boolean
 }
+
+const MODELS_NONE_TOKEN = 'none'
 
 function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   const result: Partial<UrlState> = {}
@@ -22,22 +25,48 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   const metric = params.get('metric')
   if (metric) result.metric = metric
   const models = params.get('models')
-  if (models) result.models = models.split(',').filter(Boolean)
+  if (models !== null) {
+    result.models = models === MODELS_NONE_TOKEN ? [] : models.split(',').filter(Boolean)
+  }
   const hour = params.get('hour')
   if (hour && !isNaN(Number(hour))) result.hour = Number(hour)
   const range = params.get('range')
   if (range && !isNaN(Number(range))) result.range = Number(range)
   const showMap = params.get('map')
   if (showMap !== null) result.showMap = showMap === '1'
+  const showRadar = params.get('radar')
+  if (showRadar !== null) result.showRadar = showRadar === '1'
   return result
+}
+
+function modelsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+function buildQuery(state: UrlState, defaults: UrlState): string {
+  const params = new URLSearchParams()
+  if (state.lat !== defaults.lat || state.lon !== defaults.lon) {
+    params.set('lat', state.lat.toFixed(4))
+    params.set('lon', state.lon.toFixed(4))
+  }
+  if (state.metric !== defaults.metric) params.set('metric', state.metric)
+  if (!modelsEqual(state.models, defaults.models)) {
+    params.set('models', state.models.length === 0 ? MODELS_NONE_TOKEN : state.models.join(','))
+  }
+  if (state.hour !== defaults.hour) params.set('hour', String(state.hour))
+  if (state.range !== defaults.range) params.set('range', String(state.range))
+  if (state.showMap !== defaults.showMap) params.set('map', state.showMap ? '1' : '0')
+  if (state.showRadar !== defaults.showRadar) params.set('radar', state.showRadar ? '1' : '0')
+  return params.toString()
 }
 
 export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<UrlState>) => void] {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const initialized = useRef(false)
-  const pendingUrl = useRef<string | null>(null)
+  const lastPushedQuery = useRef<string | null>(null)
 
   const [state, setState] = useState<UrlState>(() => {
     const parsed = parseUrlParams(searchParams)
@@ -49,45 +78,35 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       hour: parsed.hour ?? defaults.hour,
       range: parsed.range ?? defaults.range,
       showMap: parsed.showMap ?? defaults.showMap,
+      showRadar: parsed.showRadar ?? defaults.showRadar,
     }
   })
 
-  const update = useCallback((updates: Partial<UrlState>) => {
-    setState(prev => {
-      const next = { ...prev, ...updates }
-      const params = new URLSearchParams()
-      if (next.lat !== defaults.lat || next.lon !== defaults.lon) {
-        params.set('lat', next.lat.toFixed(4))
-        params.set('lon', next.lon.toFixed(4))
-      }
-      if (next.metric !== defaults.metric) params.set('metric', next.metric)
-      if (next.models.length !== defaults.models.length || next.models.some((m, i) => m !== defaults.models[i])) {
-        if (next.models.length > 0) params.set('models', next.models.join(','))
-      }
-      if (next.hour !== defaults.hour) params.set('hour', String(next.hour))
-      if (next.range !== defaults.range) params.set('range', String(next.range))
-      if (next.showMap !== defaults.showMap) params.set('map', next.showMap ? '1' : '0')
-      const query = params.toString()
-      pendingUrl.current = query ? `${pathname}?${query}` : pathname
-      return next
-    })
-  }, [defaults, pathname])
-
+  // Sync URL whenever state changes (post-render to avoid setState during render).
   useEffect(() => {
-    if (pendingUrl.current) {
-      router.replace(pendingUrl.current, { scroll: false })
-      pendingUrl.current = null
-    }
-  })
+    const query = buildQuery(state, defaults)
+    if (query === lastPushedQuery.current) return
+    lastPushedQuery.current = query
+    const href = query ? `${pathname}?${query}` : pathname
+    router.replace(href, { scroll: false })
+  }, [state, defaults, pathname, router])
 
+  // React to back/forward navigation: setState happens inside the event
+  // handler (not in the effect body itself) which the linter is happy with.
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    const parsed = parseUrlParams(searchParams)
-    if (Object.keys(parsed).length > 0) {
+    function onPopState() {
+      const params = new URLSearchParams(window.location.search)
+      const parsed = parseUrlParams(params)
+      if (Object.keys(parsed).length === 0) return
       setState(prev => ({ ...prev, ...parsed }))
     }
-  }, [searchParams])
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const update = useCallback((updates: Partial<UrlState>) => {
+    setState(prev => ({ ...prev, ...updates }))
+  }, [])
 
   return [state, update]
 }

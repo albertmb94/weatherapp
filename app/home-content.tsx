@@ -8,6 +8,7 @@ import MetricPills from '@/components/MetricPills'
 import ModelPills from '@/components/ModelPills'
 import TimeRangeSelector from '@/components/TimeRangeSelector'
 import ModelComparisonChart from '@/components/ModelComparisonChart'
+import DailySummary from '@/components/DailySummary'
 import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
 import RefreshButton from '@/components/RefreshButton'
@@ -21,6 +22,7 @@ const DEFAULT_POS: [number, number] = [40.4168, -3.7038]
 const DEFAULT_METRIC: MetricId = 'temperature'
 const DEFAULT_MODELS = MODELS.map(m => m.id)
 const DEFAULT_RANGE = 168
+const OPEN_METEO_MAX_DAYS = 16
 
 export default function HomeContent() {
   const [urlState, updateUrl] = useUrlState({
@@ -31,21 +33,28 @@ export default function HomeContent() {
     hour: 0,
     range: DEFAULT_RANGE,
     showMap: true,
+    showRadar: false,
   })
 
   const [position, setPosition] = useState<[number, number]>([urlState.lat, urlState.lon])
   const [recenterToken, setRecenterToken] = useState(0)
   const [cityName, setCityName] = useState('Madrid')
   const [geoLoading, setGeoLoading] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2200)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const selectedMetric = urlState.metric as MetricId
   const selectedModels = urlState.models
   const selectedHour = urlState.hour
   const selectedRange = urlState.range
   const showMap = urlState.showMap
-
-  const metric = METRICS.find(m => m.id === selectedMetric)!
+  const showRadar = urlState.showRadar
 
   const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null }>({
     queryKey: ['refresh-status'],
@@ -73,9 +82,11 @@ export default function HomeContent() {
       .catch(() => {})
   }, [queryClient])
 
+  const forecastDays = Math.min(Math.ceil(selectedRange / 24), OPEN_METEO_MAX_DAYS)
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['forecast', position[0], position[1], refreshStatus?.lastRefreshedAt ?? 0],
-    queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, 7, signal),
+    queryKey: ['forecast', position[0], position[1], forecastDays, refreshStatus?.lastRefreshedAt ?? 0],
+    queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal),
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   })
@@ -92,6 +103,10 @@ export default function HomeContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
+      setToast(`Saved ${cityName}`)
+    },
+    onError: () => {
+      setToast('Save failed')
     },
   })
 
@@ -128,6 +143,10 @@ export default function HomeContent() {
     updateUrl({ showMap: !showMap })
   }, [showMap, updateUrl])
 
+  const handleRadarToggle = useCallback(() => {
+    updateUrl({ showRadar: !showRadar, showMap: showRadar ? showMap : true })
+  }, [showRadar, showMap, updateUrl])
+
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) return
     setGeoLoading(true)
@@ -162,6 +181,21 @@ export default function HomeContent() {
   }, [selectedModels])
 
   const effectiveMaxHours = Math.min(selectedRange, maxModelHours, 336)
+
+  const jumpToNow = useCallback(() => {
+    if (!data?.time?.length) {
+      handleHourChange(0)
+      return
+    }
+    const now = Date.now()
+    let best = 0
+    let bestDiff = Infinity
+    for (let i = 0; i < data.time.length; i++) {
+      const diff = Math.abs(data.time[i].getTime() - now)
+      if (diff < bestDiff) { bestDiff = diff; best = i }
+    }
+    handleHourChange(best)
+  }, [data, handleHourChange])
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -218,6 +252,15 @@ export default function HomeContent() {
             Map
           </button>
           <button
+            onClick={handleRadarToggle}
+            className={`px-1.5 py-1 rounded text-[10px] font-medium transition-all cursor-pointer ${
+              showRadar ? 'text-sky-300' : 'text-gray-600 hover:text-gray-300'
+            }`}
+            title="Toggle rain radar (RainViewer)"
+          >
+            Radar
+          </button>
+          <button
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending}
             className="px-1.5 py-1 rounded text-[10px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
@@ -245,14 +288,15 @@ export default function HomeContent() {
               onPositionChange={handlePositionChange}
               showHeatmap={showMap}
               metric={selectedMetric}
-              selectedModel={selectedModels.length === 1 ? selectedModels[0] : null}
+              selectedModels={selectedModels}
               hourIndex={selectedHour}
+              showRadar={showRadar}
             />
             <div className="absolute bottom-2.5 left-2.5 z-[1000] bg-gray-900/90 p-2 rounded-lg shadow-lg">
               <ColorLegend metric={legendMetric} />
             </div>
             <div className="absolute top-2.5 right-2.5 z-[1000] bg-gray-900/90 px-2 py-1 rounded text-[10px] text-gray-300 pointer-events-none">
-              {(selectedModels.length === 1 ? MODELS.find(m => m.id === selectedModels[0])?.label : 'Ensemble')} — {hourLabel}
+              {selectedModels.length === 1 ? MODELS.find(m => m.id === selectedModels[0])?.label : selectedModels.length === 0 ? 'Ensemble (all)' : `Ensemble (${selectedModels.length})`} — {hourLabel}
             </div>
             <div className="absolute bottom-2.5 right-2.5 left-2.5 z-[1000] bg-gray-900/80 px-3 py-1.5 rounded-lg shadow-lg pointer-events-auto md:left-auto md:w-[60%]">
               <div className="flex items-center gap-2">
@@ -286,9 +330,9 @@ export default function HomeContent() {
                   aria-label="Next hour"
                 >+1h</button>
                 <button
-                  onClick={() => handleHourChange(0)}
+                  onClick={jumpToNow}
                   className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                  aria-label="Reset to now"
+                  aria-label="Jump to current hour"
                 >Now</button>
               </div>
             </div>
@@ -310,16 +354,27 @@ export default function HomeContent() {
           )}
 
           {data && (
-            <ModelComparisonChart
-              models={MODELS}
-              activeModelIds={selectedModels}
-              metric={selectedMetric}
-              times={data.time}
-              series={data.series}
-              onHourHover={handleHourChange}
-              hoveredHour={selectedHour}
-              maxHours={effectiveMaxHours}
-            />
+            <>
+              <DailySummary
+                models={MODELS}
+                activeModelIds={selectedModels}
+                times={data.time}
+                series={data.series}
+                selectedHour={selectedHour}
+                onSelectHour={handleHourChange}
+                maxHours={effectiveMaxHours}
+              />
+              <ModelComparisonChart
+                models={MODELS}
+                activeModelIds={selectedModels}
+                metric={selectedMetric}
+                times={data.time}
+                series={data.series}
+                onHourHover={handleHourChange}
+                hoveredHour={selectedHour}
+                maxHours={effectiveMaxHours}
+              />
+            </>
           )}
         </div>
       </div>
@@ -329,6 +384,12 @@ export default function HomeContent() {
         <span>/ search</span>
         <span>m map</span>
       </div>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2000] bg-gray-800/95 border border-gray-700 text-white text-xs px-3 py-1.5 rounded-md shadow-lg animate-fadeIn">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

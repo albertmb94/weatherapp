@@ -13,6 +13,8 @@ import {
   HEATMAP_DEBOUNCE_MS,
   HEATMAP_FORECAST_DAYS,
 } from '@/lib/heatmapConfig'
+import RainRadarOverlay from './RainRadarOverlay'
+import type { RainviewerFrame } from '@/lib/rainViewer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -28,8 +30,9 @@ interface MapPickerProps {
   onPositionChange: (pos: [number, number]) => void
   showHeatmap: boolean
   metric: MetricId
-  selectedModel: string | null
+  selectedModels: string[]
   hourIndex: number
+  showRadar: boolean
 }
 
 interface GridCell {
@@ -136,8 +139,9 @@ export default function MapPicker({
   onPositionChange,
   showHeatmap,
   metric,
-  selectedModel,
+  selectedModels,
   hourIndex,
+  showRadar,
 }: MapPickerProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
   const [boundsTick, setBoundsTick] = useState(0)
@@ -145,6 +149,14 @@ export default function MapPicker({
   const [gridCells, setGridCells] = useState<GridCell[]>([])
   const [loadingHeatmap, setLoadingHeatmap] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [radarFrames, setRadarFrames] = useState<RainviewerFrame[]>([])
+  const [radarFrameIndex, setRadarFrameIndex] = useState(0)
+  const [radarPlaying, setRadarPlaying] = useState(true)
+
+  const handleRadarFramesLoaded = useCallback((count: number, frames: RainviewerFrame[]) => {
+    setRadarFrames(frames)
+    setRadarFrameIndex(prev => Math.min(prev, Math.max(0, count - 1)))
+  }, [])
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFetchKey = useRef<string>('')
@@ -174,7 +186,8 @@ export default function MapPicker({
     if (!showHeatmap || !mapInstance) return
 
     const bounds = mapInstance.getBounds()
-    const key = `${roundBounds(bounds)}|${effectiveMetric}|${selectedModel ?? 'ALL'}`
+    const modelsKey = selectedModels.length > 0 ? selectedModels.slice().sort().join(',') : 'ALL'
+    const key = `${roundBounds(bounds)}|${effectiveMetric}|${modelsKey}`
     if (key === lastFetchKey.current) return
     lastFetchKey.current = key
 
@@ -188,7 +201,7 @@ export default function MapPicker({
     setLoadingHeatmap(true)
     setErrorMsg(null)
 
-    fetchHeatmapGrid(cells, selectedModel, effectiveMetric, HEATMAP_FORECAST_DAYS, controller.signal)
+    fetchHeatmapGrid(cells, selectedModels, effectiveMetric, HEATMAP_FORECAST_DAYS, controller.signal)
       .then(result => {
         if (controller.signal.aborted) return
         setGridSeries(result.series)
@@ -201,7 +214,7 @@ export default function MapPicker({
         setErrorMsg(msg)
         setGridSeries([])
       })
-  }, [showHeatmap, mapInstance, boundsTick, effectiveMetric, selectedModel])
+  }, [showHeatmap, mapInstance, boundsTick, effectiveMetric, selectedModels])
 
   const renderCanvas = useCallback(() => {
     if (!mapInstance || !canvasRef.current || gridCells.length === 0 || gridSeries.length === 0) return
@@ -313,6 +326,13 @@ export default function MapPicker({
         <MapClickHandler onPositionChange={onPositionChange} />
         <MapRecenter center={position} token={recenterToken} />
         <MapReady onReady={handleMapReady} />
+        <RainRadarOverlay
+          enabled={showRadar}
+          playing={radarPlaying}
+          frameIndex={radarFrameIndex}
+          onFrameChange={setRadarFrameIndex}
+          onFramesLoaded={handleRadarFramesLoaded}
+        />
       </MapContainer>
       <canvas
         ref={canvasRef}
@@ -322,6 +342,29 @@ export default function MapPicker({
       {statusLine && (
         <div className="absolute top-2 left-2 z-[1000] bg-gray-900/80 px-2 py-1 rounded text-xs text-gray-300 pointer-events-none">
           {statusLine}
+        </div>
+      )}
+      {showRadar && radarFrames.length > 0 && (
+        <div className="absolute top-2 right-2 z-[1000] bg-gray-900/85 px-2 py-1 rounded-lg shadow-lg flex items-center gap-2 pointer-events-auto">
+          <button
+            onClick={() => setRadarPlaying(p => !p)}
+            className="text-gray-200 hover:text-white cursor-pointer text-xs w-4 flex items-center justify-center"
+            aria-label={radarPlaying ? 'Pause radar' : 'Play radar'}
+          >
+            {radarPlaying ? '❚❚' : '▶'}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={radarFrames.length - 1}
+            value={radarFrameIndex}
+            onChange={e => setRadarFrameIndex(Number(e.target.value))}
+            className="w-32 accent-sky-400"
+            aria-label="Radar frame"
+          />
+          <span className="text-[10px] text-gray-400 font-mono w-12 text-right">
+            {radarFrames[radarFrameIndex] ? new Date(radarFrames[radarFrameIndex].time * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—'}
+          </span>
         </div>
       )}
     </div>

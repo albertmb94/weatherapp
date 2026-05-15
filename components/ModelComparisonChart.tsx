@@ -2,10 +2,9 @@
 
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react'
 import type { WeatherModel, MetricId } from '@/lib/models'
-import { METRICS, MODELS } from '@/lib/models'
+import { METRICS } from '@/lib/models'
 import { getColor } from '@/lib/colorScales'
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -92,12 +91,6 @@ export default function ModelComparisonChart({
 }: ModelComparisonChartProps) {
   const [localHover, setLocalHover] = useState<number | null>(null)
   const activeHour = localHover ?? hoveredHour
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 200)
-    return () => clearTimeout(t)
-  }, [])
 
   const displayTimes = times.slice(0, maxHours)
 
@@ -280,7 +273,8 @@ export default function ModelComparisonChart({
           <td className="sticky left-0 bg-gray-900 px-2 py-0.5 text-right pr-3 z-10 whitespace-nowrap border-r border-gray-700">
             <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5" style={{ backgroundColor: model.color }} />
             <span className="text-gray-300 text-[11px]">{model.label}</span>
-            <span className="text-gray-600 text-[10px] ml-1">{model.weight}%</span>
+            <span className="text-gray-600 text-[10px] ml-1">{unit}</span>
+            <span className="text-gray-700 text-[10px] ml-1">{model.weight}%</span>
           </td>
           {displayTimes.map((_, i) => {
             const v = vals[i] ?? null
@@ -312,6 +306,7 @@ export default function ModelComparisonChart({
       <tr className="hover:bg-gray-800/50">
         <td className="sticky left-0 bg-gray-900 px-2 py-0.5 text-right pr-3 z-10 whitespace-nowrap border-r border-gray-700">
           <span className="text-gray-300 text-[11px]">W-Avg</span>
+          <span className="text-gray-600 text-[10px] ml-1">{unit}</span>
         </td>
         {displayTimes.map((_, i) => {
           const v = weightedAvgRow[i]
@@ -362,20 +357,6 @@ export default function ModelComparisonChart({
     }
     return [Math.floor(yMin / 10) * 10, Math.ceil(yMax / 10) * 10]
   }, [chartData, activeModels, displayMetric])
-
-  if (!loaded) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-6 w-48 bg-gray-800 rounded" />
-        <div className="space-y-1">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-5 bg-gray-800 rounded" />
-          ))}
-        </div>
-        <div className="h-48 bg-gray-800 rounded" />
-      </div>
-    )
-  }
 
   if (activeModels.length === 0) {
     return (

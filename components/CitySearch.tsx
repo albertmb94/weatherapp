@@ -47,7 +47,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
       const params = new URLSearchParams({
         name: q,
         count: '5',
-        language: 'en',
+        language: 'es',
         format: 'json',
       })
       const res = await fetch(`/api/geocode?${params}`, { signal })
@@ -88,7 +88,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         onChange={handleChange}
         onFocus={() => { if (results.length > 0) setIsOpen(true) }}
         placeholder="Search..."
-        className="w-36 px-2 py-1 bg-transparent text-white text-xs placeholder-gray-600 focus:outline-none focus:placeholder-gray-400 transition-colors"
+        className="w-36 px-2 py-1 bg-transparent text-white text-xs placeholder-gray-600 focus:outline-none focus:placeholder-gray-400 border-b border-transparent focus:border-blue-500/40 transition-colors"
       />
       {loading && (
         <div className="absolute right-1 top-1.5">

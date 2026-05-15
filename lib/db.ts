@@ -1,18 +1,19 @@
-import { createClient } from '@libsql/client'
+import { createClient, type Client } from '@libsql/client'
 
-const tursoUrl = process.env.TURSO_DATABASE_URL
-const tursoToken = process.env.TURSO_AUTH_TOKEN
+let cached: Client | null = null
 
-// In production we require Turso. The `file:` fallback would fail anyway
-// because Vercel serverless filesystems are read-only outside /tmp, and
-// the data would not persist across invocations.
-if (process.env.NODE_ENV === 'production' && !tursoUrl) {
-  throw new Error(
-    'TURSO_DATABASE_URL is required in production. Set it in the Vercel project env vars.'
-  )
+export function getDb(): Client {
+  if (cached) return cached
+  const tursoUrl = process.env.TURSO_DATABASE_URL
+  const tursoToken = process.env.TURSO_AUTH_TOKEN
+  if (process.env.NODE_ENV === 'production' && !tursoUrl) {
+    throw new Error(
+      'TURSO_DATABASE_URL is required in production. Set it in the Vercel project env vars.'
+    )
+  }
+  cached = createClient({
+    url: tursoUrl ?? 'file:local.db',
+    authToken: tursoToken,
+  })
+  return cached
 }
-
-export const db = createClient({
-  url: tursoUrl ?? 'file:local.db',
-  authToken: tursoToken,
-})

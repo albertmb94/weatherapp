@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+import { getDb } from '@/lib/db'
 
 const LAST_REFRESH_KEY = 'last_models_refresh'
 const COOLDOWN_MS = 4 * 60 * 60 * 1000
@@ -7,7 +7,7 @@ let initPromise: Promise<void> | null = null
 
 function ensureSchema(): Promise<void> {
   if (!initPromise) {
-    initPromise = db
+    initPromise = getDb()
       .execute(`
         CREATE TABLE IF NOT EXISTS app_state (
           key TEXT PRIMARY KEY,
@@ -26,7 +26,7 @@ function ensureSchema(): Promise<void> {
 
 export async function getLastRefresh(): Promise<number | null> {
   await ensureSchema()
-  const result = await db.execute({
+  const result = await getDb().execute({
     sql: 'SELECT updated_at FROM app_state WHERE key = ?',
     args: [LAST_REFRESH_KEY],
   })
@@ -36,7 +36,7 @@ export async function getLastRefresh(): Promise<number | null> {
 
 export async function recordRefresh(now: number = Date.now()): Promise<number> {
   await ensureSchema()
-  await db.execute({
+  await getDb().execute({
     sql: `INSERT INTO app_state (key, value, updated_at)
           VALUES (?, ?, ?)
           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,

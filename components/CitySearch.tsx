@@ -81,30 +81,30 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   }
 
   return (
-    <div ref={wrapperRef} className="relative w-48">
+    <div ref={wrapperRef} className="relative">
       <input
         type="text"
         value={query}
         onChange={handleChange}
         onFocus={() => { if (results.length > 0) setIsOpen(true) }}
-        placeholder="Search city..."
-        className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+        placeholder="Search..."
+        className="w-36 px-2 py-1 bg-transparent text-white text-xs placeholder-gray-600 focus:outline-none focus:placeholder-gray-400 transition-colors"
       />
       {loading && (
-        <div className="absolute right-2 top-2">
-          <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+        <div className="absolute right-1 top-1.5">
+          <div className="w-2.5 h-2.5 border border-gray-500 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {isOpen && results.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-48 overflow-auto">
+        <ul className="absolute z-50 w-48 mt-1 bg-gray-900 border border-gray-800 rounded-md shadow-lg max-h-48 overflow-auto animate-fadeIn">
           {results.map(r => (
             <li
               key={r.id}
               onClick={() => handleSelect(r)}
-              className="px-2 py-1.5 cursor-pointer hover:bg-gray-700 text-white text-sm"
+              className="px-2 py-1.5 cursor-pointer hover:bg-gray-800 text-white text-xs transition-colors"
             >
               <span>{r.name}</span>
-              {r.country && <span className="text-gray-400">, {r.country}</span>}
+              {r.country && <span className="text-gray-500">, {r.country}</span>}
             </li>
           ))}
         </ul>

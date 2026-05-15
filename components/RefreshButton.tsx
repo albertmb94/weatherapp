@@ -11,14 +11,14 @@ interface RefreshStatus {
 }
 
 function formatAge(ageMs: number | null): string {
-  if (ageMs == null) return 'never'
+  if (ageMs == null) return ''
   const minutes = Math.floor(ageMs / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 1) return 'now'
+  if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h${minutes % 60 ? ` ${minutes % 60}m` : ''} ago`
+  if (hours < 24) return `${hours}h`
   const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return `${days}d`
 }
 
 export default function RefreshButton() {
@@ -48,15 +48,14 @@ export default function RefreshButton() {
       if (result.skipped) {
         const remainingMs = (status?.cooldownMs ?? 0) - (result.ageMs ?? 0)
         const mins = Math.max(1, Math.ceil(remainingMs / 60000))
-        setFeedback(`Skipped — wait ${mins}m`)
+        setFeedback(`${mins}m`)
       } else {
-        // New refresh: invalidate forecast queries so the UI re-fetches.
         queryClient.invalidateQueries({ queryKey: ['forecast'] })
-        setFeedback('Refreshed')
+        setFeedback('now')
       }
     },
     onError: err => {
-      setFeedback(err instanceof Error ? err.message : 'Error')
+      setFeedback(err instanceof Error ? err.message : 'err')
     },
   })
 
@@ -70,18 +69,20 @@ export default function RefreshButton() {
   const disabled = refreshMutation.isPending
 
   return (
-    <div className="flex items-center gap-1.5">
-      <button
-        onClick={() => refreshMutation.mutate()}
-        disabled={disabled}
-        className="px-2.5 py-1.5 bg-indigo-700 hover:bg-indigo-600 disabled:bg-gray-600 rounded text-xs text-white cursor-pointer disabled:cursor-not-allowed"
-        title={status?.lastRefreshedAt ? `Last refresh: ${new Date(status.lastRefreshedAt).toLocaleString()}` : 'Never refreshed'}
-      >
-        {disabled ? 'Refreshing…' : 'Refresh'}
-      </button>
-      <span className="text-[10px] text-gray-500 whitespace-nowrap">
-        {feedback ?? ageLabel}
-      </span>
-    </div>
+    <button
+      onClick={() => refreshMutation.mutate()}
+      disabled={disabled}
+      className="px-1.5 py-1 rounded text-[10px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+      title={status?.lastRefreshedAt ? `Last refresh: ${new Date(status.lastRefreshedAt).toLocaleString()}` : 'Never refreshed'}
+    >
+      {disabled ? (
+        <div className="w-2.5 h-2.5 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      )}
+      <span className="text-gray-600">{feedback ?? (ageLabel || '')}</span>
+    </button>
   )
 }

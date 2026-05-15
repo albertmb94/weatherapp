@@ -37,23 +37,23 @@ export default function SavedLocations({ onSelect }: SavedLocationsProps) {
   if (!locations || locations.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1 px-3 py-1 bg-gray-900/30 border-b border-gray-800/50">
       {locations.map(loc => (
         <div
           key={loc.id}
-          className="flex items-center gap-1 px-2 py-1 bg-gray-700 rounded text-xs text-gray-300"
+          className="flex items-center gap-1 group"
         >
           <button
             onClick={() => onSelect(loc.name, loc.latitude, loc.longitude)}
-            className="hover:text-white cursor-pointer"
+            className="text-[10px] text-gray-500 hover:text-white cursor-pointer transition-colors"
           >
             {loc.name}
           </button>
           <button
             onClick={() => deleteMutation.mutate(loc.id)}
-            className="text-red-400 hover:text-red-300 ml-1 cursor-pointer"
+            className="text-gray-700 hover:text-red-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity text-[10px]"
           >
-            x
+            ×
           </button>
         </div>
       ))}

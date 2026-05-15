@@ -68,7 +68,6 @@ function buildGrid(bounds: L.LatLngBounds, rows: number, cols: number): GridCell
   const maxLat = bounds.getNorth()
   const minLng = bounds.getWest()
   const maxLng = bounds.getEast()
-  // Add half-cell inset so cells don't extend past the visible bounds.
   const stepLat = (maxLat - minLat) / rows
   const stepLng = (maxLng - minLng) / cols
   const grid: GridCell[] = []
@@ -107,10 +106,8 @@ export default function MapPicker({
   const lastFetchKey = useRef<string>('')
   const overlayLayer = useRef<L.LayerGroup | null>(null)
 
-  // Effective metric: 'all' falls back to 'temperature' for the heatmap.
   const effectiveMetric: Exclude<MetricId, 'all'> = metric === 'all' ? 'temperature' : metric
 
-  // Subscribe to pan/zoom events to refetch heatmap with debounce.
   useEffect(() => {
     if (!mapInstance) return
     const onMoveOrZoom = () => {
@@ -128,7 +125,6 @@ export default function MapPicker({
     }
   }, [mapInstance])
 
-  // Fetch the heatmap grid when bounds/metric/model change.
   useEffect(() => {
     if (!showHeatmap || !mapInstance) return
 
@@ -162,7 +158,6 @@ export default function MapPicker({
       })
   }, [showHeatmap, mapInstance, boundsTick, effectiveMetric, selectedModel])
 
-  // Render the overlay rectangles whenever grid data or hourIndex changes.
   useEffect(() => {
     if (!mapInstance) return
 
@@ -202,7 +197,6 @@ export default function MapPicker({
     }
   }, [mapInstance, showHeatmap, gridCells, gridSeries, hourIndex, effectiveMetric])
 
-  // Clear overlay when heatmap is hidden so it doesn't linger on remount.
   useEffect(() => {
     if (!showHeatmap && overlayLayer.current) {
       overlayLayer.current.clearLayers()
@@ -226,7 +220,7 @@ export default function MapPicker({
       <MapContainer
         center={position}
         zoom={6}
-        className="w-full h-full rounded-lg"
+        className="w-full h-full rounded-lg transition-all duration-300"
         zoomControl={true}
       >
         <TileLayer

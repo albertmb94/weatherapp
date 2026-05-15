@@ -1,39 +1,46 @@
 'use client'
 
 import type { MetricId } from '@/lib/models'
-import { METRICS } from '@/lib/models'
-import { getColor, SCALES, type ScaleMetric } from '@/lib/colorScales'
+import { SCALES, type ScaleMetric } from '@/lib/colorScales'
 
 interface ColorLegendProps {
   metric: Exclude<MetricId, 'all'>
 }
 
+function buildGradientStops(metric: ScaleMetric): string {
+  const stops = SCALES[metric]
+  const maxVal = stops[stops.length - 1].value
+  const minVal = stops[0].value
+  const range = maxVal - minVal || 1
+  return stops
+    .map(s => {
+      const pct = ((s.value - minVal) / range) * 100
+      const [r, g, b] = s.color
+      return `rgb(${r},${g},${b}) ${pct.toFixed(1)}%`
+    })
+    .join(', ')
+}
+
 export default function ColorLegend({ metric }: ColorLegendProps) {
   const stops = SCALES[metric as ScaleMetric]
-  const meta = METRICS.find(m => m.id === metric)
-  const label = meta?.label ?? metric
-  const unit = meta?.unit ?? ''
+  const gradient = buildGradientStops(metric as ScaleMetric)
+  const minVal = stops[0].value
+  const maxVal = stops[stops.length - 1].value
+  const midVal = stops[Math.floor(stops.length / 2)]?.value
 
   return (
-    <div className="flex items-center gap-1 text-xs">
-      <span className="text-gray-400 mr-1">{label}:</span>
-      {stops.map((stop, i) => {
-        const color = getColor(metric, stop.value)
-        const next = stops[i + 1]
-        const rangeLabel = next ? `${stop.value}–${next.value}` : `${stop.value}+`
-        return (
-          <div key={i} className="flex items-center gap-0.5">
-            <div
-              className="w-4 h-3 rounded-sm border border-gray-600"
-              style={{ backgroundColor: color }}
-            />
-            <span className="text-gray-500 text-[10px]">
-              {rangeLabel}
-              {unit}
-            </span>
-          </div>
-        )
-      })}
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <div
+          className="h-3 w-48 rounded-sm"
+          style={{ background: `linear-gradient(to right, ${gradient})` }}
+        />
+      </div>
+      <div className="flex justify-between text-[9px] text-gray-500 w-48">
+        <span>{minVal}</span>
+        {midVal !== undefined && <span>{midVal}</span>}
+        <span>{maxVal}</span>
+      </div>
     </div>
   )
 }

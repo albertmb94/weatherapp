@@ -196,7 +196,7 @@ export default function HomeContent() {
     const t = data.time[selectedHour]
     const hh = t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
     const dd = t.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' })
-    return `${dd} ${hh} (+${selectedHour}h)`
+    return `${dd} ${hh}`
   }, [data, selectedHour])
 
   const maxModelHours = useMemo(() => {
@@ -379,14 +379,15 @@ export default function HomeContent() {
             <div className="absolute bottom-2.5 left-2.5 z-[1000] bg-gray-900/90 p-2 rounded-lg shadow-lg pointer-events-none">
               <ColorLegend metric={legendMetric} />
             </div>
-            <div className="absolute top-2.5 right-2.5 z-[1000] bg-gray-900/90 px-2 py-1 rounded text-[10px] text-gray-300 pointer-events-none">
-              {selectedModels.length === 1 ? MODELS.find(m => m.id === selectedModels[0])?.label : selectedModels.length === 0 ? 'Ensemble (all)' : `Ensemble (${selectedModels.length})`} — {hourLabel}
-            </div>
           </div>
         )}
 
         {showMap && (
           <div className="bg-gray-900/60 border-b border-gray-800 px-2 py-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-[10px] text-gray-400 font-mono">{hourLabel}</span>
+              <span className="text-[10px] text-gray-600">+{selectedHour}h</span>
+            </div>
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => handleHourChange(Math.max(0, selectedHour - 1))}

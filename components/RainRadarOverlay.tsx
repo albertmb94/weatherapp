@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { TileLayer, useMap } from 'react-leaflet'
-import type { Map as LeafletMap, TileLayer as LeafletTileLayer } from 'leaflet'
+import { useEffect, useMemo, useState } from 'react'
+import { TileLayer } from 'react-leaflet'
 import { fetchRainviewerFrames, buildRadarTileUrl, type RainviewerData, type RainviewerFrame } from '@/lib/rainViewer'
 
 interface RainRadarOverlayProps {
@@ -12,10 +11,11 @@ interface RainRadarOverlayProps {
   frameIndex: number
   onFrameChange: (idx: number) => void
   onFramesLoaded: (count: number, frames: RainviewerFrame[]) => void
+  onError?: (message: string) => void
 }
 
 const REFRESH_MS = 5 * 60 * 1000
-const ANIMATION_INTERVAL_MS = 600
+const ANIMATION_INTERVAL_MS = 700
 
 export default function RainRadarOverlay({
   enabled,
@@ -24,16 +24,15 @@ export default function RainRadarOverlay({
   frameIndex,
   onFrameChange,
   onFramesLoaded,
+  onError,
 }: RainRadarOverlayProps) {
-  const map = useMap() as LeafletMap
   const [data, setData] = useState<RainviewerData | null>(null)
-  const layerRef = useRef<LeafletTileLayer | null>(null)
 
-  // Fetch frames on mount + refresh every 5 min.
+  // Fetch frames on mount + refresh every 5 min while enabled.
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
-    let timer: ReturnType<typeof setInterval> | null = null
+
     const load = async () => {
       try {
         const fresh = await fetchRainviewerFrames()
@@ -41,19 +40,22 @@ export default function RainRadarOverlay({
         setData(fresh)
         const allFrames = [...fresh.past, ...fresh.nowcast]
         onFramesLoaded(allFrames.length, allFrames)
-      } catch {
-        // Non-fatal — radar simply won't show.
+      } catch (err) {
+        if (cancelled) return
+        const msg = err instanceof Error ? err.message : 'Radar fetch failed'
+        onError?.(msg)
       }
     }
+
     load()
-    timer = setInterval(load, REFRESH_MS)
+    const timer = setInterval(load, REFRESH_MS)
     return () => {
       cancelled = true
-      if (timer) clearInterval(timer)
+      clearInterval(timer)
     }
-  }, [enabled, onFramesLoaded])
+  }, [enabled, onFramesLoaded, onError])
 
-  // Auto-play animation.
+  // Auto-play animation while playing.
   useEffect(() => {
     if (!enabled || !playing || !data) return
     const total = data.past.length + data.nowcast.length
@@ -67,6 +69,7 @@ export default function RainRadarOverlay({
   const currentFrame = useMemo<RainviewerFrame | null>(() => {
     if (!data) return null
     const all = [...data.past, ...data.nowcast]
+    if (all.length === 0) return null
     return all[Math.min(frameIndex, all.length - 1)] ?? null
   }, [data, frameIndex])
 
@@ -75,23 +78,19 @@ export default function RainRadarOverlay({
     return buildRadarTileUrl(data.host, currentFrame.path, { size: 256, color: 2, smooth: 1, snow: 1 })
   }, [data, currentFrame])
 
-  // Apply opacity imperatively whenever it changes (TileLayer doesn't re-render
-  // when only the opacity prop changes after mount).
-  useEffect(() => {
-    if (layerRef.current) layerRef.current.setOpacity(enabled ? opacity : 0)
-  }, [enabled, opacity, map])
-
   if (!enabled || !url) return null
 
+  // Key on URL forces React to remount the TileLayer when the frame changes,
+  // which is the simplest way to swap tiles since Leaflet's setUrl can leak
+  // half-loaded tiles. The map keeps its zoom/center across remounts.
   return (
     <TileLayer
       key={url}
       url={url}
       opacity={opacity}
       zIndex={350}
-      ref={(layer: LeafletTileLayer | null) => {
-        layerRef.current = layer
-      }}
+      maxNativeZoom={10}
+      maxZoom={18}
     />
   )
 }

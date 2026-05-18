@@ -152,11 +152,20 @@ export default function MapPicker({
   const [radarFrames, setRadarFrames] = useState<RainviewerFrame[]>([])
   const [radarFrameIndex, setRadarFrameIndex] = useState(0)
   const [radarPlaying, setRadarPlaying] = useState(true)
+  const [radarError, setRadarError] = useState<string | null>(null)
 
   const handleRadarFramesLoaded = useCallback((count: number, frames: RainviewerFrame[]) => {
     setRadarFrames(frames)
-    setRadarFrameIndex(prev => Math.min(prev, Math.max(0, count - 1)))
+    setRadarError(null)
+    setRadarFrameIndex(prev => {
+      if (count === 0) return 0
+      const lastPastIdx = frames.findIndex(f => f.time > Date.now() / 1000) - 1
+      const defaultIdx = lastPastIdx >= 0 ? lastPastIdx : count - 1
+      return prev === 0 ? defaultIdx : Math.min(prev, count - 1)
+    })
   }, [])
+
+  const handleRadarError = useCallback((msg: string) => setRadarError(msg), [])
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFetchKey = useRef<string>('')
@@ -332,6 +341,7 @@ export default function MapPicker({
           frameIndex={radarFrameIndex}
           onFrameChange={setRadarFrameIndex}
           onFramesLoaded={handleRadarFramesLoaded}
+          onError={handleRadarError}
         />
       </MapContainer>
       <canvas
@@ -344,27 +354,41 @@ export default function MapPicker({
           {statusLine}
         </div>
       )}
-      {showRadar && radarFrames.length > 0 && (
-        <div className="absolute top-2 right-2 z-[1000] bg-gray-900/85 px-2 py-1 rounded-lg shadow-lg flex items-center gap-2 pointer-events-auto">
-          <button
-            onClick={() => setRadarPlaying(p => !p)}
-            className="text-gray-200 hover:text-white cursor-pointer text-xs w-4 flex items-center justify-center"
-            aria-label={radarPlaying ? 'Pause radar' : 'Play radar'}
-          >
-            {radarPlaying ? '❚❚' : '▶'}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={radarFrames.length - 1}
-            value={radarFrameIndex}
-            onChange={e => setRadarFrameIndex(Number(e.target.value))}
-            className="w-32 accent-sky-400"
-            aria-label="Radar frame"
-          />
-          <span className="text-[10px] text-gray-400 font-mono w-12 text-right">
-            {radarFrames[radarFrameIndex] ? new Date(radarFrames[radarFrameIndex].time * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—'}
-          </span>
+      {showRadar && (
+        <div className="absolute top-2 right-2 z-[1000] flex flex-col items-end gap-1 pointer-events-none">
+          {radarFrames.length > 0 && (
+            <div className="bg-gray-900/85 px-2 py-1 rounded-lg shadow-lg flex items-center gap-2 pointer-events-auto">
+              <button
+                onClick={() => setRadarPlaying(p => !p)}
+                className="text-gray-200 hover:text-white cursor-pointer text-sm leading-none min-w-[20px] min-h-[24px] flex items-center justify-center"
+                aria-label={radarPlaying ? 'Pause radar' : 'Play radar'}
+              >
+                {radarPlaying ? '❚❚' : '▶'}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={radarFrames.length - 1}
+                value={radarFrameIndex}
+                onChange={e => setRadarFrameIndex(Number(e.target.value))}
+                className="w-24 sm:w-32 accent-sky-400"
+                aria-label="Radar frame"
+              />
+              <span className="text-[10px] text-gray-300 font-mono w-12 text-right">
+                {radarFrames[radarFrameIndex] ? new Date(radarFrames[radarFrameIndex].time * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—'}
+              </span>
+            </div>
+          )}
+          {radarFrames.length === 0 && !radarError && (
+            <div className="bg-gray-900/85 px-2 py-1 rounded-lg shadow-lg text-[10px] text-gray-300 pointer-events-none">
+              Loading radar…
+            </div>
+          )}
+          {radarError && (
+            <div className="bg-red-900/85 px-2 py-1 rounded-lg shadow-lg text-[10px] text-red-100 pointer-events-none">
+              Radar: {radarError}
+            </div>
+          )}
         </div>
       )}
     </div>

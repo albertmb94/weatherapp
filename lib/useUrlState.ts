@@ -13,7 +13,7 @@ interface UrlState {
   bucket: number
 }
 
-const ALLOWED_BUCKETS = new Set([3, 4, 6, 12, 24])
+const ALLOWED_BUCKETS = new Set([1, 2, 3, 4, 6, 12, 24])
 
 const MODELS_NONE_TOKEN = 'none'
 

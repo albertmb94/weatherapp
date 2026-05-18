@@ -6,7 +6,7 @@ import { getColor } from '@/lib/colorScales'
 import { weightedAvg, contrastText } from '@/lib/ensemble'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 
-export type BucketHours = 3 | 4 | 6 | 12 | 24
+export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
 
 interface InsightsTableProps {
   models: WeatherModel[]
@@ -36,9 +36,9 @@ interface Row {
 }
 
 const DAYS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-const BUCKET_OPTIONS: BucketHours[] = [3, 4, 6, 12, 24]
+const BUCKET_OPTIONS: BucketHours[] = [1, 2, 3, 4, 6, 12, 24]
 const BUCKET_LABELS: Record<BucketHours, string> = {
-  3: '3h', 4: '4h', 6: '6h', 12: '12h', 24: '1d',
+  1: '1h', 2: '2h', 3: '3h', 4: '4h', 6: '6h', 12: '12h', 24: '1d',
 }
 
 const COND_EMOJI: Record<WeatherIconId, string> = {
@@ -92,6 +92,7 @@ function bucketLabel(start: Date, bucket: BucketHours): string {
   const day = isToday ? 'Hoy' : isTomorrow ? 'Mañ' : `${DAYS_ES[start.getDay()]} ${start.getDate()}`
   if (bucket === 24) return day
   const h0 = start.getHours().toString().padStart(2, '0')
+  if (bucket === 1) return `${day} ${h0}:00`
   const h1 = ((start.getHours() + bucket) % 24).toString().padStart(2, '0')
   return `${day} ${h0}–${h1}`
 }

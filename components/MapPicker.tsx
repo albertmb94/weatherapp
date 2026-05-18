@@ -32,6 +32,7 @@ interface MapPickerProps {
   metric: MetricId
   selectedModels: string[]
   hourIndex: number
+  nowOffset: number
   showRadar: boolean
 }
 
@@ -141,6 +142,7 @@ export default function MapPicker({
   metric,
   selectedModels,
   hourIndex,
+  nowOffset,
   showRadar,
 }: MapPickerProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
@@ -243,7 +245,8 @@ export default function MapPicker({
 
     ctx.clearRect(0, 0, width, height)
 
-    const values = gridSeries.map(series => series?.[hourIndex] ?? null)
+    const realIdx = hourIndex + nowOffset
+    const values = gridSeries.map(series => series?.[realIdx] ?? null)
     const allNull = values.every(v => v === null)
     if (allNull) return
 
@@ -271,7 +274,7 @@ export default function MapPicker({
     }
 
     ctx.putImageData(imageData, 0, 0)
-  }, [mapInstance, gridCells, gridSeries, hourIndex, effectiveMetric])
+  }, [mapInstance, gridCells, gridSeries, hourIndex, nowOffset, effectiveMetric])
 
   useEffect(() => {
     if (!showHeatmap || !mapInstance) return

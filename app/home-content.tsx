@@ -14,8 +14,23 @@ import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
 import RefreshButton from '@/components/RefreshButton'
 import { MODELS, METRICS, type MetricId } from '@/lib/models'
-import { fetchForecast } from '@/lib/openMeteo'
+import { fetchForecast, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
+
+function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
+  const time = data.time.slice(startIndex)
+  const series: ForecastResult['series'] = {}
+  for (const modelId of Object.keys(data.series)) {
+    const metrics = data.series[modelId]
+    const out: typeof metrics = {}
+    for (const metricId of Object.keys(metrics)) {
+      const arr = metrics[metricId]
+      out[metricId] = arr === null ? arr : arr.slice(startIndex)
+    }
+    series[modelId] = out
+  }
+  return { time, series, utcOffsetSeconds: data.utcOffsetSeconds }
+}
 
 const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false })
 
@@ -191,35 +206,45 @@ export default function HomeContent() {
 
   const legendMetric: Exclude<MetricId, 'all'> = selectedMetric === 'all' ? 'temperature' : selectedMetric
 
-  const hourLabel = useMemo(() => {
-    if (!data?.time?.[selectedHour]) return `+${selectedHour}h`
-    const t = data.time[selectedHour]
-    const hh = t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
-    const dd = t.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' })
-    return `${dd} ${hh}`
-  }, [data, selectedHour])
-
   const maxModelHours = useMemo(() => {
     if (selectedModels.length === 0) return 336
     return Math.max(...selectedModels.map(id => MODELS.find(m => m.id === id)?.maxHours ?? 168))
   }, [selectedModels])
 
-  const effectiveMaxHours = Math.min(selectedRange, maxModelHours, 336)
-
-  const jumpToNow = useCallback(() => {
-    if (!data?.time?.length) {
-      handleHourChange(0)
-      return
-    }
-    const now = Date.now()
-    let best = 0
-    let bestDiff = Infinity
+  // Skip hourly entries before the current local hour (rounded down). The
+  // forecast always starts at 00:00 of today in the location's local time,
+  // so at 15:54 we drop indices 0..14 and start at 15.
+  const startIndex = useMemo(() => {
+    if (!data?.time?.length) return 0
+    const nowFloor = new Date()
+    nowFloor.setMinutes(0, 0, 0)
+    const nowTs = nowFloor.getTime()
     for (let i = 0; i < data.time.length; i++) {
-      const diff = Math.abs(data.time[i].getTime() - now)
-      if (diff < bestDiff) { bestDiff = diff; best = i }
+      if (data.time[i].getTime() >= nowTs) return i
     }
-    handleHourChange(best)
-  }, [data, handleHourChange])
+    return data.time.length
+  }, [data])
+
+  const viewData = useMemo(() => {
+    if (!data) return null
+    if (startIndex === 0) return data
+    return sliceForecast(data, startIndex)
+  }, [data, startIndex])
+
+  const hourLabel = useMemo(() => {
+    if (!viewData?.time?.[selectedHour]) return `+${selectedHour}h`
+    const t = viewData.time[selectedHour]
+    const hh = t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
+    const dd = t.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' })
+    return `${dd} ${hh}`
+  }, [viewData, selectedHour])
+
+  const effectiveMaxHours = Math.min(selectedRange, maxModelHours, viewData?.time.length ?? 336)
+
+  // After trimming, hour index 0 IS the current hour by construction.
+  const jumpToNow = useCallback(() => {
+    handleHourChange(0)
+  }, [handleHourChange])
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -374,6 +399,7 @@ export default function HomeContent() {
               metric={selectedMetric}
               selectedModels={selectedModels}
               hourIndex={selectedHour}
+              nowOffset={startIndex}
               showRadar={showRadar}
             />
             <div className="absolute bottom-2.5 left-2.5 z-[1000] bg-gray-900/90 p-2 rounded-lg shadow-lg pointer-events-none">
@@ -441,13 +467,13 @@ export default function HomeContent() {
             </div>
           )}
 
-          {data && (
+          {viewData && (
             <>
               <DailySummary
                 models={MODELS}
                 activeModelIds={selectedModels}
-                times={data.time}
-                series={data.series}
+                times={viewData.time}
+                series={viewData.series}
                 selectedHour={selectedHour}
                 onSelectHour={handleHourChange}
                 maxHours={effectiveMaxHours}
@@ -455,8 +481,8 @@ export default function HomeContent() {
               <InsightsTable
                 models={MODELS}
                 activeModelIds={selectedModels}
-                times={data.time}
-                series={data.series}
+                times={viewData.time}
+                series={viewData.series}
                 bucket={bucket}
                 onBucketChange={handleBucketChange}
                 selectedHour={selectedHour}
@@ -467,8 +493,8 @@ export default function HomeContent() {
                 models={MODELS}
                 activeModelIds={selectedModels}
                 metric={selectedMetric}
-                times={data.time}
-                series={data.series}
+                times={viewData.time}
+                series={viewData.series}
                 onHourHover={handleHourChange}
                 hoveredHour={selectedHour}
                 maxHours={effectiveMaxHours}

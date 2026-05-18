@@ -10,7 +10,10 @@ interface UrlState {
   range: number
   showMap: boolean
   showRadar: boolean
+  bucket: number
 }
+
+const ALLOWED_BUCKETS = new Set([3, 4, 6, 12, 24])
 
 const MODELS_NONE_TOKEN = 'none'
 
@@ -36,6 +39,8 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   if (showMap !== null) result.showMap = showMap === '1'
   const showRadar = params.get('radar')
   if (showRadar !== null) result.showRadar = showRadar === '1'
+  const bucket = params.get('bucket')
+  if (bucket && ALLOWED_BUCKETS.has(Number(bucket))) result.bucket = Number(bucket)
   return result
 }
 
@@ -59,6 +64,7 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   if (state.range !== defaults.range) params.set('range', String(state.range))
   if (state.showMap !== defaults.showMap) params.set('map', state.showMap ? '1' : '0')
   if (state.showRadar !== defaults.showRadar) params.set('radar', state.showRadar ? '1' : '0')
+  if (state.bucket !== defaults.bucket) params.set('bucket', String(state.bucket))
   return params.toString()
 }
 
@@ -79,6 +85,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       range: parsed.range ?? defaults.range,
       showMap: parsed.showMap ?? defaults.showMap,
       showRadar: parsed.showRadar ?? defaults.showRadar,
+      bucket: parsed.bucket ?? defaults.bucket,
     }
   })
 

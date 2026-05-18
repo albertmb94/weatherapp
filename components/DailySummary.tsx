@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
+import { weightedAvg } from '@/lib/ensemble'
 
 interface DailySummaryProps {
   models: WeatherModel[]
@@ -29,19 +30,6 @@ interface DayBucket {
 }
 
 const DAYS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-
-function weightedAvg(values: (number | null)[], weights: number[]): number | null {
-  let sum = 0
-  let wSum = 0
-  for (let i = 0; i < values.length; i++) {
-    const v = values[i]
-    if (v !== null && v !== undefined) {
-      sum += v * weights[i]
-      wSum += weights[i]
-    }
-  }
-  return wSum > 0 ? sum / wSum : null
-}
 
 const ICONS: Record<WeatherIconId, React.ReactNode> = {
   sunny: (

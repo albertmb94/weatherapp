@@ -31,11 +31,11 @@ export default function TimeRangeSelector({ selected, onChange, maxAvailable }: 
             key={r.hours}
             onClick={() => onChange(r.hours)}
             disabled={disabled}
-            className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer ${
+            className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
               disabled
                 ? 'text-gray-800 cursor-not-allowed'
                 : active
-                  ? 'text-white'
+                  ? 'text-white bg-gray-800/60'
                   : 'text-gray-600 hover:text-gray-300'
             }`}
           >

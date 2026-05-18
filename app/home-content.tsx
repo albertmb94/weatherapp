@@ -9,6 +9,7 @@ import ModelPills from '@/components/ModelPills'
 import TimeRangeSelector from '@/components/TimeRangeSelector'
 import ModelComparisonChart from '@/components/ModelComparisonChart'
 import DailySummary from '@/components/DailySummary'
+import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
 import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
 import RefreshButton from '@/components/RefreshButton'
@@ -34,6 +35,7 @@ export default function HomeContent() {
     range: DEFAULT_RANGE,
     showMap: true,
     showRadar: false,
+    bucket: 4,
   })
 
   const [position, setPosition] = useState<[number, number]>([urlState.lat, urlState.lon])
@@ -41,7 +43,24 @@ export default function HomeContent() {
   const [cityName, setCityName] = useState('Madrid')
   const [geoLoading, setGeoLoading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+    function onDown(e: MouseEvent | TouchEvent) {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        setMobileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
+    }
+  }, [mobileMenuOpen])
 
   useEffect(() => {
     if (!toast) return
@@ -55,6 +74,7 @@ export default function HomeContent() {
   const selectedRange = urlState.range
   const showMap = urlState.showMap
   const showRadar = urlState.showRadar
+  const bucket = urlState.bucket as BucketHours
 
   const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null }>({
     queryKey: ['refresh-status'],
@@ -147,6 +167,10 @@ export default function HomeContent() {
     updateUrl({ showRadar: !showRadar, showMap: showRadar ? showMap : true })
   }, [showRadar, showMap, updateUrl])
 
+  const handleBucketChange = useCallback((b: BucketHours) => {
+    updateUrl({ bucket: b })
+  }, [updateUrl])
+
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) return
     setGeoLoading(true)
@@ -219,69 +243,129 @@ export default function HomeContent() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-950 text-white">
-      <header className="px-3 py-1.5 bg-gray-900 border-b border-gray-800 shrink-0">
+      <header ref={mobileMenuRef} className="px-3 py-1.5 bg-gray-900 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-1.5">
-          <h1 className="text-xs font-semibold text-gray-400 whitespace-nowrap">Weather</h1>
-          <div className="w-px h-4 bg-gray-800" />
-          <div className="relative">
+          <h1 className="text-xs font-semibold text-gray-400 whitespace-nowrap hidden sm:block">Weather</h1>
+          <div className="w-px h-4 bg-gray-800 hidden sm:block" />
+          <div className="relative flex-1 sm:flex-none">
             <CitySearch onSelect={handleCitySelect} />
           </div>
           <button
             onClick={handleGeolocate}
             disabled={geoLoading}
-            className="p-1.5 text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
             title="Use my location"
+            aria-label="Use my location"
           >
             {geoLoading ? (
               <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
             ) : (
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             )}
           </button>
-          <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
-          <div className="w-px h-4 bg-gray-800" />
+          <div className="hidden md:flex items-center gap-1.5">
+            <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
+            <div className="w-px h-4 bg-gray-800" />
+            <button
+              onClick={handleMapToggle}
+              className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                showMap ? 'text-white' : 'text-gray-600 hover:text-gray-300'
+              }`}
+            >
+              Map
+            </button>
+            <button
+              onClick={handleRadarToggle}
+              className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                showRadar ? 'text-sky-300' : 'text-gray-600 hover:text-gray-300'
+              }`}
+              title="Toggle rain radar (RainViewer)"
+            >
+              Radar
+            </button>
+            <button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="min-h-[32px] px-2 rounded text-[11px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Save
+            </button>
+            <RefreshButton />
+            <span className="text-[10px] text-gray-600 ml-auto truncate max-w-[160px]">{cityName} ({position[0].toFixed(2)}, {position[1].toFixed(2)})</span>
+          </div>
           <button
-            onClick={handleMapToggle}
-            className={`px-1.5 py-1 rounded text-[10px] font-medium transition-all cursor-pointer ${
-              showMap ? 'text-white' : 'text-gray-600 hover:text-gray-300'
-            }`}
+            onClick={() => setMobileMenuOpen(o => !o)}
+            className="md:hidden min-h-[36px] min-w-[36px] flex items-center justify-center text-gray-400 hover:text-white cursor-pointer ml-auto"
+            aria-label="Toggle menu"
+            aria-expanded={mobileMenuOpen}
           >
-            Map
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
           </button>
-          <button
-            onClick={handleRadarToggle}
-            className={`px-1.5 py-1 rounded text-[10px] font-medium transition-all cursor-pointer ${
-              showRadar ? 'text-sky-300' : 'text-gray-600 hover:text-gray-300'
-            }`}
-            title="Toggle rain radar (RainViewer)"
-          >
-            Radar
-          </button>
-          <button
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-            className="px-1.5 py-1 rounded text-[10px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
-          >
-            Save
-          </button>
-          <RefreshButton />
-          <span className="text-[10px] text-gray-600 ml-auto truncate max-w-[160px]">{cityName} ({position[0].toFixed(2)}, {position[1].toFixed(2)})</span>
         </div>
-        <div className="flex items-center gap-2 mt-1">
+
+        <div className="flex md:hidden mt-1.5">
+          <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
+        </div>
+
+        <div className="hidden md:flex items-center gap-2 mt-1">
           <ModelPills models={MODELS} selected={selectedModels} onChange={handleModelChange} />
           <div className="w-px h-3 bg-gray-800" />
           <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} />
         </div>
+
+        {mobileMenuOpen && (
+          <div className="md:hidden mt-2 pt-2 border-t border-gray-800 space-y-2 animate-fadeIn">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleMapToggle}
+                className={`min-h-[36px] px-3 rounded text-xs font-medium transition-all cursor-pointer ${
+                  showMap ? 'bg-blue-600/30 text-white border border-blue-500/50' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+              >
+                Map
+              </button>
+              <button
+                onClick={handleRadarToggle}
+                className={`min-h-[36px] px-3 rounded text-xs font-medium transition-all cursor-pointer ${
+                  showRadar ? 'bg-sky-600/30 text-sky-200 border border-sky-500/50' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+              >
+                Radar
+              </button>
+              <button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="min-h-[36px] px-3 rounded text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700 disabled:opacity-50 cursor-pointer"
+              >
+                Save
+              </button>
+              <RefreshButton />
+            </div>
+            <div className="overflow-x-auto -mx-1 px-1">
+              <ModelPills models={MODELS} selected={selectedModels} onChange={handleModelChange} />
+            </div>
+            <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} />
+            <div className="text-[10px] text-gray-500 pt-1 border-t border-gray-800/50">
+              {cityName} · {position[0].toFixed(2)}, {position[1].toFixed(2)}
+            </div>
+          </div>
+        )}
       </header>
 
       <SavedLocations onSelect={handleCitySelect} />
 
       <div className="flex flex-col flex-1 overflow-hidden">
         {showMap && (
-          <div className="h-[50%] min-h-[200px] p-1.5 border-b border-gray-800 relative">
+          <div className="h-[40vh] min-h-[260px] max-h-[440px] p-1.5 border-b border-gray-800 relative shrink-0">
             <MapPicker
               position={position}
               recenterToken={recenterToken}
@@ -292,49 +376,52 @@ export default function HomeContent() {
               hourIndex={selectedHour}
               showRadar={showRadar}
             />
-            <div className="absolute bottom-2.5 left-2.5 z-[1000] bg-gray-900/90 p-2 rounded-lg shadow-lg">
+            <div className="absolute bottom-2.5 left-2.5 z-[1000] bg-gray-900/90 p-2 rounded-lg shadow-lg pointer-events-none">
               <ColorLegend metric={legendMetric} />
             </div>
             <div className="absolute top-2.5 right-2.5 z-[1000] bg-gray-900/90 px-2 py-1 rounded text-[10px] text-gray-300 pointer-events-none">
               {selectedModels.length === 1 ? MODELS.find(m => m.id === selectedModels[0])?.label : selectedModels.length === 0 ? 'Ensemble (all)' : `Ensemble (${selectedModels.length})`} — {hourLabel}
             </div>
-            <div className="absolute bottom-2.5 right-2.5 left-2.5 z-[1000] bg-gray-900/80 px-3 py-1.5 rounded-lg shadow-lg pointer-events-auto md:left-auto md:w-[60%]">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleHourChange(Math.max(0, selectedHour - 1))}
-                  className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                  aria-label="Previous hour"
-                >−1h</button>
-                <button
-                  onClick={() => handleHourChange(Math.max(0, selectedHour - 24))}
-                  className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                  aria-label="Previous day"
-                >−24h</button>
-                <input
-                  type="range"
-                  min={0}
-                  max={effectiveMaxHours - 1}
-                  value={selectedHour}
-                  onChange={e => handleHourChange(Number(e.target.value))}
-                  className="flex-1 accent-blue-500"
-                  aria-label="Forecast hour"
-                />
-                <button
-                  onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 24))}
-                  className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                  aria-label="Next day"
-                >+24h</button>
-                <button
-                  onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1))}
-                  className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                  aria-label="Next hour"
-                >+1h</button>
-                <button
-                  onClick={jumpToNow}
-                  className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                  aria-label="Jump to current hour"
-                >Now</button>
-              </div>
+          </div>
+        )}
+
+        {showMap && (
+          <div className="bg-gray-900/60 border-b border-gray-800 px-2 py-1.5 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleHourChange(Math.max(0, selectedHour - 1))}
+                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
+                aria-label="Previous hour"
+              >−1h</button>
+              <button
+                onClick={() => handleHourChange(Math.max(0, selectedHour - 24))}
+                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
+                aria-label="Previous day"
+              >−24h</button>
+              <input
+                type="range"
+                min={0}
+                max={effectiveMaxHours - 1}
+                value={selectedHour}
+                onChange={e => handleHourChange(Number(e.target.value))}
+                className="flex-1 accent-blue-500 min-w-0"
+                aria-label="Forecast hour"
+              />
+              <button
+                onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 24))}
+                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
+                aria-label="Next day"
+              >+24h</button>
+              <button
+                onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1))}
+                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
+                aria-label="Next hour"
+              >+1h</button>
+              <button
+                onClick={jumpToNow}
+                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
+                aria-label="Jump to current hour"
+              >Now</button>
             </div>
           </div>
         )}
@@ -364,6 +451,17 @@ export default function HomeContent() {
                 onSelectHour={handleHourChange}
                 maxHours={effectiveMaxHours}
               />
+              <InsightsTable
+                models={MODELS}
+                activeModelIds={selectedModels}
+                times={data.time}
+                series={data.series}
+                bucket={bucket}
+                onBucketChange={handleBucketChange}
+                selectedHour={selectedHour}
+                onSelectHour={handleHourChange}
+                maxHours={effectiveMaxHours}
+              />
               <ModelComparisonChart
                 models={MODELS}
                 activeModelIds={selectedModels}
@@ -379,7 +477,7 @@ export default function HomeContent() {
         </div>
       </div>
 
-      <div className="px-3 py-0.5 bg-gray-900/50 border-t border-gray-800/50 text-[9px] text-gray-700 flex gap-3 shrink-0">
+      <div className="hidden md:flex px-3 py-0.5 bg-gray-900/50 border-t border-gray-800/50 text-[9px] text-gray-700 gap-3 shrink-0">
         <span>← → hours</span>
         <span>/ search</span>
         <span>m map</span>

@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { buildForecastCacheKey } from '@/lib/cacheKey'
+import { getCachedForecast, setCachedForecast } from '@/lib/forecastCache'
 
 // Open-Meteo can emit invalid JSON when a model has no coverage for a
 // requested location: bare `nan`, `NaN`, `undefined`, or `Infinity` literals
@@ -10,10 +12,35 @@ function sanitizeOpenMeteoJson(raw: string): string {
     .replace(/:\s*-?Infinity\b/g, ': null')
 }
 
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=14400, stale-while-revalidate=3600',
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const url = `https://api.open-meteo.com/v1/forecast?${searchParams.toString()}`
+  const cacheKey = buildForecastCacheKey(searchParams)
 
+  // Cache lookup.
+  try {
+    const cached = await getCachedForecast(cacheKey)
+    if (cached) {
+      return new NextResponse(cached.body, {
+        status: 200,
+        headers: {
+          ...CACHE_HEADERS,
+          'Content-Type': 'application/json',
+          'X-Forecast-Cache': 'hit',
+          'X-Forecast-Cache-Age-Ms': String(cached.ageMs),
+        },
+      })
+    }
+  } catch (err) {
+    // Cache lookup failure is non-fatal — fall through to origin.
+    console.warn('forecast_cache lookup failed', err)
+  }
+
+  // Origin fetch.
+  const url = `https://api.open-meteo.com/v1/forecast?${searchParams.toString()}`
   try {
     const res = await fetch(url)
     const text = await res.text()
@@ -23,17 +50,20 @@ export async function GET(request: Request) {
         { status: res.status }
       )
     }
-    let data: unknown
+    let parsed: unknown
+    let bodyText: string
     try {
-      data = JSON.parse(text)
+      parsed = JSON.parse(text)
+      bodyText = text
     } catch {
-      data = JSON.parse(sanitizeOpenMeteoJson(text))
+      bodyText = sanitizeOpenMeteoJson(text)
+      parsed = JSON.parse(bodyText)
     }
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
-      },
+    // Store sanitized text so cache hits are immediately valid JSON.
+    setCachedForecast(cacheKey, bodyText).catch(err => {
+      console.warn('forecast_cache write failed', err)
     })
+    return NextResponse.json(parsed, { headers: { ...CACHE_HEADERS, 'X-Forecast-Cache': 'miss' } })
   } catch {
     return NextResponse.json({ error: 'Failed to fetch forecast' }, { status: 502 })
   }

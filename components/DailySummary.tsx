@@ -151,17 +151,21 @@ export default function DailySummary({
 
   if (days.length === 0) return null
 
+  // Wrap to multiple rows after 7 cards: 14 → 2×7, 16 → 3×6, etc.
+  const rows = Math.max(1, Math.ceil(days.length / 7))
+  const cols = Math.ceil(days.length / rows)
+
   return (
     <div className="mb-3">
       <h3 className="text-sm font-semibold text-gray-300 mb-2">Daily summary (ensemble)</h3>
-      <div className="flex gap-1">
+      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {days.map((d, i) => {
           const isCurrent = selectedHour >= d.startIndex && selectedHour <= d.endIndex
           return (
             <button
               key={i}
               onClick={() => onSelectHour(d.noonIndex)}
-              className={`flex-1 min-w-0 px-1 py-1.5 rounded border text-center transition-colors cursor-pointer ${
+              className={`min-w-0 px-1 py-1.5 rounded border text-center transition-colors cursor-pointer ${
                 isCurrent ? 'bg-gray-800 border-blue-600' : 'bg-gray-900/60 border-gray-800 hover:border-gray-700'
               }`}
               title={`Jump to ${d.label} at 12:00`}

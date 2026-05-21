@@ -17,12 +17,13 @@ interface TimeRangeSelectorProps {
   selected: number
   onChange: (hours: number) => void
   maxAvailable: number
+  showLabel?: boolean
 }
 
-export default function TimeRangeSelector({ selected, onChange, maxAvailable }: TimeRangeSelectorProps) {
+export default function TimeRangeSelector({ selected, onChange, maxAvailable, showLabel = true }: TimeRangeSelectorProps) {
   return (
     <div className="flex items-center gap-0.5">
-      <span className="text-[10px] text-gray-600 mr-1">Range:</span>
+      {showLabel && <span className="text-[10px] text-gray-600 mr-1">Range:</span>}
       {RANGES.map(r => {
         const active = selected === r.hours
         const disabled = r.hours > maxAvailable

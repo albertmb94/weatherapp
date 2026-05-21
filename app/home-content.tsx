@@ -293,6 +293,19 @@ export default function HomeContent() {
               </svg>
             )}
           </button>
+          <button
+            onClick={handleMapToggle}
+            className={`md:hidden min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors cursor-pointer ${
+              showMap ? 'text-white' : 'text-gray-500 hover:text-white'
+            }`}
+            title="Toggle map"
+            aria-label="Toggle map"
+            aria-pressed={showMap}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
+            </svg>
+          </button>
           <div className="hidden md:flex items-center gap-1.5">
             <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
             <div className="w-px h-4 bg-gray-800" />
@@ -339,8 +352,9 @@ export default function HomeContent() {
           </button>
         </div>
 
-        <div className="flex md:hidden mt-1.5">
+        <div className="flex md:hidden mt-1.5 items-center gap-x-3 gap-y-1 flex-wrap">
           <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
+          <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
         </div>
 
         <div className="hidden md:flex items-center gap-2 mt-1">
@@ -352,14 +366,6 @@ export default function HomeContent() {
         {mobileMenuOpen && (
           <div className="md:hidden mt-2 pt-2 border-t border-gray-800 space-y-2 animate-fadeIn">
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleMapToggle}
-                className={`min-h-[36px] px-3 rounded text-xs font-medium transition-all cursor-pointer ${
-                  showMap ? 'bg-blue-600/30 text-white border border-blue-500/50' : 'bg-gray-800 text-gray-400 border border-gray-700'
-                }`}
-              >
-                Map
-              </button>
               <button
                 onClick={handleRadarToggle}
                 className={`min-h-[36px] px-3 rounded text-xs font-medium transition-all cursor-pointer ${
@@ -380,7 +386,6 @@ export default function HomeContent() {
             <div className="overflow-x-auto -mx-1 px-1">
               <ModelPills models={MODELS} selected={selectedModels} onChange={handleModelChange} />
             </div>
-            <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} />
             <div className="text-[10px] text-gray-500 pt-1 border-t border-gray-800/50">
               {cityName} · {position[0].toFixed(2)}, {position[1].toFixed(2)}
             </div>

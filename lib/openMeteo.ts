@@ -16,12 +16,14 @@ export async function fetchForecast(
   signal?: AbortSignal
 ): Promise<ForecastResult> {
   const modelIds = models.map(m => m.id).join(',')
-  const hourlyParams = metrics.filter(m => m.id !== 'all').map(m => m.hourlyParam).join(',')
+  const hourlyList = metrics.filter(m => m.id !== 'all').map(m => m.hourlyParam)
+  // Always fetch wind direction so insights can render a direction arrow.
+  if (!hourlyList.includes('wind_direction_10m')) hourlyList.push('wind_direction_10m')
 
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lon.toString(),
-    hourly: hourlyParams,
+    hourly: hourlyList.join(','),
     models: modelIds,
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
@@ -41,6 +43,7 @@ export async function fetchForecast(
       const key = `${metric.hourlyParam}_${model.id}`
       series[model.id][metric.id] = data.hourly[key] ?? null
     }
+    series[model.id]['wind_direction'] = data.hourly[`wind_direction_10m_${model.id}`] ?? null
   }
 
   return { time, series, utcOffsetSeconds: data.utc_offset_seconds ?? 0 }

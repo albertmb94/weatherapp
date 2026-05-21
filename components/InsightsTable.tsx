@@ -30,6 +30,7 @@ interface Row {
   tempMax: number | null
   cloudMean: number | null
   windMean: number | null
+  windDirection: number | null
   gustsMax: number | null
   precipSum: number | null
   icon: WeatherIconId
@@ -67,11 +68,21 @@ function cloudEmoji(c: number | null): string {
   return '☁'
 }
 
-function windEmoji(w: number | null): string {
-  if (w === null) return ''
-  if (w < 15) return '🍃'
-  if (w < 40) return '💨'
-  return '🌬️'
+function WindArrow({ degrees }: { degrees: number | null }) {
+  if (degrees === null) return null
+  // wind_direction is where wind comes FROM. Rotate +180° so the arrow
+  // points where the wind is GOING.
+  const rot = (degrees + 180) % 360
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="w-3 h-3 inline-block"
+      style={{ transform: `rotate(${rot}deg)` }}
+      aria-hidden
+    >
+      <path d="M8 1.5 L4 8 L7 8 L7 14.5 L9 14.5 L9 8 L12 8 Z" fill="currentColor" />
+    </svg>
+  )
 }
 
 function precipEmoji(p: number | null): string {
@@ -133,7 +144,7 @@ export default function InsightsTable({
             endIdx: i,
             centerIdx: i,
             tempMean: null, tempMin: null, tempMax: null,
-            cloudMean: null, windMean: null, gustsMax: null, precipSum: null,
+            cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
             icon: 'sunny',
           }
           currentKey = key
@@ -158,7 +169,7 @@ export default function InsightsTable({
           endIdx: end,
           centerIdx: cursor + Math.floor((end - cursor) / 2),
           tempMean: null, tempMin: null, tempMax: null,
-          cloudMean: null, windMean: null, gustsMax: null, precipSum: null,
+          cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
           icon: 'sunny',
         })
         cursor = end + 1
@@ -169,6 +180,7 @@ export default function InsightsTable({
       let tSum = 0, tCount = 0
       let cSum = 0, cCount = 0
       let wSum = 0, wCount = 0
+      let dirCos = 0, dirSin = 0, dirCount = 0
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         const tVals = activeModels.map(m => series[m.id]?.['temperature']?.[i] ?? null)
         const tEns = weightedAvg(tVals, weights)
@@ -190,10 +202,29 @@ export default function InsightsTable({
         const pVals = activeModels.map(m => series[m.id]?.['precipitation']?.[i] ?? null)
         const pEns = weightedAvg(pVals, weights)
         if (pEns !== null) b.precipSum = (b.precipSum ?? 0) + pEns
+        // Circular mean of wind direction: average sin/cos across models,
+        // weighted by model weight, then accumulate per hour.
+        let hCos = 0, hSin = 0, hW = 0
+        for (let j = 0; j < activeModels.length; j++) {
+          const d = series[activeModels[j].id]?.['wind_direction']?.[i]
+          if (d === null || d === undefined) continue
+          const rad = (d * Math.PI) / 180
+          hCos += Math.cos(rad) * weights[j]
+          hSin += Math.sin(rad) * weights[j]
+          hW += weights[j]
+        }
+        if (hW > 0) {
+          dirCos += hCos / hW
+          dirSin += hSin / hW
+          dirCount += 1
+        }
       }
       b.tempMean = tCount > 0 ? tSum / tCount : null
       b.cloudMean = cCount > 0 ? cSum / cCount : null
       b.windMean = wCount > 0 ? wSum / wCount : null
+      b.windDirection = dirCount > 0
+        ? ((Math.atan2(dirSin, dirCos) * 180) / Math.PI + 360) % 360
+        : null
       b.icon = pickWeatherIcon({
         cloudCoverPct: b.cloudMean,
         precipitationMmDay: b.precipSum,
@@ -260,8 +291,8 @@ export default function InsightsTable({
                   <Cell value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} />
                   <Cell value={r.tempMax} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMax)} />
                   <Cell value={r.cloudMean} metric="cloud_cover" suffix="%" emoji={cloudEmoji(r.cloudMean)} hideOnMobile />
-                  <Cell value={r.windMean} metric="wind_speed" emoji={windEmoji(r.windMean)} />
-                  <Cell value={r.gustsMax} metric="wind_gusts" emoji={windEmoji(r.gustsMax)} hideOnMobile />
+                  <Cell value={r.windMean} metric="wind_speed" icon={<WindArrow degrees={r.windDirection} />} tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
+                  <Cell value={r.gustsMax} metric="wind_gusts" icon={<WindArrow degrees={r.windDirection} />} hideOnMobile tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
                   <Cell value={r.precipSum} metric="precipitation" decimals={1} emoji={precipEmoji(r.precipSum)} />
                 </tr>
               )
@@ -278,12 +309,13 @@ interface CellProps {
   metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation'
   suffix?: string
   emoji?: string
+  icon?: React.ReactNode
   decimals?: number
   tooltip?: string
   hideOnMobile?: boolean
 }
 
-function Cell({ value, metric, suffix = '', emoji = '', decimals = 0, tooltip, hideOnMobile }: CellProps) {
+function Cell({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip, hideOnMobile }: CellProps) {
   const bg = getColor(metric, value)
   const text = value !== null ? contrastText(bg) : '#888'
   const display = value !== null
@@ -296,7 +328,7 @@ function Cell({ value, metric, suffix = '', emoji = '', decimals = 0, tooltip, h
       title={tooltip}
     >
       <span className="inline-flex items-center gap-1 justify-center">
-        {emoji && <span aria-hidden className="text-xs">{emoji}</span>}
+        {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
         <span>{display}{suffix}</span>
       </span>
     </td>

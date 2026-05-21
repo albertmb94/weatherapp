@@ -233,6 +233,8 @@ export default function InsightsTable({
               <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-10 border-b border-gray-800 min-w-[80px]">Cuándo</th>
               <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Cond</th>
               <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Temp °C</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Min</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Max</th>
               <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden sm:table-cell">Nubes %</th>
               <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Viento km/h</th>
               <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden sm:table-cell">Rachas</th>
@@ -254,7 +256,9 @@ export default function InsightsTable({
                   <td className="text-center px-2 py-1.5 border-b border-gray-800/60 text-lg leading-none">
                     <span title={r.icon}>{COND_EMOJI[r.icon]}</span>
                   </td>
-                  <Cell value={r.tempMean} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMean)} tooltip={r.tempMin !== null && r.tempMax !== null ? `${r.tempMin.toFixed(1)}° – ${r.tempMax.toFixed(1)}°` : undefined} />
+                  <Cell value={r.tempMean} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMean)} />
+                  <Cell value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} />
+                  <Cell value={r.tempMax} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMax)} />
                   <Cell value={r.cloudMean} metric="cloud_cover" suffix="%" emoji={cloudEmoji(r.cloudMean)} hideOnMobile />
                   <Cell value={r.windMean} metric="wind_speed" emoji={windEmoji(r.windMean)} />
                   <Cell value={r.gustsMax} metric="wind_gusts" emoji={windEmoji(r.gustsMax)} hideOnMobile />

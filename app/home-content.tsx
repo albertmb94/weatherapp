@@ -34,28 +34,30 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
 
 const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false })
 
-const DEFAULT_POS: [number, number] = [40.4168, -3.7038]
+const DEFAULT_POS: [number, number] = [41.4500, 2.2475]
+const DEFAULT_CITY = 'Badalona'
 const DEFAULT_METRIC: MetricId = 'temperature'
 const DEFAULT_MODELS = MODELS.map(m => m.id)
 const DEFAULT_RANGE = 168
 const OPEN_METEO_MAX_DAYS = 16
 
 export default function HomeContent() {
-  const [urlState, updateUrl] = useUrlState({
+  const [defaults] = useState(() => ({
     lat: DEFAULT_POS[0],
     lon: DEFAULT_POS[1],
     metric: DEFAULT_METRIC,
     models: DEFAULT_MODELS,
     hour: 0,
     range: DEFAULT_RANGE,
-    showMap: true,
+    showMap: typeof window === 'undefined' ? true : !window.matchMedia('(max-width: 767px)').matches,
     showRadar: false,
     bucket: 4,
-  })
+  }))
+  const [urlState, updateUrl] = useUrlState(defaults)
 
   const [position, setPosition] = useState<[number, number]>([urlState.lat, urlState.lon])
   const [recenterToken, setRecenterToken] = useState(0)
-  const [cityName, setCityName] = useState('Madrid')
+  const [cityName, setCityName] = useState(DEFAULT_CITY)
   const [geoLoading, setGeoLoading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)

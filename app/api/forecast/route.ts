@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { buildForecastCacheKey } from '@/lib/cacheKey'
-import { getCachedForecast, setCachedForecast } from '@/lib/forecastCache'
+import { getCachedForecast, getCachedForecastStale, setCachedForecast } from '@/lib/forecastCache'
 
 // Open-Meteo can emit invalid JSON when a model has no coverage for a
 // requested location: bare `nan`, `NaN`, `undefined`, or `Infinity` literals
@@ -14,6 +14,18 @@ function sanitizeOpenMeteoJson(raw: string): string {
 
 const CACHE_HEADERS = {
   'Cache-Control': 'public, s-maxage=14400, stale-while-revalidate=3600',
+}
+
+const MAX_RETRIES = 3
+const BASE_DELAY_MS = 1000
+
+async function fetchWithRetry(url: string): Promise<Response> {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const res = await fetch(url)
+    if (res.ok || res.status !== 502) return res
+    await new Promise(r => setTimeout(r, BASE_DELAY_MS * Math.pow(2, attempt)))
+  }
+  return fetch(url)
 }
 
 export async function GET(request: Request) {
@@ -39,12 +51,25 @@ export async function GET(request: Request) {
     console.warn('forecast_cache lookup failed', err)
   }
 
-  // Origin fetch.
+  // Origin fetch with retry.
   const url = `https://api.open-meteo.com/v1/forecast?${searchParams.toString()}`
   try {
-    const res = await fetch(url)
+    const res = await fetchWithRetry(url)
     const text = await res.text()
     if (!res.ok) {
+      // Try stale cache as fallback before returning error.
+      const stale = await getCachedForecastStale(cacheKey).catch(() => null)
+      if (stale) {
+        return new NextResponse(stale.body, {
+          status: 200,
+          headers: {
+            ...CACHE_HEADERS,
+            'Content-Type': 'application/json',
+            'X-Forecast-Cache': 'stale',
+            'X-Forecast-Cache-Age-Ms': String(stale.ageMs),
+          },
+        })
+      }
       return NextResponse.json(
         { error: `Open-Meteo ${res.status}`, detail: text },
         { status: res.status }
@@ -65,6 +90,19 @@ export async function GET(request: Request) {
     })
     return NextResponse.json(parsed, { headers: { ...CACHE_HEADERS, 'X-Forecast-Cache': 'miss' } })
   } catch {
+    // Network error — serve stale cache if available.
+    const stale = await getCachedForecastStale(cacheKey).catch(() => null)
+    if (stale) {
+      return new NextResponse(stale.body, {
+        status: 200,
+        headers: {
+          ...CACHE_HEADERS,
+          'Content-Type': 'application/json',
+          'X-Forecast-Cache': 'stale',
+          'X-Forecast-Cache-Age-Ms': String(stale.ageMs),
+        },
+      })
+    }
     return NextResponse.json({ error: 'Failed to fetch forecast' }, { status: 502 })
   }
 }

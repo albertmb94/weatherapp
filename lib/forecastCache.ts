@@ -44,6 +44,21 @@ export async function getCachedForecast(cacheKey: string, now: number = Date.now
   return { body: row.body, fetchedAt, ageMs }
 }
 
+/**
+ * Returns cached data even if stale (>4h), or null if no entry exists.
+ * Used as a fallback when Open-Meteo is unreachable.
+ */
+export async function getCachedForecastStale(cacheKey: string, now: number = Date.now()): Promise<CachedEntry | null> {
+  await ensureSchema()
+  const result = await getDb().execute({
+    sql: 'SELECT body, fetched_at FROM forecast_cache WHERE cache_key = ?',
+    args: [cacheKey],
+  })
+  const row = result.rows[0] as unknown as { body: string; fetched_at: number } | undefined
+  if (!row) return null
+  return { body: row.body, fetchedAt: Number(row.fetched_at), ageMs: now - Number(row.fetched_at) }
+}
+
 export async function setCachedForecast(cacheKey: string, body: string, now: number = Date.now()): Promise<void> {
   await ensureSchema()
   await getDb().execute({

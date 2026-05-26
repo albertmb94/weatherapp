@@ -1,6 +1,14 @@
 import type { WeatherModel, Metric, MetricId } from './models'
 import { METRICS, MODELS } from './models'
 
+const MAX_FORECAST_MODELS = 6
+const MAX_HEATMAP_MODELS = 4
+
+function capModels(models: WeatherModel[], max: number): WeatherModel[] {
+  if (models.length <= max) return models
+  return [...models].sort((a, b) => b.weight - a.weight).slice(0, max)
+}
+
 export interface ForecastResult {
   time: Date[]
   series: Record<string, Record<string, (number | null)[]>>
@@ -15,7 +23,8 @@ export async function fetchForecast(
   forecastDays = 7,
   signal?: AbortSignal
 ): Promise<ForecastResult> {
-  const modelIds = models.map(m => m.id).join(',')
+  const capped = capModels(models, MAX_FORECAST_MODELS)
+  const modelIds = capped.map(m => m.id).join(',')
   const hourlyList = metrics.filter(m => m.id !== 'all').map(m => m.hourlyParam)
   // Always fetch wind direction so insights can render a direction arrow.
   if (!hourlyList.includes('wind_direction_10m')) hourlyList.push('wind_direction_10m')
@@ -36,7 +45,7 @@ export async function fetchForecast(
   const time = data.hourly.time.map((t: string) => new Date(t))
   const series: Record<string, Record<string, (number | null)[]>> = {}
 
-  for (const model of models) {
+  for (const model of capped) {
     series[model.id] = {}
     for (const metric of metrics) {
       if (metric.id === 'all') continue
@@ -85,7 +94,8 @@ export async function fetchHeatmapGrid(
   const requestedModels: WeatherModel[] = modelIds.length > 0
     ? MODELS.filter(m => modelIds.includes(m.id))
     : MODELS
-  const modelsParam = requestedModels.map(m => m.id).join(',')
+  const heatmapModels = capModels(requestedModels, MAX_HEATMAP_MODELS)
+  const modelsParam = heatmapModels.map(m => m.id).join(',')
 
   const params = new URLSearchParams({
     latitude: lats,
@@ -109,27 +119,27 @@ export async function fetchHeatmapGrid(
 
   // Open-Meteo drops the model suffix when only one model is requested.
   const singleKey = hourlyParam
-  const isSingle = requestedModels.length === 1
+  const isSingle = heatmapModels.length === 1
 
   const series: (number | null)[][] = points.map(point => {
     const hourly = point?.hourly
     if (!hourly) return new Array(times.length).fill(null)
 
     if (isSingle) {
-      const only = requestedModels[0]
+      const only = heatmapModels[0]
       const suffixed = `${hourlyParam}_${only.id}`
       const vals = (hourly[suffixed] ?? hourly[singleKey]) as (number | null)[] | undefined
       return vals ?? new Array(times.length).fill(null)
     }
 
     // Weighted mean across the requested models.
-    const firstArr = (hourly[`${hourlyParam}_${requestedModels[0].id}`] ?? hourly[singleKey]) as (number | null)[] | undefined
+    const firstArr = (hourly[`${hourlyParam}_${heatmapModels[0].id}`] ?? hourly[singleKey]) as (number | null)[] | undefined
     const len = firstArr?.length ?? times.length
     const out: (number | null)[] = new Array(len).fill(null)
     for (let i = 0; i < len; i++) {
       let sum = 0
       let wSum = 0
-      for (const m of requestedModels) {
+      for (const m of heatmapModels) {
         const arr = hourly[`${hourlyParam}_${m.id}`] as (number | null)[] | undefined
         const v = arr?.[i]
         if (v !== null && v !== undefined) {

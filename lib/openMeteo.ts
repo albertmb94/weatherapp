@@ -9,13 +9,13 @@ function capModels(models: WeatherModel[], max: number, forecastDays?: number): 
   const sorted = [...models].sort((a, b) => b.weight - a.weight)
   const picked = sorted.slice(0, max)
   // Ensure horizon coverage: if none of the picked models reach the requested
-  // forecast horizon, swap the lowest-weight pick for the best long-range model
-  // that does. Otherwise daily cards/table go blank past the highest maxHours.
+  // forecast horizon, append the best long-range model that does. Otherwise
+  // daily cards/table go blank past the highest maxHours of the picked set.
   if (forecastDays !== undefined) {
     const requiredHours = forecastDays * 24
     if (!picked.some(m => m.maxHours >= requiredHours)) {
       const longRange = sorted.find(m => m.maxHours >= requiredHours && !picked.includes(m))
-      if (longRange) picked[picked.length - 1] = longRange
+      if (longRange) picked.push(longRange)
     }
   }
   return picked

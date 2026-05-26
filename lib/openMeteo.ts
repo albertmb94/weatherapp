@@ -4,18 +4,26 @@ import { METRICS, MODELS } from './models'
 const MAX_FORECAST_MODELS = 6
 const MAX_HEATMAP_MODELS = 4
 
+// Models effectively cover long horizons globally — we treat these as the
+// "long-range tier" that must be included whenever the requested horizon
+// exceeds what the high-res regional models can provide. Each model has
+// patchy coverage (e.g. GFS returns null for much of Europe; ICON returns
+// null in some regions), so we send all of them and let Open-Meteo fill in
+// whichever has data.
+const LONG_RANGE_MIN_HOURS = 168
+
 function capModels(models: WeatherModel[], max: number, forecastDays?: number): WeatherModel[] {
   if (models.length <= max) return models
   const sorted = [...models].sort((a, b) => b.weight - a.weight)
   const picked = sorted.slice(0, max)
-  // Ensure horizon coverage: if none of the picked models reach the requested
-  // forecast horizon, append the best long-range model that does. Otherwise
-  // daily cards/table go blank past the highest maxHours of the picked set.
   if (forecastDays !== undefined) {
     const requiredHours = forecastDays * 24
     if (!picked.some(m => m.maxHours >= requiredHours)) {
-      const longRange = sorted.find(m => m.maxHours >= requiredHours && !picked.includes(m))
-      if (longRange) picked.push(longRange)
+      // Append every long-range model not already picked. Redundancy matters:
+      // a single global model can return all-null for a given location.
+      for (const m of sorted) {
+        if (m.maxHours >= LONG_RANGE_MIN_HOURS && !picked.includes(m)) picked.push(m)
+      }
     }
   }
   return picked

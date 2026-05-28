@@ -5,6 +5,8 @@ import type { WeatherModel } from '@/lib/models'
 import { getColor } from '@/lib/colorScales'
 import { weightedAvg, contrastText } from '@/lib/ensemble'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
+import { useLocale } from '@/lib/LocaleContext'
+import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
 
@@ -33,10 +35,10 @@ interface Row {
   windDirection: number | null
   gustsMax: number | null
   precipSum: number | null
+  humidityMean: number | null
+  uvIndexMean: number | null
   icon: WeatherIconId
 }
-
-const DAYS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const BUCKET_OPTIONS: BucketHours[] = [1, 2, 3, 4, 6, 12, 24]
 const BUCKET_LABELS: Record<BucketHours, string> = {
   1: '1h', 2: '2h', 3: '3h', 4: '4h', 6: '6h', 12: '12h', 24: '1d',
@@ -92,7 +94,23 @@ function precipEmoji(p: number | null): string {
   return '⛈'
 }
 
-function bucketLabel(start: Date, bucket: BucketHours): string {
+function humidityEmoji(h: number | null): string {
+  if (h === null) return ''
+  if (h >= 80) return '💦'
+  if (h >= 60) return '💧'
+  if (h <= 30) return '🏜️'
+  return ''
+}
+
+function uvEmoji(u: number | null): string {
+  if (u === null) return ''
+  if (u >= 8) return '☢️'
+  if (u >= 6) return '🔥'
+  if (u >= 3) return '🌤️'
+  return ''
+}
+
+function bucketLabel(start: Date, bucket: BucketHours, locale: 'es' | 'en'): string {
   const today = new Date()
   const isToday = start.getFullYear() === today.getFullYear() && start.getMonth() === today.getMonth() && start.getDate() === today.getDate()
   const isTomorrow = (() => {
@@ -100,7 +118,8 @@ function bucketLabel(start: Date, bucket: BucketHours): string {
     t.setDate(t.getDate() + 1)
     return start.getFullYear() === t.getFullYear() && start.getMonth() === t.getMonth() && start.getDate() === t.getDate()
   })()
-  const day = isToday ? 'Hoy' : isTomorrow ? 'Mañ' : `${DAYS_ES[start.getDay()]} ${start.getDate()}`
+  const s = STRINGS[locale]
+  const day = isToday ? s.today : isTomorrow ? s.tomorrow : `${DAY_NAMES[locale][start.getDay()]} ${start.getDate()}`
   if (bucket === 24) return day
   const h0 = start.getHours().toString().padStart(2, '0')
   if (bucket === 1) return `${day} ${h0}:00`
@@ -119,6 +138,7 @@ export default function InsightsTable({
   onSelectHour,
   maxHours,
 }: InsightsTableProps) {
+  const { locale } = useLocale()
   const activeModels = useMemo(
     () => models.filter(m => activeModelIds.includes(m.id)),
     [models, activeModelIds]
@@ -139,12 +159,13 @@ export default function InsightsTable({
         const key = `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`
         if (!current || key !== currentKey) {
           current = {
-            label: bucketLabel(t, bucket),
+            label: bucketLabel(t, bucket, locale),
             startIdx: i,
             endIdx: i,
             centerIdx: i,
             tempMean: null, tempMin: null, tempMax: null,
             cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
+            humidityMean: null, uvIndexMean: null,
             icon: 'sunny',
           }
           currentKey = key
@@ -164,12 +185,13 @@ export default function InsightsTable({
         const end = Math.min(cursor + remaining, limit) - 1
         if (end < cursor) break
         buckets.push({
-          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), bucket),
+          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), bucket, locale),
           startIdx: cursor,
           endIdx: end,
           centerIdx: cursor + Math.floor((end - cursor) / 2),
           tempMean: null, tempMin: null, tempMax: null,
           cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
+          humidityMean: null, uvIndexMean: null,
           icon: 'sunny',
         })
         cursor = end + 1
@@ -180,6 +202,8 @@ export default function InsightsTable({
       let tSum = 0, tCount = 0
       let cSum = 0, cCount = 0
       let wSum = 0, wCount = 0
+      let hSum = 0, hCount = 0
+      let uSum = 0, uCount = 0
       let dirCos = 0, dirSin = 0, dirCount = 0
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         const tVals = activeModels.map(m => series[m.id]?.['temperature']?.[i] ?? null)
@@ -202,6 +226,12 @@ export default function InsightsTable({
         const pVals = activeModels.map(m => series[m.id]?.['precipitation']?.[i] ?? null)
         const pEns = weightedAvg(pVals, weights)
         if (pEns !== null) b.precipSum = (b.precipSum ?? 0) + pEns
+        const hVals = activeModels.map(m => series[m.id]?.['humidity']?.[i] ?? null)
+        const hEns = weightedAvg(hVals, weights)
+        if (hEns !== null) { hSum += hEns; hCount += 1 }
+        const uVals = activeModels.map(m => series[m.id]?.['uv_index']?.[i] ?? null)
+        const uEns = weightedAvg(uVals, weights)
+        if (uEns !== null) { uSum += uEns; uCount += 1 }
         // Circular mean of wind direction: average sin/cos across models,
         // weighted by model weight, then accumulate per hour.
         let hCos = 0, hSin = 0, hW = 0
@@ -222,6 +252,8 @@ export default function InsightsTable({
       b.tempMean = tCount > 0 ? tSum / tCount : null
       b.cloudMean = cCount > 0 ? cSum / cCount : null
       b.windMean = wCount > 0 ? wSum / wCount : null
+      b.humidityMean = hCount > 0 ? hSum / hCount : null
+      b.uvIndexMean = uCount > 0 ? uSum / uCount : null
       b.windDirection = dirCount > 0
         ? ((Math.atan2(dirSin, dirCos) * 180) / Math.PI + 360) % 360
         : null
@@ -234,14 +266,14 @@ export default function InsightsTable({
     }
 
     return buckets
-  }, [activeModels, times, series, bucket, maxHours])
+  }, [activeModels, times, series, bucket, maxHours, locale])
 
   if (activeModels.length === 0) return null
 
   return (
     <div className="mb-4 animate-fadeIn">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-300">Insights</h3>
+        <h3 className="text-sm font-semibold text-gray-300">{STRINGS[locale].insightsTitle}</h3>
         <div className="flex items-center gap-0.5 bg-gray-900/60 border border-gray-800 rounded p-0.5">
           {BUCKET_OPTIONS.map(b => (
             <button
@@ -261,15 +293,17 @@ export default function InsightsTable({
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
-              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-10 border-b border-gray-800 min-w-[80px]">Cuándo</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Cond</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Temp °C</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Min</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Max</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden sm:table-cell">Nubes %</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Viento km/h</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden sm:table-cell">Rachas</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">Lluvia mm</th>
+              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-10 border-b border-gray-800 min-w-[80px]">{STRINGS[locale].tableWhen}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableCond}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableTemp}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden md:table-cell">{STRINGS[locale].tableMin}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden md:table-cell">{STRINGS[locale].tableMax}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden md:table-cell">{STRINGS[locale].tableClouds}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableWind}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden md:table-cell">{STRINGS[locale].tableGusts}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tablePrecip}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableHumidity}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableUv}</th>
             </tr>
           </thead>
           <tbody>
@@ -288,12 +322,14 @@ export default function InsightsTable({
                     <span title={r.icon}>{COND_EMOJI[r.icon]}</span>
                   </td>
                   <Cell value={r.tempMean} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMean)} />
-                  <Cell value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} />
-                  <Cell value={r.tempMax} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMax)} />
-                  <Cell value={r.cloudMean} metric="cloud_cover" suffix="%" emoji={cloudEmoji(r.cloudMean)} hideOnMobile />
+                  <Cell value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} hideOnMobile="md" />
+                  <Cell value={r.tempMax} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMax)} hideOnMobile="md" />
+                  <Cell value={r.cloudMean} metric="cloud_cover" suffix="%" emoji={cloudEmoji(r.cloudMean)} hideOnMobile="md" />
                   <Cell value={r.windMean} metric="wind_speed" icon={<WindArrow degrees={r.windDirection} />} tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
-                  <Cell value={r.gustsMax} metric="wind_gusts" icon={<WindArrow degrees={r.windDirection} />} hideOnMobile tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
+                  <Cell value={r.gustsMax} metric="wind_gusts" icon={<WindArrow degrees={r.windDirection} />} hideOnMobile="md" tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
                   <Cell value={r.precipSum} metric="precipitation" decimals={1} emoji={precipEmoji(r.precipSum)} />
+                  <Cell value={r.humidityMean} metric="humidity" suffix="%" emoji={humidityEmoji(r.humidityMean)} />
+                  <Cell value={r.uvIndexMean} metric="uv_index" decimals={1} emoji={uvEmoji(r.uvIndexMean)} />
                 </tr>
               )
             })}
@@ -306,13 +342,13 @@ export default function InsightsTable({
 
 interface CellProps {
   value: number | null
-  metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation'
+  metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index'
   suffix?: string
   emoji?: string
   icon?: React.ReactNode
   decimals?: number
   tooltip?: string
-  hideOnMobile?: boolean
+  hideOnMobile?: 'sm' | 'md'
 }
 
 function Cell({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip, hideOnMobile }: CellProps) {
@@ -321,9 +357,10 @@ function Cell({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tool
   const display = value !== null
     ? (decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString())
     : '–'
+  const hideClass = hideOnMobile ? `hidden ${hideOnMobile === 'md' ? 'md:table-cell' : 'sm:table-cell'}` : ''
   return (
     <td
-      className={`text-center px-2 py-1.5 border-b border-gray-800/60 font-mono ${hideOnMobile ? 'hidden sm:table-cell' : ''}`}
+      className={`text-center px-2 py-1.5 border-b border-gray-800/60 font-mono ${hideClass}`}
       style={{ backgroundColor: bg, color: text }}
       title={tooltip}
     >

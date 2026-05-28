@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css'
 import type { MetricId } from '@/lib/models'
 import { getColor } from '@/lib/colorScales'
 import { fetchHeatmapGrid } from '@/lib/openMeteo'
+import { useLocale } from '@/lib/LocaleContext'
 import {
   HEATMAP_ROWS,
   HEATMAP_COLS,
@@ -155,6 +156,7 @@ export default function MapPicker({
   const [radarFrameIndex, setRadarFrameIndex] = useState(0)
   const [radarPlaying, setRadarPlaying] = useState(true)
   const [radarError, setRadarError] = useState<string | null>(null)
+  const { locale } = useLocale()
 
   const handleRadarFramesLoaded = useCallback((count: number, frames: RainviewerFrame[]) => {
     setRadarFrames(frames)
@@ -378,7 +380,7 @@ export default function MapPicker({
                 aria-label="Radar frame"
               />
               <span className="text-[10px] text-gray-300 font-mono w-12 text-right">
-                {radarFrames[radarFrameIndex] ? new Date(radarFrames[radarFrameIndex].time * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                {radarFrames[radarFrameIndex] ? new Date(radarFrames[radarFrameIndex].time * 1000).toLocaleTimeString(locale === 'en' ? 'en-US' : 'es-ES', { hour: '2-digit', minute: '2-digit' }) : '—'}
               </span>
             </div>
           )}

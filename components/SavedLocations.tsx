@@ -37,7 +37,7 @@ export default function SavedLocations({ onSelect }: SavedLocationsProps) {
   if (!locations || locations.length === 0) return null
 
   return (
-    <div className="flex gap-1.5 px-3 py-1.5 bg-gray-900/30 border-b border-gray-800/50 overflow-x-auto shrink-0">
+    <div className="flex gap-1.5 px-3 py-1.5 bg-gray-900/30 border-b border-gray-800/50 flex-wrap shrink-0">
       {locations.map(loc => (
         <div
           key={loc.id}

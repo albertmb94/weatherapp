@@ -29,7 +29,7 @@ export default function ModelPills({ models, selected, onChange }: ModelPillsPro
   }
 
   return (
-    <div className="flex items-center gap-0.5 overflow-x-auto md:overflow-visible md:flex-wrap">
+    <div className="flex items-center gap-0.5 flex-wrap">
       <button
         onClick={selectAll}
         className={`shrink-0 min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${

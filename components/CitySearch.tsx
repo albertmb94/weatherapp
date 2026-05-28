@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useLocale } from '@/lib/LocaleContext'
 
 interface GeocodeResult {
   id: number
@@ -16,6 +17,7 @@ interface CitySearchProps {
 }
 
 export default function CitySearch({ onSelect }: CitySearchProps) {
+  const { locale } = useLocale()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GeocodeResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -47,7 +49,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
       const params = new URLSearchParams({
         name: q,
         count: '5',
-        language: 'es',
+        language: locale === 'en' ? 'en' : 'es',
         format: 'json',
       })
       const res = await fetch(`/api/geocode?${params}`, { signal })

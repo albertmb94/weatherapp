@@ -42,6 +42,20 @@ export const SCALES: Record<ScaleMetric, ColorStop[]> = {
     { value: 5, color: [120, 0, 200] },
     { value: 10, color: [200, 0, 0] },
   ],
+  humidity: [
+    { value: 0, color: [255, 200, 100] },
+    { value: 30, color: [180, 210, 50] },
+    { value: 50, color: [100, 180, 100] },
+    { value: 70, color: [50, 100, 150] },
+    { value: 100, color: [20, 40, 100] },
+  ],
+  uv_index: [
+    { value: 0, color: [100, 200, 100] },
+    { value: 3, color: [255, 255, 100] },
+    { value: 6, color: [255, 150, 50] },
+    { value: 8, color: [255, 60, 60] },
+    { value: 11, color: [180, 40, 150] },
+  ],
 }
 
 function lerp(a: number, b: number, t: number): number {

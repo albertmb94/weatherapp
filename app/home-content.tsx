@@ -16,6 +16,8 @@ import RefreshButton from '@/components/RefreshButton'
 import { MODELS, METRICS, type MetricId } from '@/lib/models'
 import { fetchForecast, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
+import { useLocale } from '@/lib/LocaleContext'
+import { STRINGS, type Locale } from '@/lib/i18n'
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -52,6 +54,7 @@ export default function HomeContent() {
     showMap: typeof window === 'undefined' ? true : !window.matchMedia('(max-width: 767px)').matches,
     showRadar: false,
     bucket: 4,
+    locale: '',
   }))
   const [urlState, updateUrl] = useUrlState(defaults)
 
@@ -62,6 +65,7 @@ export default function HomeContent() {
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const { locale, toggleLocale } = useLocale()
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -78,6 +82,12 @@ export default function HomeContent() {
       document.removeEventListener('touchstart', onDown)
     }
   }, [mobileMenuOpen])
+
+  useEffect(() => {
+    if (urlState.locale && urlState.locale !== locale) {
+      toggleLocale()
+    }
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -140,7 +150,7 @@ export default function HomeContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
-      setToast(`Saved ${cityName}`)
+      setToast(locale === 'en' ? `Saved ${cityName}` : `Guardado ${cityName}`)
     },
     onError: () => {
       setToast('Save failed')
@@ -236,10 +246,11 @@ export default function HomeContent() {
   const hourLabel = useMemo(() => {
     if (!viewData?.time?.[selectedHour]) return `+${selectedHour}h`
     const t = viewData.time[selectedHour]
-    const hh = t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
-    const dd = t.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' })
+    const localeStr = locale === 'en' ? 'en-US' : 'es-ES'
+    const hh = t.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit', hour12: false })
+    const dd = t.toLocaleDateString(localeStr, { weekday: 'short', day: '2-digit', month: '2-digit' })
     return `${dd} ${hh}`
-  }, [viewData, selectedHour])
+  }, [viewData, selectedHour, locale])
 
   const effectiveMaxHours = Math.min(selectedRange, maxModelHours, viewData?.time.length ?? 336)
 
@@ -333,6 +344,13 @@ export default function HomeContent() {
             >
               Save
             </button>
+            <button
+              onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
+              className="min-h-[32px] px-2 rounded text-[11px] font-semibold text-gray-400 hover:text-white transition-colors cursor-pointer tracking-wider"
+              title={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
+            >
+              {locale === 'en' ? 'ES' : 'EN'}
+            </button>
             <RefreshButton />
             <span className="text-[10px] text-gray-600 ml-auto truncate max-w-[160px]">{cityName} ({position[0].toFixed(2)}, {position[1].toFixed(2)})</span>
           </div>
@@ -382,8 +400,14 @@ export default function HomeContent() {
                 Save
               </button>
               <RefreshButton />
+              <button
+                onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
+                className="min-h-[36px] px-3 rounded text-xs font-semibold bg-gray-800 text-gray-400 border border-gray-700 cursor-pointer tracking-wider"
+              >
+                {locale === 'en' ? 'ES' : 'EN'}
+              </button>
             </div>
-            <div className="overflow-x-auto -mx-1 px-1">
+            <div className="flex-wrap -mx-1 px-1">
               <ModelPills models={MODELS} selected={selectedModels} onChange={handleModelChange} />
             </div>
             <div className="text-[10px] text-gray-500 pt-1 border-t border-gray-800/50">
@@ -395,7 +419,7 @@ export default function HomeContent() {
 
       <SavedLocations onSelect={handleCitySelect} />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-y-auto">
         {showMap && (
           <div className="h-[40vh] min-h-[260px] max-h-[440px] p-1.5 border-b border-gray-800 relative shrink-0">
             <MapPicker
@@ -460,17 +484,17 @@ export default function HomeContent() {
           </div>
         )}
 
-        <div className={`${showMap ? 'h-[50%]' : 'h-full'} overflow-auto p-3`}>
+        <div className="p-3">
           {isLoading && (
             <div className="flex items-center justify-center h-40">
               <div className="w-5 h-5 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
-              <span className="ml-2 text-gray-400 text-sm">Loading forecast...</span>
+              <span className="ml-2 text-gray-400 text-sm">{STRINGS[locale].loadingForecast}</span>
             </div>
           )}
 
           {error && (
             <div className="text-red-400 text-center py-8 text-sm">
-              Error loading forecast. Please try again.
+              {STRINGS[locale].errorForecast}
             </div>
           )}
 
@@ -512,9 +536,9 @@ export default function HomeContent() {
       </div>
 
       <div className="hidden md:flex px-3 py-0.5 bg-gray-900/50 border-t border-gray-800/50 text-[9px] text-gray-700 gap-3 shrink-0">
-        <span>← → hours</span>
-        <span>/ search</span>
-        <span>m map</span>
+        <span>← → {STRINGS[locale].footerHours}</span>
+        <span>/ {STRINGS[locale].footerSearch}</span>
+        <span>m {STRINGS[locale].footerMap}</span>
       </div>
 
       {toast && (

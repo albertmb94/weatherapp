@@ -18,7 +18,7 @@ export const MODELS: WeatherModel[] = [
   { id: 'gem_global', label: 'GDPS 15km', color: '#a9a9a9', maxHours: 240, weight: 2 },
 ]
 
-export type MetricId = 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'all'
+export type MetricId = 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index' | 'all'
 
 export interface Metric {
   id: MetricId
@@ -34,4 +34,6 @@ export const METRICS: Metric[] = [
   { id: 'wind_speed', label: 'Wind Speed', unit: 'km/h', hourlyParam: 'wind_speed_10m' },
   { id: 'wind_gusts', label: 'Wind Gusts', unit: 'km/h', hourlyParam: 'wind_gusts_10m' },
   { id: 'precipitation', label: 'Precipitation', unit: 'mm/h', hourlyParam: 'precipitation' },
+  { id: 'humidity', label: 'Humidity', unit: '%', hourlyParam: 'relative_humidity_2m' },
+  { id: 'uv_index', label: 'UV Index', unit: '', hourlyParam: 'uv_index' },
 ]

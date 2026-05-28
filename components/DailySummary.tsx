@@ -4,6 +4,8 @@ import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { weightedAvg } from '@/lib/ensemble'
+import { useLocale } from '@/lib/LocaleContext'
+import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 
 interface DailySummaryProps {
   models: WeatherModel[]
@@ -28,8 +30,6 @@ interface DayBucket {
   cloudAvg: number | null
   icon: WeatherIconId
 }
-
-const DAYS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
 const ICONS: Record<WeatherIconId, React.ReactNode> = {
   sunny: (
@@ -79,6 +79,8 @@ export default function DailySummary({
   onSelectHour,
   maxHours,
 }: DailySummaryProps) {
+  const { locale } = useLocale()
+
   const activeModels = useMemo(
     () => models.filter(m => activeModelIds.includes(m.id)),
     [models, activeModelIds]
@@ -96,7 +98,7 @@ export default function DailySummary({
       const dayKey = `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`
       if (!current || current.fullDate !== dayKey) {
         current = {
-          label: `${DAYS_ES[t.getDay()]} ${t.getDate()}`,
+          label: `${DAY_NAMES[locale][t.getDay()]} ${t.getDate()}`,
           fullDate: dayKey,
           startIndex: i,
           endIndex: i,
@@ -147,7 +149,7 @@ export default function DailySummary({
     }
 
     return buckets
-  }, [activeModels, times, series, maxHours])
+  }, [activeModels, times, series, maxHours, locale])
 
   if (days.length === 0) return null
 
@@ -157,7 +159,7 @@ export default function DailySummary({
 
   return (
     <div className="mb-3">
-      <h3 className="text-sm font-semibold text-gray-300 mb-2">Daily summary (ensemble)</h3>
+      <h3 className="text-sm font-semibold text-gray-300 mb-2">{STRINGS[locale].dailyTitle}</h3>
       <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {days.map((d, i) => {
           const isCurrent = selectedHour >= d.startIndex && selectedHour <= d.endIndex

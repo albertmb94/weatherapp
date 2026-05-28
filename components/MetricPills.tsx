@@ -49,6 +49,18 @@ const ICONS: Record<MetricId, React.ReactNode> = {
       <path d="M8 2.5C8 2.5 4 7 4 10a4 4 0 0 0 8 0c0-3-4-7.5-4-7.5z" />
     </svg>
   ),
+  humidity: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M8 14c3 0 5-2 5-5 0-4-5-8-5-8S3 5 3 9c0 3 2 5 5 5z" />
+      <path d="M6 9.5c0 1 .9 2 2 2" strokeOpacity={0.7} />
+    </svg>
+  ),
+  uv_index: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <circle cx="8" cy="8" r="2.5" fill="currentColor" stroke="none" />
+      <path d="M8 1.5v2M8 12.5v2M3 3l1 1M12 12l1 1M1.5 8h2M12.5 8h2M4 12l-1 1M13 3l-1 1" strokeOpacity={0.7} />
+    </svg>
+  ),
 }
 
 export default function MetricPills({ metrics, selected, onChange }: MetricPillsProps) {

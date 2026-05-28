@@ -10,12 +10,13 @@ interface ModelSelectorProps {
 
 export default function ModelSelector({ models, selected, onChange }: ModelSelectorProps) {
   const allSelected = selected.length === models.length
+  const noneSelected = selected.length === 0
 
-  function toggle(id: string) {
-    if (selected.includes(id)) {
-      onChange(selected.filter(s => s !== id))
+  function selectOnly(id: string) {
+    if (selected.length === 1 && selected.includes(id)) {
+      onChange(models.map(m => m.id))
     } else {
-      onChange([...selected, id])
+      onChange([id])
     }
   }
 
@@ -23,32 +24,36 @@ export default function ModelSelector({ models, selected, onChange }: ModelSelec
     onChange(models.map(m => m.id))
   }
 
+  function selectNone() {
+    onChange([])
+  }
+
   return (
     <div className="mb-3 animate-fadeIn">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-400">Models</span>
-          <span className="text-[10px] text-gray-600">
-            ({selected.length}/{models.length})
-          </span>
-        </div>
+      <div className="flex items-center gap-0.5 flex-wrap">
         <button
           onClick={selectAll}
-          className={`shrink-0 min-h-[28px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-            allSelected ? 'text-white' : 'text-gray-600 hover:text-gray-300'
+          className={`shrink-0 min-h-[36px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
+            allSelected ? 'text-white' : 'text-gray-600 hover:text-gray-400'
           }`}
         >
           All
         </button>
-      </div>
-
-      <div className="flex items-center gap-0.5 flex-wrap mt-1.5">
+        <button
+          onClick={selectNone}
+          className={`shrink-0 min-h-[36px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
+            noneSelected ? 'text-white' : 'text-gray-600 hover:text-gray-400'
+          }`}
+        >
+          None
+        </button>
+        <div className="w-px h-3 bg-gray-800 mx-0.5 shrink-0" />
         {models.map(m => {
           const active = selected.includes(m.id)
           return (
             <button
               key={m.id}
-              onClick={() => toggle(m.id)}
+              onClick={() => selectOnly(m.id)}
               className={`shrink-0 min-h-[36px] px-2.5 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 active ? 'text-white' : 'text-gray-600 hover:text-gray-400'
               }`}

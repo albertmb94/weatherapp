@@ -44,30 +44,13 @@ const BUCKET_LABELS: Record<BucketHours, string> = {
   1: '1h', 2: '2h', 3: '3h', 4: '4h', 6: '6h', 12: '12h', 24: '1d',
 }
 
-const COND_EMOJI: Record<WeatherIconId, string> = {
-  sunny: '☀️',
-  partly: '🌤️',
-  cloudy: '☁️',
-  rainy: '🌧️',
-  stormy: '⛈️',
-  snowy: '❄️',
-}
+
 
 function tempEmoji(t: number | null): string {
   if (t === null) return ''
   if (t <= 0) return '🥶'
-  if (t <= 10) return '🧊'
   if (t >= 30) return '🥵'
-  if (t >= 25) return '🔥'
   return ''
-}
-
-function cloudEmoji(c: number | null): string {
-  if (c === null) return ''
-  if (c < 20) return '☀'
-  if (c < 50) return '🌤'
-  if (c < 80) return '⛅'
-  return '☁'
 }
 
 function WindArrow({ degrees }: { degrees: number | null }) {
@@ -87,28 +70,7 @@ function WindArrow({ degrees }: { degrees: number | null }) {
   )
 }
 
-function precipEmoji(p: number | null): string {
-  if (p === null || p === 0) return ''
-  if (p < 0.5) return '💧'
-  if (p < 3) return '🌧'
-  return '⛈'
-}
 
-function humidityEmoji(h: number | null): string {
-  if (h === null) return ''
-  if (h >= 80) return '💦'
-  if (h >= 60) return '💧'
-  if (h <= 30) return '🏜️'
-  return ''
-}
-
-function uvEmoji(u: number | null): string {
-  if (u === null) return ''
-  if (u >= 8) return '☢️'
-  if (u >= 6) return '🔥'
-  if (u >= 3) return '🌤️'
-  return ''
-}
 
 function bucketLabel(start: Date, bucket: BucketHours, locale: 'es' | 'en'): string {
   const today = new Date()
@@ -318,18 +280,18 @@ export default function InsightsTable({
                   <td className={`sticky left-0 px-2 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 ${isActive ? 'bg-blue-900/30' : 'bg-gray-950'}`}>
                     {r.label}
                   </td>
-                  <td className="text-center px-2 py-1.5 border-b border-gray-800/60 text-lg leading-none">
-                    <span title={r.icon}>{COND_EMOJI[r.icon]}</span>
+                  <td className="text-center px-2 py-1.5 border-b border-gray-800/60 text-xs leading-none text-gray-500" title={r.icon}>
+                    –
                   </td>
-                  <Cell value={r.tempMean} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMean)} />
+                  <Cell value={r.tempMean} metric="temperature" suffix="°" />
                   <Cell value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} hideOnMobile="md" />
                   <Cell value={r.tempMax} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMax)} hideOnMobile="md" />
-                  <Cell value={r.cloudMean} metric="cloud_cover" suffix="%" emoji={cloudEmoji(r.cloudMean)} hideOnMobile="md" />
+                  <Cell value={r.cloudMean} metric="cloud_cover" suffix="%" hideOnMobile="md" />
                   <Cell value={r.windMean} metric="wind_speed" icon={<WindArrow degrees={r.windDirection} />} tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
                   <Cell value={r.gustsMax} metric="wind_gusts" icon={<WindArrow degrees={r.windDirection} />} hideOnMobile="md" tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
-                  <Cell value={r.precipSum} metric="precipitation" decimals={1} emoji={precipEmoji(r.precipSum)} />
-                  <Cell value={r.humidityMean} metric="humidity" suffix="%" emoji={humidityEmoji(r.humidityMean)} />
-                  <Cell value={r.uvIndexMean} metric="uv_index" decimals={1} emoji={uvEmoji(r.uvIndexMean)} />
+                  <Cell value={r.precipSum} metric="precipitation" decimals={1} />
+                  <Cell value={r.humidityMean} metric="humidity" suffix="%" />
+                  <Cell value={r.uvIndexMean} metric="uv_index" decimals={1} />
                 </tr>
               )
             })}

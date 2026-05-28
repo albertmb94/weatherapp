@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import CitySearch from '@/components/CitySearch'
 import MetricPills from '@/components/MetricPills'
-import ModelPills from '@/components/ModelPills'
+import ModelSelector from '@/components/ModelSelector'
 import TimeRangeSelector from '@/components/TimeRangeSelector'
 import ModelComparisonChart from '@/components/ModelComparisonChart'
 import DailySummary from '@/components/DailySummary'
@@ -375,12 +375,6 @@ export default function HomeContent() {
           <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
         </div>
 
-        <div className="hidden md:flex items-center gap-2 mt-1">
-          <ModelPills models={MODELS} selected={selectedModels} onChange={handleModelChange} />
-          <div className="w-px h-3 bg-gray-800" />
-          <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} />
-        </div>
-
         {mobileMenuOpen && (
           <div className="md:hidden mt-2 pt-2 border-t border-gray-800 space-y-2 animate-fadeIn">
             <div className="flex flex-wrap items-center gap-2">
@@ -406,12 +400,6 @@ export default function HomeContent() {
               >
                 {locale === 'en' ? 'ES' : 'EN'}
               </button>
-            </div>
-            <div className="flex-wrap -mx-1 px-1">
-              <ModelPills models={MODELS} selected={selectedModels} onChange={handleModelChange} />
-            </div>
-            <div className="text-[10px] text-gray-500 pt-1 border-t border-gray-800/50">
-              {cityName} · {position[0].toFixed(2)}, {position[1].toFixed(2)}
             </div>
           </div>
         )}
@@ -508,6 +496,11 @@ export default function HomeContent() {
                 selectedHour={selectedHour}
                 onSelectHour={handleHourChange}
                 maxHours={effectiveMaxHours}
+              />
+              <ModelSelector
+                models={MODELS}
+                selected={selectedModels}
+                onChange={handleModelChange}
               />
               <InsightsTable
                 models={MODELS}

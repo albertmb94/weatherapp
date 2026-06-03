@@ -63,7 +63,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
     } finally {
       if (!signal.aborted) setLoading(false)
     }
-  }, [])
+  }, [locale])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
@@ -98,12 +98,12 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         </div>
       )}
       {isOpen && results.length > 0 && (
-        <ul className="absolute z-50 w-48 mt-1 bg-gray-900 border border-gray-800 rounded-md shadow-lg max-h-48 overflow-auto animate-fadeIn">
+        <ul className="absolute z-50 left-0 right-0 sm:w-48 mt-1 bg-gray-900 border border-gray-800 rounded-md shadow-lg max-h-48 overflow-auto animate-fadeIn">
           {results.map(r => (
             <li
               key={r.id}
               onClick={() => handleSelect(r)}
-              className="px-2 py-1.5 cursor-pointer hover:bg-gray-800 text-white text-xs transition-colors"
+              className="px-2 py-2.5 sm:py-1.5 cursor-pointer hover:bg-gray-800 text-white text-xs transition-colors"
             >
               <span>{r.name}</span>
               {r.country && <span className="text-gray-500">, {r.country}</span>}

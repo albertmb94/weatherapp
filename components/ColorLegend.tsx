@@ -31,8 +31,8 @@ export default function ColorLegend({ metric }: ColorLegendProps) {
   const unit = METRICS.find(m => m.id === metric)?.unit ?? ''
 
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className="relative h-3 w-56">
+    <div className="flex flex-col gap-0.5 max-w-[calc(100vw-40px)]">
+      <div className="relative h-3 w-56 max-w-full">
         <div
           className="absolute inset-0 rounded-sm"
           style={{ background: `linear-gradient(to right, ${gradient})` }}
@@ -48,7 +48,7 @@ export default function ColorLegend({ metric }: ColorLegendProps) {
           )
         })}
       </div>
-      <div className="relative h-3 w-56">
+      <div className="relative h-3 w-56 max-w-full">
         {stops.map((s, i) => {
           const pct = ((s.value - minVal) / range) * 100
           const align = i === 0 ? 'left-0' : i === stops.length - 1 ? 'right-0' : ''
@@ -64,7 +64,7 @@ export default function ColorLegend({ metric }: ColorLegendProps) {
           )
         })}
       </div>
-      <div className="text-[9px] text-gray-500 text-right w-56">{unit}</div>
+      <div className="text-[9px] text-gray-500 text-right w-56 max-w-full">{unit}</div>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { weightedAvg, contrastText } from '@/lib/ensemble'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
+import WeatherConditionIcon from './WeatherConditionIcon'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
 
@@ -251,7 +252,8 @@ export default function InsightsTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded border border-gray-800">
+      <div className="overflow-x-auto rounded border border-gray-800 relative">
+        <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-950 to-transparent pointer-events-none z-10 md:hidden" />
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
@@ -280,8 +282,8 @@ export default function InsightsTable({
                   <td className={`sticky left-0 px-2 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 ${isActive ? 'bg-blue-900/30' : 'bg-gray-950'}`}>
                     {r.label}
                   </td>
-                  <td className="text-center px-2 py-1.5 border-b border-gray-800/60 text-xs leading-none text-gray-500" title={r.icon}>
-                    –
+                  <td className="text-center px-2 py-1.5 border-b border-gray-800/60" title={r.icon}>
+                    <span className="inline-flex items-center justify-center"><WeatherConditionIcon icon={r.icon} size="sm" /></span>
                   </td>
                   <Cell value={r.tempMean} metric="temperature" suffix="°" />
                   <Cell value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} hideOnMobile="md" />

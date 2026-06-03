@@ -234,38 +234,45 @@ export default function MapPicker({
 
     const canvas = canvasRef.current
     const container = mapInstance.getContainer()
+    const dpr = window.devicePixelRatio || 1
     const width = container.clientWidth
     const height = container.clientHeight
 
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width
-      canvas.height = height
+    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+      canvas.width = width * dpr
+      canvas.height = height * dpr
+      canvas.style.width = `${width}px`
+      canvas.style.height = `${height}px`
     }
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    ctx.clearRect(0, 0, width, height)
+    const cw = width * dpr
+    const ch = height * dpr
+    ctx.clearRect(0, 0, cw, ch)
 
     const realIdx = hourIndex + nowOffset
     const values = gridSeries.map(series => series?.[realIdx] ?? null)
     const allNull = values.every(v => v === null)
     if (allNull) return
 
-    const step = 4
-    const imageData = ctx.createImageData(width, height)
+    const step = Math.max(1, Math.round(4 * dpr))
+    const imageData = ctx.createImageData(cw, ch)
     const data = imageData.data
 
-    for (let y = 0; y < height; y += step) {
-      for (let x = 0; x < width; x += step) {
-        const latLng = mapInstance.containerPointToLatLng(L.point(x, y))
+    for (let py = 0; py < ch; py += step) {
+      for (let px = 0; px < cw; px += step) {
+        const containerX = px / dpr
+        const containerY = py / dpr
+        const latLng = mapInstance.containerPointToLatLng(L.point(containerX, containerY))
         const value = bilinearInterpolate(latLng.lat, latLng.lng, gridCells, values as number[], HEATMAP_ROWS, HEATMAP_COLS)
         const color = getColor(effectiveMetric, value)
         const [r, g, b] = parseColor(color)
 
-        for (let dy = 0; dy < step && y + dy < height; dy++) {
-          for (let dx = 0; dx < step && x + dx < width; dx++) {
-            const idx = ((y + dy) * width + (x + dx)) * 4
+        for (let dy = 0; dy < step && py + dy < ch; dy++) {
+          for (let dx = 0; dx < step && px + dx < cw; dx++) {
+            const idx = ((py + dy) * cw + (px + dx)) * 4
             data[idx] = r
             data[idx + 1] = g
             data[idx + 2] = b

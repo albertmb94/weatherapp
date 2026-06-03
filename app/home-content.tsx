@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
+import { useSwipeGesture } from '@/lib/useSwipeGesture'
 import CitySearch from '@/components/CitySearch'
 import MetricPills from '@/components/MetricPills'
 import ModelSelector from '@/components/ModelSelector'
@@ -17,7 +18,7 @@ import { MODELS, METRICS, type MetricId } from '@/lib/models'
 import { fetchForecast, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
-import { STRINGS, type Locale } from '@/lib/i18n'
+import { STRINGS } from '@/lib/i18n'
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -87,7 +88,7 @@ export default function HomeContent() {
     if (urlState.locale && urlState.locale !== locale) {
       toggleLocale()
     }
-  }, [])
+  }, [urlState.locale, locale, toggleLocale])
 
   useEffect(() => {
     if (!toast) return
@@ -211,10 +212,13 @@ export default function HomeContent() {
         updateUrl({ lat, lon })
         setGeoLoading(false)
       },
-      () => setGeoLoading(false),
+      () => {
+        setGeoLoading(false)
+        setToast(locale === 'en' ? 'Location access denied' : 'Acceso a ubicación denegado')
+      },
       { enableHighAccuracy: false, timeout: 5000 }
     )
-  }, [updateUrl])
+  }, [updateUrl, locale])
 
   const legendMetric: Exclude<MetricId, 'all'> = selectedMetric === 'all' ? 'temperature' : selectedMetric
 
@@ -258,6 +262,12 @@ export default function HomeContent() {
   const jumpToNow = useCallback(() => {
     handleHourChange(0)
   }, [handleHourChange])
+
+  const swipeRef = useSwipeGesture<HTMLDivElement>({
+    onSwipeLeft: () => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1)),
+    onSwipeRight: () => handleHourChange(Math.max(0, selectedHour - 1)),
+    threshold: 50,
+  })
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -371,12 +381,15 @@ export default function HomeContent() {
         </div>
 
         <div className="flex md:hidden mt-1.5 items-center gap-x-3 gap-y-1 flex-wrap">
-          <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
           <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden mt-2 pt-2 border-t border-gray-800 space-y-2 animate-fadeIn">
+          <div className="md:hidden mt-2 pt-2 border-t border-gray-800 space-y-3 animate-fadeIn">
+            <div>
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Metric</span>
+              <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleRadarToggle}
@@ -472,7 +485,7 @@ export default function HomeContent() {
           </div>
         )}
 
-        <div className="p-3">
+        <div className="p-3" ref={swipeRef}>
           {isLoading && (
             <div className="flex items-center justify-center h-40">
               <div className="w-5 h-5 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
@@ -535,7 +548,7 @@ export default function HomeContent() {
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2000] bg-gray-800/95 border border-gray-700 text-white text-xs px-3 py-1.5 rounded-md shadow-lg animate-fadeIn">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2000] bg-gray-800/95 border border-gray-700 text-white text-xs px-3 py-1.5 rounded-md shadow-lg animate-fadeIn" style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
           {toast}
         </div>
       )}

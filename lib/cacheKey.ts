@@ -9,7 +9,7 @@
  *   set so the order in the URL doesn't matter.
  * - All other params are sorted alphabetically.
  */
-const LATLON_DECIMALS = 1
+const LATLON_DECIMALS = 2
 const SKIP_PARAMS = new Set(['timezone'])
 
 function roundCoord(s: string): string {

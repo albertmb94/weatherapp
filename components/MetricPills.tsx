@@ -72,7 +72,7 @@ export default function MetricPills({ metrics, selected, onChange }: MetricPills
           <button
             key={m.id}
             onClick={() => onChange(m.id as MetricId)}
-            className={`px-1.5 py-1 rounded text-xs font-medium transition-all cursor-pointer flex items-center justify-center ${
+            className={`min-w-[44px] min-h-[44px] px-1.5 py-1 rounded text-xs font-medium transition-all cursor-pointer flex items-center justify-center ${
               active
                 ? 'bg-white/10 text-white'
                 : 'text-gray-500 hover:text-gray-300'

@@ -21,6 +21,9 @@ export const STRINGS: Record<Locale, {
   tablePrecip: string
   tableHumidity: string
   tableUv: string
+  tablePressure: string
+  tableDewpoint: string
+  tableVisibility: string
   dailyTitle: string
   insightsTitle: string
   loadingForecast: string
@@ -52,6 +55,9 @@ export const STRINGS: Record<Locale, {
     tablePrecip: 'Lluvia mm',
     tableHumidity: 'Humedad %',
     tableUv: 'UV',
+    tablePressure: 'Pres hPa',
+    tableDewpoint: 'Rocío °C',
+    tableVisibility: 'Vis km',
     dailyTitle: 'Resumen diario (ensemble)',
     insightsTitle: 'Insights',
     loadingForecast: 'Cargando previsión…',
@@ -83,6 +89,9 @@ export const STRINGS: Record<Locale, {
     tablePrecip: 'Rain mm',
     tableHumidity: 'Humidity %',
     tableUv: 'UV',
+    tablePressure: 'Pres hPa',
+    tableDewpoint: 'Dew °C',
+    tableVisibility: 'Vis km',
     dailyTitle: 'Daily summary (ensemble)',
     insightsTitle: 'Insights',
     loadingForecast: 'Loading forecast…',

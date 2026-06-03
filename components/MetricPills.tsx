@@ -61,6 +61,26 @@ const ICONS: Record<MetricId, React.ReactNode> = {
       <path d="M8 1.5v2M8 12.5v2M3 3l1 1M12 12l1 1M1.5 8h2M12.5 8h2M4 12l-1 1M13 3l-1 1" strokeOpacity={0.7} />
     </svg>
   ),
+  pressure: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 4v4l2.5 2.5" />
+      <path d="M5 13l-1 1M11 13l1 1" strokeOpacity={0.7} />
+    </svg>
+  ),
+  dewpoint: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M8 2C8 2 4 6 4 9a4 4 0 0 0 8 0c0-3-4-7-4-7z" />
+      <path d="M6 9.5c0 1.5 1.5 2.5 2 2.5" strokeOpacity={0.5} />
+      <circle cx="12" cy="4" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  visibility: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" />
+      <circle cx="8" cy="8" r="2" />
+    </svg>
+  ),
 }
 
 export default function MetricPills({ metrics, selected, onChange }: MetricPillsProps) {

@@ -5,6 +5,11 @@
   --foreground: #ededed;
 }
 
+html.light {
+  --background: #f8f9fa;
+  --foreground: #1a1a2e;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -104,4 +109,16 @@ input[type="range"]::-moz-range-thumb {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
+}
+
+html.light .leaflet-container {
+  background: #e5e7eb;
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #e5e7eb;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #9ca3af;
 }

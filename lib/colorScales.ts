@@ -56,6 +56,26 @@ export const SCALES: Record<ScaleMetric, ColorStop[]> = {
     { value: 8, color: [255, 60, 60] },
     { value: 11, color: [180, 40, 150] },
   ],
+  pressure: [
+    { value: 980, color: [100, 0, 200] },
+    { value: 1000, color: [0, 100, 255] },
+    { value: 1013, color: [0, 200, 100] },
+    { value: 1025, color: [255, 200, 0] },
+    { value: 1045, color: [255, 60, 0] },
+  ],
+  dewpoint: [
+    { value: -10, color: [200, 200, 255] },
+    { value: 5, color: [100, 200, 100] },
+    { value: 15, color: [255, 255, 100] },
+    { value: 25, color: [255, 100, 50] },
+  ],
+  visibility: [
+    { value: 0, color: [200, 0, 0] },
+    { value: 2, color: [255, 150, 0] },
+    { value: 5, color: [255, 255, 0] },
+    { value: 15, color: [0, 200, 100] },
+    { value: 30, color: [0, 150, 255] },
+  ],
 }
 
 function lerp(a: number, b: number, t: number): number {

@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getSavedLocations, saveLocation, deleteLocation } from '@/lib/locations'
+import { rateLimit } from '@/lib/rateLimit'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!rateLimit(`locations:${ip}`, 30)) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+  }
   try {
     const locations = await getSavedLocations()
     return NextResponse.json(locations)

@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useLocale } from '@/lib/LocaleContext'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 
 interface GeocodeResult {
   id: number
@@ -19,11 +21,9 @@ interface CitySearchProps {
 export default function CitySearch({ onSelect }: CitySearchProps) {
   const { locale } = useLocale()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<GeocodeResult[]>([])
-  const [loading, setLoading] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
-  const abortRef = useRef<AbortController | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -33,52 +33,52 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      if (abortRef.current) abortRef.current.abort()
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const search = useCallback(async (q: string, signal: AbortSignal) => {
-    if (q.length < 2) {
-      setResults([])
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (query.length < 2) {
+      debounceRef.current = setTimeout(() => setDebouncedQuery(''), 150)
       return
     }
-    setLoading(true)
-    try {
+    debounceRef.current = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [query])
+
+  const { data: results = [], isFetching } = useQuery<GeocodeResult[]>({
+    queryKey: ['geocode', debouncedQuery, locale],
+    queryFn: async ({ signal }) => {
       const params = new URLSearchParams({
-        name: q,
+        name: debouncedQuery,
         count: '5',
         language: locale === 'en' ? 'en' : 'es',
         format: 'json',
       })
-      const res = await fetch(`/api/geocode?${params}`, { signal })
-      if (!res.ok) return
+      const res = await fetchWithTimeout(`/api/geocode?${params}`, { signal, timeoutMs: 8000 })
+      if (!res.ok) return []
       const data = await res.json()
-      if (signal.aborted) return
-      setResults(data.results ?? [])
-      setIsOpen(true)
-    } catch {
-      if (!signal.aborted) setResults([])
-    } finally {
-      if (!signal.aborted) setLoading(false)
-    }
-  }, [locale])
+      const r = data.results ?? []
+      if (r.length > 0) setIsOpen(true)
+      return r
+    },
+    enabled: debouncedQuery.length >= 2,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  })
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     setQuery(val)
-    if (abortRef.current) abortRef.current.abort()
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    const controller = new AbortController()
-    abortRef.current = controller
-    debounceRef.current = setTimeout(() => search(val, controller.signal), 300)
+    if (val.length < 2) {
+      setIsOpen(false)
+    }
   }
 
   function handleSelect(r: GeocodeResult) {
     setQuery(r.name)
     setIsOpen(false)
-    if (abortRef.current) abortRef.current.abort()
     onSelect(r.name, r.latitude, r.longitude)
   }
 
@@ -92,7 +92,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         placeholder="Search..."
         className="w-36 px-2 py-1 bg-transparent text-white text-xs placeholder-gray-600 focus:outline-none focus:placeholder-gray-400 border-b border-transparent focus:border-blue-500/40 transition-colors"
       />
-      {loading && (
+      {isFetching && (
         <div className="absolute right-1 top-1.5">
           <div className="w-2.5 h-2.5 border border-gray-500 border-t-transparent rounded-full animate-spin" />
         </div>

@@ -18,7 +18,9 @@ import { MODELS, METRICS, type MetricId } from '@/lib/models'
 import { fetchForecast, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
+import { useTheme } from '@/lib/ThemeContext'
 import { STRINGS } from '@/lib/i18n'
+import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -67,6 +69,7 @@ export default function HomeContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
+  const { theme, toggleTheme } = useTheme()
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -354,6 +357,48 @@ export default function HomeContent() {
             >
               Save
             </button>
+            {viewData && (
+              <button
+                onClick={() => {
+                  const csv = exportForecastCsv(MODELS, viewData.time, viewData.series, effectiveMaxHours)
+                  downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
+                }}
+                className="min-h-[32px] px-2 rounded text-[11px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer"
+                title="Export forecast to CSV"
+              >
+                CSV
+              </button>
+            )}
+            {typeof navigator !== 'undefined' && 'share' in navigator && viewData && (
+              <button
+                onClick={() => {
+                  navigator.share({
+                    title: `Weather ${cityName}`,
+                    url: window.location.href,
+                  }).catch(() => {})
+                }}
+                className="min-h-[32px] px-2 rounded text-[11px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer"
+                title="Share"
+              >
+                Share
+              </button>
+            )}
+            <button
+              onClick={toggleTheme}
+              className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
             <button
               onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
               className="min-h-[32px] px-2 rounded text-[11px] font-semibold text-gray-400 hover:text-white transition-colors cursor-pointer tracking-wider"
@@ -406,7 +451,33 @@ export default function HomeContent() {
               >
                 Save
               </button>
+              {viewData && (
+                <button
+                  onClick={() => {
+                    const csv = exportForecastCsv(MODELS, viewData.time, viewData.series, effectiveMaxHours)
+                    downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
+                  }}
+                  className="min-h-[36px] px-3 rounded text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700 cursor-pointer"
+                >
+                  CSV
+                </button>
+              )}
               <RefreshButton />
+              <button
+                onClick={toggleTheme}
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center bg-gray-800 text-gray-400 border border-gray-700 rounded cursor-pointer"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
               <button
                 onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
                 className="min-h-[36px] px-3 rounded text-xs font-semibold bg-gray-800 text-gray-400 border border-gray-700 cursor-pointer tracking-wider"

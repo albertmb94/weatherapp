@@ -1,5 +1,6 @@
 import type { WeatherModel, Metric, MetricId } from './models'
 import { METRICS, MODELS } from './models'
+import { fetchWithTimeout } from './fetchWithTimeout'
 
 const MAX_FORECAST_MODELS = 6
 const MAX_HEATMAP_MODELS = 4
@@ -58,7 +59,7 @@ export async function fetchForecast(
     timezone: 'auto',
   })
 
-  const res = await fetch(`/api/forecast?${params}`, { signal })
+  const res = await fetchWithTimeout(`/api/forecast?${params}`, { signal, timeoutMs: 20_000 })
   if (!res.ok) throw new Error(`Forecast API error: ${res.status}`)
   const data = await res.json()
 
@@ -126,7 +127,7 @@ export async function fetchHeatmapGrid(
     timezone: 'auto',
   })
 
-  const res = await fetch(`/api/forecast?${params}`, { signal })
+  const res = await fetchWithTimeout(`/api/forecast?${params}`, { signal, timeoutMs: 25_000 })
   if (!res.ok) throw new Error(`Heatmap API error: ${res.status}`)
   const data = await res.json()
 

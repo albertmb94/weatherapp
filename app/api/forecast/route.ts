@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { buildForecastCacheKey } from '@/lib/cacheKey'
 import { getCachedForecast, getCachedForecastStale, setCachedForecast } from '@/lib/forecastCache'
+import { rateLimit } from '@/lib/rateLimit'
 
 // Open-Meteo can emit invalid JSON when a model has no coverage for a
 // requested location: bare `nan`, `NaN`, `undefined`, or `Infinity` literals
@@ -44,6 +45,12 @@ async function fetchWithRetry(url: string): Promise<Response> {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!rateLimit(`forecast:${ip}`, 60)) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+  }
+
   const cacheKey = buildForecastCacheKey(searchParams)
 
   // Cache lookup.

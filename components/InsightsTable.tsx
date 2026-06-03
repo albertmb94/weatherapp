@@ -38,6 +38,9 @@ interface Row {
   precipSum: number | null
   humidityMean: number | null
   uvIndexMean: number | null
+  pressureMean: number | null
+  dewpointMean: number | null
+  visibilityMean: number | null
   icon: WeatherIconId
 }
 const BUCKET_OPTIONS: BucketHours[] = [1, 2, 3, 4, 6, 12, 24]
@@ -129,6 +132,7 @@ export default function InsightsTable({
             tempMean: null, tempMin: null, tempMax: null,
             cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
             humidityMean: null, uvIndexMean: null,
+            pressureMean: null, dewpointMean: null, visibilityMean: null,
             icon: 'sunny',
           }
           currentKey = key
@@ -155,6 +159,7 @@ export default function InsightsTable({
           tempMean: null, tempMin: null, tempMax: null,
           cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
           humidityMean: null, uvIndexMean: null,
+          pressureMean: null, dewpointMean: null, visibilityMean: null,
           icon: 'sunny',
         })
         cursor = end + 1
@@ -167,6 +172,9 @@ export default function InsightsTable({
       let wSum = 0, wCount = 0
       let hSum = 0, hCount = 0
       let uSum = 0, uCount = 0
+      let prSum = 0, prCount = 0
+      let dpSum = 0, dpCount = 0
+      let visSum = 0, visCount = 0
       let dirCos = 0, dirSin = 0, dirCount = 0
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         const tVals = activeModels.map(m => series[m.id]?.['temperature']?.[i] ?? null)
@@ -195,6 +203,15 @@ export default function InsightsTable({
         const uVals = activeModels.map(m => series[m.id]?.['uv_index']?.[i] ?? null)
         const uEns = weightedAvg(uVals, weights)
         if (uEns !== null) { uSum += uEns; uCount += 1 }
+        const prVals = activeModels.map(m => series[m.id]?.['pressure']?.[i] ?? null)
+        const prEns = weightedAvg(prVals, weights)
+        if (prEns !== null) { prSum += prEns; prCount += 1 }
+        const dpVals = activeModels.map(m => series[m.id]?.['dewpoint']?.[i] ?? null)
+        const dpEns = weightedAvg(dpVals, weights)
+        if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
+        const visVals = activeModels.map(m => series[m.id]?.['visibility']?.[i] ?? null)
+        const visEns = weightedAvg(visVals, weights)
+        if (visEns !== null) { visSum += visEns; visCount += 1 }
         // Circular mean of wind direction: average sin/cos across models,
         // weighted by model weight, then accumulate per hour.
         let hCos = 0, hSin = 0, hW = 0
@@ -217,6 +234,9 @@ export default function InsightsTable({
       b.windMean = wCount > 0 ? wSum / wCount : null
       b.humidityMean = hCount > 0 ? hSum / hCount : null
       b.uvIndexMean = uCount > 0 ? uSum / uCount : null
+      b.pressureMean = prCount > 0 ? prSum / prCount : null
+      b.dewpointMean = dpCount > 0 ? dpSum / dpCount : null
+      b.visibilityMean = visCount > 0 ? visSum / visCount : null
       b.windDirection = dirCount > 0
         ? ((Math.atan2(dirSin, dirCos) * 180) / Math.PI + 360) % 360
         : null
@@ -268,6 +288,9 @@ export default function InsightsTable({
               <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tablePrecip}</th>
               <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableHumidity}</th>
               <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableUv}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden lg:table-cell">{STRINGS[locale].tablePressure}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden lg:table-cell">{STRINGS[locale].tableDewpoint}</th>
+              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden lg:table-cell">{STRINGS[locale].tableVisibility}</th>
             </tr>
           </thead>
           <tbody>
@@ -294,6 +317,9 @@ export default function InsightsTable({
                   <Cell value={r.precipSum} metric="precipitation" decimals={1} />
                   <Cell value={r.humidityMean} metric="humidity" suffix="%" />
                   <Cell value={r.uvIndexMean} metric="uv_index" decimals={1} />
+                  <Cell value={r.pressureMean} metric="pressure" decimals={0} hideOnMobile="lg" />
+                  <Cell value={r.dewpointMean} metric="dewpoint" suffix="°" decimals={1} hideOnMobile="lg" />
+                  <Cell value={r.visibilityMean} metric="visibility" suffix="km" decimals={1} hideOnMobile="lg" />
                 </tr>
               )
             })}
@@ -306,13 +332,13 @@ export default function InsightsTable({
 
 interface CellProps {
   value: number | null
-  metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index'
+  metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility'
   suffix?: string
   emoji?: string
   icon?: React.ReactNode
   decimals?: number
   tooltip?: string
-  hideOnMobile?: 'sm' | 'md'
+  hideOnMobile?: 'sm' | 'md' | 'lg'
 }
 
 function Cell({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip, hideOnMobile }: CellProps) {
@@ -321,7 +347,7 @@ function Cell({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tool
   const display = value !== null
     ? (decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString())
     : '–'
-  const hideClass = hideOnMobile ? `hidden ${hideOnMobile === 'md' ? 'md:table-cell' : 'sm:table-cell'}` : ''
+  const hideClass = hideOnMobile ? `hidden ${hideOnMobile === 'md' ? 'md:table-cell' : hideOnMobile === 'lg' ? 'lg:table-cell' : 'sm:table-cell'}` : ''
   return (
     <td
       className={`text-center px-2 py-1.5 border-b border-gray-800/60 font-mono ${hideClass}`}

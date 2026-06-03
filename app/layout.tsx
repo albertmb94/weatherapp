@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ConnectionStatus from "@/components/ConnectionStatus";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,6 +18,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Weather Model Comparison",
   description: "Compare multiple weather models side by side",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Weather",
+  },
 };
 
 export const viewport: Viewport = {
@@ -24,6 +31,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
@@ -36,10 +44,21 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      </head>
       <body className="min-h-full flex flex-col">
         <ErrorBoundary>
+          <ConnectionStatus />
           <Providers>{children}</Providers>
         </ErrorBoundary>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,
+          }}
+        />
       </body>
     </html>
   );

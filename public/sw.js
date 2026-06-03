@@ -21,21 +21,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
 
-  // Network-first for API calls
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request)
-        .then((res) => {
-          if (res.ok) {
-            const clone = res.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
-          }
-          return res
-        })
-        .catch(() => caches.match(request))
-    )
-    return
-  }
+  // Never intercept API routes — let them pass through normally
+  if (url.pathname.startsWith('/api/')) return
+
+  // Only cache same-origin static assets
+  if (url.origin !== self.location.origin) return
 
   // Stale-while-revalidate for static assets
   event.respondWith(

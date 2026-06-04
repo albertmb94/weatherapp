@@ -18,7 +18,7 @@ function parseItem(item: string): MeteoclimaticObservation | null {
   const titleMatch = item.match(/<title>(.*?)<\/title>/)
   const pointMatch = item.match(/<georss:point>(.*?)<\/georss:point>/)
   const dateMatch = item.match(/<pubDate>(.*?)<\/pubDate>/)
-  const dataMatch = item.match(/\[\[<(.*?)>\]\]/)
+  const dataMatch = item.match(/\[\[<([A-Za-z0-9]+;\(.*?)>\]\]/)
 
   if (!dataMatch) return null
 

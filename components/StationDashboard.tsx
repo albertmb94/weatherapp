@@ -34,28 +34,29 @@ function mapAemet(s: AemetRaw): MeteoclimaticObservation {
     condition: '',
     humidity: { current: n(s.hr), max: null, min: null },
     pressure: { current: null, max: null, min: null },
-    wind: {
-      speed: n(s.vv), gust: n(s.vmax),
-      bearing: dv,
-      direction: dv != null ? bearingToDir(dv) : '',
-    },
+    wind: { speed: n(s.vv), gust: n(s.vmax), bearing: dv, direction: dv != null ? bearingToDir(dv) : '' },
     precipitation: n(s.prec),
   }
+}
+
+const METEOCLIMATIC_MAP: Record<string, string> = {
+  BCN: 'ESCAT08', LLE: 'ESCAT25', GIR: 'ESCAT17', TAR: 'ESCAT43',
+  CAT: 'ESCAT', MAD: 'ESMAD', VLC: 'ESPVA', BCN_C: 'ESCAT08',
 }
 
 export default function StationDashboard() {
   const [region, setRegion] = useState(REGIONS[0].code)
   const [search, setSearch] = useState('')
+  const [includeMeteo, setIncludeMeteo] = useState(false)
 
-  const { data, isLoading, error, refetch } = useQuery<MeteoclimaticObservation[]>({
+  const aemetQ = useQuery<MeteoclimaticObservation[]>({
     queryKey: ['aemet-stations'],
     queryFn: async () => {
       const res = await fetch('/api/aemet')
       const body = await res.json()
       if (!res.ok || body.error) throw new Error(body.detail || body.error || `HTTP ${res.status}`)
-      const raw: AemetRaw[] = body.stations
       const seen = new Map<string, MeteoclimaticObservation>()
-      for (const s of raw) {
+      for (const s of body.stations as AemetRaw[]) {
         if (!seen.has(s.idema)) seen.set(s.idema, mapAemet(s))
       }
       return [...seen.values()]
@@ -66,12 +67,41 @@ export default function StationDashboard() {
     retryDelay: 5000,
   })
 
-  const stations = data ?? []
+  const meteoCode = METEOCLIMATIC_MAP[region] ?? 'ESCAT08'
+
+  const meteoQ = useQuery<MeteoclimaticObservation[]>({
+    queryKey: ['meteoclimatic', meteoCode],
+    queryFn: async () => {
+      const res = await fetch(`/api/meteoclimatic?station=${meteoCode}`)
+      const body = await res.json()
+      if (!res.ok || body.error) throw new Error(body.detail || body.error || `HTTP ${res.status}`)
+      return body.stations
+    },
+    enabled: includeMeteo,
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    retry: 1,
+    retryDelay: 3000,
+  })
+
+  const allStations = useMemo(() => {
+    const aemet = aemetQ.data ?? []
+    const meteo = includeMeteo ? (meteoQ.data ?? []) : []
+    const seen = new Map<string, MeteoclimaticObservation>()
+    for (const s of aemet) seen.set('A-' + s.code, s)
+    for (const s of meteo) {
+      const key = 'M-' + s.code
+      if (!seen.has(key) && !Array.from(seen.values()).some(v => Math.abs(v.lat - s.lat) < 0.01 && Math.abs(v.lon - s.lon) < 0.01)) {
+        seen.set(key, s)
+      }
+    }
+    return [...seen.values()]
+  }, [aemetQ.data, meteoQ.data, includeMeteo])
 
   const regionBounds = REGIONS.find(r => r.code === region) ?? REGIONS[0]
 
   const filtered = useMemo(() => {
-    let result = stations.filter(s =>
+    let result = allStations.filter(s =>
       s.lat >= regionBounds.latMin && s.lat <= regionBounds.latMax &&
       s.lon >= regionBounds.lonMin && s.lon <= regionBounds.lonMax
     )
@@ -80,7 +110,10 @@ export default function StationDashboard() {
       result = result.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
     }
     return result
-  }, [stations, region, search, regionBounds])
+  }, [allStations, region, search, regionBounds])
+
+  const isLoading = aemetQ.isLoading || (includeMeteo && meteoQ.isLoading)
+  const error = aemetQ.error || (includeMeteo && meteoQ.error)
 
   return (
     <div className="flex flex-col gap-3 animate-fadeIn">
@@ -100,13 +133,22 @@ export default function StationDashboard() {
           placeholder="Buscar..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2 py-1.5 w-40
+          className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2 py-1.5 w-36
                      focus:outline-none focus:border-gray-600 placeholder-gray-600"
         />
+        <label className="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={includeMeteo}
+            onChange={e => setIncludeMeteo(e.target.checked)}
+            className="rounded border-gray-700 bg-gray-900 text-blue-500 focus:ring-gray-600 w-3 h-3"
+          />
+          Meteoclimatic
+        </label>
         <div className="flex-1" />
-        <span className="text-[10px] text-gray-600">{filtered.length} estaciones</span>
+        <span className="text-[10px] text-gray-600">{filtered.length}</span>
         <button
-          onClick={() => refetch()}
+          onClick={() => { aemetQ.refetch(); if (includeMeteo) meteoQ.refetch() }}
           disabled={isLoading}
           className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors cursor-pointer disabled:opacity-50"
         >
@@ -129,20 +171,22 @@ export default function StationDashboard() {
         <div className="text-center py-6">
           <p className="text-sm text-red-400">Error al cargar estaciones</p>
           <p className="text-xs text-gray-500 mt-1">{(error as Error).message}</p>
-          <button onClick={() => refetch()} className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer">
+          <button onClick={() => aemetQ.refetch()} className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer">
             Reintentar
           </button>
         </div>
       )}
 
-      {!isLoading && !error && filtered.length === 0 && stations.length > 0 && (
-        <p className="text-xs text-gray-500 text-center py-4">Sin resultados para &quot;{search}&quot;</p>
+      {!isLoading && filtered.length === 0 && (
+        <p className="text-xs text-gray-500 text-center py-4">
+          {search ? `Sin resultados para "${search}"` : 'Sin estaciones en esta región'}
+        </p>
       )}
 
       {filtered.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
           {filtered.map(s => (
-            <StationCard key={s.code} station={s} />
+            <StationCard key={s.code + s.name} station={s} />
           ))}
         </div>
       )}

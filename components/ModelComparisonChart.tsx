@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback, useState } from 'react'
+import { useMemo, useCallback, useState, useEffect } from 'react'
 import type { WeatherModel, MetricId } from '@/lib/models'
 import { METRICS } from '@/lib/models'
 import {
@@ -37,6 +37,8 @@ export default function ModelComparisonChart({
   maxHours,
 }: ModelComparisonChartProps) {
   const [localHover, setLocalHover] = useState<number | null>(null)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
   const activeHour = localHover ?? hoveredHour
 
   const displayTimes = times.slice(0, maxHours)
@@ -126,7 +128,7 @@ export default function ModelComparisonChart({
         Multi-model comparison — {METRICS.find(m => m.id === displayMetric)?.label}
       </h3>
       <div className="h-56 sm:h-64 w-full min-w-[300px]">
-        <ResponsiveContainer width="100%" height="100%" debounce={1}>
+        {mounted && <ResponsiveContainer width="100%" height="100%" debounce={1}>
           <ComposedChart
             data={chartData}
             onMouseMove={handleChartHover}
@@ -183,7 +185,7 @@ export default function ModelComparisonChart({
               />
             ))}
           </ComposedChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer>}
       </div>
     </div>
   )

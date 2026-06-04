@@ -11,14 +11,19 @@ export async function GET(request: Request) {
 
   try {
     const stations = await fetchStationData(station)
-    return NextResponse.json({
-      stations,
-      fetchedAt: new Date().toISOString(),
-    })
-  } catch (err) {
-    console.error('Meteoclimatic API error:', err instanceof Error ? err.message : err)
     return NextResponse.json(
-      { error: 'Failed to fetch Meteoclimatic data' },
+      { stations, fetchedAt: new Date().toISOString() },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+        },
+      }
+    )
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Meteoclimatic API error:', message)
+    return NextResponse.json(
+      { error: 'Failed to fetch Meteoclimatic data', detail: message },
       { status: 502 }
     )
   }

@@ -95,15 +95,13 @@ export function parseRss(xml: string): MeteoclimaticObservation[] {
 export async function fetchStationData(stationCode: string): Promise<MeteoclimaticObservation[]> {
   const url = `https://meteoclimatic.net/feed/rss/${stationCode}`
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
 
   if (!response.ok) {
     throw new Error(`Meteoclimatic fetch failed: ${response.status}`)
   }
 
-  const buffer = await response.arrayBuffer()
-  const decoder = new TextDecoder('iso-8859-15')
-  const xml = decoder.decode(buffer)
+  const xml = await response.text()
 
   return parseRss(xml)
 }

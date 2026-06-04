@@ -37,8 +37,11 @@ export default function ModelComparisonChart({
   maxHours,
 }: ModelComparisonChartProps) {
   const [localHover, setLocalHover] = useState<number | null>(null)
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  const [renderChart, setRenderChart] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setRenderChart(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
   const activeHour = localHover ?? hoveredHour
 
   const displayTimes = times.slice(0, maxHours)
@@ -128,7 +131,7 @@ export default function ModelComparisonChart({
         Multi-model comparison — {METRICS.find(m => m.id === displayMetric)?.label}
       </h3>
       <div className="h-56 sm:h-64 w-full min-w-[300px]">
-        {mounted && <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={224} debounce={1}>
+        {renderChart && <ResponsiveContainer width="100%" height="100%" debounce={1}>
           <ComposedChart
             data={chartData}
             onMouseMove={handleChartHover}

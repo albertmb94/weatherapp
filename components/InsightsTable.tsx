@@ -450,7 +450,7 @@ export default function InsightsTable({
                   {colDefs.map(col => (
                     <td
                       key={col.id}
-                      className={col.hideOnMobile ? `hidden ${col.hideOnMobile}:table-cell` : undefined}
+                      className={`text-center px-2 py-1.5 border-b border-gray-800/60 ${col.hideOnMobile ? `hidden ${col.hideOnMobile}:table-cell` : ''}`}
                     >
                       <CellContent id={col.id} r={r} />
                     </td>

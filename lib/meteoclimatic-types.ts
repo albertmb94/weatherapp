@@ -37,26 +37,19 @@ export interface MeteoclimaticResponse {
 export interface RegionOption {
   code: string
   label: string
+  latMin: number
+  latMax: number
+  lonMin: number
+  lonMax: number
 }
 
 export const REGIONS: RegionOption[] = [
-  { code: 'ESCAT08', label: 'Barcelona' },
-  { code: 'ESCAT25', label: 'Lleida' },
-  { code: 'ESCAT17', label: 'Girona' },
-  { code: 'ESCAT43', label: 'Tarragona' },
-  { code: 'ESCAT', label: 'Catalunya' },
-  { code: 'ESPVA', label: 'Comunitat Valenciana' },
-  { code: 'ESMUR', label: 'Murcia' },
-  { code: 'ESMAD', label: 'Madrid' },
-  { code: 'ESAND', label: 'Andalucía' },
-  { code: 'ESGAL', label: 'Galicia' },
-  { code: 'ESEUS', label: 'Euskadi' },
-  { code: 'ESCTB', label: 'Cantabria' },
-  { code: 'ESAST', label: 'Asturias' },
-  { code: 'ESARA', label: 'Aragón' },
-  { code: 'ESCLM', label: 'Castilla-La Mancha' },
-  { code: 'ESCYL', label: 'Castilla y León' },
-  { code: 'ESEXT', label: 'Extremadura' },
-  { code: 'ESIB', label: 'Illes Balears' },
-  { code: 'ESIC', label: 'Canarias' },
+  { code: 'BCN', label: 'Barcelona', latMin: 41.2, latMax: 42.1, lonMin: 1.4, lonMax: 2.3 },
+  { code: 'LLE', label: 'Lleida', latMin: 41.2, latMax: 42.9, lonMin: 0.5, lonMax: 1.8 },
+  { code: 'GIR', label: 'Girona', latMin: 41.7, latMax: 42.5, lonMin: 2.3, lonMax: 3.3 },
+  { code: 'TAR', label: 'Tarragona', latMin: 40.7, latMax: 41.7, lonMin: 0.2, lonMax: 1.8 },
+  { code: 'CAT', label: 'Catalunya', latMin: 40.7, latMax: 42.9, lonMin: 0.2, lonMax: 3.3 },
+  { code: 'MAD', label: 'Madrid', latMin: 39.9, latMax: 41.1, lonMin: -4.4, lonMax: -3.0 },
+  { code: 'VLC', label: 'València', latMin: 38.0, latMax: 40.1, lonMin: -1.2, lonMax: 1.0 },
+  { code: 'BCN_C', label: 'Barcelona Capital', latMin: 41.32, latMax: 41.47, lonMin: 2.07, lonMax: 2.23 },
 ]

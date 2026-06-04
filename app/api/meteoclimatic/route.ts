@@ -10,15 +10,24 @@ export async function GET(request: Request) {
   }
 
   try {
-    const stations = await fetchStationData(station)
-    return NextResponse.json(
-      { stations, fetchedAt: new Date().toISOString() },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
-        },
+    let lastErr: unknown
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const stations = await fetchStationData(station)
+        return NextResponse.json(
+          { stations, fetchedAt: new Date().toISOString() },
+          {
+            headers: {
+              'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+            },
+          }
+        )
+      } catch (err) {
+        lastErr = err
+        if (attempt === 0) await new Promise(r => setTimeout(r, 1000))
       }
-    )
+    }
+    throw lastErr
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('Meteoclimatic API error:', message)

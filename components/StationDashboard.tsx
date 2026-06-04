@@ -14,11 +14,17 @@ export default function StationDashboard() {
     queryKey: ['meteoclimatic', region],
     queryFn: async () => {
       const res = await fetch(`/api/meteoclimatic?station=${region}`)
-      if (!res.ok) throw new Error('Failed to fetch')
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`
+        try { const body = await res.json(); if (body.detail) msg = body.detail } catch { /* ignore */ }
+        throw new Error(msg)
+      }
       return res.json()
     },
     refetchInterval: 5 * 60 * 1000,
     staleTime: 2 * 60 * 1000,
+    retry: 1,
+    retryDelay: 3000,
   })
 
   const handleRegionChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -68,6 +74,7 @@ export default function StationDashboard() {
       {error && (
         <div className="text-center py-8">
           <p className="text-sm text-red-400">Error al cargar datos de estaciones</p>
+          <p className="text-xs text-gray-500 mt-1">{(error as Error).message}</p>
           <button
             onClick={() => refetch()}
             className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"

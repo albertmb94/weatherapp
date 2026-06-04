@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback, useRef } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import { getColor } from '@/lib/colorScales'
 import { weightedAvg, contrastText } from '@/lib/ensemble'
@@ -43,12 +43,61 @@ interface Row {
   visibilityMean: number | null
   icon: WeatherIconId
 }
+
 const BUCKET_OPTIONS: BucketHours[] = [1, 2, 3, 4, 6, 12, 24]
 const BUCKET_LABELS: Record<BucketHours, string> = {
   1: '1h', 2: '2h', 3: '3h', 4: '4h', 6: '6h', 12: '12h', 24: '1d',
 }
 
+type MetricCellId =
+  | 'cond' | 'temp' | 'min' | 'max' | 'clouds'
+  | 'wind' | 'gusts' | 'precip' | 'humidity'
+  | 'uv' | 'pressure' | 'dewpoint' | 'visibility'
 
+interface MetricColumnDef {
+  id: MetricCellId
+  labelKey: keyof typeof STRINGS['en']
+  hideOnMobile?: 'md' | 'lg'
+}
+
+const METRIC_COLUMNS: MetricColumnDef[] = [
+  { id: 'cond', labelKey: 'tableCond' },
+  { id: 'temp', labelKey: 'tableTemp' },
+  { id: 'min', labelKey: 'tableMin', hideOnMobile: 'md' },
+  { id: 'max', labelKey: 'tableMax', hideOnMobile: 'md' },
+  { id: 'clouds', labelKey: 'tableClouds', hideOnMobile: 'md' },
+  { id: 'wind', labelKey: 'tableWind' },
+  { id: 'gusts', labelKey: 'tableGusts', hideOnMobile: 'md' },
+  { id: 'precip', labelKey: 'tablePrecip' },
+  { id: 'humidity', labelKey: 'tableHumidity' },
+  { id: 'uv', labelKey: 'tableUv' },
+  { id: 'pressure', labelKey: 'tablePressure', hideOnMobile: 'lg' },
+  { id: 'dewpoint', labelKey: 'tableDewpoint', hideOnMobile: 'lg' },
+  { id: 'visibility', labelKey: 'tableVisibility', hideOnMobile: 'lg' },
+]
+
+const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
+const STORAGE_KEY = 'insights-column-order'
+
+function loadColumnOrder(): MetricCellId[] {
+  if (typeof window === 'undefined') return DEFAULT_ORDER
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return DEFAULT_ORDER
+    const parsed = JSON.parse(raw) as string[]
+    const validIds = new Set<string>(DEFAULT_ORDER)
+    if (parsed.length === DEFAULT_ORDER.length && parsed.every(id => validIds.has(id))) {
+      return parsed as MetricCellId[]
+    }
+  } catch {}
+  return DEFAULT_ORDER
+}
+
+function saveColumnOrder(order: MetricCellId[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(order))
+  } catch {}
+}
 
 function tempEmoji(t: number | null): string {
   if (t === null) return ''
@@ -59,8 +108,6 @@ function tempEmoji(t: number | null): string {
 
 function WindArrow({ degrees }: { degrees: number | null }) {
   if (degrees === null) return null
-  // wind_direction is where wind comes FROM. Rotate +180° so the arrow
-  // points where the wind is GOING.
   const rot = (degrees + 180) % 360
   return (
     <svg
@@ -73,8 +120,6 @@ function WindArrow({ degrees }: { degrees: number | null }) {
     </svg>
   )
 }
-
-
 
 function bucketLabel(start: Date, bucket: BucketHours, locale: 'es' | 'en'): string {
   const today = new Date()
@@ -93,6 +138,37 @@ function bucketLabel(start: Date, bucket: BucketHours, locale: 'es' | 'en'): str
   return `${day} ${h0}–${h1}`
 }
 
+function CellContent({ id, r }: { id: MetricCellId; r: Row }) {
+  switch (id) {
+    case 'cond':
+      return <span className="inline-flex items-center justify-center"><WeatherConditionIcon icon={r.icon} size="sm" /></span>
+    case 'temp':
+      return <CellInner value={r.tempMean} metric="temperature" suffix="°" />
+    case 'min':
+      return <CellInner value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} />
+    case 'max':
+      return <CellInner value={r.tempMax} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMax)} />
+    case 'clouds':
+      return <CellInner value={r.cloudMean} metric="cloud_cover" suffix="%" />
+    case 'wind':
+      return <CellInner value={r.windMean} metric="wind_speed" icon={<WindArrow degrees={r.windDirection} />} tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
+    case 'gusts':
+      return <CellInner value={r.gustsMax} metric="wind_gusts" icon={<WindArrow degrees={r.windDirection} />} tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
+    case 'precip':
+      return <CellInner value={r.precipSum} metric="precipitation" decimals={1} />
+    case 'humidity':
+      return <CellInner value={r.humidityMean} metric="humidity" suffix="%" />
+    case 'uv':
+      return <CellInner value={r.uvIndexMean} metric="uv_index" decimals={1} />
+    case 'pressure':
+      return <CellInner value={r.pressureMean} metric="pressure" decimals={0} />
+    case 'dewpoint':
+      return <CellInner value={r.dewpointMean} metric="dewpoint" suffix="°" decimals={1} />
+    case 'visibility':
+      return <CellInner value={r.visibilityMean} metric="visibility" suffix="km" decimals={1} />
+  }
+}
+
 export default function InsightsTable({
   models,
   activeModelIds,
@@ -108,6 +184,57 @@ export default function InsightsTable({
   const activeModels = useMemo(
     () => models.filter(m => activeModelIds.includes(m.id)),
     [models, activeModelIds]
+  )
+
+  const [columnOrder, setColumnOrder] = useState<MetricCellId[]>(loadColumnOrder)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [overIdx, setOverIdx] = useState<number | null>(null)
+  const dragNodeRef = useRef<HTMLTableCellElement | null>(null)
+
+  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
+    setDragIdx(idx)
+    dragNodeRef.current = e.currentTarget as HTMLTableCellElement
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', '')
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setOverIdx(idx)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIdx: number) => {
+    e.preventDefault()
+    if (dragIdx === null || dragIdx === dropIdx) {
+      setDragIdx(null)
+      setOverIdx(null)
+      return
+    }
+    setColumnOrder(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(dragIdx, 1)
+      next.splice(dropIdx, 0, moved)
+      saveColumnOrder(next)
+      return next
+    })
+    setDragIdx(null)
+    setOverIdx(null)
+  }, [dragIdx])
+
+  const handleDragEnd = useCallback(() => {
+    setDragIdx(null)
+    setOverIdx(null)
+  }, [])
+
+  const resetColumnOrder = useCallback(() => {
+    setColumnOrder(DEFAULT_ORDER)
+    saveColumnOrder(DEFAULT_ORDER)
+  }, [])
+
+  const isDefaultOrder = useMemo(
+    () => columnOrder.every((id, i) => id === DEFAULT_ORDER[i]),
+    [columnOrder]
   )
 
   const rows = useMemo<Row[]>(() => {
@@ -209,11 +336,12 @@ export default function InsightsTable({
         const dpVals = activeModels.map(m => series[m.id]?.['dewpoint']?.[i] ?? null)
         const dpEns = weightedAvg(dpVals, weights)
         if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
-        const visVals = activeModels.map(m => series[m.id]?.['visibility']?.[i] ?? null)
+        const visVals = activeModels.map(m => {
+          const v = series[m.id]?.['visibility']?.[i]
+          return v !== null && v !== undefined ? v / 1000 : null
+        })
         const visEns = weightedAvg(visVals, weights)
         if (visEns !== null) { visSum += visEns; visCount += 1 }
-        // Circular mean of wind direction: average sin/cos across models,
-        // weighted by model weight, then accumulate per hour.
         let hCos = 0, hSin = 0, hW = 0
         for (let j = 0; j < activeModels.length; j++) {
           const d = series[activeModels[j].id]?.['wind_direction']?.[i]
@@ -253,6 +381,8 @@ export default function InsightsTable({
 
   if (activeModels.length === 0) return null
 
+  const colDefs = columnOrder.map(id => METRIC_COLUMNS.find(c => c.id === id)!)
+
   return (
     <div className="mb-4 animate-fadeIn">
       <div className="flex items-center justify-between mb-2">
@@ -269,28 +399,40 @@ export default function InsightsTable({
               {BUCKET_LABELS[b]}
             </button>
           ))}
+          {!isDefaultOrder && (
+            <button
+              onClick={resetColumnOrder}
+              className="px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] text-gray-500 hover:text-white ml-0.5"
+              title="Reset column order"
+            >
+              ↺
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded border border-gray-800 relative">
-        <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-950 to-transparent pointer-events-none z-10 md:hidden" />
-        <table className="w-full border-collapse text-xs">
+      <div className="overflow-x-auto rounded border border-gray-800">
+        <table className="w-full border-collapse text-xs table-fixed">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
-              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-10 border-b border-gray-800 min-w-[80px]">{STRINGS[locale].tableWhen}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableCond}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableTemp}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden md:table-cell">{STRINGS[locale].tableMin}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden md:table-cell">{STRINGS[locale].tableMax}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden md:table-cell">{STRINGS[locale].tableClouds}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableWind}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden md:table-cell">{STRINGS[locale].tableGusts}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tablePrecip}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableHumidity}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800">{STRINGS[locale].tableUv}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden lg:table-cell">{STRINGS[locale].tablePressure}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden lg:table-cell">{STRINGS[locale].tableDewpoint}</th>
-              <th className="text-center px-2 py-1.5 font-medium border-b border-gray-800 hidden lg:table-cell">{STRINGS[locale].tableVisibility}</th>
+              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-10 border-b border-gray-800 w-[80px]">{STRINGS[locale].tableWhen}</th>
+              {colDefs.map((col, idx) => {
+                const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-blue-500' : ''
+                return (
+                  <th
+                    key={col.id}
+                    draggable
+                    onDragStart={e => handleDragStart(e, idx)}
+                    onDragOver={e => handleDragOver(e, idx)}
+                    onDrop={e => handleDrop(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    className={`text-center px-2 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideOnMobile ? `hidden ${col.hideOnMobile}:table-cell` : ''} ${dragClass}`}
+                    title="Drag to reorder"
+                  >
+                    {STRINGS[locale][col.labelKey]}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
@@ -305,21 +447,14 @@ export default function InsightsTable({
                   <td className={`sticky left-0 px-2 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 ${isActive ? 'bg-blue-900/30' : 'bg-gray-950'}`}>
                     {r.label}
                   </td>
-                  <td className="text-center px-2 py-1.5 border-b border-gray-800/60" title={r.icon}>
-                    <span className="inline-flex items-center justify-center"><WeatherConditionIcon icon={r.icon} size="sm" /></span>
-                  </td>
-                  <Cell value={r.tempMean} metric="temperature" suffix="°" />
-                  <Cell value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} hideOnMobile="md" />
-                  <Cell value={r.tempMax} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMax)} hideOnMobile="md" />
-                  <Cell value={r.cloudMean} metric="cloud_cover" suffix="%" hideOnMobile="md" />
-                  <Cell value={r.windMean} metric="wind_speed" icon={<WindArrow degrees={r.windDirection} />} tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
-                  <Cell value={r.gustsMax} metric="wind_gusts" icon={<WindArrow degrees={r.windDirection} />} hideOnMobile="md" tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
-                  <Cell value={r.precipSum} metric="precipitation" decimals={1} />
-                  <Cell value={r.humidityMean} metric="humidity" suffix="%" />
-                  <Cell value={r.uvIndexMean} metric="uv_index" decimals={1} />
-                  <Cell value={r.pressureMean} metric="pressure" decimals={0} hideOnMobile="lg" />
-                  <Cell value={r.dewpointMean} metric="dewpoint" suffix="°" decimals={1} hideOnMobile="lg" />
-                  <Cell value={r.visibilityMean} metric="visibility" suffix="km" decimals={1} hideOnMobile="lg" />
+                  {colDefs.map(col => (
+                    <td
+                      key={col.id}
+                      className={col.hideOnMobile ? `hidden ${col.hideOnMobile}:table-cell` : undefined}
+                    >
+                      <CellContent id={col.id} r={r} />
+                    </td>
+                  ))}
                 </tr>
               )
             })}
@@ -330,7 +465,7 @@ export default function InsightsTable({
   )
 }
 
-interface CellProps {
+interface CellInnerProps {
   value: number | null
   metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility'
   suffix?: string
@@ -338,26 +473,22 @@ interface CellProps {
   icon?: React.ReactNode
   decimals?: number
   tooltip?: string
-  hideOnMobile?: 'sm' | 'md' | 'lg'
 }
 
-function Cell({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip, hideOnMobile }: CellProps) {
+function CellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip }: CellInnerProps) {
   const bg = getColor(metric, value)
   const text = value !== null ? contrastText(bg) : '#888'
   const display = value !== null
     ? (decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString())
     : '–'
-  const hideClass = hideOnMobile ? `hidden ${hideOnMobile === 'md' ? 'md:table-cell' : hideOnMobile === 'lg' ? 'lg:table-cell' : 'sm:table-cell'}` : ''
   return (
-    <td
-      className={`text-center px-2 py-1.5 border-b border-gray-800/60 font-mono ${hideClass}`}
+    <span
+      className="text-center px-2 py-1.5 font-mono inline-flex items-center gap-1 justify-center w-full"
       style={{ backgroundColor: bg, color: text }}
       title={tooltip}
     >
-      <span className="inline-flex items-center gap-1 justify-center">
-        {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
-        <span>{display}{suffix}</span>
-      </span>
-    </td>
+      {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
+      <span>{display}{suffix}</span>
+    </span>
   )
 }

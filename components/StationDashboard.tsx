@@ -15,22 +15,30 @@ interface AemetRaw {
 const WIND_DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
 function bearingToDir(b: number): string { return WIND_DIRS[Math.round(b / 22.5) % 16] ?? '' }
 
+function n(v: unknown): number | null {
+  if (v === null || v === undefined) return null
+  if (typeof v === 'number') return v
+  if (typeof v === 'string') { const p = parseFloat(v); return isNaN(p) ? null : p }
+  return null
+}
+
 function mapAemet(s: AemetRaw): MeteoclimaticObservation {
+  const dv = n(s.dv)
   return {
     code: s.idema,
     name: s.ubi || s.idema,
-    lat: s.lat, lon: s.lon,
+    lat: n(s.lat) ?? 0, lon: n(s.lon) ?? 0,
     updatedAt: s.fint || '',
-    temperature: { current: s.ta, max: s.tamax, min: s.tamin },
+    temperature: { current: n(s.ta), max: n(s.tamax), min: n(s.tamin) },
     condition: '',
-    humidity: { current: s.hr, max: null, min: null },
+    humidity: { current: n(s.hr), max: null, min: null },
     pressure: { current: null, max: null, min: null },
     wind: {
-      speed: s.vv, gust: s.vmax,
-      bearing: s.dv,
-      direction: s.dv != null ? bearingToDir(s.dv) : '',
+      speed: n(s.vv), gust: n(s.vmax),
+      bearing: dv,
+      direction: dv != null ? bearingToDir(dv) : '',
     },
-    precipitation: s.prec,
+    precipitation: n(s.prec),
   }
 }
 

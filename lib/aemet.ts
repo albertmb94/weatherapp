@@ -1,32 +1,18 @@
-export interface AemetObservation {
+export interface AemetRaw {
   idema: string
-  nombre: string
+  ubi: string
   lat: number
   lon: number
   fint: string
-  tmed: number | null
-  tmax: number | null
-  tmin: number | null
-  hum: number | null
-  hum_max: number | null
-  hum_min: number | null
-  pres: number | null
-  pres_max: number | null
-  pres_min: number | null
-  velmedia: number | null
-  racha: number | null
-  dir: number | null
+  ta: number | null
+  tamax: number | null
+  tamin: number | null
+  hr: number | null
+  vv: number | null
+  vmax: number | null
+  dv: number | null
   prec: number | null
-}
-
-export interface AemetFeature {
-  type: 'Feature'
-  geometry: { type: 'Point'; coordinates: [number, number] }
-  properties: AemetObservation
-}
-
-export interface AemetResponse {
-  features: AemetFeature[]
+  alt: number | null
 }
 
 const AEMET_BASE = 'https://opendata.aemet.es/opendata/api'
@@ -37,29 +23,17 @@ function getApiKey(): string {
   return key
 }
 
-function aemetUrl(path: string): string {
-  return `${AEMET_BASE}${path}?api_key=${getApiKey()}`
+async function aemetFetch<T>(path: string): Promise<T> {
+  const key = getApiKey()
+  const res = await fetch(`${AEMET_BASE}${path}?api_key=${key}`, { signal: AbortSignal.timeout(15000) })
+  if (!res.ok) throw new Error(`AEMET metadata failed: ${res.status}`)
+  const meta = await res.json()
+  if (!meta.datos) throw new Error('AEMET: no datos URL')
+  const dataRes = await fetch(meta.datos, { signal: AbortSignal.timeout(30000) })
+  if (!dataRes.ok) throw new Error(`AEMET data failed: ${dataRes.status}`)
+  return dataRes.json()
 }
 
-async function fetchAemetJson<T>(path: string): Promise<T> {
-  const url = aemetUrl(path)
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
-  if (!res.ok) throw new Error(`AEMET fetch failed: ${res.status}`)
-  const json = await res.json()
-  if (json.datos) {
-    const dataRes = await fetch(json.datos, { signal: AbortSignal.timeout(15000) })
-    if (!dataRes.ok) throw new Error(`AEMET data fetch failed: ${dataRes.status}`)
-    return dataRes.json()
-  }
-  return json
-}
-
-export async function fetchAemetStations(): Promise<AemetObservation[]> {
-  const data = await fetchAemetJson<AemetResponse>('/api/observacion/convencional/todas')
-  return (data.features ?? []).map(f => f.properties)
-}
-
-export async function fetchAemetStation(idema: string): Promise<AemetObservation[]> {
-  const data = await fetchAemetJson<AemetResponse>(`/api/observacion/convencional/datos/estacion/${idema}`)
-  return (data.features ?? []).map(f => f.properties)
+export async function fetchAemetStations(): Promise<AemetRaw[]> {
+  return aemetFetch<AemetRaw[]>('/observacion/convencional/todas')
 }

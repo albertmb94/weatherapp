@@ -1,63 +1,36 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import StationCard from './StationCard'
 import StationMap from './StationMap'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
 
-interface AemetStationRaw {
-  idema: string
-  nombre: string
-  lat?: number
-  lon?: number
-  latitud?: number
-  longitud?: number
-  fint: string
-  tmed: string | number | null
-  tmax: string | number | null
-  tmin: string | number | null
-  hum: string | number | null
-  hum_max: string | number | null
-  hum_min: string | number | null
-  pres: string | number | null
-  pres_max: string | number | null
-  pres_min: string | number | null
-  velmedia: string | number | null
-  racha: string | number | null
-  dir: string | number | null
-  prec: string | number | null
-}
-
-function toNum(v: string | number | null | undefined): number | null {
-  if (v === null || v === undefined || v === '' || v === 'Ip' || v === '---') return null
-  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'))
-  return isNaN(n) ? null : n
+interface AemetRaw {
+  idema: string; ubi: string; lat: number; lon: number; fint: string
+  ta: number | null; tamax: number | null; tamin: number | null
+  hr: number | null; vv: number | null; vmax: number | null; dv: number | null; prec: number | null
 }
 
 const WIND_DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
 function bearingToDir(b: number): string { return WIND_DIRS[Math.round(b / 22.5) % 16] ?? '' }
 
-function mapAemetToStation(s: AemetStationRaw): MeteoclimaticObservation {
-  const lat = toNum(s.lat) ?? toNum(s.latitud) ?? 0
-  const lon = toNum(s.lon) ?? toNum(s.longitud) ?? 0
-  const dir = toNum(s.dir)
+function mapAemet(s: AemetRaw): MeteoclimaticObservation {
   return {
     code: s.idema,
-    name: s.nombre || s.idema,
-    lat, lon,
+    name: s.ubi || s.idema,
+    lat: s.lat, lon: s.lon,
     updatedAt: s.fint || '',
-    temperature: { current: toNum(s.tmed), max: toNum(s.tmax), min: toNum(s.tmin) },
+    temperature: { current: s.ta, max: s.tamax, min: s.tamin },
     condition: '',
-    humidity: { current: toNum(s.hum), max: toNum(s.hum_max), min: toNum(s.hum_min) },
-    pressure: { current: toNum(s.pres), max: toNum(s.pres_max), min: toNum(s.pres_min) },
+    humidity: { current: s.hr, max: null, min: null },
+    pressure: { current: null, max: null, min: null },
     wind: {
-      speed: toNum(s.velmedia),
-      gust: toNum(s.racha),
-      bearing: dir,
-      direction: dir !== null ? bearingToDir(dir) : '',
+      speed: s.vv, gust: s.vmax,
+      bearing: s.dv,
+      direction: s.dv != null ? bearingToDir(s.dv) : '',
     },
-    precipitation: toNum(s.prec),
+    precipitation: s.prec,
   }
 }
 
@@ -70,7 +43,12 @@ export default function StationDashboard() {
       const res = await fetch('/api/aemet')
       const body = await res.json()
       if (!res.ok || body.error) throw new Error(body.detail || body.error || `HTTP ${res.status}`)
-      return (body.stations as AemetStationRaw[]).map(mapAemetToStation)
+      const raw: AemetRaw[] = body.stations
+      const seen = new Map<string, MeteoclimaticObservation>()
+      for (const s of raw) {
+        if (!seen.has(s.idema)) seen.set(s.idema, mapAemet(s))
+      }
+      return [...seen.values()]
     },
     refetchInterval: 5 * 60 * 1000,
     staleTime: 2 * 60 * 1000,

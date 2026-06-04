@@ -38,6 +38,7 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
 }
 
 const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false })
+const StationDashboard = dynamic(() => import('@/components/StationDashboard'), { ssr: false })
 
 const DEFAULT_POS: [number, number] = [41.4500, 2.2475]
 const DEFAULT_CITY = 'Badalona'
@@ -71,6 +72,7 @@ export default function HomeContent() {
   const { locale, toggleLocale } = useLocale()
   const { theme, toggleTheme } = useTheme()
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'models' | 'stations'>('models')
 
   useEffect(() => {
     if (!mobileMenuOpen) return
@@ -543,58 +545,87 @@ export default function HomeContent() {
           </div>
         )}
 
-        <div className="p-3" ref={swipeRef}>
-          {isLoading && (
-            <div className="flex items-center justify-center h-40">
-              <div className="w-5 h-5 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
-              <span className="ml-2 text-gray-400 text-sm">{STRINGS[locale].loadingForecast}</span>
-            </div>
-          )}
+        <div className="p-3">
+          <div className="flex items-center gap-0.5 mb-3 border-b border-gray-800 pb-1.5">
+            <button
+              onClick={() => setActiveTab('models')}
+              className={`px-3 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
+                activeTab === 'models'
+                  ? 'text-white bg-gray-800'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Modelos
+            </button>
+            <button
+              onClick={() => setActiveTab('stations')}
+              className={`px-3 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
+                activeTab === 'stations'
+                  ? 'text-white bg-gray-800'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Estaciones
+            </button>
+          </div>
 
-          {error && (
-            <div className="text-red-400 text-center py-8 text-sm">
-              {STRINGS[locale].errorForecast}
-            </div>
-          )}
+          {activeTab === 'stations' ? (
+            <StationDashboard />
+          ) : (
+            <div ref={swipeRef}>
+              {isLoading && (
+                <div className="flex items-center justify-center h-40">
+                  <div className="w-5 h-5 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
+                  <span className="ml-2 text-gray-400 text-sm">{STRINGS[locale].loadingForecast}</span>
+                </div>
+              )}
 
-          {viewData && (
-            <>
-              <DailySummary
-                models={MODELS}
-                activeModelIds={selectedModels}
-                times={viewData.time}
-                series={viewData.series}
-                selectedHour={selectedHour}
-                onSelectHour={handleHourChange}
-                maxHours={effectiveMaxHours}
-              />
-              <ModelSelector
-                models={MODELS}
-                selected={selectedModels}
-                onChange={handleModelChange}
-              />
-              <InsightsTable
-                models={MODELS}
-                activeModelIds={selectedModels}
-                times={viewData.time}
-                series={viewData.series}
-                bucket={bucket}
-                onBucketChange={handleBucketChange}
-                selectedHour={selectedHour}
-                onSelectHour={handleHourChange}
-                maxHours={effectiveMaxHours}
-              />
-              <ModelComparisonChart
-                models={MODELS}
-                activeModelIds={selectedModels}
-                metric={selectedMetric}
-                times={viewData.time}
-                series={viewData.series}
-                onHourHover={handleHourChange}
-                hoveredHour={selectedHour}
-                maxHours={effectiveMaxHours}
-              />
-            </>
+              {error && (
+                <div className="text-red-400 text-center py-8 text-sm">
+                  {STRINGS[locale].errorForecast}
+                </div>
+              )}
+
+              {viewData && (
+                <>
+                  <DailySummary
+                    models={MODELS}
+                    activeModelIds={selectedModels}
+                    times={viewData.time}
+                    series={viewData.series}
+                    selectedHour={selectedHour}
+                    onSelectHour={handleHourChange}
+                    maxHours={effectiveMaxHours}
+                  />
+                  <ModelSelector
+                    models={MODELS}
+                    selected={selectedModels}
+                    onChange={handleModelChange}
+                  />
+                  <InsightsTable
+                    models={MODELS}
+                    activeModelIds={selectedModels}
+                    times={viewData.time}
+                    series={viewData.series}
+                    bucket={bucket}
+                    onBucketChange={handleBucketChange}
+                    selectedHour={selectedHour}
+                    onSelectHour={handleHourChange}
+                    maxHours={effectiveMaxHours}
+                  />
+                  <ModelComparisonChart
+                    models={MODELS}
+                    activeModelIds={selectedModels}
+                    metric={selectedMetric}
+                    times={viewData.time}
+                    series={viewData.series}
+                    onHourHover={handleHourChange}
+                    hoveredHour={selectedHour}
+                    maxHours={effectiveMaxHours}
+                  />
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>

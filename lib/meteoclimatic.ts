@@ -2,6 +2,11 @@ import type { MeteoclimaticObservation } from './meteoclimatic-types'
 
 const DIRECTIONS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
 
+function decodeEntities(s: string): string {
+  return s.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+}
+
 function bearingToDirection(bearing: number): string {
   const index = Math.round(bearing / 22.5) % 16
   return DIRECTIONS[index]
@@ -49,7 +54,7 @@ function parseItem(item: string): MeteoclimaticObservation | null {
 
   return {
     code: parts[1],
-    name: parts[7]?.trim() || titleMatch?.[1]?.trim() || parts[1],
+    name: decodeEntities(parts[7]?.trim()) || decodeEntities(titleMatch?.[1]?.trim() || '') || parts[1],
     lat,
     lon,
     updatedAt: dateMatch?.[1]?.trim() || '',

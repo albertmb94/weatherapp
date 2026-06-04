@@ -10,30 +10,25 @@ export async function GET(request: Request) {
   }
 
   try {
-    let lastErr: unknown
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const stations = await fetchStationData(station)
-        return NextResponse.json(
-          { stations, fetchedAt: new Date().toISOString() },
-          {
-            headers: {
-              'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
-            },
-          }
-        )
-      } catch (err) {
-        lastErr = err
-        if (attempt === 0) await new Promise(r => setTimeout(r, 1000))
+    const stations = await fetchStationData(station)
+    return NextResponse.json(
+      { stations, fetchedAt: new Date().toISOString() },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+        },
       }
-    }
-    throw lastErr
+    )
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('Meteoclimatic API error:', message)
+    const status = message.includes('403') ? 403
+      : message.includes('404') ? 404
+      : message.includes('timeout') || message.includes('abort') ? 504
+      : 502
+    console.error(`[meteoclimatic] ${station}: ${message}`)
     return NextResponse.json(
       { error: 'Failed to fetch Meteoclimatic data', detail: message },
-      { status: 502 }
+      { status }
     )
   }
 }

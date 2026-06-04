@@ -75,9 +75,14 @@ export default function StationDashboard() {
         <div className="text-center py-8">
           <p className="text-sm text-red-400">Error al cargar datos de estaciones</p>
           <p className="text-xs text-gray-500 mt-1">{(error as Error).message}</p>
+          {(error as Error).message.includes('403') && (
+            <p className="text-xs text-gray-600 mt-2 max-w-md mx-auto">
+              Meteoclimatic bloquea peticiones desde servidores cloud. Si estás en Vercel, esto puede ocurrir. Los datos se actualizarán cuando la caché expire.
+            </p>
+          )}
           <button
             onClick={() => refetch()}
-            className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"
+            className="mt-3 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"
           >
             Reintentar
           </button>

@@ -30,7 +30,7 @@ export default function ModelSelector({ models, selected, onChange }: ModelSelec
 
   return (
     <div className="mb-3 animate-fadeIn">
-      <div className="flex items-center gap-0.5 flex-wrap">
+      <div className="flex items-center gap-0.5 flex-nowrap overflow-x-auto md:flex-wrap md:overflow-visible scrollbar-none">
         <button
           onClick={selectAll}
           className={`shrink-0 min-h-[36px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${

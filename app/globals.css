@@ -124,3 +124,10 @@ html.light ::-webkit-scrollbar-track {
 html.light ::-webkit-scrollbar-thumb {
   background: #9ca3af;
 }
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

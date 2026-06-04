@@ -11,7 +11,7 @@ export const MODELS: WeatherModel[] = [
   { id: 'dmi_harmonie_arome_europe', label: 'HARM-DK 2km', color: '#f58231', maxHours: 60, weight: 25 },
   { id: 'knmi_harmonie_arome_europe', label: 'HARMONIE 5km', color: '#ffe119', maxHours: 60, weight: 8 },
   { id: 'icon_eu', label: 'ICON-EU 7km', color: '#3cb44b', maxHours: 120, weight: 6 },
-  { id: 'meteofrance_arome_france', label: 'AROME-FR std', color: '#42d4f4', maxHours: 96, weight: 4 },
+  { id: 'meteofrance_arome_france', label: 'AROME-FR2 1.3km', color: '#42d4f4', maxHours: 96, weight: 4 },
   { id: 'meteofrance_arpege_europe', label: 'ARPEGE-EU 10km', color: '#bfef45', maxHours: 96, weight: 15 },
   { id: 'icon_global', label: 'ICON 13km', color: '#911eb4', maxHours: 240, weight: 4 },
   { id: 'gfs_global', label: 'GFS 13km', color: '#f032e6', maxHours: 384, weight: 3 },

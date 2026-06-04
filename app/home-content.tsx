@@ -319,6 +319,7 @@ export default function HomeContent() {
           <div className="hidden md:flex items-center gap-1.5">
             <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
             <div className="w-px h-4 bg-gray-800" />
+            <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} />
             <button
               onClick={handleMapToggle}
               className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${

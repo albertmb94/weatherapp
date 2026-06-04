@@ -15,7 +15,8 @@ export async function GET(request: Request) {
       stations,
       fetchedAt: new Date().toISOString(),
     })
-  } catch {
+  } catch (err) {
+    console.error('Meteoclimatic API error:', err instanceof Error ? err.message : err)
     return NextResponse.json(
       { error: 'Failed to fetch Meteoclimatic data' },
       { status: 502 }

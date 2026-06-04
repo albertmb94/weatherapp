@@ -93,8 +93,9 @@ export function parseRss(xml: string): MeteoclimaticObservation[] {
 }
 
 export async function fetchStationData(stationCode: string): Promise<MeteoclimaticObservation[]> {
-  const url = `http://meteoclimatic.net/feed/rss/${stationCode}`
-  const response = await fetch(url)
+  const url = `https://meteoclimatic.net/feed/rss/${stationCode}`
+
+  const response = await fetch(url, { signal: AbortSignal.timeout(8000) })
 
   if (!response.ok) {
     throw new Error(`Meteoclimatic fetch failed: ${response.status}`)

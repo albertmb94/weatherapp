@@ -23,6 +23,7 @@ export default function SavedLocations({ onSelect }: SavedLocationsProps) {
       if (!res.ok) return []
       return res.json() as Promise<SavedLocation[]>
     },
+    staleTime: 5 * 60 * 1000,
   })
 
   const deleteMutation = useMutation({

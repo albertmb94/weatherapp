@@ -114,29 +114,15 @@ export default function HomeContent() {
       if (!res.ok) throw new Error('refresh status')
       return res.json()
     },
+    staleTime: 60_000,
     refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   })
-
-  const autoRefreshDone = useRef(false)
-  useEffect(() => {
-    if (autoRefreshDone.current) return
-    autoRefreshDone.current = true
-    fetch('/api/refresh', { method: 'POST' })
-      .then(res => res.json())
-      .then(result => {
-        queryClient.invalidateQueries({ queryKey: ['refresh-status'] })
-        if (result?.skipped === false) {
-          queryClient.invalidateQueries({ queryKey: ['forecast'] })
-        }
-      })
-      .catch(() => {})
-  }, [queryClient])
 
   const forecastDays = Math.min(Math.ceil(selectedRange / 24), OPEN_METEO_MAX_DAYS)
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['forecast', position[0], position[1], forecastDays, refreshStatus?.lastRefreshedAt ?? 0],
+    queryKey: ['forecast', position[0], position[1], forecastDays],
     queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal),
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,

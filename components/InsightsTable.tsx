@@ -57,23 +57,23 @@ type MetricCellId =
 interface MetricColumnDef {
   id: MetricCellId
   labelKey: keyof typeof STRINGS['en']
-  hideOnMobile?: 'md' | 'lg'
+  hideClass?: string
 }
 
 const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: 'cond', labelKey: 'tableCond' },
   { id: 'temp', labelKey: 'tableTemp' },
-  { id: 'min', labelKey: 'tableMin', hideOnMobile: 'md' },
-  { id: 'max', labelKey: 'tableMax', hideOnMobile: 'md' },
-  { id: 'clouds', labelKey: 'tableClouds', hideOnMobile: 'md' },
+  { id: 'min', labelKey: 'tableMin', hideClass: 'hidden md:table-cell' },
+  { id: 'max', labelKey: 'tableMax', hideClass: 'hidden md:table-cell' },
+  { id: 'clouds', labelKey: 'tableClouds', hideClass: 'hidden md:table-cell' },
   { id: 'wind', labelKey: 'tableWind' },
-  { id: 'gusts', labelKey: 'tableGusts', hideOnMobile: 'md' },
+  { id: 'gusts', labelKey: 'tableGusts', hideClass: 'hidden md:table-cell' },
   { id: 'precip', labelKey: 'tablePrecip' },
   { id: 'humidity', labelKey: 'tableHumidity' },
   { id: 'uv', labelKey: 'tableUv' },
-  { id: 'pressure', labelKey: 'tablePressure', hideOnMobile: 'lg' },
-  { id: 'dewpoint', labelKey: 'tableDewpoint', hideOnMobile: 'lg' },
-  { id: 'visibility', labelKey: 'tableVisibility', hideOnMobile: 'lg' },
+  { id: 'pressure', labelKey: 'tablePressure', hideClass: 'hidden lg:table-cell' },
+  { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden lg:table-cell' },
+  { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden lg:table-cell' },
 ]
 
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
@@ -426,7 +426,7 @@ export default function InsightsTable({
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`text-center px-2 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideOnMobile ? `hidden ${col.hideOnMobile}:table-cell` : ''} ${dragClass}`}
+                    className={`text-center px-2 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}
@@ -450,7 +450,7 @@ export default function InsightsTable({
                   {colDefs.map(col => (
                     <td
                       key={col.id}
-                      className={`text-center px-2 py-1.5 border-b border-gray-800/60 ${col.hideOnMobile ? `hidden ${col.hideOnMobile}:table-cell` : ''}`}
+                      className={col.hideClass}
                     >
                       <CellContent id={col.id} r={r} />
                     </td>

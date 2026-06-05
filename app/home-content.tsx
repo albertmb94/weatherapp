@@ -303,7 +303,7 @@ export default function HomeContent() {
   }, [selectedHour, effectiveMaxHours, handleHourChange, handleMapToggle])
 
   return (
-    <div className="h-screen flex flex-col bg-gray-950 text-white overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-gray-950 text-white overflow-x-clip">
       <div className="sticky top-0 z-30 bg-gray-900 border-b border-gray-800 shrink-0 px-3 py-1.5">
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1 min-w-0">
@@ -500,7 +500,7 @@ export default function HomeContent() {
         )}
       </div>
 
-      <div className="flex flex-col flex-1 overflow-y-auto">
+      <div className="flex flex-col">
         <SavedLocations onSelect={handleCitySelect} />
 
         {showMap && (
@@ -652,7 +652,7 @@ export default function HomeContent() {
         </div>
       </div>
 
-      <div className="hidden md:flex px-3 py-0.5 bg-gray-900/50 border-t border-gray-800/50 text-[9px] text-gray-700 gap-3 shrink-0">
+      <div className="hidden md:flex md:mt-auto px-3 py-0.5 bg-gray-900/50 border-t border-gray-800/50 text-[9px] text-gray-700 gap-3 shrink-0">
         <span>← → {STRINGS[locale].footerHours}</span>
         <span>/ {STRINGS[locale].footerSearch}</span>
         <span>m {STRINGS[locale].footerMap}</span>

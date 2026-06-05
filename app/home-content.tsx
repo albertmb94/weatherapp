@@ -304,13 +304,19 @@ export default function HomeContent() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-950 text-white overflow-x-hidden">
-      <header ref={mobileMenuRef} className="px-3 py-1.5 bg-gray-900 border-b border-gray-800 shrink-0">
+      <div className="sticky top-0 z-30 bg-gray-900 border-b border-gray-800 shrink-0 px-3 py-1.5">
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1 min-w-0">
+            <CitySearch onSelect={handleCitySelect} />
+          </div>
+          <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
+        </div>
+      </div>
+
+      <div ref={mobileMenuRef} className="px-3 py-1.5 bg-gray-900 border-b border-gray-800">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           <h1 className="text-xs font-semibold text-gray-400 whitespace-nowrap hidden sm:block">Weather</h1>
           <div className="w-px h-4 bg-gray-800 hidden sm:block" />
-          <div className="relative flex-1 sm:flex-none">
-            <CitySearch onSelect={handleCitySelect} />
-          </div>
           <button
             onClick={handleGeolocate}
             disabled={geoLoading}
@@ -342,8 +348,6 @@ export default function HomeContent() {
           </button>
           <div className="hidden md:flex landscape:flex flex-wrap items-center gap-x-1.5 gap-y-1">
             <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
-            <div className="w-px h-4 bg-gray-800" />
-            <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} />
             <button
               onClick={handleMapToggle}
               className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
@@ -436,10 +440,6 @@ export default function HomeContent() {
           </button>
         </div>
 
-        <div className="flex md:hidden landscape:hidden mt-1.5 items-center gap-x-3 gap-y-1 flex-wrap">
-          <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
-        </div>
-
         {mobileMenuOpen && (
           <div className="md:hidden landscape:hidden mt-2 pt-2 border-t border-gray-800 space-y-3 animate-fadeIn">
             <div>
@@ -498,11 +498,11 @@ export default function HomeContent() {
             </div>
           </div>
         )}
-      </header>
-
-      <SavedLocations onSelect={handleCitySelect} />
+      </div>
 
       <div className="flex flex-col flex-1 overflow-y-auto">
+        <SavedLocations onSelect={handleCitySelect} />
+
         {showMap && (
           <div className="h-[40vh] min-h-[260px] max-h-[440px] p-1.5 border-b border-gray-800 relative shrink-0">
             <MapPicker

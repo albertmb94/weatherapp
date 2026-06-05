@@ -63,17 +63,21 @@ interface MetricColumnDef {
 const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: 'cond', labelKey: 'tableCond' },
   { id: 'temp', labelKey: 'tableTemp' },
-  { id: 'min', labelKey: 'tableMin', hideClass: 'hidden md:table-cell' },
-  { id: 'max', labelKey: 'tableMax', hideClass: 'hidden md:table-cell' },
-  { id: 'clouds', labelKey: 'tableClouds', hideClass: 'hidden md:table-cell' },
+  // Phones in landscape often sit just under the 768px md breakpoint once
+  // the notch + home indicator safe area is subtracted (e.g. iPhone 16 lands
+  // around 758px). Using sm + landscape keeps the secondary columns visible
+  // on those devices while still hiding them on phones in portrait.
+  { id: 'min', labelKey: 'tableMin', hideClass: 'hidden sm:table-cell landscape:table-cell' },
+  { id: 'max', labelKey: 'tableMax', hideClass: 'hidden sm:table-cell landscape:table-cell' },
+  { id: 'clouds', labelKey: 'tableClouds', hideClass: 'hidden sm:table-cell landscape:table-cell' },
   { id: 'wind', labelKey: 'tableWind' },
-  { id: 'gusts', labelKey: 'tableGusts', hideClass: 'hidden md:table-cell' },
+  { id: 'gusts', labelKey: 'tableGusts', hideClass: 'hidden sm:table-cell landscape:table-cell' },
   { id: 'precip', labelKey: 'tablePrecip' },
   { id: 'humidity', labelKey: 'tableHumidity' },
   { id: 'uv', labelKey: 'tableUv' },
-  { id: 'pressure', labelKey: 'tablePressure', hideClass: 'hidden lg:table-cell' },
-  { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden lg:table-cell' },
-  { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden lg:table-cell' },
+  { id: 'pressure', labelKey: 'tablePressure', hideClass: 'hidden xl:table-cell' },
+  { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden xl:table-cell' },
+  { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden xl:table-cell' },
 ]
 
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)

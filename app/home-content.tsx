@@ -303,9 +303,9 @@ export default function HomeContent() {
   }, [selectedHour, effectiveMaxHours, handleHourChange, handleMapToggle])
 
   return (
-    <div className="h-screen flex flex-col bg-gray-950 text-white">
+    <div className="h-screen flex flex-col bg-gray-950 text-white overflow-x-hidden">
       <header ref={mobileMenuRef} className="px-3 py-1.5 bg-gray-900 border-b border-gray-800 shrink-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           <h1 className="text-xs font-semibold text-gray-400 whitespace-nowrap hidden sm:block">Weather</h1>
           <div className="w-px h-4 bg-gray-800 hidden sm:block" />
           <div className="relative flex-1 sm:flex-none">
@@ -340,7 +340,7 @@ export default function HomeContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
             </svg>
           </button>
-          <div className="hidden md:flex landscape:flex items-center gap-1.5">
+          <div className="hidden md:flex landscape:flex flex-wrap items-center gap-x-1.5 gap-y-1">
             <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
             <div className="w-px h-4 bg-gray-800" />
             <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} />

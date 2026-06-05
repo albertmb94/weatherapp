@@ -5,6 +5,12 @@ import { fetchWithTimeout } from './fetchWithTimeout'
 const MAX_FORECAST_MODELS = 6
 const MAX_HEATMAP_MODELS = 4
 
+// Open-Meteo only returns hourly `uv_index` data when the forecast horizon
+// is at least 7 days. For shorter ranges the key is missing from the
+// response, so we always request at least this many days — the caller still
+// slices down to the user's selected range for display.
+export const UV_MIN_FORECAST_DAYS = 7
+
 // Models effectively cover long horizons globally — we treat these as the
 // "long-range tier" that must be included whenever the requested horizon
 // exceeds what the high-res regional models can provide. Each model has
@@ -28,6 +34,10 @@ function capModels(models: WeatherModel[], max: number, forecastDays?: number): 
     }
   }
   return picked
+}
+
+export function computeForecastDays(rangeHours: number, maxDays: number): number {
+  return Math.max(Math.min(Math.ceil(rangeHours / 24), maxDays), UV_MIN_FORECAST_DAYS)
 }
 
 export interface ForecastResult {

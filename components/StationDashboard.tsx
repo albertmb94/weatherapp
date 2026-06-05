@@ -44,6 +44,9 @@ const METEOCLIMATIC_MAP: Record<string, string> = {
   CAT: 'ESCAT', MAD: 'ESMAD', VLC: 'ESPVA', BCN_C: 'ESCAT08',
 }
 
+const STATION_RETRY_COUNT = 5
+const STATION_RETRY_DELAY_MS = 1000
+
 export default function StationDashboard() {
   const [region, setRegion] = useState(REGIONS[0].code)
   const [search, setSearch] = useState('')
@@ -63,8 +66,8 @@ export default function StationDashboard() {
     },
     refetchInterval: 5 * 60 * 1000,
     staleTime: 2 * 60 * 1000,
-    retry: 1,
-    retryDelay: 5000,
+    retry: STATION_RETRY_COUNT,
+    retryDelay: STATION_RETRY_DELAY_MS,
   })
 
   const meteoCode = METEOCLIMATIC_MAP[region] ?? 'ESCAT08'
@@ -80,8 +83,8 @@ export default function StationDashboard() {
     enabled: includeMeteo,
     refetchInterval: 5 * 60 * 1000,
     staleTime: 2 * 60 * 1000,
-    retry: 1,
-    retryDelay: 3000,
+    retry: STATION_RETRY_COUNT,
+    retryDelay: STATION_RETRY_DELAY_MS,
   })
 
   const allStations = useMemo(() => {
@@ -113,7 +116,13 @@ export default function StationDashboard() {
   }, [allStations, region, search, regionBounds])
 
   const isLoading = aemetQ.isLoading || (includeMeteo && meteoQ.isLoading)
+  const isFetching = aemetQ.isFetching || (includeMeteo && meteoQ.isFetching)
   const error = aemetQ.error || (includeMeteo && meteoQ.error)
+  // While react-query is retrying, isError may already be true from a previous
+  // attempt. Hide the error block until the in-flight retry settles so the
+  // user only sees the loading spinner, not a stale error message.
+  const showLoading = isLoading || isFetching
+  const showError = !!error && !isFetching
 
   return (
     <div className="flex flex-col gap-3 animate-fadeIn">
@@ -160,24 +169,14 @@ export default function StationDashboard() {
         <StationMap stations={filtered} />
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-8">
+      {showLoading && (
+        <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
           <div className="animate-spin w-5 h-5 border-2 border-gray-600 border-t-white rounded-full" />
           <span className="ml-2 text-xs text-gray-500">Cargando...</span>
         </div>
       )}
 
-      {error && (
-        <div className="text-center py-6">
-          <p className="text-sm text-red-400">Error al cargar estaciones</p>
-          <p className="text-xs text-gray-500 mt-1">{(error as Error).message}</p>
-          <button onClick={() => aemetQ.refetch()} className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer">
-            Reintentar
-          </button>
-        </div>
-      )}
-
-      {!isLoading && filtered.length === 0 && (
+      {!showLoading && filtered.length === 0 && (
         <p className="text-xs text-gray-500 text-center py-4">
           {search ? `Sin resultados para "${search}"` : 'Sin estaciones en esta región'}
         </p>
@@ -188,6 +187,16 @@ export default function StationDashboard() {
           {filtered.map(s => (
             <StationCard key={s.code + s.name} station={s} />
           ))}
+        </div>
+      )}
+
+      {showError && (
+        <div className="text-center py-6 mt-2 border-t border-gray-800/60" role="alert">
+          <p className="text-sm text-red-400">Error al cargar estaciones</p>
+          <p className="text-xs text-gray-500 mt-1">{(error as Error).message}</p>
+          <button onClick={() => aemetQ.refetch()} className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer">
+            Reintentar
+          </button>
         </div>
       )}
     </div>

@@ -15,7 +15,7 @@ import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
 import RefreshButton from '@/components/RefreshButton'
 import { MODELS, METRICS, type MetricId } from '@/lib/models'
-import { fetchForecast, type ForecastResult } from '@/lib/openMeteo'
+import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
@@ -89,6 +89,28 @@ export default function HomeContent() {
     }
   }, [mobileMenuOpen])
 
+  // Close the mobile menu whenever the layout switches to "desktop" (either
+  // viewport >= md or landscape orientation on a phone). This prevents the
+  // mobile dropdown from staying "open" in state and re-appearing the next
+  // time the user rotates back to portrait.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const landscapeMql = window.matchMedia('(orientation: landscape)')
+    const desktopMql = window.matchMedia('(min-width: 768px)')
+    const onChange = () => {
+      if (landscapeMql.matches || desktopMql.matches) {
+        setMobileMenuOpen(false)
+      }
+    }
+    onChange()
+    landscapeMql.addEventListener('change', onChange)
+    desktopMql.addEventListener('change', onChange)
+    return () => {
+      landscapeMql.removeEventListener('change', onChange)
+      desktopMql.removeEventListener('change', onChange)
+    }
+  }, [])
+
   useEffect(() => {
     if (urlState.locale && urlState.locale !== locale) {
       toggleLocale()
@@ -121,7 +143,7 @@ export default function HomeContent() {
     refetchOnWindowFocus: false,
   })
 
-  const forecastDays = Math.min(Math.ceil(selectedRange / 24), OPEN_METEO_MAX_DAYS)
+  const forecastDays = computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['forecast', position[0], position[1], forecastDays],
@@ -307,7 +329,7 @@ export default function HomeContent() {
           </button>
           <button
             onClick={handleMapToggle}
-            className={`md:hidden min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors cursor-pointer ${
+            className={`md:hidden landscape:hidden min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors cursor-pointer ${
               showMap ? 'text-white' : 'text-gray-500 hover:text-white'
             }`}
             title="Toggle map"
@@ -318,7 +340,7 @@ export default function HomeContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
             </svg>
           </button>
-          <div className="hidden md:flex items-center gap-1.5">
+          <div className="hidden md:flex landscape:flex items-center gap-1.5">
             <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
             <div className="w-px h-4 bg-gray-800" />
             <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} />
@@ -400,7 +422,7 @@ export default function HomeContent() {
           </div>
           <button
             onClick={() => setMobileMenuOpen(o => !o)}
-            className="md:hidden min-h-[36px] min-w-[36px] flex items-center justify-center text-gray-400 hover:text-white cursor-pointer ml-auto"
+            className="md:hidden landscape:hidden min-h-[36px] min-w-[36px] flex items-center justify-center text-gray-400 hover:text-white cursor-pointer ml-auto"
             aria-label="Toggle menu"
             aria-expanded={mobileMenuOpen}
           >
@@ -414,12 +436,12 @@ export default function HomeContent() {
           </button>
         </div>
 
-        <div className="flex md:hidden mt-1.5 items-center gap-x-3 gap-y-1 flex-wrap">
+        <div className="flex md:hidden landscape:hidden mt-1.5 items-center gap-x-3 gap-y-1 flex-wrap">
           <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden mt-2 pt-2 border-t border-gray-800 space-y-3 animate-fadeIn">
+          <div className="md:hidden landscape:hidden mt-2 pt-2 border-t border-gray-800 space-y-3 animate-fadeIn">
             <div>
               <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Metric</span>
               <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />

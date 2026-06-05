@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant landscape (@media (orientation: landscape));
 @source "../components/**/*.tsx";
 @source "../app/**/*.tsx";
 

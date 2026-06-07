@@ -506,10 +506,10 @@ export default function InsightsTable({
       </div>
 
       <div className="overflow-x-auto rounded border border-gray-800">
-        <table className="w-full border-collapse text-xs table-fixed min-w-[960px]">
+        <table className="w-full border-collapse text-xs table-fixed">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
-              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-30 border-b border-gray-800 w-[80px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
+              <th className="sticky left-0 bg-gray-900 text-left px-1.5 py-1.5 font-medium z-30 border-b border-gray-800 w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-blue-500' : ''
                 return (
@@ -520,7 +520,7 @@ export default function InsightsTable({
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`text-center px-2 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${dragClass}`}
+                    className={`text-center px-1 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}
@@ -538,7 +538,7 @@ export default function InsightsTable({
                   onClick={() => onSelectHour(r.centerIdx)}
                   className={`cursor-pointer transition-colors ${isActive ? 'bg-blue-900/30' : 'hover:bg-gray-800/40'}`}
                 >
-                  <td className={`sticky left-0 z-20 px-2 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] ${isActive ? 'bg-blue-900' : 'bg-gray-950'}`}>
+                  <td className={`sticky left-0 z-20 px-1.5 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] ${isActive ? 'bg-blue-900' : 'bg-gray-950'}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => (
@@ -577,7 +577,7 @@ function CellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0,
     : '–'
   return (
     <span
-      className="text-center px-2 py-1.5 font-mono inline-flex items-center gap-1 justify-center w-full"
+      className="text-center px-1 py-1.5 font-mono inline-flex items-center gap-0.5 justify-center w-full"
       style={{ backgroundColor: bg, color: text }}
       title={tooltip}
     >

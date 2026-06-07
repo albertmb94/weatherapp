@@ -346,6 +346,17 @@ export default function HomeContent() {
         </div>
       </div>
 
+      {marine && (
+        <div className="md:hidden landscape:hidden px-2 py-1 bg-gray-900 border-b border-gray-800 overflow-x-auto flex-shrink-0">
+          <div className="flex items-center gap-1 min-w-max">
+            {showBasic && (
+              <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
+            )}
+            <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
+          </div>
+        </div>
+      )}
+
       <div ref={mobileMenuRef} className="px-3 py-1.5 bg-gray-900 border-b border-gray-800">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           <h1 className="text-xs font-semibold text-gray-400 whitespace-nowrap hidden sm:block">Weather</h1>
@@ -507,7 +518,7 @@ export default function HomeContent() {
                 </>
               )}
               {marine && (
-                <div className={(showBasic || !marine) ? 'mt-1' : ''}>
+                <div className={showBasic ? 'mt-1' : ''}>
                   <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Marine</span>
                   <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
                 </div>

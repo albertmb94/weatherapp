@@ -60,6 +60,7 @@ export default function HomeContent() {
     bucket: 4,
     locale: '',
     marine: false,
+    basic: true,
   }))
   const [urlState, updateUrl] = useUrlState(defaults)
 
@@ -132,6 +133,7 @@ export default function HomeContent() {
   const showRadar = urlState.showRadar
   const bucket = urlState.bucket as BucketHours
   const marine = urlState.marine
+  const showBasic = urlState.basic
 
   const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null }>({
     queryKey: ['refresh-status'],
@@ -214,6 +216,10 @@ export default function HomeContent() {
     updateUrl({ marine: !marine })
   }, [marine, updateUrl])
 
+  const handleBasicToggle = useCallback(() => {
+    updateUrl({ basic: !showBasic })
+  }, [showBasic, updateUrl])
+
   const handleBucketChange = useCallback((b: BucketHours) => {
     updateUrl({ bucket: b })
   }, [updateUrl])
@@ -246,12 +252,20 @@ export default function HomeContent() {
   // summary. The wave data itself only lives on `series.marine_global` and
   // is consumed directly by InsightsTable / DailySummary when marine is on.
   const displayModels = useMemo(
-    () => (marine ? MODELS : MODELS.filter(m => m.id !== 'marine_global')),
-    [marine]
+    () => {
+      if (!marine) return MODELS.filter(m => m.id !== 'marine_global')
+      if (!showBasic) return MODELS.filter(m => m.id === 'marine_global')
+      return MODELS
+    },
+    [marine, showBasic]
   )
   const displayActiveModelIds = useMemo(
-    () => (marine ? selectedModels : selectedModels.filter(id => id !== 'marine_global')),
-    [marine, selectedModels]
+    () => {
+      if (!marine) return selectedModels.filter(id => id !== 'marine_global')
+      if (!showBasic) return selectedModels.filter(id => id === 'marine_global')
+      return selectedModels
+    },
+    [marine, showBasic, selectedModels]
   )
 
   const maxModelHours = useMemo(() => {
@@ -366,7 +380,7 @@ export default function HomeContent() {
             </svg>
           </button>
           <div className="hidden md:flex landscape:flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
+            {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
             {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
             <button
               onClick={handleMapToggle}
@@ -385,16 +399,29 @@ export default function HomeContent() {
             >
               Radar
             </button>
+            <div className="w-px h-4 bg-gray-700" />
             <button
               onClick={handleMarineToggle}
-              className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                marine ? 'text-cyan-300' : 'text-gray-600 hover:text-gray-300'
+              className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
+                marine ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40' : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-600'
               }`}
-              title="Toggle marine/wave data (Open-Meteo Marine)"
+              title="Marine/wave data (Open-Meteo)"
               aria-pressed={marine}
             >
               Marine
             </button>
+            {marine && (
+              <button
+                onClick={handleBasicToggle}
+                className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
+                  showBasic ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40' : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-600'
+                }`}
+                title="Basic land stats (temperature, wind, etc.)"
+                aria-pressed={showBasic}
+              >
+                Basic
+              </button>
+            )}
             <button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
@@ -473,10 +500,14 @@ export default function HomeContent() {
         {mobileMenuOpen && (
           <div className="md:hidden landscape:hidden mt-2 pt-2 border-t border-gray-800 space-y-3 animate-fadeIn">
             <div>
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Metric</span>
-              <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
+              {(showBasic || !marine) && (
+                <>
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Basic</span>
+                  <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
+                </>
+              )}
               {marine && (
-                <div className="mt-1">
+                <div className={(showBasic || !marine) ? 'mt-1' : ''}>
                   <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Marine</span>
                   <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
                 </div>
@@ -493,13 +524,24 @@ export default function HomeContent() {
               </button>
               <button
                 onClick={handleMarineToggle}
-                className={`min-h-[36px] px-3 rounded text-xs font-medium transition-all cursor-pointer ${
-                  marine ? 'bg-cyan-600/30 text-cyan-200 border border-cyan-500/50' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                className={`min-h-[36px] px-3 rounded text-xs font-semibold transition-all cursor-pointer border ${
+                  marine ? 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50' : 'bg-gray-800 text-gray-400 border-gray-700'
                 }`}
                 aria-pressed={marine}
               >
                 Marine
               </button>
+              {marine && (
+                <button
+                  onClick={handleBasicToggle}
+                  className={`min-h-[36px] px-3 rounded text-xs font-semibold transition-all cursor-pointer border ${
+                    showBasic ? 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50' : 'bg-gray-800 text-gray-400 border-gray-700'
+                  }`}
+                  aria-pressed={showBasic}
+                >
+                  Basic
+                </button>
+              )}
               <button
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending}
@@ -510,7 +552,7 @@ export default function HomeContent() {
               {viewData && (
                 <button
                   onClick={() => {
-                    const csv = exportForecastCsv(MODELS, viewData.time, viewData.series, effectiveMaxHours)
+                    const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours)
                     downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
                   }}
                   className="min-h-[36px] px-3 rounded text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700 cursor-pointer"
@@ -664,6 +706,7 @@ export default function HomeContent() {
                     onSelectHour={handleHourChange}
                     maxHours={effectiveMaxHours}
                     showMarine={marine}
+                    showBasic={showBasic}
                   />
                   <ModelSelector
                     models={displayModels}
@@ -681,6 +724,7 @@ export default function HomeContent() {
                     onSelectHour={handleHourChange}
                     maxHours={effectiveMaxHours}
                     showMarine={marine}
+                    showBasic={showBasic}
                   />
                   <ModelComparisonChart
                     models={displayModels}

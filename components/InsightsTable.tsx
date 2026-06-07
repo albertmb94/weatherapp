@@ -22,6 +22,7 @@ interface InsightsTableProps {
   onSelectHour: (h: number) => void
   maxHours: number
   showMarine?: boolean
+  showBasic?: boolean
 }
 
 interface Row {
@@ -217,6 +218,7 @@ export default function InsightsTable({
   onSelectHour,
   maxHours,
   showMarine = false,
+  showBasic = true,
 }: InsightsTableProps) {
   const { locale } = useLocale()
   const activeModels = useMemo(
@@ -467,9 +469,16 @@ export default function InsightsTable({
 
   if (activeModels.length === 0) return null
 
-  const visibleIds = showMarine
-    ? columnOrder
-    : columnOrder.filter(id => !METRIC_COLUMNS.find(c => c.id === id)?.hideClass?.includes('marine-col'))
+  const MARINE_COL_IDS = new Set<MetricCellId>([
+    'wave_height', 'wave_period', 'wave_direction',
+    'wind_wave_height', 'wind_wave_period',
+    'swell_wave_height', 'swell_wave_period',
+  ])
+  const visibleIds = columnOrder.filter(id => {
+    if (!showMarine && MARINE_COL_IDS.has(id)) return false
+    if (showMarine && !showBasic && !MARINE_COL_IDS.has(id) && id !== 'name') return false
+    return true
+  })
   const colDefs = visibleIds.map(id => METRIC_COLUMNS.find(c => c.id === id)!)
 
   return (

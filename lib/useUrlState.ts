@@ -13,6 +13,7 @@ interface UrlState {
   bucket: number
   locale: string
   marine: boolean
+  basic: boolean
 }
 
 const ALLOWED_BUCKETS = new Set([1, 2, 3, 4, 6, 12, 24])
@@ -47,6 +48,8 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   if (locale === 'en' || locale === 'es') result.locale = locale
   const marine = params.get('marine')
   if (marine !== null) result.marine = marine === '1'
+  const basic = params.get('basic')
+  if (basic !== null) result.basic = basic === '1'
   return result
 }
 
@@ -73,6 +76,7 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   if (state.bucket !== defaults.bucket) params.set('bucket', String(state.bucket))
   if (state.locale !== defaults.locale) params.set('locale', state.locale)
   if (state.marine !== defaults.marine) params.set('marine', state.marine ? '1' : '0')
+  if (state.basic !== defaults.basic) params.set('basic', state.basic ? '1' : '0')
   return params.toString()
 }
 
@@ -96,6 +100,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       bucket: parsed.bucket ?? defaults.bucket,
       locale: parsed.locale ?? defaults.locale,
       marine: parsed.marine ?? defaults.marine,
+      basic: parsed.basic ?? defaults.basic,
     }
   })
 

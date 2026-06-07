@@ -34,6 +34,8 @@ describe('useUrlState pure functions', () => {
       if (locale === 'en' || locale === 'es') result.locale = locale
       const marine = params.get('marine')
       if (marine !== null) result.marine = marine === '1'
+      const basic = params.get('basic')
+      if (basic !== null) result.basic = basic === '1'
       return result
     }
 
@@ -105,6 +107,15 @@ describe('useUrlState pure functions', () => {
 
     it('omits marine when not present in URL', () => {
       expect(parseUrlParams(new URLSearchParams('')).marine).toBeUndefined()
+    })
+
+    it('parses basic=1 as true and basic=0 as false', () => {
+      expect(parseUrlParams(new URLSearchParams('basic=1')).basic).toBe(true)
+      expect(parseUrlParams(new URLSearchParams('basic=0')).basic).toBe(false)
+    })
+
+    it('omits basic when not present in URL', () => {
+      expect(parseUrlParams(new URLSearchParams('')).basic).toBeUndefined()
     })
   })
 })

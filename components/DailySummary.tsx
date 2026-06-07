@@ -17,6 +17,7 @@ interface DailySummaryProps {
   onSelectHour: (hour: number) => void
   maxHours: number
   showMarine?: boolean
+  showBasic?: boolean
 }
 
 interface DayBucket {
@@ -45,6 +46,7 @@ export default function DailySummary({
   onSelectHour,
   maxHours,
   showMarine = false,
+  showBasic = true,
 }: DailySummaryProps) {
   const { locale } = useLocale()
 
@@ -156,14 +158,16 @@ export default function DailySummary({
               title={`Jump to ${d.label} at 12:00`}
             >
               <div className="text-[10px] font-semibold text-gray-300 truncate">{d.label}</div>
-              <div className="flex justify-center my-0.5"><WeatherConditionIcon icon={d.icon} /></div>
-              <div className="flex items-baseline justify-center gap-0.5 leading-none">
-                <span className="text-xs font-bold text-white">{d.tMax !== null ? Math.round(d.tMax) : '–'}°</span>
-                <span className="text-[9px] text-gray-500">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
-              </div>
+              {showBasic && <div className="flex justify-center my-0.5"><WeatherConditionIcon icon={d.icon} /></div>}
+              {showBasic && (
+                <div className="flex items-baseline justify-center gap-0.5 leading-none">
+                  <span className="text-xs font-bold text-white">{d.tMax !== null ? Math.round(d.tMax) : '–'}°</span>
+                  <span className="text-[9px] text-gray-500">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
+                </div>
+              )}
               <div className="mt-0.5 flex items-center justify-center gap-1 text-[9px] text-gray-500 truncate">
-                <span title="Precipitation total">💧{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>
-                <span title="Max wind gusts">≋{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>
+                {showBasic && <span title="Precipitation total">💧{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>}
+                {showBasic && <span title="Max wind gusts">≋{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>}
                 {showMarine && d.hasMarineData && (
                   <span title="Max wave height / mean wave period">🌊{d.waveHeightMax !== null ? d.waveHeightMax.toFixed(1) : '–'}{d.wavePeriodMean !== null ? `/${Math.round(d.wavePeriodMean)}s` : ''}</span>
                 )}

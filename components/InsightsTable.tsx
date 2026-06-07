@@ -509,7 +509,7 @@ export default function InsightsTable({
         <table className="w-full border-collapse text-xs table-fixed min-w-[960px]">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
-              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-20 border-b border-gray-800 w-[80px]">{STRINGS[locale].tableWhen}</th>
+              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-30 border-b border-gray-800 w-[80px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-blue-500' : ''
                 return (
@@ -538,7 +538,7 @@ export default function InsightsTable({
                   onClick={() => onSelectHour(r.centerIdx)}
                   className={`cursor-pointer transition-colors ${isActive ? 'bg-blue-900/30' : 'hover:bg-gray-800/40'}`}
                 >
-                  <td className={`sticky left-0 z-10 px-2 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 ${isActive ? 'bg-blue-900/30' : 'bg-gray-950'}`}>
+                  <td className={`sticky left-0 z-20 px-2 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] ${isActive ? 'bg-blue-900' : 'bg-gray-950'}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => (

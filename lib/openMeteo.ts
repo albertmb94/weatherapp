@@ -93,15 +93,21 @@ export async function fetchForecast(
     const marineDays = computeMarineDays(forecastDays * 24)
     try {
       const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)
-      if (marine.time.length === time.length) {
-        for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
+      const marineLen = marine.time.length
+      if (marineLen <= time.length && marineLen > 0) {
+        const t0 = marine.time[0].getTime()
+        const match = t0 === time[0].getTime()
+        if (match) {
           series.marine_global = series.marine_global ?? {}
-          series.marine_global[metricId] = values
+          for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
+            const padded = marineLen === time.length
+              ? values
+              : [...values, ...new Array(time.length - marineLen).fill(null)]
+            series.marine_global[metricId] = padded
+          }
         }
       }
     } catch (err) {
-      // Marine failure should not block the rest of the forecast.
-      // Inland locations return all-null anyway; network errors are non-fatal.
       console.warn('marine fetch failed', err)
     }
   }

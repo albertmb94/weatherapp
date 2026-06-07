@@ -72,13 +72,15 @@ describe('fetchForecast with marine', () => {
   })
 
   it('calls fetchMarine and merges results when includeMarine is true', async () => {
+    const fResponse = makeForecastResponse(3)
     vi.mocked(fetchWithTimeout).mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => makeForecastResponse(3),
+      json: async () => fResponse,
     } as Response)
+    const t0 = new Date(fResponse.hourly.time[0])
     vi.mocked(fetchMarine).mockResolvedValue({
-      time: [new Date(0), new Date(0), new Date(0)],
+      time: [t0, new Date(t0.getTime() + 3600000), new Date(t0.getTime() + 2 * 3600000)],
       series: {
         marine_global: {
           wave_height: [0.5, 0.6, 0.7],
@@ -95,15 +97,34 @@ describe('fetchForecast with marine', () => {
     expect(result.series.marine_global.wave_period).toEqual([6, 7, 8])
   })
 
-  it('skips marine data when time length mismatches', async () => {
+  it('pads marine data with nulls when it covers fewer hours than forecast', async () => {
+    const fResponse = makeForecastResponse(5)
+    vi.mocked(fetchWithTimeout).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => fResponse,
+    } as Response)
+    const t0 = new Date(fResponse.hourly.time[0])
+    vi.mocked(fetchMarine).mockResolvedValue({
+      time: [t0, new Date(t0.getTime() + 3600000)],
+      series: { marine_global: { wave_height: [0.5, 0.6] } },
+      utcOffsetSeconds: 0,
+    })
+
+    const result = await fetchForecast(0, 0, MODELS, METRICS, 1, undefined, true)
+    expect(result.series.marine_global).toBeDefined()
+    expect(result.series.marine_global.wave_height).toEqual([0.5, 0.6, null, null, null])
+  })
+
+  it('skips marine data when start timestamps do not align', async () => {
     vi.mocked(fetchWithTimeout).mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => makeForecastResponse(3),
     } as Response)
     vi.mocked(fetchMarine).mockResolvedValue({
-      time: [new Date(0), new Date(0)],
-      series: { marine_global: { wave_height: [0.5, 0.6] } },
+      time: [new Date(2027, 0, 1, 0)],
+      series: { marine_global: { wave_height: [0.5] } },
       utcOffsetSeconds: 0,
     })
 

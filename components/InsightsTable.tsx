@@ -75,30 +75,26 @@ interface MetricColumnDef {
 }
 
 const METRIC_COLUMNS: MetricColumnDef[] = [
-  { id: 'cond', labelKey: 'tableCond' },
-  { id: 'temp', labelKey: 'tableTemp' },
-  // Phones in landscape often sit just under the 768px md breakpoint once
-  // the notch + home indicator safe area is subtracted (e.g. iPhone 16 lands
-  // around 758px). Using sm + landscape keeps the secondary columns visible
-  // on those devices while still hiding them on phones in portrait.
-  { id: 'min', labelKey: 'tableMin', hideClass: 'hidden sm:table-cell landscape:table-cell' },
-  { id: 'max', labelKey: 'tableMax', hideClass: 'hidden sm:table-cell landscape:table-cell' },
-  { id: 'clouds', labelKey: 'tableClouds', hideClass: 'hidden sm:table-cell landscape:table-cell' },
-  { id: 'wind', labelKey: 'tableWind' },
-  { id: 'gusts', labelKey: 'tableGusts', hideClass: 'hidden sm:table-cell landscape:table-cell' },
-  { id: 'precip', labelKey: 'tablePrecip' },
-  { id: 'humidity', labelKey: 'tableHumidity' },
-  { id: 'uv', labelKey: 'tableUv' },
-  { id: 'pressure', labelKey: 'tablePressure', hideClass: 'hidden xl:table-cell' },
-  { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden xl:table-cell' },
-  { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden xl:table-cell' },
-  { id: 'wave_height', labelKey: 'tableWaveHeight', hideClass: 'marine-col', width: 'w-[60px]' },
-  { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'hidden sm:table-cell marine-col', width: 'w-[55px]' },
-  { id: 'wave_direction', labelKey: 'tableWaveDirection', hideClass: 'hidden md:table-cell marine-col', width: 'w-[55px]' },
-  { id: 'wind_wave_height', labelKey: 'tableWindWaveHeight', hideClass: 'hidden lg:table-cell marine-col', width: 'w-[65px]' },
-  { id: 'wind_wave_period', labelKey: 'tableWindWavePeriod', hideClass: 'hidden xl:table-cell marine-col' },
-  { id: 'swell_wave_height', labelKey: 'tableSwellHeight', hideClass: 'hidden lg:table-cell marine-col', width: 'w-[60px]' },
-  { id: 'swell_wave_period', labelKey: 'tableSwellPeriod', hideClass: 'hidden xl:table-cell marine-col' },
+  { id: 'cond', labelKey: 'tableCond', width: 'w-[40px]' },
+  { id: 'temp', labelKey: 'tableTemp', width: 'w-[44px]' },
+  { id: 'min', labelKey: 'tableMin', width: 'w-[40px]' },
+  { id: 'max', labelKey: 'tableMax', width: 'w-[40px]' },
+  { id: 'clouds', labelKey: 'tableClouds', width: 'w-[46px]' },
+  { id: 'wind', labelKey: 'tableWind', width: 'w-[44px]' },
+  { id: 'gusts', labelKey: 'tableGusts', width: 'w-[44px]' },
+  { id: 'precip', labelKey: 'tablePrecip', width: 'w-[52px]' },
+  { id: 'humidity', labelKey: 'tableHumidity', width: 'w-[50px]' },
+  { id: 'uv', labelKey: 'tableUv', width: 'w-[36px]' },
+  { id: 'pressure', labelKey: 'tablePressure', width: 'w-[50px]' },
+  { id: 'dewpoint', labelKey: 'tableDewpoint', width: 'w-[50px]' },
+  { id: 'visibility', labelKey: 'tableVisibility', width: 'w-[52px]' },
+  { id: 'wave_height', labelKey: 'tableWaveHeight', hideClass: 'marine-col', width: 'w-[58px]' },
+  { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'marine-col', width: 'w-[52px]' },
+  { id: 'wave_direction', labelKey: 'tableWaveDirection', hideClass: 'marine-col', width: 'w-[54px]' },
+  { id: 'wind_wave_height', labelKey: 'tableWindWaveHeight', hideClass: 'marine-col', width: 'w-[62px]' },
+  { id: 'wind_wave_period', labelKey: 'tableWindWavePeriod', hideClass: 'marine-col', width: 'w-[58px]' },
+  { id: 'swell_wave_height', labelKey: 'tableSwellHeight', hideClass: 'marine-col', width: 'w-[58px]' },
+  { id: 'swell_wave_period', labelKey: 'tableSwellPeriod', hideClass: 'marine-col', width: 'w-[58px]' },
 ]
 
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
@@ -511,7 +507,7 @@ export default function InsightsTable({
       </div>
 
       <div className="overflow-x-auto rounded border border-gray-800">
-        <table className="w-full border-collapse text-xs table-fixed">
+        <table className="border-collapse text-xs table-fixed">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
               <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-10 border-b border-gray-800 w-[80px]">{STRINGS[locale].tableWhen}</th>

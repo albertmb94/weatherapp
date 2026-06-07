@@ -476,7 +476,7 @@ export default function InsightsTable({
   ])
   const visibleIds = columnOrder.filter(id => {
     if (!showMarine && MARINE_COL_IDS.has(id)) return false
-    if (showMarine && !showBasic && !MARINE_COL_IDS.has(id) && id !== 'name') return false
+    if (showMarine && !showBasic && !MARINE_COL_IDS.has(id)) return false
     return true
   })
   const colDefs = visibleIds.map(id => METRIC_COLUMNS.find(c => c.id === id)!)

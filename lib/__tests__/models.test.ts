@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MODELS, METRICS } from '../models'
+import { MODELS, METRICS, MARINE_METRIC_IDS } from '../models'
 
 describe('MODELS', () => {
   it('has at least one model', () => {
@@ -12,7 +12,8 @@ describe('MODELS', () => {
       expect(m.label).toBeTruthy()
       expect(m.color).toMatch(/^#[0-9a-fA-F]{6}$/)
       expect(m.maxHours).toBeGreaterThan(0)
-      expect(m.weight).toBeGreaterThan(0)
+      // weight may be 0 for the virtual single-source 'marine_global' model.
+      expect(m.weight).toBeGreaterThanOrEqual(0)
     }
   })
 
@@ -52,5 +53,24 @@ describe('METRICS', () => {
     const nonAll = METRICS.filter(m => m.id !== 'all')
     const params = nonAll.map(m => m.hourlyParam)
     expect(new Set(params).size).toBe(params.length)
+  })
+
+  it('classifies metrics into land and marine groups', () => {
+    const land = METRICS.filter(m => m.group === 'land' && m.id !== 'all')
+    const marine = METRICS.filter(m => m.group === 'marine')
+    expect(land.length).toBeGreaterThan(0)
+    expect(marine.length).toBeGreaterThan(0)
+    for (const m of marine) {
+      expect(MARINE_METRIC_IDS).toContain(m.id)
+    }
+  })
+})
+
+describe('marine_global model', () => {
+  it('exists in MODELS with weight 0 and weight-less ensemble behavior', () => {
+    const m = MODELS.find(mm => mm.id === 'marine_global')
+    expect(m).toBeDefined()
+    expect(m?.weight).toBe(0)
+    expect(m?.maxHours).toBe(168)
   })
 })

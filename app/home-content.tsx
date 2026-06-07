@@ -59,6 +59,7 @@ export default function HomeContent() {
     showRadar: false,
     bucket: 4,
     locale: '',
+    marine: false,
   }))
   const [urlState, updateUrl] = useUrlState(defaults)
 
@@ -130,6 +131,7 @@ export default function HomeContent() {
   const showMap = urlState.showMap
   const showRadar = urlState.showRadar
   const bucket = urlState.bucket as BucketHours
+  const marine = urlState.marine
 
   const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null }>({
     queryKey: ['refresh-status'],
@@ -146,8 +148,8 @@ export default function HomeContent() {
   const forecastDays = computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS)
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['forecast', position[0], position[1], forecastDays],
-    queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal),
+    queryKey: ['forecast', position[0], position[1], forecastDays, marine],
+    queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine),
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   })
@@ -208,6 +210,10 @@ export default function HomeContent() {
     updateUrl({ showRadar: !showRadar, showMap: showRadar ? showMap : true })
   }, [showRadar, showMap, updateUrl])
 
+  const handleMarineToggle = useCallback(() => {
+    updateUrl({ marine: !marine })
+  }, [marine, updateUrl])
+
   const handleBucketChange = useCallback((b: BucketHours) => {
     updateUrl({ bucket: b })
   }, [updateUrl])
@@ -234,6 +240,19 @@ export default function HomeContent() {
   }, [updateUrl, locale])
 
   const legendMetric: Exclude<MetricId, 'all'> = selectedMetric === 'all' ? 'temperature' : selectedMetric
+
+  // Filter out the virtual marine model when the marine toggle is off, so
+  // it does not appear in the model selector, comparison chart, or daily
+  // summary. The wave data itself only lives on `series.marine_global` and
+  // is consumed directly by InsightsTable / DailySummary when marine is on.
+  const displayModels = useMemo(
+    () => (marine ? MODELS : MODELS.filter(m => m.id !== 'marine_global')),
+    [marine]
+  )
+  const displayActiveModelIds = useMemo(
+    () => (marine ? selectedModels : selectedModels.filter(id => id !== 'marine_global')),
+    [marine, selectedModels]
+  )
 
   const maxModelHours = useMemo(() => {
     if (selectedModels.length === 0) return 336
@@ -347,7 +366,8 @@ export default function HomeContent() {
             </svg>
           </button>
           <div className="hidden md:flex landscape:flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
+            <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
+            {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
             <button
               onClick={handleMapToggle}
               className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
@@ -364,6 +384,16 @@ export default function HomeContent() {
               title="Toggle rain radar (RainViewer)"
             >
               Radar
+            </button>
+            <button
+              onClick={handleMarineToggle}
+              className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                marine ? 'text-cyan-300' : 'text-gray-600 hover:text-gray-300'
+              }`}
+              title="Toggle marine/wave data (Open-Meteo Marine)"
+              aria-pressed={marine}
+            >
+              Marine
             </button>
             <button
               onClick={() => saveMutation.mutate()}
@@ -444,7 +474,13 @@ export default function HomeContent() {
           <div className="md:hidden landscape:hidden mt-2 pt-2 border-t border-gray-800 space-y-3 animate-fadeIn">
             <div>
               <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Metric</span>
-              <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} />
+              <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
+              {marine && (
+                <div className="mt-1">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Marine</span>
+                  <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -454,6 +490,15 @@ export default function HomeContent() {
                 }`}
               >
                 Radar
+              </button>
+              <button
+                onClick={handleMarineToggle}
+                className={`min-h-[36px] px-3 rounded text-xs font-medium transition-all cursor-pointer ${
+                  marine ? 'bg-cyan-600/30 text-cyan-200 border border-cyan-500/50' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+                aria-pressed={marine}
+              >
+                Marine
               </button>
               <button
                 onClick={() => saveMutation.mutate()}
@@ -511,7 +556,7 @@ export default function HomeContent() {
               onPositionChange={handlePositionChange}
               showHeatmap={showMap}
               metric={selectedMetric}
-              selectedModels={selectedModels}
+              selectedModels={displayActiveModelIds}
               hourIndex={selectedHour}
               nowOffset={startIndex}
               showRadar={showRadar}
@@ -611,22 +656,23 @@ export default function HomeContent() {
               {viewData && (
                 <>
                   <DailySummary
-                    models={MODELS}
-                    activeModelIds={selectedModels}
+                    models={displayModels}
+                    activeModelIds={displayActiveModelIds}
                     times={viewData.time}
                     series={viewData.series}
                     selectedHour={selectedHour}
                     onSelectHour={handleHourChange}
                     maxHours={effectiveMaxHours}
+                    showMarine={marine}
                   />
                   <ModelSelector
-                    models={MODELS}
+                    models={displayModels}
                     selected={selectedModels}
                     onChange={handleModelChange}
                   />
                   <InsightsTable
-                    models={MODELS}
-                    activeModelIds={selectedModels}
+                    models={displayModels}
+                    activeModelIds={displayActiveModelIds}
                     times={viewData.time}
                     series={viewData.series}
                     bucket={bucket}
@@ -634,10 +680,11 @@ export default function HomeContent() {
                     selectedHour={selectedHour}
                     onSelectHour={handleHourChange}
                     maxHours={effectiveMaxHours}
+                    showMarine={marine}
                   />
                   <ModelComparisonChart
-                    models={MODELS}
-                    activeModelIds={selectedModels}
+                    models={displayModels}
+                    activeModelIds={displayActiveModelIds}
                     metric={selectedMetric}
                     times={viewData.time}
                     series={viewData.series}

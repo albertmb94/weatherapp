@@ -6,6 +6,7 @@ interface MetricPillsProps {
   metrics: Metric[]
   selected: MetricId
   onChange: (id: MetricId) => void
+  group?: 'land' | 'marine' | 'all'
 }
 
 const ICONS: Record<MetricId, React.ReactNode> = {
@@ -81,12 +82,56 @@ const ICONS: Record<MetricId, React.ReactNode> = {
       <circle cx="8" cy="8" r="2" />
     </svg>
   ),
+  wave_height: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M1 10c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0" />
+      <path d="M1 13c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0" strokeOpacity={0.6} />
+    </svg>
+  ),
+  wave_period: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 4v4l3 2" />
+    </svg>
+  ),
+  wave_direction: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M8 2v8" />
+      <path d="M5 7l3-3 3 3" />
+      <path d="M2 13h12" strokeOpacity={0.5} />
+    </svg>
+  ),
+  wind_wave_height: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M2 5h6.5a1.5 1.5 0 1 0-1.5-1.5" />
+      <path d="M2 11c1.5-2 3-2 4.5 0s3 2 4.5 0" />
+    </svg>
+  ),
+  wind_wave_period: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M2 8h4" />
+      <path d="M7 8a3 3 0 0 1 6 0 3 3 0 0 1-3 3" />
+    </svg>
+  ),
+  swell_wave_height: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+      <path d="M1 9c1.5-1.5 3-1.5 4.5 0s3 1.5 4.5 0 3-1.5 4.5 0" />
+      <path d="M1 12c1.5-1.5 3-1.5 4.5 0s3 1.5 4.5 0 3-1.5 4.5 0" strokeOpacity={0.5} />
+    </svg>
+  ),
+  swell_wave_period: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M2 11c2-3 4-3 6 0s4 3 6 0" />
+      <path d="M2 6h2M6 6h2" strokeOpacity={0.6} />
+    </svg>
+  ),
 }
 
-export default function MetricPills({ metrics, selected, onChange }: MetricPillsProps) {
+export default function MetricPills({ metrics, selected, onChange, group = 'all' }: MetricPillsProps) {
+  const filtered = group === 'all' ? metrics : metrics.filter(m => m.group === group)
   return (
     <div className="flex gap-0.5">
-      {metrics.map(m => {
+      {filtered.map(m => {
         const active = selected === m.id
         return (
           <button

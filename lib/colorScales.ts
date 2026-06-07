@@ -76,6 +76,58 @@ export const SCALES: Record<ScaleMetric, ColorStop[]> = {
     { value: 15, color: [0, 200, 100] },
     { value: 30, color: [0, 150, 255] },
   ],
+  wave_height: [
+    { value: 0, color: [0, 180, 0] },
+    { value: 0.5, color: [255, 255, 0] },
+    { value: 1.5, color: [255, 140, 0] },
+    { value: 3, color: [255, 0, 0] },
+    { value: 5, color: [150, 0, 150] },
+  ],
+  wave_period: [
+    { value: 0, color: [0, 100, 200] },
+    { value: 6, color: [0, 200, 100] },
+    { value: 10, color: [255, 255, 0] },
+    { value: 14, color: [255, 140, 0] },
+    { value: 20, color: [200, 0, 0] },
+  ],
+  wave_direction: [
+    { value: 0, color: [255, 0, 0] },
+    { value: 45, color: [255, 165, 0] },
+    { value: 90, color: [255, 255, 0] },
+    { value: 135, color: [0, 200, 0] },
+    { value: 180, color: [0, 150, 200] },
+    { value: 225, color: [0, 0, 200] },
+    { value: 270, color: [150, 0, 200] },
+    { value: 315, color: [200, 0, 150] },
+  ],
+  wind_wave_height: [
+    { value: 0, color: [200, 230, 255] },
+    { value: 0.3, color: [0, 180, 0] },
+    { value: 1, color: [255, 255, 0] },
+    { value: 2, color: [255, 140, 0] },
+    { value: 4, color: [200, 0, 0] },
+  ],
+  wind_wave_period: [
+    { value: 0, color: [0, 100, 200] },
+    { value: 3, color: [0, 200, 100] },
+    { value: 6, color: [255, 255, 0] },
+    { value: 9, color: [255, 140, 0] },
+    { value: 12, color: [200, 0, 0] },
+  ],
+  swell_wave_height: [
+    { value: 0, color: [200, 230, 255] },
+    { value: 0.5, color: [0, 180, 0] },
+    { value: 1.5, color: [255, 255, 0] },
+    { value: 3, color: [255, 140, 0] },
+    { value: 5, color: [200, 0, 0] },
+  ],
+  swell_wave_period: [
+    { value: 0, color: [0, 100, 200] },
+    { value: 6, color: [0, 200, 100] },
+    { value: 10, color: [255, 255, 0] },
+    { value: 14, color: [255, 140, 0] },
+    { value: 20, color: [200, 0, 0] },
+  ],
 }
 
 function lerp(a: number, b: number, t: number): number {

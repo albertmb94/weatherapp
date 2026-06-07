@@ -16,27 +16,44 @@ export const MODELS: WeatherModel[] = [
   { id: 'icon_global', label: 'ICON 13km', color: '#911eb4', maxHours: 240, weight: 4 },
   { id: 'gfs_global', label: 'GFS 13km', color: '#f032e6', maxHours: 384, weight: 3 },
   { id: 'gem_global', label: 'GDPS 15km', color: '#a9a9a9', maxHours: 240, weight: 2 },
+  { id: 'marine_global', label: 'Marine', color: '#06b6d4', maxHours: 168, weight: 0 },
 ]
 
-export type MetricId = 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility' | 'all'
+export type MetricId =
+  | 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation'
+  | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility'
+  | 'wave_height' | 'wave_period' | 'wave_direction'
+  | 'wind_wave_height' | 'wind_wave_period'
+  | 'swell_wave_height' | 'swell_wave_period'
+  | 'all'
 
 export interface Metric {
   id: MetricId
   label: string
   unit: string
   hourlyParam: string
+  group: 'land' | 'marine'
 }
 
 export const METRICS: Metric[] = [
-  { id: 'all', label: 'All Metrics', unit: '', hourlyParam: '' },
-  { id: 'temperature', label: 'Temperature', unit: '°C', hourlyParam: 'temperature_2m' },
-  { id: 'cloud_cover', label: 'Cloud Cover', unit: '%', hourlyParam: 'cloud_cover' },
-  { id: 'wind_speed', label: 'Wind Speed', unit: 'km/h', hourlyParam: 'wind_speed_10m' },
-  { id: 'wind_gusts', label: 'Wind Gusts', unit: 'km/h', hourlyParam: 'wind_gusts_10m' },
-  { id: 'precipitation', label: 'Precipitation', unit: 'mm/h', hourlyParam: 'precipitation' },
-  { id: 'humidity', label: 'Humidity', unit: '%', hourlyParam: 'relative_humidity_2m' },
-  { id: 'uv_index', label: 'UV Index', unit: '', hourlyParam: 'uv_index' },
-  { id: 'pressure', label: 'Pressure', unit: 'hPa', hourlyParam: 'surface_pressure' },
-  { id: 'dewpoint', label: 'Dewpoint', unit: '°C', hourlyParam: 'dewpoint_2m' },
-  { id: 'visibility', label: 'Visibility', unit: 'km', hourlyParam: 'visibility' },
+  { id: 'all', label: 'All Metrics', unit: '', hourlyParam: '', group: 'land' },
+  { id: 'temperature', label: 'Temperature', unit: '°C', hourlyParam: 'temperature_2m', group: 'land' },
+  { id: 'cloud_cover', label: 'Cloud Cover', unit: '%', hourlyParam: 'cloud_cover', group: 'land' },
+  { id: 'wind_speed', label: 'Wind Speed', unit: 'km/h', hourlyParam: 'wind_speed_10m', group: 'land' },
+  { id: 'wind_gusts', label: 'Wind Gusts', unit: 'km/h', hourlyParam: 'wind_gusts_10m', group: 'land' },
+  { id: 'precipitation', label: 'Precipitation', unit: 'mm/h', hourlyParam: 'precipitation', group: 'land' },
+  { id: 'humidity', label: 'Humidity', unit: '%', hourlyParam: 'relative_humidity_2m', group: 'land' },
+  { id: 'uv_index', label: 'UV Index', unit: '', hourlyParam: 'uv_index', group: 'land' },
+  { id: 'pressure', label: 'Pressure', unit: 'hPa', hourlyParam: 'surface_pressure', group: 'land' },
+  { id: 'dewpoint', label: 'Dewpoint', unit: '°C', hourlyParam: 'dewpoint_2m', group: 'land' },
+  { id: 'visibility', label: 'Visibility', unit: 'km', hourlyParam: 'visibility', group: 'land' },
+  { id: 'wave_height', label: 'Wave Height', unit: 'm', hourlyParam: 'wave_height', group: 'marine' },
+  { id: 'wave_period', label: 'Wave Period', unit: 's', hourlyParam: 'wave_period', group: 'marine' },
+  { id: 'wave_direction', label: 'Wave Direction', unit: '°', hourlyParam: 'wave_direction', group: 'marine' },
+  { id: 'wind_wave_height', label: 'Wind Wave Height', unit: 'm', hourlyParam: 'wind_wave_height', group: 'marine' },
+  { id: 'wind_wave_period', label: 'Wind Wave Period', unit: 's', hourlyParam: 'wind_wave_period', group: 'marine' },
+  { id: 'swell_wave_height', label: 'Swell Height', unit: 'm', hourlyParam: 'swell_wave_height', group: 'marine' },
+  { id: 'swell_wave_period', label: 'Swell Period', unit: 's', hourlyParam: 'swell_wave_period', group: 'marine' },
 ]
+
+export const MARINE_METRIC_IDS: MetricId[] = METRICS.filter(m => m.group === 'marine').map(m => m.id)

@@ -58,3 +58,28 @@ export function buildForecastCacheKey(params: URLSearchParams): string {
   entries.sort(([a], [b]) => a.localeCompare(b))
   return entries.map(([k, v]) => `${k}=${v}`).join('|')
 }
+
+/**
+ * Build a cache key for the marine API. Same canonicalization rules as the
+ * forecast key: lat/lon rounded to 2 decimals, multi-location pairs sorted
+ * as a set, `timezone` dropped, other params sorted alphabetically. The
+ * marine API does not accept `models=`, so that param is also skipped.
+ */
+export function buildMarineCacheKey(params: URLSearchParams): string {
+  const entries: [string, string][] = []
+  const latLon = normalizeLatLon(params)
+  if (latLon) {
+    entries.push(['latitude', latLon.lat])
+    entries.push(['longitude', latLon.lon])
+  }
+
+  for (const [k, v] of params.entries()) {
+    if (k === 'latitude' || k === 'longitude') continue
+    if (k === 'models') continue
+    if (SKIP_PARAMS.has(k)) continue
+    entries.push([k, v])
+  }
+
+  entries.sort(([a], [b]) => a.localeCompare(b))
+  return entries.map(([k, v]) => `${k}=${v}`).join('|')
+}

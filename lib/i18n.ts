@@ -24,6 +24,13 @@ export const STRINGS: Record<Locale, {
   tablePressure: string
   tableDewpoint: string
   tableVisibility: string
+  tableWaveHeight: string
+  tableWavePeriod: string
+  tableWaveDirection: string
+  tableWindWaveHeight: string
+  tableWindWavePeriod: string
+  tableSwellHeight: string
+  tableSwellPeriod: string
   dailyTitle: string
   insightsTitle: string
   loadingForecast: string
@@ -40,6 +47,7 @@ export const STRINGS: Record<Locale, {
   footerSearch: string
   footerMap: string
   cityCoords: string
+  noMarineData: string
 }> = {
   es: {
     today: 'Hoy',
@@ -58,6 +66,13 @@ export const STRINGS: Record<Locale, {
     tablePressure: 'Pres hPa',
     tableDewpoint: 'Rocío °C',
     tableVisibility: 'Vis km',
+    tableWaveHeight: 'Ola m',
+    tableWavePeriod: 'Periodo s',
+    tableWaveDirection: 'Dir ola',
+    tableWindWaveHeight: 'Ola vient m',
+    tableWindWavePeriod: 'Periodo vient s',
+    tableSwellHeight: 'Swell m',
+    tableSwellPeriod: 'Swell s',
     dailyTitle: 'Resumen diario (ensemble)',
     insightsTitle: 'Insights',
     loadingForecast: 'Cargando previsión…',
@@ -74,6 +89,7 @@ export const STRINGS: Record<Locale, {
     footerSearch: '/ buscar',
     footerMap: 'm mapa',
     cityCoords: '{city} · {lat}, {lon}',
+    noMarineData: 'Sin datos marinos en esta ubicación',
   },
   en: {
     today: 'Today',
@@ -92,6 +108,13 @@ export const STRINGS: Record<Locale, {
     tablePressure: 'Pres hPa',
     tableDewpoint: 'Dew °C',
     tableVisibility: 'Vis km',
+    tableWaveHeight: 'Wave m',
+    tableWavePeriod: 'Period s',
+    tableWaveDirection: 'Wave dir',
+    tableWindWaveHeight: 'Wind wave m',
+    tableWindWavePeriod: 'Wind wave s',
+    tableSwellHeight: 'Swell m',
+    tableSwellPeriod: 'Swell s',
     dailyTitle: 'Daily summary (ensemble)',
     insightsTitle: 'Insights',
     loadingForecast: 'Loading forecast…',
@@ -108,5 +131,6 @@ export const STRINGS: Record<Locale, {
     footerSearch: '/ search',
     footerMap: 'm map',
     cityCoords: '{city} · {lat}, {lon}',
+    noMarineData: 'No marine data at this location',
   },
 }

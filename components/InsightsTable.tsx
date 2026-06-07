@@ -21,6 +21,7 @@ interface InsightsTableProps {
   selectedHour: number
   onSelectHour: (h: number) => void
   maxHours: number
+  showMarine?: boolean
 }
 
 interface Row {
@@ -41,6 +42,14 @@ interface Row {
   pressureMean: number | null
   dewpointMean: number | null
   visibilityMean: number | null
+  waveHeightMax: number | null
+  wavePeriodMean: number | null
+  waveDirection: number | null
+  windWaveHeightMax: number | null
+  windWavePeriodMean: number | null
+  swellHeightMax: number | null
+  swellPeriodMean: number | null
+  hasMarineData: boolean
   icon: WeatherIconId
 }
 
@@ -53,6 +62,9 @@ type MetricCellId =
   | 'cond' | 'temp' | 'min' | 'max' | 'clouds'
   | 'wind' | 'gusts' | 'precip' | 'humidity'
   | 'uv' | 'pressure' | 'dewpoint' | 'visibility'
+  | 'wave_height' | 'wave_period' | 'wave_direction'
+  | 'wind_wave_height' | 'wind_wave_period'
+  | 'swell_wave_height' | 'swell_wave_period'
 
 interface MetricColumnDef {
   id: MetricCellId
@@ -78,6 +90,13 @@ const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: 'pressure', labelKey: 'tablePressure', hideClass: 'hidden xl:table-cell' },
   { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden xl:table-cell' },
   { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden xl:table-cell' },
+  { id: 'wave_height', labelKey: 'tableWaveHeight', hideClass: 'hidden xl:table-cell marine-col' },
+  { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'hidden xl:table-cell marine-col' },
+  { id: 'wave_direction', labelKey: 'tableWaveDirection', hideClass: 'hidden xl:table-cell marine-col' },
+  { id: 'wind_wave_height', labelKey: 'tableWindWaveHeight', hideClass: 'hidden xl:table-cell marine-col' },
+  { id: 'wind_wave_period', labelKey: 'tableWindWavePeriod', hideClass: 'hidden xl:table-cell marine-col' },
+  { id: 'swell_wave_height', labelKey: 'tableSwellHeight', hideClass: 'hidden xl:table-cell marine-col' },
+  { id: 'swell_wave_period', labelKey: 'tableSwellPeriod', hideClass: 'hidden xl:table-cell marine-col' },
 ]
 
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
@@ -170,6 +189,20 @@ function CellContent({ id, r }: { id: MetricCellId; r: Row }) {
       return <CellInner value={r.dewpointMean} metric="dewpoint" suffix="°" decimals={1} />
     case 'visibility':
       return <CellInner value={r.visibilityMean} metric="visibility" suffix="km" decimals={1} />
+    case 'wave_height':
+      return <CellInner value={r.waveHeightMax} metric="wave_height" suffix="m" decimals={1} />
+    case 'wave_period':
+      return <CellInner value={r.wavePeriodMean} metric="wave_period" suffix="s" decimals={0} />
+    case 'wave_direction':
+      return <CellInner value={r.waveDirection} metric="wave_direction" suffix="°" decimals={0} icon={<WindArrow degrees={r.waveDirection} />} tooltip={r.waveDirection !== null ? `${Math.round(r.waveDirection)}°` : undefined} />
+    case 'wind_wave_height':
+      return <CellInner value={r.windWaveHeightMax} metric="wind_wave_height" suffix="m" decimals={1} />
+    case 'wind_wave_period':
+      return <CellInner value={r.windWavePeriodMean} metric="wind_wave_period" suffix="s" decimals={0} />
+    case 'swell_wave_height':
+      return <CellInner value={r.swellHeightMax} metric="swell_wave_height" suffix="m" decimals={1} />
+    case 'swell_wave_period':
+      return <CellInner value={r.swellPeriodMean} metric="swell_wave_period" suffix="s" decimals={0} />
   }
 }
 
@@ -183,6 +216,7 @@ export default function InsightsTable({
   selectedHour,
   onSelectHour,
   maxHours,
+  showMarine = false,
 }: InsightsTableProps) {
   const { locale } = useLocale()
   const activeModels = useMemo(
@@ -248,6 +282,17 @@ export default function InsightsTable({
     const buckets: Row[] = []
     let cursor = 0
 
+    const emptyMarine = {
+      waveHeightMax: null,
+      wavePeriodMean: null,
+      waveDirection: null,
+      windWaveHeightMax: null,
+      windWavePeriodMean: null,
+      swellHeightMax: null,
+      swellPeriodMean: null,
+      hasMarineData: false,
+    } as const
+
     if (bucket === 24) {
       let current: Row | null = null
       let currentKey = ''
@@ -264,6 +309,7 @@ export default function InsightsTable({
             cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
             humidityMean: null, uvIndexMean: null,
             pressureMean: null, dewpointMean: null, visibilityMean: null,
+            ...emptyMarine,
             icon: 'sunny',
           }
           currentKey = key
@@ -291,6 +337,7 @@ export default function InsightsTable({
           cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
           humidityMean: null, uvIndexMean: null,
           pressureMean: null, dewpointMean: null, visibilityMean: null,
+          ...emptyMarine,
           icon: 'sunny',
         })
         cursor = end + 1
@@ -360,6 +407,41 @@ export default function InsightsTable({
           dirSin += hSin / hW
           dirCount += 1
         }
+
+        // Marine aggregates (single-source from marine_global, no ensemble).
+        const mSeries = series['marine_global']
+        if (mSeries) {
+          const wh = mSeries['wave_height']?.[i] ?? null
+          const wp = mSeries['wave_period']?.[i] ?? null
+          const wd = mSeries['wave_direction']?.[i] ?? null
+          const wwh = mSeries['wind_wave_height']?.[i] ?? null
+          const wwp = mSeries['wind_wave_period']?.[i] ?? null
+          const swh = mSeries['swell_wave_height']?.[i] ?? null
+          const swp = mSeries['swell_wave_period']?.[i] ?? null
+          if (wh !== null && wh !== undefined) {
+            b.waveHeightMax = b.waveHeightMax === null ? wh : Math.max(b.waveHeightMax, wh)
+            b.hasMarineData = true
+          }
+          if (wp !== null && wp !== undefined) {
+            b.wavePeriodMean = b.wavePeriodMean === null ? wp : (b.wavePeriodMean + wp) / 2
+            b.hasMarineData = true
+          }
+          if (wwh !== null && wwh !== undefined) {
+            b.windWaveHeightMax = b.windWaveHeightMax === null ? wwh : Math.max(b.windWaveHeightMax, wwh)
+          }
+          if (wwp !== null && wwp !== undefined) {
+            b.windWavePeriodMean = b.windWavePeriodMean === null ? wwp : (b.windWavePeriodMean + wwp) / 2
+          }
+          if (swh !== null && swh !== undefined) {
+            b.swellHeightMax = b.swellHeightMax === null ? swh : Math.max(b.swellHeightMax, swh)
+          }
+          if (swp !== null && swp !== undefined) {
+            b.swellPeriodMean = b.swellPeriodMean === null ? swp : (b.swellPeriodMean + swp) / 2
+          }
+          if (wd !== null && wd !== undefined) {
+            b.waveDirection = wd
+          }
+        }
       }
       b.tempMean = tCount > 0 ? tSum / tCount : null
       b.cloudMean = cCount > 0 ? cSum / cCount : null
@@ -385,7 +467,10 @@ export default function InsightsTable({
 
   if (activeModels.length === 0) return null
 
-  const colDefs = columnOrder.map(id => METRIC_COLUMNS.find(c => c.id === id)!)
+  const visibleIds = showMarine
+    ? columnOrder
+    : columnOrder.filter(id => !METRIC_COLUMNS.find(c => c.id === id)?.hideClass?.includes('marine-col'))
+  const colDefs = visibleIds.map(id => METRIC_COLUMNS.find(c => c.id === id)!)
 
   return (
     <div className="mb-4 animate-fadeIn">
@@ -471,7 +556,7 @@ export default function InsightsTable({
 
 interface CellInnerProps {
   value: number | null
-  metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility'
+  metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility' | 'wave_height' | 'wave_period' | 'wave_direction' | 'wind_wave_height' | 'wind_wave_period' | 'swell_wave_height' | 'swell_wave_period'
   suffix?: string
   emoji?: string
   icon?: React.ReactNode

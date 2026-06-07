@@ -32,6 +32,8 @@ describe('useUrlState pure functions', () => {
       if (bucket && ALLOWED_BUCKETS.has(Number(bucket))) result.bucket = Number(bucket)
       const locale = params.get('locale')
       if (locale === 'en' || locale === 'es') result.locale = locale
+      const marine = params.get('marine')
+      if (marine !== null) result.marine = marine === '1'
       return result
     }
 
@@ -94,6 +96,15 @@ describe('useUrlState pure functions', () => {
 
     it('ignores invalid locale', () => {
       expect(parseUrlParams(new URLSearchParams('locale=fr')).locale).toBeUndefined()
+    })
+
+    it('parses marine=1 as true and marine=0 as false', () => {
+      expect(parseUrlParams(new URLSearchParams('marine=1')).marine).toBe(true)
+      expect(parseUrlParams(new URLSearchParams('marine=0')).marine).toBe(false)
+    })
+
+    it('omits marine when not present in URL', () => {
+      expect(parseUrlParams(new URLSearchParams('')).marine).toBeUndefined()
     })
   })
 })

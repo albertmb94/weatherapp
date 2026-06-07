@@ -16,6 +16,7 @@ interface DailySummaryProps {
   selectedHour: number
   onSelectHour: (hour: number) => void
   maxHours: number
+  showMarine?: boolean
 }
 
 interface DayBucket {
@@ -29,6 +30,9 @@ interface DayBucket {
   precipTotal: number | null
   windMax: number | null
   cloudAvg: number | null
+  waveHeightMax: number | null
+  wavePeriodMean: number | null
+  hasMarineData: boolean
   icon: WeatherIconId
 }
 
@@ -40,6 +44,7 @@ export default function DailySummary({
   selectedHour,
   onSelectHour,
   maxHours,
+  showMarine = false,
 }: DailySummaryProps) {
   const { locale } = useLocale()
 
@@ -70,6 +75,9 @@ export default function DailySummary({
           precipTotal: null,
           windMax: null,
           cloudAvg: null,
+          waveHeightMax: null,
+          wavePeriodMean: null,
+          hasMarineData: false,
           icon: 'sunny',
         }
         buckets.push(current)
@@ -81,6 +89,8 @@ export default function DailySummary({
     for (const bucket of buckets) {
       let cloudSum = 0
       let cloudCount = 0
+      let waveSum = 0
+      let waveCount = 0
       for (let i = bucket.startIndex; i <= bucket.endIndex; i++) {
         const tVals = activeModels.map(m => series[m.id]?.['temperature']?.[i] ?? null)
         const t = weightedAvg(tVals, weights)
@@ -100,8 +110,19 @@ export default function DailySummary({
           cloudSum += c
           cloudCount += 1
         }
+        const wh = series['marine_global']?.['wave_height']?.[i] ?? null
+        const wp = series['marine_global']?.['wave_period']?.[i] ?? null
+        if (wh !== null && wh !== undefined) {
+          bucket.waveHeightMax = bucket.waveHeightMax === null ? wh : Math.max(bucket.waveHeightMax, wh)
+          bucket.hasMarineData = true
+        }
+        if (wp !== null && wp !== undefined) {
+          waveSum += wp
+          waveCount += 1
+        }
       }
       bucket.cloudAvg = cloudCount > 0 ? cloudSum / cloudCount : null
+      bucket.wavePeriodMean = waveCount > 0 ? waveSum / waveCount : null
       bucket.icon = pickWeatherIcon({
         cloudCoverPct: bucket.cloudAvg,
         precipitationMmDay: bucket.precipTotal,
@@ -143,6 +164,9 @@ export default function DailySummary({
               <div className="mt-0.5 flex items-center justify-center gap-1 text-[9px] text-gray-500 truncate">
                 <span title="Precipitation total">💧{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>
                 <span title="Max wind gusts">≋{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>
+                {showMarine && d.hasMarineData && (
+                  <span title="Max wave height / mean wave period">🌊{d.waveHeightMax !== null ? d.waveHeightMax.toFixed(1) : '–'}{d.wavePeriodMean !== null ? `/${Math.round(d.wavePeriodMean)}s` : ''}</span>
+                )}
               </div>
             </button>
           )

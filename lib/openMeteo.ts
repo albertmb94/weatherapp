@@ -1,6 +1,7 @@
 import type { WeatherModel, Metric, MetricId } from './models'
 import { METRICS, MODELS } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
+import { fetchMarine, computeMarineDays } from './marine'
 
 const MAX_FORECAST_MODELS = 6
 const MAX_HEATMAP_MODELS = 4
@@ -52,7 +53,8 @@ export async function fetchForecast(
   models: WeatherModel[],
   metrics: Metric[],
   forecastDays = 7,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  includeMarine = false
 ): Promise<ForecastResult> {
   const capped = capModels(models, MAX_FORECAST_MODELS, forecastDays)
   const modelIds = capped.map(m => m.id).join(',')
@@ -84,6 +86,23 @@ export async function fetchForecast(
       series[model.id][metric.id] = data.hourly[key] ?? null
     }
     series[model.id]['wind_direction'] = data.hourly[`wind_direction_10m_${model.id}`] ?? null
+  }
+
+  if (includeMarine) {
+    const marineDays = computeMarineDays(forecastDays * 24)
+    try {
+      const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)
+      if (marine.time.length === time.length) {
+        for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
+          series.marine_global = series.marine_global ?? {}
+          series.marine_global[metricId] = values
+        }
+      }
+    } catch (err) {
+      // Marine failure should not block the rest of the forecast.
+      // Inland locations return all-null anyway; network errors are non-fatal.
+      console.warn('marine fetch failed', err)
+    }
   }
 
   return { time, series, utcOffsetSeconds: data.utc_offset_seconds ?? 0 }

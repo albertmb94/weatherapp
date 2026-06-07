@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildForecastCacheKey } from '../cacheKey'
+import { buildForecastCacheKey, buildMarineCacheKey } from '../cacheKey'
 
 describe('buildForecastCacheKey', () => {
   it('rounds lat/lon to 2 decimals', () => {
@@ -73,5 +73,46 @@ describe('buildForecastCacheKey', () => {
     const params1 = new URLSearchParams({ models: 'gfs_global', hourly: 'temperature_2m' })
     const params2 = new URLSearchParams({ models: 'icon_global', hourly: 'temperature_2m' })
     expect(buildForecastCacheKey(params1)).not.toBe(buildForecastCacheKey(params2))
+  })
+})
+
+describe('buildMarineCacheKey', () => {
+  it('rounds lat/lon to 2 decimals', () => {
+    const params = new URLSearchParams({
+      latitude: '41.3851',
+      longitude: '2.1734',
+      hourly: 'wave_height,wave_period',
+      forecast_days: '7',
+    })
+    const key = buildMarineCacheKey(params)
+    expect(key).toContain('latitude=41.39')
+    expect(key).toContain('longitude=2.17')
+  })
+
+  it('drops the models param (marine API does not accept it)', () => {
+    const params1 = new URLSearchParams({
+      latitude: '41.39',
+      longitude: '2.17',
+      hourly: 'wave_height',
+      models: 'gfs_global',
+    })
+    const params2 = new URLSearchParams({
+      latitude: '41.39',
+      longitude: '2.17',
+      hourly: 'wave_height',
+    })
+    expect(buildMarineCacheKey(params1)).toBe(buildMarineCacheKey(params2))
+  })
+
+  it('drops timezone param', () => {
+    const params1 = new URLSearchParams({ hourly: 'wave_height', timezone: 'auto' })
+    const params2 = new URLSearchParams({ hourly: 'wave_height' })
+    expect(buildMarineCacheKey(params1)).toBe(buildMarineCacheKey(params2))
+  })
+
+  it('produces different keys for different wave metrics', () => {
+    const params1 = new URLSearchParams({ hourly: 'wave_height' })
+    const params2 = new URLSearchParams({ hourly: 'wave_period' })
+    expect(buildMarineCacheKey(params1)).not.toBe(buildMarineCacheKey(params2))
   })
 })

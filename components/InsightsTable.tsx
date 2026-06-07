@@ -88,12 +88,12 @@ const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden xl:table-cell' },
   { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden xl:table-cell' },
   { id: 'wave_height', labelKey: 'tableWaveHeight', hideClass: 'marine-col' },
-  { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'hidden sm:table-cell landscape:table-cell marine-col' },
-  { id: 'wave_direction', labelKey: 'tableWaveDirection', hideClass: 'hidden md:table-cell marine-col' },
-  { id: 'wind_wave_height', labelKey: 'tableWindWaveHeight', hideClass: 'hidden lg:table-cell marine-col' },
-  { id: 'wind_wave_period', labelKey: 'tableWindWavePeriod', hideClass: 'hidden xl:table-cell marine-col' },
-  { id: 'swell_wave_height', labelKey: 'tableSwellHeight', hideClass: 'hidden lg:table-cell marine-col' },
-  { id: 'swell_wave_period', labelKey: 'tableSwellPeriod', hideClass: 'hidden xl:table-cell marine-col' },
+  { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'marine-col' },
+  { id: 'wave_direction', labelKey: 'tableWaveDirection', hideClass: 'marine-col' },
+  { id: 'wind_wave_height', labelKey: 'tableWindWaveHeight', hideClass: 'marine-col' },
+  { id: 'wind_wave_period', labelKey: 'tableWindWavePeriod', hideClass: 'marine-col' },
+  { id: 'swell_wave_height', labelKey: 'tableSwellHeight', hideClass: 'marine-col' },
+  { id: 'swell_wave_period', labelKey: 'tableSwellPeriod', hideClass: 'marine-col' },
 ]
 
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
@@ -506,7 +506,7 @@ export default function InsightsTable({
       </div>
 
       <div className="overflow-x-auto rounded border border-gray-800">
-        <table className="w-full border-collapse text-xs table-fixed">
+        <table className="w-full border-collapse text-xs table-auto min-w-[380px]">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
               <th className="sticky left-0 bg-gray-900 text-left px-1.5 py-1.5 font-medium z-30 border-b border-gray-800 w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>

@@ -71,30 +71,29 @@ interface MetricColumnDef {
   id: MetricCellId
   labelKey: keyof typeof STRINGS['en']
   hideClass?: string
-  width?: string
 }
 
 const METRIC_COLUMNS: MetricColumnDef[] = [
-  { id: 'cond', labelKey: 'tableCond', width: 'w-[40px]' },
-  { id: 'temp', labelKey: 'tableTemp', width: 'w-[44px]' },
-  { id: 'min', labelKey: 'tableMin', width: 'w-[40px]' },
-  { id: 'max', labelKey: 'tableMax', width: 'w-[40px]' },
-  { id: 'clouds', labelKey: 'tableClouds', width: 'w-[46px]' },
-  { id: 'wind', labelKey: 'tableWind', width: 'w-[44px]' },
-  { id: 'gusts', labelKey: 'tableGusts', width: 'w-[44px]' },
-  { id: 'precip', labelKey: 'tablePrecip', width: 'w-[52px]' },
-  { id: 'humidity', labelKey: 'tableHumidity', width: 'w-[50px]' },
-  { id: 'uv', labelKey: 'tableUv', width: 'w-[36px]' },
-  { id: 'pressure', labelKey: 'tablePressure', width: 'w-[50px]' },
-  { id: 'dewpoint', labelKey: 'tableDewpoint', width: 'w-[50px]' },
-  { id: 'visibility', labelKey: 'tableVisibility', width: 'w-[52px]' },
-  { id: 'wave_height', labelKey: 'tableWaveHeight', hideClass: 'marine-col', width: 'w-[58px]' },
-  { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'marine-col', width: 'w-[52px]' },
-  { id: 'wave_direction', labelKey: 'tableWaveDirection', hideClass: 'marine-col', width: 'w-[54px]' },
-  { id: 'wind_wave_height', labelKey: 'tableWindWaveHeight', hideClass: 'marine-col', width: 'w-[62px]' },
-  { id: 'wind_wave_period', labelKey: 'tableWindWavePeriod', hideClass: 'marine-col', width: 'w-[58px]' },
-  { id: 'swell_wave_height', labelKey: 'tableSwellHeight', hideClass: 'marine-col', width: 'w-[58px]' },
-  { id: 'swell_wave_period', labelKey: 'tableSwellPeriod', hideClass: 'marine-col', width: 'w-[58px]' },
+  { id: 'cond', labelKey: 'tableCond' },
+  { id: 'temp', labelKey: 'tableTemp' },
+  { id: 'min', labelKey: 'tableMin' },
+  { id: 'max', labelKey: 'tableMax' },
+  { id: 'clouds', labelKey: 'tableClouds' },
+  { id: 'wind', labelKey: 'tableWind' },
+  { id: 'gusts', labelKey: 'tableGusts' },
+  { id: 'precip', labelKey: 'tablePrecip' },
+  { id: 'humidity', labelKey: 'tableHumidity' },
+  { id: 'uv', labelKey: 'tableUv' },
+  { id: 'pressure', labelKey: 'tablePressure' },
+  { id: 'dewpoint', labelKey: 'tableDewpoint' },
+  { id: 'visibility', labelKey: 'tableVisibility' },
+  { id: 'wave_height', labelKey: 'tableWaveHeight', hideClass: 'marine-col' },
+  { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'marine-col' },
+  { id: 'wave_direction', labelKey: 'tableWaveDirection', hideClass: 'marine-col' },
+  { id: 'wind_wave_height', labelKey: 'tableWindWaveHeight', hideClass: 'marine-col' },
+  { id: 'wind_wave_period', labelKey: 'tableWindWavePeriod', hideClass: 'marine-col' },
+  { id: 'swell_wave_height', labelKey: 'tableSwellHeight', hideClass: 'marine-col' },
+  { id: 'swell_wave_period', labelKey: 'tableSwellPeriod', hideClass: 'marine-col' },
 ]
 
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
@@ -507,10 +506,10 @@ export default function InsightsTable({
       </div>
 
       <div className="overflow-x-auto rounded border border-gray-800">
-        <table className="border-collapse text-xs table-fixed">
+        <table className="w-full border-collapse text-xs table-fixed min-w-[960px]">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
-              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-10 border-b border-gray-800 w-[80px]">{STRINGS[locale].tableWhen}</th>
+              <th className="sticky left-0 bg-gray-900 text-left px-2 py-1.5 font-medium z-20 border-b border-gray-800 w-[80px]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-blue-500' : ''
                 return (
@@ -521,7 +520,7 @@ export default function InsightsTable({
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`text-center px-2 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${col.width ?? ''} ${dragClass}`}
+                    className={`text-center px-2 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}
@@ -539,13 +538,13 @@ export default function InsightsTable({
                   onClick={() => onSelectHour(r.centerIdx)}
                   className={`cursor-pointer transition-colors ${isActive ? 'bg-blue-900/30' : 'hover:bg-gray-800/40'}`}
                 >
-                  <td className={`sticky left-0 px-2 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 ${isActive ? 'bg-blue-900/30' : 'bg-gray-950'}`}>
+                  <td className={`sticky left-0 z-10 px-2 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 ${isActive ? 'bg-blue-900/30' : 'bg-gray-950'}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => (
                     <td
                       key={col.id}
-                      className={`${col.hideClass ?? ''} ${col.width ?? ''}`}
+                      className={col.hideClass ?? ''}
                     >
                       <CellContent id={col.id} r={r} />
                     </td>

@@ -168,10 +168,14 @@ export default function DailySummary({
               <div className="mt-0.5 flex items-center justify-center gap-1 text-[9px] text-gray-500 truncate">
                 {showBasic && <span title="Precipitation total">💧{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>}
                 {showBasic && <span title="Max wind gusts">≋{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>}
-                {showMarine && d.hasMarineData && (
-                  <span title="Max wave height / mean wave period">🌊{d.waveHeightMax !== null ? d.waveHeightMax.toFixed(1) : '–'}{d.wavePeriodMean !== null ? `/${Math.round(d.wavePeriodMean)}s` : ''}</span>
-                )}
               </div>
+              {showMarine && d.hasMarineData && (
+                <div className="mt-0.5 flex items-center justify-center text-[9px] text-cyan-300 truncate" title="Max wave height / mean wave period">
+                  <span aria-hidden className="mr-0.5">🌊</span>
+                  {d.waveHeightMax !== null ? d.waveHeightMax.toFixed(1) : '–'}
+                  {d.wavePeriodMean !== null && <span className="ml-0.5 text-gray-500">/{Math.round(d.wavePeriodMean)}s</span>}
+                </div>
+              )}
             </button>
           )
         })}

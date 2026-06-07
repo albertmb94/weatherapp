@@ -14,7 +14,7 @@ import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
 import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
 import RefreshButton from '@/components/RefreshButton'
-import { MODELS, METRICS, type MetricId } from '@/lib/models'
+import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId } from '@/lib/models'
 import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
@@ -213,8 +213,15 @@ export default function HomeContent() {
   }, [showRadar, showMap, updateUrl])
 
   const handleMarineToggle = useCallback(() => {
-    updateUrl({ marine: !marine })
-  }, [marine, updateUrl])
+    const next = !marine
+    const updates: Partial<typeof urlState> = { marine: next }
+    if (!next) {
+      const currentMetric = urlState.metric as MetricId
+      const isMarineMetric = MARINE_METRIC_IDS.includes(currentMetric)
+      if (isMarineMetric) updates.metric = DEFAULT_METRIC
+    }
+    updateUrl(updates)
+  }, [marine, urlState.metric, updateUrl])
 
   const handleBasicToggle = useCallback(() => {
     updateUrl({ basic: !showBasic })

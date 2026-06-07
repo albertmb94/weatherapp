@@ -16,7 +16,7 @@ export const MODELS: WeatherModel[] = [
   { id: 'icon_global', label: 'ICON 13km', color: '#911eb4', maxHours: 240, weight: 4 },
   { id: 'gfs_global', label: 'GFS 13km', color: '#f032e6', maxHours: 384, weight: 3 },
   { id: 'gem_global', label: 'GDPS 15km', color: '#a9a9a9', maxHours: 240, weight: 2 },
-  { id: 'marine_global', label: 'Marine', color: '#06b6d4', maxHours: 168, weight: 0 },
+  { id: 'marine_global', label: 'Marine', color: '#06b6d4', maxHours: 0, weight: 0 },
 ]
 
 export type MetricId =

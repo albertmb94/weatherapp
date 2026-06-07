@@ -56,7 +56,8 @@ export async function fetchForecast(
   signal?: AbortSignal,
   includeMarine = false
 ): Promise<ForecastResult> {
-  const capped = capModels(models, MAX_FORECAST_MODELS, forecastDays)
+  const landModels = models.filter(m => m.id !== 'marine_global')
+  const capped = capModels(landModels, MAX_FORECAST_MODELS, forecastDays)
   const modelIds = capped.map(m => m.id).join(',')
   const hourlyList = metrics.filter(m => m.id !== 'all').map(m => m.hourlyParam)
   // Always fetch wind direction so insights can render a direction arrow.
@@ -142,8 +143,8 @@ export async function fetchHeatmapGrid(
   const lngs = latLngs.map(p => p.lng.toFixed(3)).join(',')
 
   const requestedModels: WeatherModel[] = modelIds.length > 0
-    ? MODELS.filter(m => modelIds.includes(m.id))
-    : MODELS
+    ? MODELS.filter(m => modelIds.includes(m.id) && m.id !== 'marine_global')
+    : MODELS.filter(m => m.id !== 'marine_global')
   const heatmapModels = capModels(requestedModels, MAX_HEATMAP_MODELS, forecastDays)
   const modelsParam = heatmapModels.map(m => m.id).join(',')
 

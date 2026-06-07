@@ -405,7 +405,7 @@ export default function HomeContent() {
             {viewData && (
               <button
                 onClick={() => {
-                  const csv = exportForecastCsv(MODELS, viewData.time, viewData.series, effectiveMaxHours)
+                  const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours)
                   downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
                 }}
                 className="min-h-[32px] px-2 rounded text-[11px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer"
@@ -556,7 +556,7 @@ export default function HomeContent() {
               onPositionChange={handlePositionChange}
               showHeatmap={showMap}
               metric={selectedMetric}
-              selectedModels={displayActiveModelIds}
+              selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
               hourIndex={selectedHour}
               nowOffset={startIndex}
               showRadar={showRadar}

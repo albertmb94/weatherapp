@@ -11,7 +11,8 @@ describe('MODELS', () => {
       expect(m.id).toBeTruthy()
       expect(m.label).toBeTruthy()
       expect(m.color).toMatch(/^#[0-9a-fA-F]{6}$/)
-      expect(m.maxHours).toBeGreaterThan(0)
+      // maxHours is 0 for the virtual marine_global model (excluded from forecast API).
+      expect(m.maxHours).toBeGreaterThanOrEqual(0)
       // weight may be 0 for the virtual single-source 'marine_global' model.
       expect(m.weight).toBeGreaterThanOrEqual(0)
     }
@@ -67,10 +68,10 @@ describe('METRICS', () => {
 })
 
 describe('marine_global model', () => {
-  it('exists in MODELS with weight 0 and weight-less ensemble behavior', () => {
+  it('exists in MODELS with weight 0 and maxHours 0 so it is excluded from forecast API requests', () => {
     const m = MODELS.find(mm => mm.id === 'marine_global')
     expect(m).toBeDefined()
     expect(m?.weight).toBe(0)
-    expect(m?.maxHours).toBe(168)
+    expect(m?.maxHours).toBe(0)
   })
 })

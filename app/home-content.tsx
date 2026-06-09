@@ -30,7 +30,7 @@ import { getLocalForecastCache, setLocalForecastCache } from '@/lib/forecastLoca
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
-  const timeStrings = data.timeStrings.slice(startIndex)
+  const timeStrings = data.timeStrings?.slice(startIndex) ?? time.map(t => t.toISOString())
   const series: ForecastResult['series'] = {}
   for (const modelId of Object.keys(data.series)) {
     const metrics = data.series[modelId]

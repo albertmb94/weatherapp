@@ -35,6 +35,10 @@ export function getLocalForecastCache(
     } else if (cached?.time && Array.isArray(cached.time) && typeof cached.time[0] === 'string') {
       cached.time = parseOpenMeteoTimes(cached.time as string[])
     }
+    // Rebuild timeStrings if missing so downstream code can always slice it
+    if (!cached.timeStrings && cached.time && Array.isArray(cached.time)) {
+      cached.timeStrings = (cached.time as Date[]).map(t => (t as Date).toISOString())
+    }
     return { data: cached, ageMs }
   } catch {
     return null

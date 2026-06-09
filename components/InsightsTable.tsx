@@ -297,6 +297,7 @@ export default function InsightsTable({
       let currentKey = ''
       for (let i = 0; i < limit; i++) {
         const t = times[i]
+        if (!(t instanceof Date)) continue
         const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
         if (!current || key !== currentKey) {
           current = {
@@ -320,7 +321,7 @@ export default function InsightsTable({
     } else {
       while (cursor < limit) {
         const startT = times[cursor]
-        if (!startT) break
+        if (!(startT instanceof Date)) break
         const startHour = startT.getUTCHours()
         const alignedStart = startHour - (startHour % bucket)
         const startInBucket = startHour - alignedStart

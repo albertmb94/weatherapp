@@ -26,7 +26,6 @@ import { getLocationNow, floorHourLocation, formatLocationTime, formatLocationDa
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation } from '@/lib/localStorageLocations'
 import { formatAge } from '@/lib/formatAge'
-import { getLocalForecastCache, setLocalForecastCache } from '@/lib/forecastLocalCache'
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -161,17 +160,7 @@ export default function HomeContent() {
     queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine),
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    initialData: () => {
-      const cached = getLocalForecastCache(position[0], position[1], forecastDays, marine)
-      return cached?.data as ForecastResult | undefined
-    },
   })
-
-  useEffect(() => {
-    if (data) {
-      setLocalForecastCache(position[0], position[1], forecastDays, marine, data)
-    }
-  }, [data, position, forecastDays, marine])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -308,7 +297,8 @@ export default function HomeContent() {
     const nowFloor = floorHourLocation(getLocationNow(data.utcOffsetSeconds))
     const nowTs = nowFloor.getTime()
     for (let i = 0; i < data.time.length; i++) {
-      if (data.time[i].getTime() >= nowTs) return i
+      const t = data.time[i]
+      if (t instanceof Date && t.getTime() >= nowTs) return i
     }
     return data.time.length
   }, [data])
@@ -320,8 +310,8 @@ export default function HomeContent() {
   }, [data, startIndex])
 
   const hourLabel = useMemo(() => {
-    if (!viewData?.time?.[selectedHour]) return `+${selectedHour}h`
-    const t = viewData.time[selectedHour]
+    const t = viewData?.time?.[selectedHour]
+    if (!(t instanceof Date)) return `+${selectedHour}h`
     const hh = formatLocationTime(t, locale, { hour: '2-digit', minute: '2-digit', hour12: false })
     const dd = formatLocationDate(t, locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
     return `${dd} ${hh}`

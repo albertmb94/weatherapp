@@ -73,6 +73,7 @@ export default function DailySummary({
 
     for (let i = 0; i < limit; i++) {
       const t = times[i]
+      if (!(t instanceof Date)) continue
       const dayKey = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
       if (!current || current.fullDate !== dayKey) {
         current = {

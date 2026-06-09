@@ -45,7 +45,7 @@ export default function ModelComparisonChart({
   }, [])
   const activeHour = localHover ?? hoveredHour
 
-  const displayTimes = times.slice(0, maxHours)
+  const displayTimes = times.filter(t => t instanceof Date).slice(0, maxHours)
 
   const activeModels = useMemo(() => {
     if (activeModelIds.length === 0) return []

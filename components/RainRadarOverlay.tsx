@@ -80,12 +80,8 @@ export default function RainRadarOverlay({
 
   if (!enabled || !url) return null
 
-  // Key on URL forces React to remount the TileLayer when the frame changes,
-  // which is the simplest way to swap tiles since Leaflet's setUrl can leak
-  // half-loaded tiles. The map keeps its zoom/center across remounts.
   return (
     <TileLayer
-      key={url}
       url={url}
       opacity={opacity}
       zIndex={350}

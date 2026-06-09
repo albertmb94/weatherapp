@@ -2,23 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { formatAge } from '@/lib/formatAge'
 
 interface RefreshStatus {
   lastRefreshedAt: number | null
   ageMs: number | null
   canRefresh: boolean
   cooldownMs: number
-}
-
-function formatAge(ageMs: number | null): string {
-  if (ageMs == null) return ''
-  const minutes = Math.floor(ageMs / 60000)
-  if (minutes < 1) return 'now'
-  if (minutes < 60) return `${minutes}m`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h`
-  const days = Math.floor(hours / 24)
-  return `${days}d`
 }
 
 export default function RefreshButton() {
@@ -32,7 +22,9 @@ export default function RefreshButton() {
       if (!res.ok) throw new Error('Failed to fetch refresh status')
       return res.json()
     },
-    refetchInterval: 60_000,
+    refetchInterval: (query) => {
+      return typeof document !== 'undefined' && document.visibilityState === 'visible' ? 60_000 : false
+    },
     refetchOnWindowFocus: true,
   })
 

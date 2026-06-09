@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import { LocaleProvider } from '@/lib/LocaleContext'
 
 // Leaflet can't initialise in jsdom, so stub the map with a no-op component.
 vi.mock('@/components/StationMap', () => ({
@@ -15,7 +16,11 @@ function createWrapper() {
     defaultOptions: { queries: { retry: false } },
   })
   function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    return (
+      <QueryClientProvider client={queryClient}>
+        <LocaleProvider>{children}</LocaleProvider>
+      </QueryClientProvider>
+    )
   }
   return Wrapper
 }
@@ -43,7 +48,7 @@ describe('StationDashboard retry behavior', () => {
 
     render(<StationDashboard />, { wrapper: createWrapper() })
 
-    expect(screen.getByText('Cargando...')).toBeInTheDocument()
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
   it('hides the error and keeps showing loading while a retry is in flight', async () => {
@@ -57,8 +62,8 @@ describe('StationDashboard retry behavior', () => {
       await vi.advanceTimersByTimeAsync(0)
     })
 
-    expect(screen.getByText('Cargando...')).toBeInTheDocument()
-    expect(screen.queryByText('Error al cargar estaciones')).not.toBeInTheDocument()
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.queryByText('Error loading stations')).not.toBeInTheDocument()
   })
 
   it('retries up to 5 times with a 1s delay before showing the error', async () => {
@@ -80,8 +85,8 @@ describe('StationDashboard retry behavior', () => {
     })
 
     expect(callCount).toBe(6) // 1 initial + 5 retries
-    expect(screen.getByText('Error al cargar estaciones')).toBeInTheDocument()
-    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
+    expect(screen.getByText('Error loading stations')).toBeInTheDocument()
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
   })
 
   it('renders the error block at the bottom of the dashboard (after the cards grid)', async () => {

@@ -14,6 +14,7 @@ import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
 import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
 import RefreshButton from '@/components/RefreshButton'
+import { DailySummarySkeleton, InsightsSkeleton, ChartSkeleton } from '@/components/Skeletons'
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId } from '@/lib/models'
 import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
@@ -21,6 +22,11 @@ import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
 import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
+import { getLocationNow, floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
+import { reverseGeocode } from '@/lib/reverseGeocode'
+import { saveLocalLocation } from '@/lib/localStorageLocations'
+import { formatAge } from '@/lib/formatAge'
+import { getLocalForecastCache, setLocalForecastCache } from '@/lib/forecastLocalCache'
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -135,7 +141,7 @@ export default function HomeContent() {
   const marine = urlState.marine
   const showBasic = urlState.basic
 
-  const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null }>({
+  const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null; ageMs: number | null }>({
     queryKey: ['refresh-status'],
     queryFn: async () => {
       const res = await fetch('/api/refresh')
@@ -154,7 +160,17 @@ export default function HomeContent() {
     queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine),
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    initialData: () => {
+      const cached = getLocalForecastCache(position[0], position[1], forecastDays, marine)
+      return cached?.data as ForecastResult | undefined
+    },
   })
+
+  useEffect(() => {
+    if (data) {
+      setLocalForecastCache(position[0], position[1], forecastDays, marine, data)
+    }
+  }, [data, position, forecastDays, marine])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -171,7 +187,9 @@ export default function HomeContent() {
       setToast(locale === 'en' ? `Saved ${cityName}` : `Guardado ${cityName}`)
     },
     onError: () => {
-      setToast('Save failed')
+      saveLocalLocation(cityName, position[0], position[1])
+      queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
+      setToast(locale === 'en' ? `Saved ${cityName}` : `Guardado ${cityName}`)
     },
   })
 
@@ -182,11 +200,12 @@ export default function HomeContent() {
     updateUrl({ lat, lon })
   }, [updateUrl])
 
-  const handlePositionChange = useCallback((pos: [number, number]) => {
+  const handlePositionChange = useCallback(async (pos: [number, number]) => {
     setPosition(pos)
-    setCityName(`${pos[0].toFixed(2)}, ${pos[1].toFixed(2)}`)
+    const name = await reverseGeocode(pos[0], pos[1], locale)
+    setCityName(name || `${pos[0].toFixed(2)}, ${pos[1].toFixed(2)}`)
     updateUrl({ lat: pos[0], lon: pos[1] })
-  }, [updateUrl])
+  }, [updateUrl, locale])
 
   const handleMetricChange = useCallback((id: MetricId) => {
     updateUrl({ metric: id })
@@ -235,11 +254,12 @@ export default function HomeContent() {
     if (!navigator.geolocation) return
     setGeoLoading(true)
     navigator.geolocation.getCurrentPosition(
-      pos => {
+      async pos => {
         const lat = pos.coords.latitude
         const lon = pos.coords.longitude
         setPosition([lat, lon])
-        setCityName(`${lat.toFixed(2)}, ${lon.toFixed(2)}`)
+        const name = await reverseGeocode(lat, lon, locale)
+        setCityName(name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`)
         setRecenterToken(t => t + 1)
         updateUrl({ lat, lon })
         setGeoLoading(false)
@@ -280,13 +300,11 @@ export default function HomeContent() {
     return Math.max(...selectedModels.map(id => MODELS.find(m => m.id === id)?.maxHours ?? 168))
   }, [selectedModels])
 
-  // Skip hourly entries before the current local hour (rounded down). The
-  // forecast always starts at 00:00 of today in the location's local time,
-  // so at 15:54 we drop indices 0..14 and start at 15.
+  // Skip hourly entries before the current local hour (rounded down) in the
+  // *location's* timezone, not the user's browser timezone.
   const startIndex = useMemo(() => {
     if (!data?.time?.length) return 0
-    const nowFloor = new Date()
-    nowFloor.setMinutes(0, 0, 0)
+    const nowFloor = floorHourLocation(getLocationNow(data.utcOffsetSeconds))
     const nowTs = nowFloor.getTime()
     for (let i = 0; i < data.time.length; i++) {
       if (data.time[i].getTime() >= nowTs) return i
@@ -303,11 +321,15 @@ export default function HomeContent() {
   const hourLabel = useMemo(() => {
     if (!viewData?.time?.[selectedHour]) return `+${selectedHour}h`
     const t = viewData.time[selectedHour]
-    const localeStr = locale === 'en' ? 'en-US' : 'es-ES'
-    const hh = t.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit', hour12: false })
-    const dd = t.toLocaleDateString(localeStr, { weekday: 'short', day: '2-digit', month: '2-digit' })
+    const hh = formatLocationTime(t, locale, { hour: '2-digit', minute: '2-digit', hour12: false })
+    const dd = formatLocationDate(t, locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
     return `${dd} ${hh}`
   }, [viewData, selectedHour, locale])
+
+  const utcOffsetLabel = useMemo(() => {
+    if (!data) return ''
+    return formatUtcOffset(data.utcOffsetSeconds)
+  }, [data])
 
   const effectiveMaxHours = Math.min(selectedRange, maxModelHours, viewData?.time.length ?? 336)
 
@@ -351,6 +373,11 @@ export default function HomeContent() {
           </div>
           <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
         </div>
+        {refreshStatus?.lastRefreshedAt && (
+          <div className="md:hidden mt-0.5 text-[9px] text-gray-600">
+            {locale === 'en' ? 'Updated' : 'Actualizado'} {formatAge(refreshStatus.ageMs ?? null)}
+          </div>
+        )}
       </div>
 
       {marine && (
@@ -632,6 +659,9 @@ export default function HomeContent() {
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-[10px] text-gray-400 font-mono">{hourLabel}</span>
               <span className="text-[10px] text-gray-600">+{selectedHour}h</span>
+              {utcOffsetLabel && (
+                <span className="text-[10px] text-gray-600 ml-auto">{utcOffsetLabel}</span>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -652,6 +682,7 @@ export default function HomeContent() {
                 onChange={e => handleHourChange(Number(e.target.value))}
                 className="flex-1 accent-blue-500 min-w-0"
                 aria-label="Forecast hour"
+                aria-valuetext={hourLabel}
               />
               <button
                 onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 24))}
@@ -676,20 +707,20 @@ export default function HomeContent() {
           <div className="flex items-center gap-0.5 mb-3 border-b border-gray-800 pb-1.5">
             <button
               onClick={() => setActiveTab('models')}
-              className={`px-3 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded text-xs font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'models'
-                  ? 'text-white bg-gray-800'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'text-white bg-gray-800 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-300 hover:bg-gray-900/50'
               }`}
             >
               Modelos
             </button>
             <button
               onClick={() => setActiveTab('stations')}
-              className={`px-3 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded text-xs font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'stations'
-                  ? 'text-white bg-gray-800'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'text-white bg-gray-800 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-300 hover:bg-gray-900/50'
               }`}
             >
               Estaciones
@@ -701,9 +732,10 @@ export default function HomeContent() {
           ) : (
             <div ref={swipeRef}>
               {isLoading && (
-                <div className="flex items-center justify-center h-40">
-                  <div className="w-5 h-5 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
-                  <span className="ml-2 text-gray-400 text-sm">{STRINGS[locale].loadingForecast}</span>
+                <div className="space-y-4">
+                  <DailySummarySkeleton />
+                  <InsightsSkeleton />
+                  <ChartSkeleton />
                 </div>
               )}
 

@@ -2,6 +2,7 @@ import type { WeatherModel, Metric, MetricId } from './models'
 import { METRICS, MODELS } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { fetchMarine, computeMarineDays } from './marine'
+import { parseOpenMeteoTimes } from './dateUtils'
 
 const MAX_FORECAST_MODELS = 6
 const MAX_HEATMAP_MODELS = 4
@@ -76,7 +77,7 @@ export async function fetchForecast(
   if (!res.ok) throw new Error(`Forecast API error: ${res.status}`)
   const data = await res.json()
 
-  const time = data.hourly.time.map((t: string) => new Date(t))
+  const time = parseOpenMeteoTimes(data.hourly.time as string[])
   const series: Record<string, Record<string, (number | null)[]>> = {}
 
   for (const model of capped) {

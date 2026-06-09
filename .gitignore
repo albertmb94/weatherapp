@@ -45,6 +45,10 @@ local.db-wal
 # claude code local settings (per-user)
 .claude/
 
+# opencode agent internals
+.agents/
+skills-lock.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

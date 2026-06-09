@@ -141,20 +141,20 @@ function WindArrow({ degrees }: { degrees: number | null }) {
   )
 }
 
-function bucketLabel(start: Date, bucket: BucketHours, locale: 'es' | 'en'): string {
+function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' | 'en'): string {
   const today = new Date()
-  const isToday = start.getFullYear() === today.getFullYear() && start.getMonth() === today.getMonth() && start.getDate() === today.getDate()
+  const isToday = start.getUTCFullYear() === today.getFullYear() && start.getUTCMonth() === today.getMonth() && start.getUTCDate() === today.getDate()
   const isTomorrow = (() => {
     const t = new Date(today)
     t.setDate(t.getDate() + 1)
-    return start.getFullYear() === t.getFullYear() && start.getMonth() === t.getMonth() && start.getDate() === t.getDate()
+    return start.getUTCFullYear() === t.getFullYear() && start.getUTCMonth() === t.getMonth() && start.getUTCDate() === t.getDate()
   })()
   const s = STRINGS[locale]
-  const day = isToday ? s.today : isTomorrow ? s.tomorrow : `${DAY_NAMES[locale][start.getDay()]} ${start.getDate()}`
+  const day = isToday ? s.today : isTomorrow ? s.tomorrow : `${DAY_NAMES[locale][start.getUTCDay()]} ${start.getUTCDate()}`
   if (bucket === 24) return day
-  const h0 = start.getHours().toString().padStart(2, '0')
+  const h0 = start.getUTCHours().toString().padStart(2, '0')
   if (bucket === 1) return `${day} ${h0}:00`
-  const h1 = ((start.getHours() + bucket) % 24).toString().padStart(2, '0')
+  const h1 = end.getUTCHours().toString().padStart(2, '0')
   return `${day} ${h0}–${h1}`
 }
 
@@ -225,6 +225,7 @@ export default function InsightsTable({
   const [columnOrder, setColumnOrder] = useState<MetricCellId[]>(loadColumnOrder)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
+  const [compact, setCompact] = useState(false)
   const dragNodeRef = useRef<HTMLTableCellElement | null>(null)
 
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
@@ -296,10 +297,10 @@ export default function InsightsTable({
       let currentKey = ''
       for (let i = 0; i < limit; i++) {
         const t = times[i]
-        const key = `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`
+        const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
         if (!current || key !== currentKey) {
           current = {
-            label: bucketLabel(t, bucket, locale),
+            label: bucketLabel(t, t, bucket, locale),
             startIdx: i,
             endIdx: i,
             centerIdx: i,
@@ -314,20 +315,21 @@ export default function InsightsTable({
           buckets.push(current)
         }
         current.endIdx = i
-        if (t.getHours() === 12) current.centerIdx = i
+        if (t.getUTCHours() === 12) current.centerIdx = i
       }
     } else {
       while (cursor < limit) {
         const startT = times[cursor]
         if (!startT) break
-        const startHour = startT.getHours()
+        const startHour = startT.getUTCHours()
         const alignedStart = startHour - (startHour % bucket)
         const startInBucket = startHour - alignedStart
         const remaining = bucket - startInBucket
         const end = Math.min(cursor + remaining, limit) - 1
         if (end < cursor) break
+        const endT = times[end]
         buckets.push({
-          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), bucket, locale),
+          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), endT, bucket, locale),
           startIdx: cursor,
           endIdx: end,
           centerIdx: cursor + Math.floor((end - cursor) / 2),
@@ -352,6 +354,9 @@ export default function InsightsTable({
       let dpSum = 0, dpCount = 0
       let visSum = 0, visCount = 0
       let dirCos = 0, dirSin = 0, dirCount = 0
+      let wpSum = 0, wpCount = 0
+      let wwpSum = 0, wwpCount = 0
+      let swpSum = 0, swpCount = 0
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         const tVals = activeModels.map(m => series[m.id]?.['temperature']?.[i] ?? null)
         const tEns = weightedAvg(tVals, weights)
@@ -421,20 +426,23 @@ export default function InsightsTable({
             b.hasMarineData = true
           }
           if (wp !== null && wp !== undefined) {
-            b.wavePeriodMean = b.wavePeriodMean === null ? wp : (b.wavePeriodMean + wp) / 2
+            wpSum += wp
+            wpCount += 1
             b.hasMarineData = true
           }
           if (wwh !== null && wwh !== undefined) {
             b.windWaveHeightMax = b.windWaveHeightMax === null ? wwh : Math.max(b.windWaveHeightMax, wwh)
           }
           if (wwp !== null && wwp !== undefined) {
-            b.windWavePeriodMean = b.windWavePeriodMean === null ? wwp : (b.windWavePeriodMean + wwp) / 2
+            wwpSum += wwp
+            wwpCount += 1
           }
           if (swh !== null && swh !== undefined) {
             b.swellHeightMax = b.swellHeightMax === null ? swh : Math.max(b.swellHeightMax, swh)
           }
           if (swp !== null && swp !== undefined) {
-            b.swellPeriodMean = b.swellPeriodMean === null ? swp : (b.swellPeriodMean + swp) / 2
+            swpSum += swp
+            swpCount += 1
           }
           if (wd !== null && wd !== undefined) {
             b.waveDirection = wd
@@ -452,6 +460,9 @@ export default function InsightsTable({
       b.windDirection = dirCount > 0
         ? ((Math.atan2(dirSin, dirCos) * 180) / Math.PI + 360) % 360
         : null
+      b.wavePeriodMean = wpCount > 0 ? wpSum / wpCount : null
+      b.windWavePeriodMean = wwpCount > 0 ? wwpSum / wwpCount : null
+      b.swellPeriodMean = swpCount > 0 ? swpSum / swpCount : null
       b.icon = pickWeatherIcon({
         cloudCoverPct: b.cloudMean,
         precipitationMmDay: b.precipSum,
@@ -469,6 +480,9 @@ export default function InsightsTable({
     'wave_height', 'wave_period', 'wave_direction',
     'wind_wave_height', 'wind_wave_period',
     'swell_wave_height', 'swell_wave_period',
+  ])
+  const COMPACT_HIDDEN_COLS = new Set<MetricCellId>([
+    'min', 'max', 'clouds', 'gusts', 'humidity', 'uv', 'pressure', 'dewpoint', 'visibility',
   ])
   const visibleIds = columnOrder.filter(id => {
     if (!showMarine && MARINE_COL_IDS.has(id)) return false
@@ -502,6 +516,13 @@ export default function InsightsTable({
               ↺
             </button>
           )}
+          <button
+            onClick={() => setCompact(c => !c)}
+            className={`md:hidden px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            title="Compact mode"
+          >
+            ≡
+          </button>
         </div>
       </div>
 
@@ -520,7 +541,7 @@ export default function InsightsTable({
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`text-center px-1 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${dragClass}`}
+                    className={`text-center px-1 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}
@@ -544,7 +565,7 @@ export default function InsightsTable({
                   {colDefs.map(col => (
                     <td
                       key={col.id}
-                      className={col.hideClass ?? ''}
+                      className={`${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
                     >
                       <CellContent id={col.id} r={r} />
                     </td>

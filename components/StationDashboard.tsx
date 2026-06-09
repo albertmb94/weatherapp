@@ -6,6 +6,8 @@ import StationCard from './StationCard'
 import StationMap from './StationMap'
 import { REGIONS } from '@/lib/meteoclimatic-types'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
+import { useLocale } from '@/lib/LocaleContext'
+import { STRINGS } from '@/lib/i18n'
 
 interface AemetRaw {
   idema: string; ubi: string; lat: number; lon: number; fint: string
@@ -48,6 +50,7 @@ const STATION_RETRY_COUNT = 5
 const STATION_RETRY_DELAY_MS = 1000
 
 export default function StationDashboard() {
+  const { locale } = useLocale()
   const [region, setRegion] = useState(REGIONS[0].code)
   const [search, setSearch] = useState('')
   const [includeMeteo, setIncludeMeteo] = useState(false)
@@ -139,7 +142,7 @@ export default function StationDashboard() {
         </select>
         <input
           type="text"
-          placeholder="Buscar..."
+          placeholder={STRINGS[locale].searchPlaceholder}
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2 py-1.5 w-36
@@ -172,13 +175,13 @@ export default function StationDashboard() {
       {showLoading && (
         <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
           <div className="animate-spin w-5 h-5 border-2 border-gray-600 border-t-white rounded-full" />
-          <span className="ml-2 text-xs text-gray-500">Cargando...</span>
+          <span className="ml-2 text-xs text-gray-500">{STRINGS[locale].loadingStations}</span>
         </div>
       )}
 
       {!showLoading && filtered.length === 0 && (
         <p className="text-xs text-gray-500 text-center py-4">
-          {search ? `Sin resultados para "${search}"` : 'Sin estaciones en esta región'}
+          {search ? `${STRINGS[locale].noResults} "${search}"` : STRINGS[locale].noStationsRegion}
         </p>
       )}
 
@@ -192,10 +195,10 @@ export default function StationDashboard() {
 
       {showError && (
         <div className="text-center py-6 mt-2 border-t border-gray-800/60" role="alert">
-          <p className="text-sm text-red-400">Error al cargar estaciones</p>
+          <p className="text-sm text-red-400">{STRINGS[locale].stationError}</p>
           <p className="text-xs text-gray-500 mt-1">{(error as Error).message}</p>
           <button onClick={() => aemetQ.refetch()} className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer">
-            Reintentar
+            {STRINGS[locale].retry}
           </button>
         </div>
       )}

@@ -48,6 +48,17 @@ export const STRINGS: Record<Locale, {
   footerMap: string
   cityCoords: string
   noMarineData: string
+  saveError: string
+  loadingStations: string
+  noResults: string
+  noStationsRegion: string
+  stationError: string
+  retry: string
+  searchPlaceholder: string
+  humidity: string
+  wind: string
+  pressure: string
+  precipitation: string
 }> = {
   es: {
     today: 'Hoy',
@@ -90,6 +101,17 @@ export const STRINGS: Record<Locale, {
     footerMap: 'm mapa',
     cityCoords: '{city} · {lat}, {lon}',
     noMarineData: 'Sin datos marinos en esta ubicación',
+    saveError: 'Error al guardar',
+    loadingStations: 'Cargando...',
+    noResults: 'Sin resultados para',
+    noStationsRegion: 'Sin estaciones en esta región',
+    stationError: 'Error al cargar estaciones',
+    retry: 'Reintentar',
+    searchPlaceholder: 'Buscar...',
+    humidity: 'Humedad',
+    wind: 'Viento',
+    pressure: 'Presión',
+    precipitation: 'Precip',
   },
   en: {
     today: 'Today',
@@ -132,5 +154,16 @@ export const STRINGS: Record<Locale, {
     footerMap: 'm map',
     cityCoords: '{city} · {lat}, {lon}',
     noMarineData: 'No marine data at this location',
+    saveError: 'Save failed',
+    loadingStations: 'Loading...',
+    noResults: 'No results for',
+    noStationsRegion: 'No stations in this region',
+    stationError: 'Error loading stations',
+    retry: 'Retry',
+    searchPlaceholder: 'Search...',
+    humidity: 'Humidity',
+    wind: 'Wind',
+    pressure: 'Pressure',
+    precipitation: 'Precip',
   },
 }

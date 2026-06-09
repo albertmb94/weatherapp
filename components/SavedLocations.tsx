@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getLocalSavedLocations, deleteLocalLocation } from '@/lib/localStorageLocations'
 
 interface SavedLocation {
   id: number
@@ -16,21 +17,29 @@ interface SavedLocationsProps {
 export default function SavedLocations({ onSelect }: SavedLocationsProps) {
   const queryClient = useQueryClient()
 
-  const { data: locations } = useQuery({
+  const { data: apiLocations } = useQuery({
     queryKey: ['saved-locations'],
     queryFn: async () => {
       const res = await fetch('/api/locations')
-      if (!res.ok) return []
+      if (!res.ok) throw new Error('API failed')
       return res.json() as Promise<SavedLocation[]>
     },
     staleTime: 5 * 60 * 1000,
+    retry: false,
   })
+
+  const locations = apiLocations ?? getLocalSavedLocations()
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await fetch(`/api/locations?id=${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/locations?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('API failed')
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
+    },
+    onError: (_, id) => {
+      deleteLocalLocation(id)
       queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
     },
   })

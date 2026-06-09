@@ -8,6 +8,15 @@ import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import WeatherConditionIcon from './WeatherConditionIcon'
 
+const ICON_GRADIENTS: Record<WeatherIconId, string> = {
+  sunny: 'from-amber-500/20 to-orange-600/10',
+  partly: 'from-amber-400/15 to-sky-500/10',
+  cloudy: 'from-gray-500/20 to-slate-600/10',
+  rainy: 'from-sky-500/20 to-blue-700/10',
+  stormy: 'from-violet-500/20 to-slate-800/10',
+  snowy: 'from-sky-200/20 to-slate-400/10',
+}
+
 interface DailySummaryProps {
   models: WeatherModel[]
   activeModelIds: string[]
@@ -64,10 +73,10 @@ export default function DailySummary({
 
     for (let i = 0; i < limit; i++) {
       const t = times[i]
-      const dayKey = `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`
+      const dayKey = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
       if (!current || current.fullDate !== dayKey) {
         current = {
-          label: `${DAY_NAMES[locale][t.getDay()]} ${t.getDate()}`,
+          label: `${DAY_NAMES[locale][t.getUTCDay()]} ${t.getUTCDate()}`,
           fullDate: dayKey,
           startIndex: i,
           endIndex: i,
@@ -85,7 +94,7 @@ export default function DailySummary({
         buckets.push(current)
       }
       current.endIndex = i
-      if (t.getHours() === 12) current.noonIndex = i
+      if (t.getUTCHours() === 12) current.noonIndex = i
     }
 
     for (const bucket of buckets) {
@@ -152,8 +161,8 @@ export default function DailySummary({
             <button
               key={i}
               onClick={() => onSelectHour(d.noonIndex)}
-              className={`min-w-0 px-1 py-1.5 rounded border text-center transition-colors cursor-pointer ${
-                isCurrent ? 'bg-gray-800 border-blue-600' : 'bg-gray-900/60 border-gray-800 hover:border-gray-700'
+              className={`min-w-0 px-1 py-1.5 rounded border text-center transition-all cursor-pointer bg-gradient-to-br ${ICON_GRADIENTS[d.icon]} ${
+                isCurrent ? 'border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]' : 'border-gray-800 hover:border-gray-600'
               }`}
               title={`Jump to ${d.label} at 12:00`}
             >

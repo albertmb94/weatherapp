@@ -5,6 +5,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
+import { useLocale } from '@/lib/LocaleContext'
+import { STRINGS } from '@/lib/i18n'
 
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -25,6 +27,7 @@ function tempColor(temp: number | null): string {
 }
 
 function StationMarker({ station }: { station: MeteoclimaticObservation }) {
+  const { locale } = useLocale()
   const markerRef = useRef<L.Marker>(null)
   const temp = station.temperature.current
 
@@ -64,10 +67,10 @@ function StationMarker({ station }: { station: MeteoclimaticObservation }) {
                 <span className="text-blue-500 ml-1">↓{station.temperature.min.toFixed(1)}</span>
               )}
             </div>
-            {station.humidity.current !== null && <div>Humedad: {station.humidity.current.toFixed(0)}%</div>}
-            {station.wind.speed !== null && <div>Viento: {station.wind.speed.toFixed(0)} km/h {station.wind.direction}</div>}
-            {station.pressure.current !== null && <div>Presión: {station.pressure.current.toFixed(1)} hPa</div>}
-            {station.precipitation !== null && <div>Precip: {station.precipitation.toFixed(1)} mm</div>}
+            {station.humidity.current !== null && <div>{STRINGS[locale].humidity}: {station.humidity.current.toFixed(0)}%</div>}
+            {station.wind.speed !== null && <div>{STRINGS[locale].wind}: {station.wind.speed.toFixed(0)} km/h {station.wind.direction}</div>}
+            {station.pressure.current !== null && <div>{STRINGS[locale].pressure}: {station.pressure.current.toFixed(1)} hPa</div>}
+            {station.precipitation !== null && <div>{STRINGS[locale].precipitation}: {station.precipitation.toFixed(1)} mm</div>}
           </div>
         </div>
       </Popup>

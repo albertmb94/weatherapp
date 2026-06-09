@@ -299,7 +299,11 @@ export default function MapPicker({
 
   useEffect(() => {
     if (!mapInstance) return
+    let last = 0
     const onMove = () => {
+      const now = Date.now()
+      if (now - last < 50) return
+      last = now
       if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current)
       renderFrameRef.current = requestAnimationFrame(() => {
         renderCanvas()
@@ -360,7 +364,11 @@ export default function MapPicker({
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
         style={{ zIndex: 400 }}
+        aria-hidden="true"
       />
+      <div className="sr-only" role="status" aria-live="polite">
+        {statusLine || (showHeatmap ? 'Heatmap visible on map' : 'Map without heatmap overlay')}
+      </div>
       {statusLine && (
         <div className="absolute top-2 left-2 z-[1000] bg-gray-900/80 px-2 py-1 rounded text-xs text-gray-300 pointer-events-none">
           {statusLine}
@@ -389,6 +397,18 @@ export default function MapPicker({
               <span className="text-[10px] text-gray-300 font-mono w-12 text-right">
                 {radarFrames[radarFrameIndex] ? new Date(radarFrames[radarFrameIndex].time * 1000).toLocaleTimeString(locale === 'en' ? 'en-US' : 'es-ES', { hour: '2-digit', minute: '2-digit' }) : '—'}
               </span>
+            </div>
+          )}
+          {radarFrames.length > 0 && (
+            <div className="bg-gray-900/85 px-2 py-1 rounded-lg shadow-lg text-[10px] text-gray-400 pointer-events-none flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-400" />
+              <span>Light</span>
+              <span className="w-2 h-2 rounded-full bg-yellow-400" />
+              <span>Mod</span>
+              <span className="w-2 h-2 rounded-full bg-orange-500" />
+              <span>Heavy</span>
+              <span className="w-2 h-2 rounded-full bg-red-500" />
+              <span>Extreme</span>
             </div>
           )}
           {radarFrames.length === 0 && !radarError && (

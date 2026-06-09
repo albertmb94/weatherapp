@@ -85,6 +85,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const lastPushedQuery = useRef<string | null>(null)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [state, setState] = useState<UrlState>(() => {
     const parsed = parseUrlParams(searchParams)
@@ -104,13 +105,19 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
     }
   })
 
-  // Sync URL whenever state changes (post-render to avoid setState during render).
+  // Sync URL whenever state changes (debounced to avoid spamming history).
   useEffect(() => {
-    const query = buildQuery(state, defaults)
-    if (query === lastPushedQuery.current) return
-    lastPushedQuery.current = query
-    const href = query ? `${pathname}?${query}` : pathname
-    router.replace(href, { scroll: false })
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      const query = buildQuery(state, defaults)
+      if (query === lastPushedQuery.current) return
+      lastPushedQuery.current = query
+      const href = query ? `${pathname}?${query}` : pathname
+      router.replace(href, { scroll: false })
+    }, 300)
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    }
   }, [state, defaults, pathname, router])
 
   // React to back/forward navigation: setState happens inside the event

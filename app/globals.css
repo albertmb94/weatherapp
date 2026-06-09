@@ -114,6 +114,37 @@ input[type="range"]::-moz-range-thumb {
   background: #6b7280;
 }
 
+html.light .bg-gray-950,
+html.light .bg-gray-900 {
+  background-color: #f3f4f6 !important;
+  color: #1f2937 !important;
+}
+html.light .bg-gray-800,
+html.light .bg-gray-900\/60,
+html.light .bg-gray-900\/50,
+html.light .bg-gray-900\/85,
+html.light .bg-gray-900\/80,
+html.light .bg-gray-900\/30 {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+html.light .bg-gray-700,
+html.light .bg-gray-800\/40 {
+  background-color: #e5e7eb !important;
+  color: #1f2937 !important;
+}
+html.light .text-gray-300,
+html.light .text-gray-400 {
+  color: #4b5563 !important;
+}
+html.light .text-gray-500,
+html.light .text-gray-600 {
+  color: #6b7280 !important;
+}
+html.light .border-gray-800,
+html.light .border-gray-700 {
+  border-color: #d1d5db !important;
+}
 html.light .leaflet-container {
   background: #e5e7eb;
 }

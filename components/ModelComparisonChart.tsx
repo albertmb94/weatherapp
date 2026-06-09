@@ -14,6 +14,7 @@ import {
   ComposedChart,
   Area,
 } from 'recharts'
+import { ChartSkeleton } from './Skeletons'
 
 interface ModelComparisonChartProps {
   models: WeatherModel[]
@@ -131,6 +132,7 @@ export default function ModelComparisonChart({
         Multi-model comparison — {METRICS.find(m => m.id === displayMetric)?.label}
       </h3>
       <div className="h-56 sm:h-64 w-full min-w-[300px]">
+        {!renderChart && <ChartSkeleton />}
         {renderChart && <ResponsiveContainer width="100%" height="100%" debounce={1}>
           <ComposedChart
             data={chartData}
@@ -160,11 +162,30 @@ export default function ModelComparisonChart({
             <Tooltip
               contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', color: '#fff', fontSize: '12px' }}
               labelFormatter={v => `+${v}h`}
-              formatter={(value: unknown, name: unknown) => {
-                const n = name as string | undefined
-                if (n === 'min' || n === 'max' || n === 'mean' || n === 'Spread') return null
-                const num = value as number | null
-                return [num !== null && num !== undefined ? `${num.toFixed(1)}${unit}` : 'N/A', n]
+              content={({ active, payload, label }) => {
+                if (!active || !payload || payload.length === 0) return null
+                const items = payload
+                  .filter(p => p.name !== 'min' && p.name !== 'max' && p.name !== 'mean' && p.name !== 'Spread')
+                  .map(p => ({
+                    name: p.name as string,
+                    value: typeof p.value === 'number' ? p.value : null,
+                    color: p.color as string,
+                  }))
+                  .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
+                return (
+                  <div className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 shadow-lg text-xs">
+                    <div className="font-semibold mb-1 text-gray-300">+{label}h</div>
+                    <div className="space-y-0.5">
+                      {items.map(item => (
+                        <div key={item.name} className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ backgroundColor: item.color }} />
+                          <span className="text-gray-400">{item.name}:</span>
+                          <span className="font-mono text-white">{item.value !== null ? `${item.value.toFixed(1)}${unit}` : 'N/A'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
               }}
             />
             <Legend wrapperStyle={{ fontSize: '11px' }} />

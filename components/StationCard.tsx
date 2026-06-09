@@ -27,7 +27,7 @@ export default function StationCard({ station }: { station: MeteoclimaticObserva
   const { temperature: t, humidity: h, wind: w, precipitation: p, name, updatedAt } = station
 
   return (
-    <div className="bg-gray-900/70 border border-gray-800 rounded-lg px-3 py-2 hover:border-gray-700 transition-colors">
+    <div className="bg-gray-900/70 border border-gray-800 rounded-lg px-3 py-2 hover:border-gray-700 transition-all duration-200 hover:shadow-sm hover:-translate-y-0.5">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-medium text-gray-300 truncate">{name}</span>
         <span className={`text-sm font-light tabular-nums ${tempColor(t.current)}`}>

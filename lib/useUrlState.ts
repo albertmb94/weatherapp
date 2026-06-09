@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 interface UrlState {
   lat: number
@@ -81,15 +80,16 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
 }
 
 export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<UrlState>) => void] {
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
   const lastPushedQuery = useRef<string | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stateRef = useRef<UrlState | null>(null)
 
   const [state, setState] = useState<UrlState>(() => {
-    const parsed = parseUrlParams(searchParams)
-    return {
+    const params = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams()
+    const parsed = parseUrlParams(params)
+    const initial: UrlState = {
       lat: parsed.lat ?? defaults.lat,
       lon: parsed.lon ?? defaults.lon,
       metric: parsed.metric ?? defaults.metric,
@@ -103,25 +103,28 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       marine: parsed.marine ?? defaults.marine,
       basic: parsed.basic ?? defaults.basic,
     }
+    stateRef.current = initial
+    return initial
   })
 
-  // Sync URL whenever state changes (debounced to avoid spamming history).
+  // Sync URL whenever state changes. Use window.history.replaceState to avoid
+  // a Next.js re-render cycle (router.replace would re-trigger this hook).
   useEffect(() => {
+    stateRef.current = state
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
       const query = buildQuery(state, defaults)
       if (query === lastPushedQuery.current) return
       lastPushedQuery.current = query
-      const href = query ? `${pathname}?${query}` : pathname
-      router.replace(href, { scroll: false })
+      const href = query ? `${window.location.pathname}?${query}` : window.location.pathname
+      window.history.replaceState(null, '', href)
     }, 300)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [state, defaults, pathname, router])
+  }, [state, defaults])
 
-  // React to back/forward navigation: setState happens inside the event
-  // handler (not in the effect body itself) which the linter is happy with.
+  // React to back/forward navigation only.
   useEffect(() => {
     function onPopState() {
       const params = new URLSearchParams(window.location.search)

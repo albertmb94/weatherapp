@@ -6,6 +6,7 @@ export const MARINE_API_DAYS_MAX = 7
 
 export interface MarineResult {
   time: Date[]
+  timeStrings: string[]
   series: Record<string, Record<string, (number | null)[]>>
   utcOffsetSeconds: number
 }
@@ -60,7 +61,8 @@ export async function fetchMarine(
   if (!res.ok) throw new Error(`Marine API error: ${res.status}`)
   const data: MarineRaw = await res.json()
 
-  const time = parseOpenMeteoTimes(data.hourly.time)
+  const timeStrings = data.hourly.time
+  const time = parseOpenMeteoTimes(timeStrings)
   const series: Record<string, Record<string, (number | null)[]>> = {
     marine_global: {},
   }
@@ -70,5 +72,5 @@ export async function fetchMarine(
     series.marine_global[metric.id] = arr ?? new Array(time.length).fill(null)
   }
 
-  return { time, series, utcOffsetSeconds: data.utc_offset_seconds ?? 0 }
+  return { time, timeStrings, series, utcOffsetSeconds: data.utc_offset_seconds ?? 0 }
 }

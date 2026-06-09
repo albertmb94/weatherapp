@@ -530,7 +530,7 @@ export default function InsightsTable({
         <table className="w-full border-collapse text-xs table-auto min-w-[380px]">
           <thead>
             <tr className="bg-gray-900 text-gray-400">
-              <th className="sticky left-0 bg-gray-900 text-left px-1.5 py-1.5 font-medium z-30 border-b border-gray-800 w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
+              <th className="sticky left-0 bg-gray-900 text-center px-1.5 py-1.5 font-medium z-30 border-b border-gray-800 w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-blue-500' : ''
                 return (
@@ -565,7 +565,7 @@ export default function InsightsTable({
                   {colDefs.map(col => (
                     <td
                       key={col.id}
-                      className={`${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
+                      className={`text-center ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
                     >
                       <CellContent id={col.id} r={r} />
                     </td>

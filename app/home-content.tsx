@@ -30,6 +30,7 @@ import { getLocalForecastCache, setLocalForecastCache } from '@/lib/forecastLoca
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
+  const timeStrings = data.timeStrings.slice(startIndex)
   const series: ForecastResult['series'] = {}
   for (const modelId of Object.keys(data.series)) {
     const metrics = data.series[modelId]
@@ -40,7 +41,7 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
     }
     series[modelId] = out
   }
-  return { time, series, utcOffsetSeconds: data.utcOffsetSeconds }
+  return { time, timeStrings, series, utcOffsetSeconds: data.utcOffsetSeconds }
 }
 
 const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false })

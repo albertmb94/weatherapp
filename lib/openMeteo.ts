@@ -44,6 +44,7 @@ export function computeForecastDays(rangeHours: number, maxDays: number): number
 
 export interface ForecastResult {
   time: Date[]
+  timeStrings: string[]
   series: Record<string, Record<string, (number | null)[]>>
   utcOffsetSeconds: number
 }
@@ -77,7 +78,8 @@ export async function fetchForecast(
   if (!res.ok) throw new Error(`Forecast API error: ${res.status}`)
   const data = await res.json()
 
-  const time = parseOpenMeteoTimes(data.hourly.time as string[])
+  const timeStrings = data.hourly.time as string[]
+  const time = parseOpenMeteoTimes(timeStrings)
   const series: Record<string, Record<string, (number | null)[]>> = {}
 
   for (const model of capped) {
@@ -94,16 +96,17 @@ export async function fetchForecast(
     const marineDays = computeMarineDays(forecastDays * 24)
     try {
       const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)
-      const marineLen = marine.time.length
-      if (marineLen <= time.length && marineLen > 0) {
-        const t0 = marine.time[0].getTime()
-        const match = t0 === time[0].getTime()
+      const marineLen = marine.timeStrings.length
+      if (marineLen <= timeStrings.length && marineLen > 0) {
+        // Compare the raw strings from Open-Meteo; both APIs use the same
+        // timezone when timezone=auto, so the strings should be identical.
+        const match = marine.timeStrings[0] === timeStrings[0]
         if (match) {
           series.marine_global = series.marine_global ?? {}
           for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
-            const padded = marineLen === time.length
+            const padded = marineLen === timeStrings.length
               ? values
-              : [...values, ...new Array(time.length - marineLen).fill(null)]
+              : [...values, ...new Array(timeStrings.length - marineLen).fill(null)]
             series.marine_global[metricId] = padded
           }
         }
@@ -113,7 +116,7 @@ export async function fetchForecast(
     }
   }
 
-  return { time, series, utcOffsetSeconds: data.utc_offset_seconds ?? 0 }
+  return { time, timeStrings, series, utcOffsetSeconds: data.utc_offset_seconds ?? 0 }
 }
 
 /**

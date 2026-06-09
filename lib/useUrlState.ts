@@ -127,7 +127,17 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       const params = new URLSearchParams(window.location.search)
       const parsed = parseUrlParams(params)
       if (Object.keys(parsed).length === 0) return
-      setState(prev => ({ ...prev, ...parsed }))
+      setState(prev => {
+        const hasChange = Object.entries(parsed).some(([key, value]) => {
+          const prevValue = prev[key as keyof UrlState]
+          if (Array.isArray(prevValue) && Array.isArray(value)) {
+            return prevValue.length !== value.length || prevValue.some((v, i) => v !== value[i])
+          }
+          return prevValue !== value
+        })
+        if (!hasChange) return prev
+        return { ...prev, ...parsed }
+      })
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)

@@ -81,6 +81,7 @@ describe('fetchForecast with marine', () => {
     const t0 = new Date(fResponse.hourly.time[0])
     vi.mocked(fetchMarine).mockResolvedValue({
       time: [t0, new Date(t0.getTime() + 3600000), new Date(t0.getTime() + 2 * 3600000)],
+      timeStrings: fResponse.hourly.time.slice(0, 3),
       series: {
         marine_global: {
           wave_height: [0.5, 0.6, 0.7],
@@ -107,6 +108,7 @@ describe('fetchForecast with marine', () => {
     const t0 = new Date(fResponse.hourly.time[0])
     vi.mocked(fetchMarine).mockResolvedValue({
       time: [t0, new Date(t0.getTime() + 3600000)],
+      timeStrings: fResponse.hourly.time.slice(0, 2),
       series: { marine_global: { wave_height: [0.5, 0.6] } },
       utcOffsetSeconds: 0,
     })

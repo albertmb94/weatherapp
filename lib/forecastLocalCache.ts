@@ -29,8 +29,10 @@ export function getLocalForecastCache(
     if (!entry) return null
     const ageMs = Date.now() - entry.fetchedAt
     if (ageMs > CACHE_TTL_MS) return null
-    const cached = entry.data as { time?: unknown[]; utcOffsetSeconds?: number; series?: unknown }
-    if (cached?.time && Array.isArray(cached.time) && typeof cached.time[0] === 'string') {
+    const cached = entry.data as { time?: unknown[]; timeStrings?: unknown[]; utcOffsetSeconds?: number; series?: unknown }
+    if (cached?.timeStrings && Array.isArray(cached.timeStrings) && typeof cached.timeStrings[0] === 'string') {
+      cached.time = parseOpenMeteoTimes(cached.timeStrings as string[])
+    } else if (cached?.time && Array.isArray(cached.time) && typeof cached.time[0] === 'string') {
       cached.time = parseOpenMeteoTimes(cached.time as string[])
     }
     return { data: cached, ageMs }
@@ -52,7 +54,12 @@ export function setLocalForecastCache(
     const entries: ForecastCacheEntry[] = raw ? JSON.parse(raw) : []
     const key = buildKey(lat, lon, forecastDays, marine)
     const idx = entries.findIndex(e => e.key === key)
-    const entry: ForecastCacheEntry = { key, data, fetchedAt: Date.now() }
+    // Ensure timeStrings is present before saving so Date objects survive JSON
+    const safe = data as { time?: Date[]; timeStrings?: string[]; series?: unknown; utcOffsetSeconds?: number }
+    if (!safe.timeStrings && safe.time && Array.isArray(safe.time)) {
+      safe.timeStrings = safe.time.map(t => (t as Date).toISOString())
+    }
+    const entry: ForecastCacheEntry = { key, data: safe, fetchedAt: Date.now() }
     if (idx >= 0) entries[idx] = entry
     else entries.push(entry)
     // Keep only last 20 entries

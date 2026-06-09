@@ -1,3 +1,5 @@
+import { parseOpenMeteoTimes } from './dateUtils'
+
 const CACHE_KEY = 'weather-forecast-cache'
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000
 
@@ -27,7 +29,11 @@ export function getLocalForecastCache(
     if (!entry) return null
     const ageMs = Date.now() - entry.fetchedAt
     if (ageMs > CACHE_TTL_MS) return null
-    return { data: entry.data, ageMs }
+    const cached = entry.data as { time?: unknown[]; utcOffsetSeconds?: number; series?: unknown }
+    if (cached?.time && Array.isArray(cached.time) && typeof cached.time[0] === 'string') {
+      cached.time = parseOpenMeteoTimes(cached.time as string[])
+    }
+    return { data: cached, ageMs }
   } catch {
     return null
   }

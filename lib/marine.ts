@@ -1,5 +1,6 @@
 import type { Metric } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
+import { parseOpenMeteoTimes } from './dateUtils'
 
 export const MARINE_API_DAYS_MAX = 7
 
@@ -59,7 +60,7 @@ export async function fetchMarine(
   if (!res.ok) throw new Error(`Marine API error: ${res.status}`)
   const data: MarineRaw = await res.json()
 
-  const time = data.hourly.time.map(t => new Date(t))
+  const time = parseOpenMeteoTimes(data.hourly.time)
   const series: Record<string, Record<string, (number | null)[]>> = {
     marine_global: {},
   }

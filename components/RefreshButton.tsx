@@ -36,6 +36,7 @@ export default function RefreshButton() {
   useEffect(() => {
     if (!lastOutcome) return
     if (lastOutcome.kind === 'refreshed') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFeedback('now')
     } else {
       const mins = Math.max(1, Math.ceil(lastOutcome.remainingMs / 60000))

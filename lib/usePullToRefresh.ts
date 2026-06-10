@@ -17,6 +17,12 @@ export function usePullToRefresh<T extends HTMLElement>({
   const startY = useRef(0)
   const pulling = useRef(false)
   const [pullDistance, setPullDistance] = useState(0)
+  // Returns a callback ref the caller should pass to the target div. The
+  // callback ref lets us keep a stable ref and stay lint-clean
+  // (the new react-hooks/refs rule bans writing .current during render).
+  const setRef = useCallback((el: T | null) => {
+    ref.current = el
+  }, [])
   const [refreshing, setRefreshing] = useState(false)
 
   const onTouchStart = useCallback((e: TouchEvent) => {
@@ -64,5 +70,5 @@ export function usePullToRefresh<T extends HTMLElement>({
     }
   }, [onTouchStart, onTouchMove, onTouchEnd])
 
-  return { ref, pullDistance, refreshing }
+  return { ref: setRef, pullDistance, refreshing }
 }

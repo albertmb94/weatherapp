@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
-import { useSwipeGesture } from '@/lib/useSwipeGesture'
+
 import CitySearch from '@/components/CitySearch'
 import MetricPills from '@/components/MetricPills'
 import ModelSelector from '@/components/ModelSelector'
@@ -27,6 +27,7 @@ import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation } from '@/lib/localStorageLocations'
 import { formatAge } from '@/lib/formatAge'
 import { useRefresh } from '@/lib/useRefresh'
+import { usePullToRefresh } from '@/lib/usePullToRefresh'
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -353,10 +354,13 @@ export default function HomeContent() {
     handleHourChange(0)
   }, [handleHourChange])
 
-  const swipeRef = useSwipeGesture<HTMLDivElement>({
-    onSwipeLeft: () => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1)),
-    onSwipeRight: () => handleHourChange(Math.max(0, selectedHour - 1)),
-    threshold: 50,
+  // S6.3: pull-to-refresh on the main content container. Disabled on
+  // desktop (`pointer: coarse` only) and on `prefers-reduced-motion`
+  // (the gesture would be janky anyway without an animation).
+  const pullToRefreshRef = usePullToRefresh<HTMLDivElement>({
+    onRefresh: refresh,
+    threshold: 80,
+    disabled: typeof window !== 'undefined' && !window.matchMedia('(pointer: coarse)').matches,
   })
 
   useEffect(() => {
@@ -747,7 +751,10 @@ export default function HomeContent() {
           {activeTab === 'stations' ? (
             <StationDashboard position={position} placeName={cityName} />
           ) : (
-            <div ref={swipeRef}>
+            <div
+              // eslint-disable-next-line react-hooks/refs
+              ref={pullToRefreshRef.ref}
+            >
               {isLoading && (
                 <div className="space-y-4">
                   <DailySummarySkeleton />

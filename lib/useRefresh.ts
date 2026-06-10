@@ -37,9 +37,6 @@ export function useRefresh(): UseRefreshResult {
   const queryClient = useQueryClient()
   const [lastOutcome, setLastOutcome] = useState<RefreshOutcome | null>(null)
 
-  const refreshStatusQ = useQueryClient()
-  void refreshStatusQ // used implicitly via fetch below
-
   const mutation = useMutation({
     mutationFn: async (): Promise<{ skipped: boolean; reason?: string; refreshedAt?: number; ageMs?: number | null; cooldownMs?: number }> => {
       const res = await fetch('/api/refresh', { method: 'POST' })
@@ -56,12 +53,15 @@ export function useRefresh(): UseRefreshResult {
       queryClient.invalidateQueries({ queryKey: ['meteoclimatic'] })
       queryClient.invalidateQueries({ queryKey: ['meteoclimatic-coord'] })
 
-      if (result && 'skipped' in result && result.skipped) {
-        const cooldown = (result.cooldownMs ?? 0) - (result.ageMs ?? 0)
-        setLastOutcome({ kind: 'cooldown', remainingMs: Math.max(0, cooldown) })
-      } else {
-        setLastOutcome({ kind: 'refreshed' })
-      }
+      // onSuccess is invoked from the mutation runtime, not from a render
+      // or effect, so the `react-hooks/set-state-in-effect` lint rule does
+      // not flag this. The rule is overly conservative around async
+      // callbacks that happen to be passed to React APIs.
+      setLastOutcome(
+        result && 'skipped' in result && result.skipped
+          ? { kind: 'cooldown' as const, remainingMs: Math.max(0, (result.cooldownMs ?? 0) - (result.ageMs ?? 0)) }
+          : { kind: 'refreshed' as const },
+      )
     },
   })
 
@@ -70,8 +70,6 @@ export function useRefresh(): UseRefreshResult {
     mutation.mutate()
   }, [mutation])
 
-  // We don't poll /api/refresh-status here; callers compose the result
-  // with their own useQuery (see RefreshButton for the status display).
   return {
     status: null,
     lastOutcome,

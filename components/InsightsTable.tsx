@@ -531,7 +531,7 @@ export default function InsightsTable({
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-xs table-auto min-w-[380px]">
+          <table className="w-full border-collapse text-xs table-auto">
           <thead>
             <tr className="bg-surface-raised text-text-secondary">
               <th className="sticky left-0 top-0 isolate bg-surface-raised text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>

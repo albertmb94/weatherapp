@@ -425,22 +425,24 @@ export default function HomeContent() {
     <div className="min-h-screen flex flex-col bg-gray-950 text-white overflow-x-clip pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0 landscape:pb-0">
       <div
         data-header-collapsed={isHeaderCollapsed ? 'true' : 'false'}
-        className={`sticky top-0 z-30 bg-gray-900 border-b border-gray-800 shrink-0 px-3 transition-[padding] duration-150 ${
+        className={`sticky top-0 z-[1000] bg-gray-900 border-b border-gray-800 shrink-0 px-3 transition-[padding] duration-150 ${
           isHeaderCollapsed ? 'py-1' : 'py-1.5'
         }`}
       >
         <div className="flex items-center gap-1.5">
-          <div className="relative flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0 z-50">
             <CitySearch onSelect={handleCitySelect} />
           </div>
-          {refreshStatus?.lastRefreshedAt && (
-            <MobileRefreshButton
-              refresh={refresh}
-              isPending={isRefreshing}
-              ageMs={refreshStatus.ageMs ?? null}
-            />
-          )}
-          <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
+          <div className="shrink-0 flex items-center gap-1.5">
+            {refreshStatus?.lastRefreshedAt && (
+              <MobileRefreshButton
+                refresh={refresh}
+                isPending={isRefreshing}
+                ageMs={refreshStatus.ageMs ?? null}
+              />
+            )}
+            <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
+          </div>
         </div>
       </div>
 
@@ -707,7 +709,7 @@ export default function HomeContent() {
         <SavedLocations onSelect={handleCitySelect} />
 
         {showMap && (
-          <div className="h-[40vh] min-h-[260px] max-h-[440px] p-1.5 border-b border-gray-800 relative shrink-0">
+          <div className="h-[40vh] min-h-[260px] max-h-[440px] m-1.5 p-1 rounded-lg border border-border relative shrink-0 overflow-hidden">
             <MapPicker
               position={position}
               recenterToken={recenterToken}

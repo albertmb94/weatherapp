@@ -99,7 +99,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         onChange={handleChange}
         onFocus={() => { if (results.length > 0) setIsOpen(true) }}
         placeholder="Search..."
-        className="w-36 px-2 py-1 bg-transparent text-white text-xs placeholder-gray-600 focus:outline-none focus:placeholder-gray-400 border-b border-transparent focus:border-blue-500/40 transition-colors"
+        className="w-full min-w-0 px-2 py-1 bg-transparent text-white text-xs placeholder-gray-600 focus:outline-none focus:placeholder-gray-400 border-b border-transparent focus:border-blue-500/40 transition-colors"
       />
       {isFetching && (
         <div className="absolute right-1 top-1.5">

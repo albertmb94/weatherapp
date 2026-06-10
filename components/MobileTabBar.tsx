@@ -68,7 +68,7 @@ export default function MobileTabBar({ active, onChange }: MobileTabBarProps) {
   return (
     <nav
       aria-label={locale === 'en' ? 'Primary navigation' : 'Navegación principal'}
-      className="md:hidden landscape:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-raised border-t border-border flex items-stretch"
+      className="md:hidden landscape:hidden fixed bottom-0 left-0 right-0 z-[1100] bg-surface-raised border-t border-border flex items-stretch"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {TABS.map(tab => {

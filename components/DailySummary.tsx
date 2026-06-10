@@ -148,15 +148,17 @@ export default function DailySummary({
 
   if (days.length === 0) return null
 
-  // Wrap to multiple rows after 7 cards: 14 → 2×7, 16 → 3×6, etc.
-  const rows = Math.max(1, Math.ceil(days.length / 7))
-  const cols = Math.ceil(days.length / rows)
+  // Always 7 columns max so cards never shrink below the 7-days size.
+  // When there are more than 7 days, the grid overflows horizontally
+  // and the user scrolls; on sm+ the grid switches to the natural
+  // auto-fit layout that wraps to multiple rows.
+  const cols = Math.min(days.length, 7)
 
   return (
     <div className="mb-3">
       <h3 className="text-sm font-semibold text-text-primary mb-2">{STRINGS[locale].dailyTitle}</h3>
       <div
-        className="grid gap-1 overflow-x-auto sm:overflow-visible scrollbar-none"
+        className="grid gap-1 overflow-x-auto scrollbar-none"
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
         {days.map((d, i) => {

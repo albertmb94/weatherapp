@@ -433,15 +433,15 @@ export default function HomeContent() {
           <div className="relative flex-1 min-w-0">
             <CitySearch onSelect={handleCitySelect} />
           </div>
+          {refreshStatus?.lastRefreshedAt && (
+            <MobileRefreshButton
+              refresh={refresh}
+              isPending={isRefreshing}
+              ageMs={refreshStatus.ageMs ?? null}
+            />
+          )}
           <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
         </div>
-        {refreshStatus?.lastRefreshedAt && !isHeaderCollapsed && (
-          <MobileRefreshButton
-            refresh={refresh}
-            isPending={isRefreshing}
-            ageMs={refreshStatus.ageMs ?? null}
-          />
-        )}
       </div>
 
       {marine && (
@@ -804,7 +804,6 @@ export default function HomeContent() {
             <div
               // eslint-disable-next-line react-hooks/refs
               ref={pullToRefreshRef.ref}
-              className="landscape:grid landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] landscape:gap-3"
             >
               {isLoading && (
                 <div className="space-y-4">
@@ -822,19 +821,7 @@ export default function HomeContent() {
 
               {viewData && (
                 <>
-                  <div className="landscape:col-start-1 landscape:row-start-1 order-2 landscape:order-1">
-                    <ModelComparisonChart
-                      models={displayModels}
-                      activeModelIds={displayActiveModelIds}
-                      metric={selectedMetric}
-                      times={viewData.time}
-                      series={viewData.series}
-                      onHourHover={handleHourChange}
-                      hoveredHour={selectedHour}
-                      maxHours={effectiveMaxHours}
-                    />
-                  </div>
-                  <div className="landscape:col-start-2 landscape:row-span-2 order-1 landscape:order-2">
+                  <div>
                     <DailySummary
                       models={displayModels}
                       activeModelIds={displayActiveModelIds}
@@ -864,6 +851,16 @@ export default function HomeContent() {
                       utcOffsetSeconds={viewData.utcOffsetSeconds}
                       showMarine={marine}
                       showBasic={showBasic}
+                    />
+                    <ModelComparisonChart
+                      models={displayModels}
+                      activeModelIds={displayActiveModelIds}
+                      metric={selectedMetric}
+                      times={viewData.time}
+                      series={viewData.series}
+                      onHourHover={handleHourChange}
+                      hoveredHour={selectedHour}
+                      maxHours={effectiveMaxHours}
                     />
                   </div>
                 </>
@@ -905,27 +902,27 @@ function MobileRefreshButton({ refresh, isPending, ageMs }: {
   isPending: boolean
   ageMs: number | null
 }) {
-  // S6.2: a single tappable pill (≥44 px target) that re-fetches the
-  // current forecast. Mirrors the desktop RefreshButton's age label.
+  // S7 cosmetic: icon-only, 44px square, sits to the right of the search
+  // input. The age lives in the title/aria-label so it is discoverable on
+  // hover/long-press without taking horizontal space.
   const { locale } = useLocale()
-  const label = locale === 'en' ? 'Updated' : 'Actualizado'
   const age = formatAge(ageMs, locale)
   return (
     <button
       type="button"
       onClick={refresh}
       disabled={isPending}
-      className="md:hidden mt-1 min-h-[32px] px-2 py-1 text-[11px] text-gray-400 hover:text-white bg-gray-900/60 border border-gray-800 rounded inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+      title={locale === 'en' ? `Refresh forecast (last update ${age || 'never'})` : `Actualizar previsión (última actualización ${age || 'nunca'})`}
       aria-label={locale === 'en' ? `Refresh forecast (last update ${age || 'never'})` : `Actualizar previsión (última actualización ${age || 'nunca'})`}
+      className="md:hidden shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-text-tertiary hover:text-text-primary bg-surface-raised border border-border rounded transition-colors disabled:opacity-50"
     >
       {isPending ? (
-        <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
       ) : (
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       )}
-      <span>{label} {age}</span>
     </button>
   )
 }

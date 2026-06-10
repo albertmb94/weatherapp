@@ -152,6 +152,8 @@ export default function ModelComparisonChart({
             </defs>
             <XAxis
               dataKey="hour"
+              type="number"
+              domain={[0, Math.max(0, chartData.length - 1)]}
               tickFormatter={v => `+${v}h`}
               stroke="#444"
               tick={{ fill: '#999', fontSize: 11 }}
@@ -198,7 +200,13 @@ export default function ModelComparisonChart({
             <Area type="monotone" dataKey="min" stackId="spread" stroke="none" fill="transparent" name="Spread" />
             <Area type="monotone" dataKey="spread" stackId="spread" stroke="none" fill="url(#spreadGradient)" name="Spread" />
             {activeHour >= 0 && activeHour < displayTimes.length && (
-              <ReferenceLine x={activeHour} stroke="rgba(255,255,255,0.4)" strokeWidth={1} strokeDasharray="4 2" />
+              <ReferenceLine
+                x={activeHour}
+                stroke="rgba(255,255,255,0.6)"
+                strokeWidth={1.25}
+                strokeDasharray="2 2"
+                ifOverflow="extendDomain"
+              />
             )}
             {activeModels.map(model => (
               <Line

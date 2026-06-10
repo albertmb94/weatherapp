@@ -155,32 +155,35 @@ export default function DailySummary({
   return (
     <div className="mb-3">
       <h3 className="text-sm font-semibold text-text-primary mb-2">{STRINGS[locale].dailyTitle}</h3>
-      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      <div
+        className="grid gap-1 overflow-x-auto sm:overflow-visible scrollbar-none"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
         {days.map((d, i) => {
           const isCurrent = selectedHour >= d.startIndex && selectedHour <= d.endIndex
           return (
             <button
               key={i}
               onClick={() => onSelectHour(d.noonIndex)}
-              className={`min-w-0 px-1 py-1.5 rounded border text-center transition-all cursor-pointer bg-gradient-to-br ${ICON_GRADIENTS[d.icon]} ${
+              className={`min-w-0 px-1.5 py-1.5 rounded border text-center transition-all cursor-pointer bg-gradient-to-br ${ICON_GRADIENTS[d.icon]} ${
                 isCurrent ? 'border-accent shadow-[0_0_8px_var(--accent-soft)]' : 'border-border hover:border-border-strong'
               }`}
               title={`Jump to ${d.label} at 12:00`}
             >
-              <div className="text-[10px] font-semibold text-text-primary truncate">{d.label}</div>
+              <div className="text-[11px] font-semibold text-text-primary truncate">{d.label}</div>
               {showBasic && <div className="flex justify-center my-0.5"><WeatherConditionIcon icon={d.icon} /></div>}
               {showBasic && (
                 <div className="flex items-baseline justify-center gap-0.5 leading-none">
-                  <span className="text-xs font-bold text-text-primary">{d.tMax !== null ? Math.round(d.tMax) : '–'}°</span>
-                  <span className="text-[9px] text-text-tertiary">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
+                  <span className="text-[11px] font-bold text-text-primary">{d.tMax !== null ? Math.round(d.tMax) : '–'}°</span>
+                  <span className="text-[10px] text-text-tertiary">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
                 </div>
               )}
-              <div className="mt-0.5 flex items-center justify-center gap-1 text-[9px] text-text-tertiary truncate">
+              <div className="mt-0.5 flex items-center justify-center gap-1 text-[10px] text-text-tertiary leading-none">
                 {showBasic && <span title="Precipitation total">💧{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>}
                 {showBasic && <span title="Max wind gusts">≋{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>}
               </div>
               {showMarine && d.hasMarineData && (
-                <div className="mt-0.5 flex items-center justify-center text-[9px] text-cyan-300 truncate" title="Max wave height / mean wave period">
+                <div className="mt-0.5 flex items-center justify-center text-[10px] text-cyan-300 leading-none" title="Max wave height / mean wave period">
                   <span aria-hidden className="mr-0.5">🌊</span>
                   {d.waveHeightMax !== null ? d.waveHeightMax.toFixed(1) : '–'}
                   {d.wavePeriodMean !== null && <span className="ml-0.5 text-text-tertiary">/{Math.round(d.wavePeriodMean)}s</span>}

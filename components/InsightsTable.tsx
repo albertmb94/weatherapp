@@ -499,14 +499,14 @@ export default function InsightsTable({
 
   return (
     <div className="mb-4 animate-fadeIn">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <h3 className="text-sm font-semibold text-text-primary">{STRINGS[locale].insightsTitle}</h3>
-        <div className="flex items-center gap-0.5 bg-surface-raised border border-border rounded p-0.5">
+        <div className="flex items-center gap-0.5 bg-surface-raised border border-border rounded p-0.5 overflow-x-auto scrollbar-none max-w-full">
           {BUCKET_OPTIONS.map(b => (
             <button
               key={b}
               onClick={() => onBucketChange(b)}
-              className={`px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
+              className={`shrink-0 px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
                 bucket === b ? 'bg-white/10 text-text-primary' : 'text-text-tertiary hover:text-text-primary'
               }`}
             >
@@ -516,7 +516,7 @@ export default function InsightsTable({
           {!isDefaultOrder && (
             <button
               onClick={resetColumnOrder}
-              className="px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] text-text-tertiary hover:text-text-primary ml-0.5"
+              className="shrink-0 px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] text-text-tertiary hover:text-text-primary ml-0.5"
               title="Reset column order"
             >
               ↺
@@ -524,7 +524,7 @@ export default function InsightsTable({
           )}
           <button
             onClick={() => setCompact(c => !c)}
-            className={`md:hidden px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-white/10 text-text-primary' : 'text-text-tertiary hover:text-text-primary'}`}
+            className={`shrink-0 md:hidden px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-white/10 text-text-primary' : 'text-text-tertiary hover:text-text-primary'}`}
             title="Compact mode"
           >
             ≡

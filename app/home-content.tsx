@@ -487,82 +487,89 @@ export default function HomeContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
             </svg>
           </button>
-          <div className="hidden md:flex landscape:flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
-            {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
-            <button
-              onClick={handleMapToggle}
-              className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                showMap ? 'text-white' : 'text-gray-600 hover:text-gray-300'
-              }`}
-            >
-              Map
-            </button>
-            <button
-              onClick={handleRadarToggle}
-              className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                showRadar ? 'text-sky-300' : 'text-gray-600 hover:text-gray-300'
-              }`}
-              title="Toggle rain radar (RainViewer)"
-            >
-              Radar
-            </button>
-            <div className="w-px h-4 bg-gray-700" />
-            <button
-              onClick={handleMarineToggle}
-              className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
-                marine ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40' : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-600'
-              }`}
-              title="Marine/wave data (Open-Meteo)"
-              aria-pressed={marine}
-            >
-              Marine
-            </button>
-            {marine && (
+          <div className="hidden md:flex landscape:flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div role="group" aria-label={STRINGS[locale].groupView} className="flex items-center gap-1.5">
+              {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
+              {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
+            </div>
+            <div role="group" aria-label={STRINGS[locale].groupLayers} className="flex items-center gap-1.5 pl-2 border-l border-border">
               <button
-                onClick={handleBasicToggle}
-                className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
-                  showBasic ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40' : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-600'
+                onClick={handleMapToggle}
+                className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                  showMap ? 'text-text-primary' : 'text-text-tertiary hover:text-text-secondary'
                 }`}
-                title="Basic land stats (temperature, wind, etc.)"
-                aria-pressed={showBasic}
               >
-                Basic
+                {STRINGS[locale].map}
               </button>
-            )}
-            <button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="min-h-[32px] px-2 rounded text-[11px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
-            >
-              Save
-            </button>
-            {viewData && (
               <button
-                onClick={() => {
-                  const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours)
-                  downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
-                }}
-                className="min-h-[32px] px-2 rounded text-[11px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer"
-                title="Export forecast to CSV"
+                onClick={handleRadarToggle}
+                className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                  showRadar ? 'text-sky-300' : 'text-text-tertiary hover:text-text-secondary'
+                }`}
+                title="Toggle rain radar (RainViewer)"
               >
-                CSV
+                {STRINGS[locale].radar}
               </button>
-            )}
-            {typeof navigator !== 'undefined' && 'share' in navigator && viewData && (
+            </div>
+            <div role="group" aria-label={STRINGS[locale].groupData} className="flex items-center gap-1.5 pl-2 border-l border-border">
               <button
-                onClick={() => {
-                  navigator.share({
-                    title: `Weather ${cityName}`,
-                    url: window.location.href,
-                  }).catch(() => {})
-                }}
-                className="min-h-[32px] px-2 rounded text-[11px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer"
-                title="Share"
+                onClick={handleMarineToggle}
+                className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
+                  marine ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40' : 'bg-surface-raised text-text-tertiary border-border hover:text-text-secondary hover:border-border-strong'
+                }`}
+                title="Marine/wave data (Open-Meteo)"
+                aria-pressed={marine}
               >
-                Share
+                {STRINGS[locale].marine}
               </button>
-            )}
+              {marine && (
+                <button
+                  onClick={handleBasicToggle}
+                  className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
+                    showBasic ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40' : 'bg-surface-raised text-text-tertiary border-border hover:text-text-secondary hover:border-border-strong'
+                  }`}
+                  title="Basic land stats (temperature, wind, etc.)"
+                  aria-pressed={showBasic}
+                >
+                  {STRINGS[locale].basic}
+                </button>
+              )}
+            </div>
+            <div role="group" aria-label={STRINGS[locale].groupActions} className="flex items-center gap-1.5 pl-2 border-l border-border">
+              <button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {STRINGS[locale].save}
+              </button>
+              {viewData && (
+                <button
+                  onClick={() => {
+                    const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours)
+                    downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
+                  }}
+                  className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+                  title="Export forecast to CSV"
+                >
+                  {STRINGS[locale].csv}
+                </button>
+              )}
+              {typeof navigator !== 'undefined' && 'share' in navigator && viewData && (
+                <button
+                  onClick={() => {
+                    navigator.share({
+                      title: `Weather ${cityName}`,
+                      url: window.location.href,
+                    }).catch(() => {})
+                  }}
+                  className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+                  title="Share"
+                >
+                  {STRINGS[locale].share}
+                </button>
+              )}
+            </div>
             <button
               onClick={toggleTheme}
               className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"

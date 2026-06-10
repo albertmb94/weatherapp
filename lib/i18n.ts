@@ -46,6 +46,17 @@ export const STRINGS: Record<Locale, {
   footerHours: string
   footerSearch: string
   footerMap: string
+  groupView: string
+  groupLayers: string
+  groupData: string
+  groupActions: string
+  map: string
+  radar: string
+  marine: string
+  basic: string
+  save: string
+  csv: string
+  share: string
   cityCoords: string
   noMarineData: string
   saveError: string
@@ -102,6 +113,17 @@ export const STRINGS: Record<Locale, {
     footerHours: '← → horas',
     footerSearch: '/ buscar',
     footerMap: 'm mapa',
+    groupView: 'Vista',
+    groupLayers: 'Capas',
+    groupData: 'Datos',
+    groupActions: 'Acciones',
+    map: 'Mapa',
+    radar: 'Radar',
+    marine: 'Marine',
+    basic: 'Basic',
+    save: 'Guardar',
+    csv: 'CSV',
+    share: 'Compartir',
     cityCoords: '{city} · {lat}, {lon}',
     noMarineData: 'Sin datos marinos en esta ubicación',
     saveError: 'Error al guardar',
@@ -158,6 +180,17 @@ export const STRINGS: Record<Locale, {
     footerHours: '← → hours',
     footerSearch: '/ search',
     footerMap: 'm map',
+    groupView: 'View',
+    groupLayers: 'Layers',
+    groupData: 'Data',
+    groupActions: 'Actions',
+    map: 'Map',
+    radar: 'Radar',
+    marine: 'Marine',
+    basic: 'Basic',
+    save: 'Save',
+    csv: 'CSV',
+    share: 'Share',
     cityCoords: '{city} · {lat}, {lon}',
     noMarineData: 'No marine data at this location',
     saveError: 'Save failed',

@@ -61,6 +61,8 @@ weather/
 │   ├── api/
 │   │   ├── forecast/route.ts      # Proxy Open-Meteo forecast con caché
 │   │   ├── marine/route.ts        # Proxy Open-Meteo marine con caché
+│   │   ├── aemet/route.ts         # Observaciones de estaciones AEMET
+│   │   ├── meteoclimatic/route.ts # Feed RSS Meteoclimatic por prefijo
 │   │   ├── refresh/route.ts       # Control de cooldown refresh
 │   │   ├── locations/route.ts     # CRUD ubicaciones guardadas
 │   │   └── geocode/route.ts       # Proxy geocodificación
@@ -81,6 +83,9 @@ weather/
 │   ├── RainRadarOverlay.tsx       # Overlay RainViewer
 │   ├── RefreshButton.tsx          # Botón refresh con cooldown
 │   ├── SavedLocations.tsx         # Lista ubicaciones guardadas
+│   ├── StationDashboard.tsx       # Tab de estaciones (AEMET + Meteoclimatic)
+│   ├── StationCard.tsx            # Card de observación de estación
+│   ├── StationMap.tsx             # Mapa Leaflet de estaciones
 │   └── TimeRangeSelector.tsx      # Selector rango temporal
 ├── lib/
 │   ├── appState.ts                # Estado refresh (DB)
@@ -95,9 +100,13 @@ weather/
 │   ├── locations.ts              # CRUD ubicaciones guardadas
 │   ├── marine.ts                  # Cliente Open-Meteo Marine API
 │   ├── marineCache.ts             # Gestión caché marine
+│   ├── aemet.ts                   # Cliente AEMET OpenData
+│   ├── meteoclimatic.ts           # Cliente + parser RSS Meteoclimatic
+│   ├── meteoclimatic-types.ts     # Tipos de observación y regiones
 │   ├── models.ts                 # Definición modelos y métricas (con `group: 'land'|'marine'`)
 │   ├── openMeteo.ts              # Cliente Open-Meteo forecast (con `includeMarine`)
 │   ├── rainViewer.ts             # Cliente RainViewer API
+│   ├── usePullToRefresh.ts       # Hook gesto pull-to-refresh (S6)
 │   ├── useUrlState.ts            # Hook sincronización URL (con `marine`)
 │   └── weatherIcon.ts            # Selector icono meteorológico
 ├── docs/                          # Documentación
@@ -129,6 +138,9 @@ weather/
 | S2 | Refresco de datos: cooldown dinámico, historial de refreshes |
 | S3 | Dashboard de métricas de rendimiento (cache hit rate, tiempos de respuesta) |
 | S4 | **Funcionalidad de olas (marine)**: modelo virtual `marine_global`, 7 métricas, toggle UI, cache independiente. Detalle operativo en `docs/SPRINTS_PLAN.md`. |
+| S5 | **Estaciones por ciudad (Meteoclimatic)**: resolución coordenadas → prefijo de provincia, filtrado por radio, conexión con la ciudad buscada. Detalle operativo en `docs/SPRINTS.md`. |
+| S6 | **Refresco desde móvil**: indicador accionable, pull-to-refresh, recarga de la última búsqueda aunque haya cooldown. Detalle operativo en `docs/SPRINTS.md`. |
+| S7 | **Mejoras estéticas mobile/desktop**: tokens de diseño, bottom tab bar móvil, layout de dos columnas en landscape, pulido desktop. Detalle operativo en `docs/SPRINTS.md`. |
 
 ---
 

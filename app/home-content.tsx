@@ -764,6 +764,7 @@ export default function HomeContent() {
                     selectedHour={selectedHour}
                     onSelectHour={handleHourChange}
                     maxHours={effectiveMaxHours}
+                    utcOffsetSeconds={viewData.utcOffsetSeconds}
                     showMarine={marine}
                     showBasic={showBasic}
                   />

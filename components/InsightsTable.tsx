@@ -21,6 +21,7 @@ interface InsightsTableProps {
   selectedHour: number
   onSelectHour: (h: number) => void
   maxHours: number
+  utcOffsetSeconds: number
   showMarine?: boolean
   showBasic?: boolean
 }
@@ -141,13 +142,16 @@ function WindArrow({ degrees }: { degrees: number | null }) {
   )
 }
 
-function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' | 'en'): string {
-  const today = new Date()
-  const isToday = start.getUTCFullYear() === today.getFullYear() && start.getUTCMonth() === today.getMonth() && start.getUTCDate() === today.getDate()
+function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' | 'en', utcOffsetSeconds: number): string {
+  // M5: compare the location's "today" (in the location's timezone) instead
+  // of the browser's "today", otherwise the label flips between "Hoy" /
+  // "Mañ" and a weekday at the wrong moment when the user is in a TZ
+  // different from the location.
+  const today = new Date(Date.now() + utcOffsetSeconds * 1000)
+  const isToday = start.getUTCFullYear() === today.getUTCFullYear() && start.getUTCMonth() === today.getUTCMonth() && start.getUTCDate() === today.getUTCDate()
   const isTomorrow = (() => {
-    const t = new Date(today)
-    t.setDate(t.getDate() + 1)
-    return start.getUTCFullYear() === t.getFullYear() && start.getUTCMonth() === t.getMonth() && start.getUTCDate() === t.getDate()
+    const t = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+    return start.getUTCFullYear() === t.getUTCFullYear() && start.getUTCMonth() === t.getUTCMonth() && start.getUTCDate() === t.getUTCDate()
   })()
   const s = STRINGS[locale]
   const day = isToday ? s.today : isTomorrow ? s.tomorrow : `${DAY_NAMES[locale][start.getUTCDay()]} ${start.getUTCDate()}`
@@ -213,6 +217,7 @@ export default function InsightsTable({
   selectedHour,
   onSelectHour,
   maxHours,
+  utcOffsetSeconds,
   showMarine = false,
   showBasic = true,
 }: InsightsTableProps) {
@@ -301,7 +306,7 @@ export default function InsightsTable({
         const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
         if (!current || key !== currentKey) {
           current = {
-            label: bucketLabel(t, t, bucket, locale),
+            label: bucketLabel(t, t, bucket, locale, utcOffsetSeconds),
             startIdx: i,
             endIdx: i,
             centerIdx: i,
@@ -330,7 +335,7 @@ export default function InsightsTable({
         if (end < cursor) break
         const endT = times[end]
         buckets.push({
-          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), endT, bucket, locale),
+          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), endT, bucket, locale, utcOffsetSeconds),
           startIdx: cursor,
           endIdx: end,
           centerIdx: cursor + Math.floor((end - cursor) / 2),

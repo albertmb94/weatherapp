@@ -240,24 +240,24 @@ fabricar distancias falsas).
 
 ### Tareas
 
-- [ ] **5.1** Validar trigramas/prefijos contra meteoclimatic.net
+- [x] **5.1** Validar trigramas/prefijos contra meteoclimatic.net
   (método de la sección B) y crear `lib/meteoclimaticProvinces.ts` con
   la tabla completa + `resolveMeteoclimaticPrefix` + script
   `scripts/verify-meteoclimatic-prefixes.mjs`.
-- [ ] **5.2** Crear `lib/geoDistance.ts` (`haversineKm`, `withDistance`,
+- [x] **5.2** Crear `lib/geoDistance.ts` (`haversineKm`, `withDistance`,
   sección C).
-- [ ] **5.3** Extender `app/api/meteoclimatic/route.ts` con el modo
+- [x] **5.3** Extender `app/api/meteoclimatic/route.ts` con el modo
   `?lat&lon&radius&limit` según el contrato de la sección D (validación,
   caché por prefijo, respuesta `uncovered`).
-- [ ] **5.4** `StationDashboard.tsx`: props `position`/`placeName`,
+- [x] **5.4** `StationDashboard.tsx`: props `position`/`placeName`,
   queries y filtrado por radio, selector de radio en lugar de regiones,
   orden y distancia en `StationCard` (sección E).
-- [ ] **5.5** `home-content.tsx:722`: pasar `position` y `placeName`;
+- [x] **5.5** `home-content.tsx:722`: pasar `position` y `placeName`;
   comprobar que el cambio de ciudad con el tab abierto refresca las
   estaciones.
-- [ ] **5.6** Empty states e i18n según la sección E; descartar
+- [x] **5.6** Empty states e i18n según la sección E; descartar
   estaciones sin coordenadas en modo por radio (sección F).
-- [ ] **5.7** Tests: `lib/__tests__/meteoclimaticProvinces.test.ts`
+- [x] **5.7** Tests: `lib/__tests__/meteoclimaticProvinces.test.ts`
   (point-in-bbox, solape de fronteras, Canarias/Baleares, fuera de
   España, costa), `geoDistance.test.ts` (distancias conocidas),
   `app/api/meteoclimatic/__tests__/route.test.ts` (modo lat/lon, radio,
@@ -324,23 +324,23 @@ toolbar de desktop (`home-content.tsx:517`) y dentro del menú hamburguesa
 
 ### Tareas
 
-- [ ] **6.1** Extraer la acción de refresco de `RefreshButton.tsx` a un
+- [x] **6.1** Extraer la acción de refresco de `RefreshButton.tsx` a un
   hook `lib/useRefresh.ts` (mutación + invalidaciones + estado
   `{ ageMs, canRefresh, cooldownRemainingMs }`) reutilizable por botón,
   cabecera móvil y pull-to-refresh.
-- [ ] **6.2** `home-content.tsx:368-370`: convertir el indicador móvil en
+- [x] **6.2** `home-content.tsx:368-370`: convertir el indicador móvil en
   botón accionable con spinner durante el refetch y edad formateada
   (`formatAge`); mantenerlo visible también en landscape.
-- [ ] **6.3** Integrar `usePullToRefresh` sobre el contenedor de
+- [x] **6.3** Integrar `usePullToRefresh` sobre el contenedor de
   contenido (solo `pointer: coarse`); indicador de arrastre con
   `pullDistance` y `refreshing`; respetar `prefers-reduced-motion`.
-- [ ] **6.4** Ampliar `onSuccess` del refresco: invalidar también
+- [x] **6.4** Ampliar `onSuccess` del refresco: invalidar también
   `marine`, `aemet-stations` y `meteoclimatic` (hoy solo `forecast`,
   `RefreshButton.tsx:45`); toast con el resultado real (refrescado vs
   recargado por cooldown).
-- [ ] **6.5** i18n de los nuevos mensajes y `aria-live` para el resultado
+- [x] **6.5** i18n de los nuevos mensajes y `aria-live` para el resultado
   del refresco.
-- [ ] **6.6** Tests: `lib/__tests__/useRefresh.test.ts` (invalidaciones
+- [x] **6.6** Tests: `lib/__tests__/useRefresh.test.ts` (invalidaciones
   en ambos casos, cooldown), `usePullToRefresh.test.ts` (umbral,
   scrollTop>0 no dispara), actualizar
   `components/__tests__/RefreshButton.test.tsx` si cambia el contrato.
@@ -434,24 +434,24 @@ optimizar el espacio vertical. Stack: Tailwind 4 con `@theme` en
 
 ### Tareas
 
-- [ ] **7.1** Definir tokens en `app/globals.css` (`@theme`) y documentar
+- [x] **7.1** Definir tokens en `app/globals.css` (`@theme`) y documentar
   la paleta semántica en `docs/CONVENCIONES.md`. (P1.1)
-- [ ] **7.2** Migrar componentes a los tokens: `StationCard`,
+- [x] **7.2** Migrar componentes a los tokens: `StationCard`,
   `DailySummary`, `InsightsTable`, pills, toolbar. Sin cambios de
   comportamiento; diff solo de clases. (P1.2, P1.3)
-- [ ] **7.3** Implementar bottom tab bar móvil + safe-area; mover
+- [x] **7.3** Implementar bottom tab bar móvil + safe-area; mover
   acciones secundarias al menú; eliminar entradas duplicadas. (P2.4)
-- [ ] **7.4** Auditoría de touch targets y tipografía mínima en móvil;
+- [x] **7.4** Auditoría de touch targets y tipografía mínima en móvil;
   subir tamaños y espaciado. (P2.5)
-- [ ] **7.5** Cabecera colapsable en scroll (móvil retrato). (P2.6)
-- [ ] **7.6** Grid de dos columnas y altura de gráfico en landscape.
+- [x] **7.5** Cabecera colapsable en scroll (móvil retrato). (P2.6)
+- [x] **7.6** Grid de dos columnas y altura de gráfico en landscape.
   (P3.7, P3.8)
-- [ ] **7.7** Desktop: clusters de toolbar, cabecera, tabla
+- [x] **7.7** Desktop: clusters de toolbar, cabecera, tabla
   (sticky + tabular-nums), tema claro AA. (P4.9–P4.12)
-- [ ] **7.8** Pasada de QA visual: matriz de capturas
+- [x] **7.8** Pasada de QA visual: matriz de capturas
   (375×667 retrato, 667×375 landscape, 768, 1280, dark/light) antes y
   después; verificación con `npm run dev` en cada breakpoint.
-- [ ] **7.9** Tests de regresión: los tests de componentes existentes no
+- [x] **7.9** Tests de regresión: los tests de componentes existentes no
   dependen de clases concretas; añadir test del tab bar (navegación entre
   tabs) y de la cabecera colapsable si lleva lógica JS.
 

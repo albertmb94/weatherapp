@@ -56,36 +56,213 @@ Barcelona) y `lib/meteoclimatic.ts` ya sabe parsearlos
 4. **Meteoclimatic activado por defecto** cuando hay prefijo resuelto;
    el checkbox se mantiene para poder excluirlo.
 
+### Especificación de implementación
+
+> Esta sección es el manual para quien implemente el sprint. Toda la
+> infraestructura de fetch/parseo de Meteoclimatic **ya existe** en
+> `lib/meteoclimatic.ts`; el trabajo es de resolución geográfica y
+> cableado, no de parsing.
+
+#### A. El feed de Meteoclimatic (lo ya conocido y validado)
+
+- URL: `https://meteoclimatic.net/feed/rss/{código}` donde `{código}`
+  puede ser una estación concreta **o cualquier prefijo jerárquico**:
+  `ES` ⊃ `ESCAT` ⊃ `ESCAT08` ⊃ `ESCAT0800000008181C`. Un prefijo
+  devuelve un `<item>` por cada estación que cuelga de él. El código
+  actual ya explota esto (`METEOCLIMATIC_MAP` usa `ESCAT08`, `ESCAT`…).
+- Cabeceras necesarias (sin ellas el servidor rechaza; ya están en
+  `fetchStationData`, `lib/meteoclimatic.ts:103-110`): `User-Agent` de
+  navegador, `Accept: application/xml+rss,...`, `Referer:
+  https://www.meteoclimatic.net/`. Timeout 15 s con `AbortSignal`.
+- Formato de cada `<item>` (lo que espera `parseItem`,
+  `lib/meteoclimatic.ts:22-85`):
+
+  ```xml
+  <item>
+    <title>Nombre de la estación</title>
+    <pubDate>Mon, 09 Jun 2026 18:40:00 +0200</pubDate>
+    <georss:point>41.39 2.16</georss:point>   <!-- lat lon, en ese orden -->
+    <description>... [[<CÓDIGO;(temp;tmax;tmin;condición);(hum;hmax;hmin);(pres;pmax;pmin);(viento;racha;rumbo);(precip);NOMBRE>]] ...</description>
+  </item>
+  ```
+
+  Los números usan coma decimal (`parseCommaFloat` ya normaliza) y los
+  campos vacíos llegan como `_` o `-`. No usar el feed por estación si
+  se tiene el de prefijo: una sola petición por provincia basta.
+- **Importante para feeds grandes:** un prefijo de provincia puede
+  devolver cientos de items. No hay paginación; el filtrado por radio se
+  hace tras parsear. Medir el tamaño de respuesta de un par de
+  provincias densas (Barcelona, Madrid) y, si supera ~1-2 MB, plantear
+  límite de estaciones devueltas por la API (parámetro `limit`, por
+  defecto 50, ordenadas por distancia).
+
+#### B. Tabla de provincias (`lib/meteoclimaticProvinces.ts`)
+
+Estructura:
+
+```typescript
+export interface MeteoclimaticProvince {
+  prefix: string          // p. ej. 'ESCAT08'
+  name: string            // 'Barcelona'
+  latMin: number; latMax: number; lonMin: number; lonMax: number
+  centroid: [number, number]
+}
+export const PROVINCES: MeteoclimaticProvince[] = [ /* ~52 entradas */ ]
+
+export function resolveMeteoclimaticPrefix(lat: number, lon: number): string | null
+```
+
+Construcción del prefijo: `'ES' + trigramaCCAA + códigoINE` (INE de 2
+dígitos: Barcelona 08, Madrid 28, València 46, Zaragoza 50…).
+**Trigramas confirmados** por el código existente: `CAT` (Catalunya),
+`MAD` (Madrid), `PVA` (Com. Valenciana). El resto hay que validarlos
+empíricamente — método concreto:
+
+1. Abrir el directorio público `https://www.meteoclimatic.net/` →
+   navegación por territorio: la URL/código de cada provincia aparece en
+   los enlaces del árbol.
+2. Verificación programática: `curl` a
+   `https://meteoclimatic.net/feed/rss/{candidato}` (con las cabeceras
+   de arriba); un prefijo válido devuelve RSS con `<item>`; uno inválido
+   devuelve feed vacío o error.
+3. Dejar el script de verificación en `scripts/verify-meteoclimatic-prefixes.mjs`
+   para re-validar en el futuro (no se ejecuta en CI; es manual).
+
+Bounding boxes y centroides provinciales: usar límites administrativos
+aproximados (basta precisión de ~10 km; el filtrado fino lo hace el
+radio). Fuente sugerida: dataset de provincias del IGN o bboxes
+calculados de Natural Earth; embebidos como literales, sin dependencia
+nueva.
+
+Algoritmo de `resolveMeteoclimaticPrefix`:
+
+```
+candidatas = provincias cuya bbox contiene (lat, lon)
+si candidatas vacía → null                       // fuera de España
+si una → su prefix
+si varias (bboxes solapan en fronteras) → la de centroide más cercano
+```
+
+Casos especiales a cubrir en tests: Canarias y Baleares (bboxes
+disjuntas del peninsular), Ceuta/Melilla si Meteoclimatic las tiene
+(validar; si no, excluir de la tabla), punto en mar cercano a costa
+(debe resolver a la provincia costera: si el bbox no lo contiene,
+aplicar fallback por centroide a < 100 km antes de devolver `null`).
+
+#### C. Distancias (`lib/geoDistance.ts`)
+
+```typescript
+export function haversineKm(a: [number, number], b: [number, number]): number
+export function withDistance<T extends { lat: number; lon: number }>(
+  stations: T[], center: [number, number]
+): (T & { distanceKm: number })[]   // no filtra: anota y deja ordenar/filtrar al llamador
+```
+
+Radio terrestre 6371 km. Tests con pares conocidos (BCN–MAD ≈ 505 km,
+mismo punto = 0, antípodas).
+
+#### D. Contrato de la API extendida (`app/api/meteoclimatic/route.ts`)
+
+Se mantiene el modo actual `?station={código}` (retrocompatible) y se
+añade el modo por coordenadas:
+
+```
+GET /api/meteoclimatic?lat=41.39&lon=2.16&radius=30&limit=50
+```
+
+| Parámetro | Validación | Default |
+|-----------|------------|---------|
+| `lat` | -90..90 (rechazar fuera de rango → 400, formato de error de `docs/CONVENCIONES.md` §5) | — |
+| `lon` | -180..180 | — |
+| `radius` | 1..200 km | 30 |
+| `limit` | 1..200 | 50 |
+
+Respuesta (200):
+
+```json
+{
+  "stations": [ { ...MeteoclimaticObservation, "distanceKm": 4.2 } ],
+  "prefix": "ESCAT08",
+  "fetchedAt": "2026-06-10T12:00:00Z"
+}
+```
+
+Sin cobertura (prefijo `null`): 200 con
+`{ "stations": [], "prefix": null, "uncovered": true }` — no es un
+error; la UI decide el empty state.
+
+Flujo interno: validar params → `resolveMeteoclimaticPrefix` →
+`fetchStationData(prefix)` (cacheada, ver abajo) → `withDistance` →
+filtrar `≤ radius` → ordenar asc → cortar a `limit`.
+
+Caché: reutilizar el mecanismo existente de la ruta con **clave por
+prefijo** (`meteoclimatic:{prefix}`), nunca por lat/lon, para que dos
+ciudades de la misma provincia compartan hit. TTL servidor 2 min +
+cabeceras `Cache-Control: public, s-maxage=120, stale-while-revalidate=300`
+(las actuales de la ruta). El rate limit existente se mantiene.
+
+#### E. Cableado de UI
+
+- `StationDashboard.tsx`:
+  - Props nuevas: `position: [number, number] | null` y
+    `placeName?: string`.
+  - Query Meteoclimatic: `queryKey: ['meteoclimatic', lat1dec, lon1dec, radius]`
+    (coordenadas redondeadas a 1 decimal, convención de
+    `docs/CONVENCIONES.md` §3) → `GET /api/meteoclimatic?lat=&lon=&radius=`.
+    `enabled: includeMeteo && position !== null`. `includeMeteo` pasa a
+    `true` por defecto.
+  - AEMET: misma query actual (`['aemet-stations']`, devuelve toda
+    España) + `withDistance` y filtro por radio en cliente. El filtrado
+    por `REGIONS` bbox (`StationDashboard.tsx:109-119`) se elimina; el
+    `<select>` de regiones se sustituye por un selector de radio
+    (10/30/60 km) con la etiqueta «Cerca de {placeName}».
+  - Dedup AEMET/Meteoclimatic: mantener el criterio actual (~0.01° de
+    proximidad) pero sobre estructuras indexadas, no el bucle O(n²)
+    actual (ver bug B-08 en S8).
+  - Orden: por `distanceKm` ascendente; `StationCard` muestra la
+    distancia («4,2 km») junto al nombre.
+- `home-content.tsx:722`: `<StationDashboard position={position} placeName={placeName} />`
+  (ambos ya existen en el estado del componente).
+- i18n (`lib/i18n.ts`), claves nuevas ES/EN: `nearLabel`
+  («Cerca de»/«Near»), `noMeteoCoverage`, `noStationsRadius`
+  («No hay estaciones a menos de {km} km»), `expandRadius`
+  («Ampliar a {km} km»).
+
+#### F. Fixtures de test
+
+Crear `lib/__tests__/fixtures/meteoclimatic-province.xml` con un feed
+real (anonimizado si hace falta) de un prefijo de provincia con ≥3
+estaciones, incluyendo: una con todos los campos, una con campos vacíos
+(`_`/`-`) y una sin `georss:point` (el parser actual le pone lat/lon 0
+— ver bug B-07 en S8: debe descartarse en modo por coordenadas para no
+fabricar distancias falsas).
+
 ### Tareas
 
-- [ ] **5.1** Crear `lib/meteoclimaticProvinces.ts`: tabla de provincias
-  (prefijo, bbox, centroide) + `resolveMeteoclimaticPrefix(lat, lon)`.
-  Validar los trigramas de CCAA contra el directorio público de
-  meteoclimatic.net (no asumir el patrón sin comprobarlo).
-- [ ] **5.2** Crear `lib/geoDistance.ts` con `haversineKm(a, b)` (o
-  reutilizar si ya existe lógica equivalente) y
-  `filterByRadius(stations, center, km)`.
-- [ ] **5.3** Extender `app/api/meteoclimatic/route.ts` para aceptar
-  `?lat=&lon=&radius=` además de `?station=`: resuelve el prefijo en
-  servidor, hace fetch del feed y devuelve solo estaciones dentro del
-  radio, con `distanceKm` por estación. Mantener rate limit y cache
-  existentes (clave de caché por prefijo, no por lat/lon, para maximizar
-  hits).
-- [ ] **5.4** `StationDashboard.tsx`: aceptar props
-  `{ position: [number, number] | null, placeName?: string }`; query de
-  Meteoclimatic keyed por prefijo resuelto; AEMET filtrado por radio en
-  cliente; ordenar cards por distancia y mostrarla en `StationCard`.
-- [ ] **5.5** `home-content.tsx:722`: pasar `position` y nombre de la
-  ubicación al dashboard; comprobar que el cambio de ciudad con el tab
-  abierto refresca las estaciones.
-- [ ] **5.6** Empty states e i18n (`lib/i18n.ts`): «Sin cobertura
-  Meteoclimatic en esta zona», «No hay estaciones a menos de X km»,
-  opción de ampliar radio.
+- [ ] **5.1** Validar trigramas/prefijos contra meteoclimatic.net
+  (método de la sección B) y crear `lib/meteoclimaticProvinces.ts` con
+  la tabla completa + `resolveMeteoclimaticPrefix` + script
+  `scripts/verify-meteoclimatic-prefixes.mjs`.
+- [ ] **5.2** Crear `lib/geoDistance.ts` (`haversineKm`, `withDistance`,
+  sección C).
+- [ ] **5.3** Extender `app/api/meteoclimatic/route.ts` con el modo
+  `?lat&lon&radius&limit` según el contrato de la sección D (validación,
+  caché por prefijo, respuesta `uncovered`).
+- [ ] **5.4** `StationDashboard.tsx`: props `position`/`placeName`,
+  queries y filtrado por radio, selector de radio en lugar de regiones,
+  orden y distancia en `StationCard` (sección E).
+- [ ] **5.5** `home-content.tsx:722`: pasar `position` y `placeName`;
+  comprobar que el cambio de ciudad con el tab abierto refresca las
+  estaciones.
+- [ ] **5.6** Empty states e i18n según la sección E; descartar
+  estaciones sin coordenadas en modo por radio (sección F).
 - [ ] **5.7** Tests: `lib/__tests__/meteoclimaticProvinces.test.ts`
-  (resolución dentro/fuera de España, fronteras), `geoDistance.test.ts`,
+  (point-in-bbox, solape de fronteras, Canarias/Baleares, fuera de
+  España, costa), `geoDistance.test.ts` (distancias conocidas),
   `app/api/meteoclimatic/__tests__/route.test.ts` (modo lat/lon, radio,
-  errores), actualizar `components/__tests__/StationDashboard.test.tsx`
-  (auto-carga al recibir `position`).
+  limit, validación 400, `uncovered`, retrocompatibilidad `?station=`),
+  actualizar `components/__tests__/StationDashboard.test.tsx`
+  (auto-carga al recibir `position`, cambio de radio).
 
 ### Criterios de aceptación
 

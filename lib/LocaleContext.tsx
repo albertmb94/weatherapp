@@ -12,7 +12,15 @@ interface LocaleContextValue {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null)
 
-function getInitialLocale(): Locale {
+// M3: avoid hydration mismatch. On the server we always render the default
+// locale; on the client we read localStorage / navigator.language in an
+// effect after mount. This prevents a server-vs-client DOM diff on the
+// `<html lang="…">` attribute and on any text rendered in the first paint.
+function getDefaultLocale(): Locale {
+  return 'es'
+}
+
+function detectClientLocale(): Locale {
   if (typeof window === 'undefined') return 'es'
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
   if (stored === 'en' || stored === 'es') return stored
@@ -20,9 +28,15 @@ function getInitialLocale(): Locale {
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(getInitialLocale)
+  const [locale, setLocaleState] = useState<Locale>(getDefaultLocale)
 
   useEffect(() => {
+    const detected = detectClientLocale()
+    if (detected !== locale) setLocaleState(detected)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
     localStorage.setItem(LOCALE_STORAGE_KEY, locale)
     document.documentElement.lang = locale
   }, [locale])

@@ -54,6 +54,9 @@ const DEFAULT_RANGE = 168
 const OPEN_METEO_MAX_DAYS = 16
 
 export default function HomeContent() {
+  // M3: keep initial defaults SSR-safe. The `showMap` derivation uses
+  // matchMedia which differs between server and client; we apply it in an
+  // effect after mount.
   const [defaults] = useState(() => ({
     lat: DEFAULT_POS[0],
     lon: DEFAULT_POS[1],
@@ -61,7 +64,7 @@ export default function HomeContent() {
     models: DEFAULT_MODELS,
     hour: 0,
     range: DEFAULT_RANGE,
-    showMap: typeof window === 'undefined' ? true : !window.matchMedia('(max-width: 767px)').matches,
+    showMap: true,
     showRadar: false,
     bucket: 4,
     locale: '',

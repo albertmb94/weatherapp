@@ -12,7 +12,13 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 const THEME_STORAGE_KEY = 'weather-theme'
 
-function getInitialTheme(): Theme {
+// M3: avoid hydration mismatch. On the server we always render 'dark'; on
+// the client we read localStorage / matchMedia in an effect after mount.
+function getDefaultTheme(): Theme {
+  return 'dark'
+}
+
+function detectClientTheme(): Theme {
   if (typeof window === 'undefined') return 'dark'
   const stored = localStorage.getItem(THEME_STORAGE_KEY)
   if (stored === 'light' || stored === 'dark') return stored
@@ -20,9 +26,15 @@ function getInitialTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+  const [theme, setTheme] = useState<Theme>(getDefaultTheme)
 
   useEffect(() => {
+    const detected = detectClientTheme()
+    if (detected !== theme) setTheme(detected)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
     localStorage.setItem(THEME_STORAGE_KEY, theme)
     document.documentElement.classList.toggle('light', theme === 'light')
   }, [theme])

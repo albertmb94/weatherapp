@@ -36,7 +36,9 @@ function mapAemet(s: AemetRaw): MeteoclimaticObservation {
     condition: '',
     humidity: { current: n(s.hr), max: null, min: null },
     pressure: { current: null, max: null, min: null },
-    wind: { speed: n(s.vv), gust: n(s.vmax), bearing: dv, direction: dv != null ? bearingToDir(dv) : '' },
+    // M1: AEMET provides wind speed in m/s; convert to km/h to match the
+    // convention of Meteoclimatic and the rest of the UI.
+    wind: { speed: n(s.vv) != null ? n(s.vv)! * 3.6 : null, gust: n(s.vmax) != null ? n(s.vmax)! * 3.6 : null, bearing: dv, direction: dv != null ? bearingToDir(dv) : '' },
     precipitation: n(s.prec),
   }
 }
@@ -98,11 +100,21 @@ export default function StationDashboard() {
     const aemet = aemetQ.data ?? []
     const meteo = includeMeteo ? (meteoQ.data ?? []) : []
     const seen = new Map<string, MeteoclimaticObservation>()
+    // B5: build a 0.01° spatial index over the AEMET stations so dedup
+    // against Meteoclimatic is O(n) instead of O(n²).
+    const spatialIndex = new Map<string, MeteoclimaticObservation>()
+    for (const s of aemet) {
+      const cell = `${Math.round(s.lat * 100)}:${Math.round(s.lon * 100)}`
+      if (!spatialIndex.has(cell)) spatialIndex.set(cell, s)
+    }
     for (const s of aemet) seen.set('A-' + s.code, s)
     for (const s of meteo) {
       const key = 'M-' + s.code
-      if (!seen.has(key) && !Array.from(seen.values()).some(v => Math.abs(v.lat - s.lat) < 0.01 && Math.abs(v.lon - s.lon) < 0.01)) {
+      if (seen.has(key)) continue
+      const cell = `${Math.round(s.lat * 100)}:${Math.round(s.lon * 100)}`
+      if (!spatialIndex.has(cell)) {
         seen.set(key, s)
+        spatialIndex.set(cell, s)
       }
     }
     return [...seen.values()]
@@ -124,7 +136,9 @@ export default function StationDashboard() {
 
   const isLoading = aemetQ.isLoading || (includeMeteo && meteoQ.isLoading)
   const isFetching = aemetQ.isFetching || (includeMeteo && meteoQ.isFetching)
-  const error = aemetQ.error || (includeMeteo && meteoQ.error)
+  // M8: prefer AEMET's error, fall back to Meteoclimatic's; use ?? so a
+  // `false` from `aemetQ.error` doesn't shadow a real Meteoclimatic error.
+  const error = aemetQ.error ?? (includeMeteo ? meteoQ.error : null)
   // While react-query is retrying, isError may already be true from a previous
   // attempt. Hide the error block until the in-flight retry settles so the
   // user only sees the loading spinner, not a stale error message.
@@ -200,8 +214,12 @@ export default function StationDashboard() {
       {showError && (
         <div className="text-center py-6 mt-2 border-t border-gray-800/60" role="alert">
           <p className="text-sm text-red-400">{STRINGS[locale].stationError}</p>
-          <p className="text-xs text-gray-500 mt-1">{(error as Error).message}</p>
-          <button onClick={() => aemetQ.refetch()} className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer">
+          <p className="text-xs text-gray-500 mt-1">{error instanceof Error ? error.message : String(error)}</p>
+          {/* M8: refetch both queries, not only AEMET. */}
+          <button
+            onClick={() => { aemetQ.refetch(); if (includeMeteo) meteoQ.refetch() }}
+            className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"
+          >
             {STRINGS[locale].retry}
           </button>
         </div>

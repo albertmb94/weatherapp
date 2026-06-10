@@ -81,6 +81,10 @@ function StationMarker({ station }: { station: MeteoclimaticObservation }) {
 function AutoFitBounds({ stations }: { stations: MeteoclimaticObservation[] }) {
   const map = useMap()
 
+  // M11: only re-fit bounds when the SET of station codes actually changes
+  // (not on every refetch which produces a new array identity every 5 min).
+  // This avoids the map yanking the zoom/encuadre on every refresh.
+  const stationKey = stations.map(s => s.code).sort().join('|')
   useEffect(() => {
     if (stations.length === 0) return
     if (stations.length === 1) {
@@ -91,7 +95,7 @@ function AutoFitBounds({ stations }: { stations: MeteoclimaticObservation[] }) {
       stations.map(s => [s.lat, s.lon] as [number, number])
     )
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 })
-  }, [stations, map])
+  }, [stationKey, map])
 
   return null
 }

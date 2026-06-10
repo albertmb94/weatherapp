@@ -37,13 +37,15 @@ function parseItem(item: string): MeteoclimaticObservation | null {
   const windParts = parts[5].split(';')
   const precipParts = parts[6].split(';')
 
-  let lat = 0
-  let lon = 0
-  if (pointMatch) {
-    const coords = pointMatch[1].split(/\s+/)
-    lat = parseFloat(coords[0])
-    lon = parseFloat(coords[1])
-  }
+  // B13: stations without a <georss:point> used to be parsed with lat/lon = 0
+  // ("Null Island"). They were hidden by chance by the region bbox filter;
+  // once we filter by proximity they would surface with fake distances.
+  // Discard them here so callers can skip them.
+  if (!pointMatch) return null
+  const coords = pointMatch[1].split(/\s+/)
+  const lat = parseFloat(coords[0])
+  const lon = parseFloat(coords[1])
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
 
   const tempCurr = parseCommaFloat(tempParts[0])
   const humCurr = parseCommaFloat(humParts[0])

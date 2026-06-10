@@ -90,6 +90,11 @@ export default function HomeContent() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'models' | 'stations'>('models')
 
+  // S7.5: header collapses on mobile portrait once the user scrolls past the
+  // metric pills row, and re-expands when they scroll back up. Disabled on
+  // desktop and on mobile-landscape (where the toolbar is already compact).
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
+
   // B10: sync local position / cityName from urlState. This makes back/
   // forward navigation, and any external URL change, actually drive the
   // map and forecast. Only sync when the URL position differs from
@@ -143,6 +148,38 @@ export default function HomeContent() {
       toggleLocale()
     }
   }, [urlState.locale, locale, toggleLocale])
+
+  // S7.5: collapse the mobile header on scroll. Bound to the window scroll
+  // position; we don't need IntersectionObserver since the header is
+  // already sticky. Threshold matches the metric-pills row (48 px). We use
+  // a ref for the current state so the listener can be wired up once and
+  // stay in sync with the latest render.
+  const collapsedRef = useRef(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let lastY = window.scrollY
+    let frame = 0
+    function onScroll() {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        const y = window.scrollY
+        if (y > 80 && y > lastY && !collapsedRef.current) {
+          collapsedRef.current = true
+          setIsHeaderCollapsed(true)
+        } else if (y < 40 && y < lastY && collapsedRef.current) {
+          collapsedRef.current = false
+          setIsHeaderCollapsed(false)
+        }
+        lastY = y
+        frame = 0
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -385,14 +422,19 @@ export default function HomeContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-950 text-white overflow-x-clip">
-      <div className="sticky top-0 z-30 bg-gray-900 border-b border-gray-800 shrink-0 px-3 py-1.5">
+      <div
+        data-header-collapsed={isHeaderCollapsed ? 'true' : 'false'}
+        className={`sticky top-0 z-30 bg-gray-900 border-b border-gray-800 shrink-0 px-3 transition-[padding] duration-150 ${
+          isHeaderCollapsed ? 'py-1' : 'py-1.5'
+        }`}
+      >
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1 min-w-0">
             <CitySearch onSelect={handleCitySelect} />
           </div>
           <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
         </div>
-        {refreshStatus?.lastRefreshedAt && (
+        {refreshStatus?.lastRefreshedAt && !isHeaderCollapsed && (
           <MobileRefreshButton
             refresh={refresh}
             isPending={isRefreshing}

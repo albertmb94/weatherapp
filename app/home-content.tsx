@@ -709,7 +709,7 @@ export default function HomeContent() {
         <SavedLocations onSelect={handleCitySelect} />
 
         {showMap && (
-          <div className="h-[40vh] min-h-[260px] max-h-[440px] m-1.5 p-1 rounded-lg border border-border relative shrink-0 overflow-hidden">
+          <div className="h-[40vh] min-h-[260px] max-h-[440px] m-1.5 p-1 rounded-lg border border-border relative shrink-0 overflow-hidden isolate">
             <MapPicker
               position={position}
               recenterToken={recenterToken}

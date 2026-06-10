@@ -44,9 +44,15 @@ interface GridCell {
 
 function MapRecenter({ center, token }: { center: [number, number]; token: number }) {
   const map = useMap()
+  // B7: depend only on `token`. Reading `center` from a ref avoids the
+  // effect re-firing on every `setPosition` call (which happens on every
+  // map click), so the user's pan/zoom is no longer yanked back to
+  // the position they just clicked.
+  const centerRef = useRef(center)
+  centerRef.current = center
   useEffect(() => {
-    map.setView(center, map.getZoom())
-  }, [token, center, map])
+    map.setView(centerRef.current, map.getZoom())
+  }, [token, map])
   return null
 }
 

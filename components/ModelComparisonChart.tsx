@@ -75,6 +75,10 @@ export default function ModelComparisonChart({
       }
       point.min = minVal
       point.max = maxVal
+      // B3: pre-compute the spread (max - min) so the stacked area shades
+      // from min..max instead of 0..max (which is what the previous
+      // same-stackId Area+Area pair produced).
+      point.spread = minVal !== null && maxVal !== null ? Math.max(0, maxVal - minVal) : null
       point.mean = count > 0 ? sum / count : null
       return point
     })
@@ -189,8 +193,10 @@ export default function ModelComparisonChart({
               }}
             />
             <Legend wrapperStyle={{ fontSize: '11px' }} />
-            <Area type="monotone" dataKey="max" stackId="spread" stroke="none" fill="url(#spreadGradient)" name="Spread" />
+            {/* B3: stack a transparent "min" base under a "spread" area so the
+                shaded region is bounded by min..max, not 0..max. */}
             <Area type="monotone" dataKey="min" stackId="spread" stroke="none" fill="transparent" name="Spread" />
+            <Area type="monotone" dataKey="spread" stackId="spread" stroke="none" fill="url(#spreadGradient)" name="Spread" />
             {activeHour >= 0 && activeHour < displayTimes.length && (
               <ReferenceLine x={activeHour} stroke="rgba(255,255,255,0.4)" strokeWidth={1} strokeDasharray="4 2" />
             )}

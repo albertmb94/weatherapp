@@ -58,15 +58,20 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
       const res = await fetchWithTimeout(`/api/geocode?${params}`, { signal, timeoutMs: 8000 })
       if (!res.ok) return []
       const data = await res.json()
-      const r = data.results ?? []
-      if (r.length > 0) setIsOpen(true)
-      return r
+      return data.results ?? []
     },
     enabled: debouncedQuery.length >= 2,
     staleTime: 60 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
   })
+
+  // B6: open the dropdown as a side-effect of `results` changing (not of
+  // the queryFn running). This way cached results also open the
+  // dropdown when the user focuses the input.
+  useEffect(() => {
+    if (results.length > 0) setIsOpen(true)
+  }, [results])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
@@ -85,6 +90,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   return (
     <div ref={wrapperRef} className="relative">
       <input
+        id="city-search-input"
         type="text"
         value={query}
         onChange={handleChange}

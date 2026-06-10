@@ -85,6 +85,16 @@ export default function HomeContent() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'models' | 'stations'>('models')
 
+  // B10: sync local position / cityName from urlState. This makes back/
+  // forward navigation, and any external URL change, actually drive the
+  // map and forecast. Only sync when the URL position differs from
+  // current to avoid clobbering a user-initiated change that hasn't been
+  // written to the URL yet (the debounce in useUrlState means there's
+  // a brief window where position is ahead of urlState).
+  useEffect(() => {
+    setPosition(prev => (prev[0] === urlState.lat && prev[1] === urlState.lon) ? prev : [urlState.lat, urlState.lon])
+  }, [urlState.lat, urlState.lon])
+
   useEffect(() => {
     if (!mobileMenuOpen) return
     function onDown(e: MouseEvent | TouchEvent) {
@@ -290,7 +300,13 @@ export default function HomeContent() {
 
   const maxModelHours = useMemo(() => {
     if (selectedModels.length === 0) return 336
-    return Math.max(...selectedModels.map(id => MODELS.find(m => m.id === id)?.maxHours ?? 168))
+    // M12: exclude marine_global from the maxModelHours calculation.
+    // marine_global.maxHours is 0 (a placeholder), so if it's the only
+    // model the slider would clamp to 0 and the UI breaks. Marine data
+    // uses its own forecast_days anyway.
+    const land = selectedModels.filter(id => id !== 'marine_global')
+    if (land.length === 0) return 336
+    return Math.max(...land.map(id => MODELS.find(m => m.id === id)?.maxHours ?? 168))
   }, [selectedModels])
 
   // Skip hourly entries before the current local hour (rounded down) in the
@@ -349,7 +365,7 @@ export default function HomeContent() {
         handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1))
       } else if (e.key === '/') {
         e.preventDefault()
-        document.querySelector<HTMLInputElement>('input[placeholder="Search city..."]')?.focus()
+        document.getElementById('city-search-input')?.focus()
       } else if (e.key === 'm') {
         handleMapToggle()
       }
@@ -369,7 +385,7 @@ export default function HomeContent() {
         </div>
         {refreshStatus?.lastRefreshedAt && (
           <div className="md:hidden mt-0.5 text-[9px] text-gray-600">
-            {locale === 'en' ? 'Updated' : 'Actualizado'} {formatAge(refreshStatus.ageMs ?? null)}
+            {locale === 'en' ? 'Updated' : 'Actualizado'} {formatAge(refreshStatus.ageMs ?? null, locale)}
           </div>
         )}
       </div>

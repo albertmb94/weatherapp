@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatAge } from '@/lib/formatAge'
+import { useLocale } from '@/lib/LocaleContext'
 
 interface RefreshStatus {
   lastRefreshedAt: number | null
@@ -14,6 +15,7 @@ interface RefreshStatus {
 export default function RefreshButton() {
   const queryClient = useQueryClient()
   const [feedback, setFeedback] = useState<string | null>(null)
+  const { locale } = useLocale()
 
   const { data: status } = useQuery<RefreshStatus>({
     queryKey: ['refresh-status'],
@@ -57,7 +59,7 @@ export default function RefreshButton() {
     return () => clearTimeout(t)
   }, [feedback])
 
-  const ageLabel = formatAge(status?.ageMs ?? null)
+  const ageLabel = formatAge(status?.ageMs ?? null, locale)
   const disabled = refreshMutation.isPending
 
   return (

@@ -66,44 +66,83 @@ describe('StationDashboard retry behavior', () => {
     expect(screen.queryByText('Error loading stations')).not.toBeInTheDocument()
   })
 
-  it('retries up to 5 times with a 1s delay before showing the error', async () => {
-    let callCount = 0
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
-      callCount++
-      return Promise.resolve({
-        ok: false,
-        status: 500,
-        json: () => Promise.resolve({ error: 'Server error', detail: 'fail' }),
+    it('retries up to 5 times with a 1s delay before showing the error', async () => {
+      let callCount = 0
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
+        callCount++
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Server error', detail: 'fail' }),
+        })
+      }))
+
+      render(<StationDashboard />, { wrapper: createWrapper() })
+
+      // 5 retries × 1000ms = 5000ms, plus a buffer for the final tick.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6000)
       })
-    }))
 
-    render(<StationDashboard />, { wrapper: createWrapper() })
-
-    // 5 retries × 1000ms = 5000ms, plus a buffer for the final tick.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(6000)
+      // includeMeteo defaults to true now (S5), so each retry hits both
+      // /api/aemet and /api/meteoclimatic. 6 attempts × 2 endpoints = 12.
+      expect(callCount).toBe(12)
+      expect(screen.getByText('Error loading stations')).toBeInTheDocument()
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
     })
 
-    expect(callCount).toBe(6) // 1 initial + 5 retries
-    expect(screen.getByText('Error loading stations')).toBeInTheDocument()
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+    it('renders the error block at the bottom of the dashboard (after the cards grid)', async () => {
+      vi.stubGlobal('fetch', mockFailingFetch())
+
+      render(<StationDashboard />, { wrapper: createWrapper() })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6000)
+      })
+
+      const errorBlock = screen.getByRole('alert')
+      const dashboard = errorBlock.parentElement!
+      // The error block should be the last child of the dashboard.
+      expect(dashboard.lastElementChild).toBe(errorBlock)
+    })
   })
 
-  it('renders the error block at the bottom of the dashboard (after the cards grid)', async () => {
-    vi.stubGlobal('fetch', mockFailingFetch())
-
-    render(<StationDashboard />, { wrapper: createWrapper() })
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(6000)
+  describe('S5: position-driven mode', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
     })
 
-    const errorBlock = screen.getByRole('alert')
-    const dashboard = errorBlock.parentElement!
-    // The error block should be the last child of the dashboard.
-    expect(dashboard.lastElementChild).toBe(errorBlock)
+    afterEach(() => {
+      vi.useRealTimers()
+      vi.restoreAllMocks()
+    })
+
+    it('fetches Meteoclimatic by coordinates when a position is provided', async () => {
+      const calls: string[] = []
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+        calls.push(url)
+        if (typeof url === 'string' && url.startsWith('/api/aemet')) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ stations: [] }) })
+        }
+        if (typeof url === 'string' && url.includes('meteoclimatic') && url.includes('lat=')) {
+          return Promise.resolve({
+            ok: true, status: 200,
+            json: () => Promise.resolve({ stations: [], prefix: 'ESCAT08' }),
+          })
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) })
+      }))
+
+      render(<StationDashboard position={[41.4, 2.15]} placeName="Barcelona" />, { wrapper: createWrapper() })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(calls.some(u => u.includes('meteoclimatic') && u.includes('lat=41.4') && u.includes('lon=2.2'))).toBe(true)
+      expect(calls.some(u => u.includes('meteoclimatic') && u.includes('station='))).toBe(false)
+    })
   })
-})
 
 describe('StationDashboard AEMET dedup (A2)', () => {
   beforeEach(() => {

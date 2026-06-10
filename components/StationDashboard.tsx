@@ -8,6 +8,7 @@ import { REGIONS } from '@/lib/meteoclimatic-types'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
+import { withDistance } from '@/lib/geoDistance'
 
 interface AemetRaw {
   idema: string; ubi: string; lat: number; lon: number; fint: string
@@ -51,11 +52,20 @@ const METEOCLIMATIC_MAP: Record<string, string> = {
 const STATION_RETRY_COUNT = 5
 const STATION_RETRY_DELAY_MS = 1000
 
-export default function StationDashboard() {
+export interface StationDashboardProps {
+  /** Current city centre (from home-content). When provided, Meteoclimatic
+   *  is fetched by coordinates and filtered by radius. */
+  position?: [number, number] | null
+  /** Display name of the current city (for the "Near X" label). */
+  placeName?: string
+}
+
+export default function StationDashboard({ position = null, placeName }: StationDashboardProps = {}) {
   const { locale } = useLocale()
   const [region, setRegion] = useState(REGIONS[0].code)
+  const [radius, setRadius] = useState(30)
   const [search, setSearch] = useState('')
-  const [includeMeteo, setIncludeMeteo] = useState(false)
+  const [includeMeteo, setIncludeMeteo] = useState(true)
 
   const aemetQ = useQuery<MeteoclimaticObservation[]>({
     queryKey: ['aemet-stations'],
@@ -79,12 +89,21 @@ export default function StationDashboard() {
     retryDelay: STATION_RETRY_DELAY_MS,
   })
 
-  const meteoCode = METEOCLIMATIC_MAP[region] ?? 'ESCAT08'
+  // Meteoclimatic: two modes. When a position is provided we ask the
+  // server to fetch by coordinates and filter by radius (S5). Otherwise
+  // we fall back to the per-region feed.
+  const meteoCoordKey = position ? [Math.round(position[0] * 10) / 10, Math.round(position[1] * 10) / 10, radius] : null
+  const meteoRegionCode = METEOCLIMATIC_MAP[region] ?? 'ESCAT08'
 
   const meteoQ = useQuery<MeteoclimaticObservation[]>({
-    queryKey: ['meteoclimatic', meteoCode],
+    queryKey: position && meteoCoordKey
+      ? ['meteoclimatic-coord', meteoCoordKey[0], meteoCoordKey[1], meteoCoordKey[2]]
+      : ['meteoclimatic', meteoRegionCode],
     queryFn: async () => {
-      const res = await fetch(`/api/meteoclimatic?station=${meteoCode}`)
+      const url = position && meteoCoordKey
+        ? `/api/meteoclimatic?lat=${meteoCoordKey[0]}&lon=${meteoCoordKey[1]}&radius=${meteoCoordKey[2]}&limit=50`
+        : `/api/meteoclimatic?station=${meteoRegionCode}`
+      const res = await fetch(url)
       const body = await res.json()
       if (!res.ok || body.error) throw new Error(body.detail || body.error || `HTTP ${res.status}`)
       return body.stations
@@ -100,8 +119,6 @@ export default function StationDashboard() {
     const aemet = aemetQ.data ?? []
     const meteo = includeMeteo ? (meteoQ.data ?? []) : []
     const seen = new Map<string, MeteoclimaticObservation>()
-    // B5: build a 0.01° spatial index over the AEMET stations so dedup
-    // against Meteoclimatic is O(n) instead of O(n²).
     const spatialIndex = new Map<string, MeteoclimaticObservation>()
     for (const s of aemet) {
       const cell = `${Math.round(s.lat * 100)}:${Math.round(s.lon * 100)}`
@@ -120,44 +137,60 @@ export default function StationDashboard() {
     return [...seen.values()]
   }, [aemetQ.data, meteoQ.data, includeMeteo])
 
+  // Filter: when a position is provided we filter AEMET by the
+  // user-selected radius; otherwise we keep the legacy region-bbox
+  // filter. Meteoclimatic is already server-filtered when a position
+  // is provided.
   const regionBounds = REGIONS.find(r => r.code === region) ?? REGIONS[0]
 
   const filtered = useMemo(() => {
-    let result = allStations.filter(s =>
-      s.lat >= regionBounds.latMin && s.lat <= regionBounds.latMax &&
-      s.lon >= regionBounds.lonMin && s.lon <= regionBounds.lonMax
-    )
+    let result: (MeteoclimaticObservation & { distanceKm?: number })[]
+    if (position) {
+      result = withDistance(allStations, position).filter(s => (s.distanceKm ?? Infinity) <= radius)
+    } else {
+      result = allStations.filter(s =>
+        s.lat >= regionBounds.latMin && s.lat <= regionBounds.latMax &&
+        s.lon >= regionBounds.lonMin && s.lon <= regionBounds.lonMax
+      )
+    }
     if (search) {
       const q = search.toLowerCase()
       result = result.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
     }
+    // S5.4: sort by distance when available.
+    if (position) {
+      result = [...result].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
+    }
     return result
-  }, [allStations, regionBounds, search])
+  }, [allStations, position, radius, regionBounds, search])
 
   const isLoading = aemetQ.isLoading || (includeMeteo && meteoQ.isLoading)
   const isFetching = aemetQ.isFetching || (includeMeteo && meteoQ.isFetching)
-  // M8: prefer AEMET's error, fall back to Meteoclimatic's; use ?? so a
-  // `false` from `aemetQ.error` doesn't shadow a real Meteoclimatic error.
   const error = aemetQ.error ?? (includeMeteo ? meteoQ.error : null)
-  // While react-query is retrying, isError may already be true from a previous
-  // attempt. Hide the error block until the in-flight retry settles so the
-  // user only sees the loading spinner, not a stale error message.
   const showLoading = isLoading || isFetching
   const showError = !!error && !isFetching
 
   return (
     <div className="flex flex-col gap-3 animate-fadeIn">
       <div className="flex items-center gap-2 flex-wrap">
-        <select
-          value={region}
-          onChange={e => { setRegion(e.target.value); setSearch('') }}
-          className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2 py-1.5
-                     focus:outline-none focus:border-gray-600 cursor-pointer"
-        >
-          {REGIONS.map(r => (
-            <option key={r.code} value={r.code}>{r.label}</option>
-          ))}
-        </select>
+        {position ? (
+          <span className="text-xs text-gray-300 bg-gray-900/50 border border-gray-800 rounded-lg px-2 py-1.5">
+            {STRINGS[locale].nearLabel}{' '}
+            <span className="font-semibold text-white">{placeName ?? `${position[0].toFixed(2)}, ${position[1].toFixed(2)}`}</span>
+            <span className="text-gray-500"> · {radius} km</span>
+          </span>
+        ) : (
+          <select
+            value={region}
+            onChange={e => { setRegion(e.target.value); setSearch('') }}
+            className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2 py-1.5
+                       focus:outline-none focus:border-gray-600 cursor-pointer"
+          >
+            {REGIONS.map(r => (
+              <option key={r.code} value={r.code}>{r.label}</option>
+            ))}
+          </select>
+        )}
         <input
           type="text"
           placeholder={STRINGS[locale].searchPlaceholder}
@@ -166,6 +199,19 @@ export default function StationDashboard() {
           className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2 py-1.5 w-36
                      focus:outline-none focus:border-gray-600 placeholder-gray-600"
         />
+        {position && (
+          <select
+            value={radius}
+            onChange={e => setRadius(Number(e.target.value))}
+            className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2 py-1.5
+                       focus:outline-none focus:border-gray-600 cursor-pointer"
+            aria-label={STRINGS[locale].radiusLabel}
+          >
+            {[10, 30, 60, 100].map(r => (
+              <option key={r} value={r}>{r} km</option>
+            ))}
+          </select>
+        )}
         <label className="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
           <input
             type="checkbox"
@@ -199,7 +245,11 @@ export default function StationDashboard() {
 
       {!showLoading && filtered.length === 0 && (
         <p className="text-xs text-gray-500 text-center py-4">
-          {search ? `${STRINGS[locale].noResults} "${search}"` : STRINGS[locale].noStationsRegion}
+          {search
+            ? `${STRINGS[locale].noResults} "${search}"`
+            : position
+              ? `${STRINGS[locale].noStationsRadius.replace('{km}', String(radius))}`
+              : STRINGS[locale].noStationsRegion}
         </p>
       )}
 
@@ -215,7 +265,6 @@ export default function StationDashboard() {
         <div className="text-center py-6 mt-2 border-t border-gray-800/60" role="alert">
           <p className="text-sm text-red-400">{STRINGS[locale].stationError}</p>
           <p className="text-xs text-gray-500 mt-1">{error instanceof Error ? error.message : String(error)}</p>
-          {/* M8: refetch both queries, not only AEMET. */}
           <button
             onClick={() => { aemetQ.refetch(); if (includeMeteo) meteoQ.refetch() }}
             className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"

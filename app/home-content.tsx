@@ -739,7 +739,7 @@ export default function HomeContent() {
           </div>
 
           {activeTab === 'stations' ? (
-            <StationDashboard />
+            <StationDashboard position={position} placeName={cityName} />
           ) : (
             <div ref={swipeRef}>
               {isLoading && (

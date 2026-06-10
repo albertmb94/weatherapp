@@ -59,6 +59,9 @@ export const STRINGS: Record<Locale, {
   wind: string
   pressure: string
   precipitation: string
+  nearLabel: string
+  radiusLabel: string
+  noStationsRadius: string
 }> = {
   es: {
     today: 'Hoy',
@@ -112,6 +115,9 @@ export const STRINGS: Record<Locale, {
     wind: 'Viento',
     pressure: 'Presión',
     precipitation: 'Precip',
+    nearLabel: 'Cerca de',
+    radiusLabel: 'Radio de búsqueda',
+    noStationsRadius: 'No hay estaciones a menos de {km} km',
   },
   en: {
     today: 'Today',
@@ -165,5 +171,8 @@ export const STRINGS: Record<Locale, {
     wind: 'Wind',
     pressure: 'Pressure',
     precipitation: 'Precip',
+    nearLabel: 'Near',
+    radiusLabel: 'Search radius',
+    noStationsRadius: 'No stations within {km} km',
   },
 }

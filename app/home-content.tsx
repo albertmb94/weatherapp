@@ -721,7 +721,7 @@ export default function HomeContent() {
               nowOffset={startIndex}
               showRadar={showRadar}
             />
-            <div className="absolute bottom-2.5 left-2.5 z-[1000] bg-gray-900/90 p-2 rounded-lg shadow-lg pointer-events-none">
+            <div className="absolute bottom-2.5 left-2.5 z-[500] bg-gray-900/90 p-2 rounded-lg shadow-lg pointer-events-none">
               <ColorLegend metric={legendMetric} />
             </div>
           </div>

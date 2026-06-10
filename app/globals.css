@@ -3,21 +3,94 @@
 @source "../components/**/*.tsx";
 @source "../app/**/*.tsx";
 
+/* S7.1: design tokens. Dark-first (default), light via html.light.
+   Every component must consume one of these -- never raw gray-xxx. */
 :root {
   --background: #0a0a0a;
   --foreground: #ededed;
+
+  /* Surfaces: hierarchy from page → raised → popover.
+     dark: the higher the surface, the lighter the gray. */
+  --surface: #0a0a0a;
+  --surface-raised: #111114;
+  --surface-popover: #18181b;
+
+  /* Borders / dividers: thin, subtle. */
+  --border: #27272a;
+  --border-strong: #3f3f46;
+
+  /* Text: 4 levels, all WCAG AA on the matching surface. */
+  --text-primary: #ededed;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-muted: #52525b;
+
+  /* Accent: a single brand hue with 3 intensities. */
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-soft: rgba(59, 130, 246, 0.12);
+
+  /* Semantic: success / warning / danger. */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  /* Sizing. Min text size = 11px (S7.4). Min touch target = 44px. */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --min-text: 11px;
+  --min-touch: 44px;
 }
 
 html.light {
   --background: #f8f9fa;
   --foreground: #1a1a2e;
+
+  --surface: #f8f9fa;
+  --surface-raised: #ffffff;
+  --surface-popover: #ffffff;
+
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --text-muted: #9ca3af;
+
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.10);
+
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-popover: var(--surface-popover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --radius-sm: var(--radius-sm);
+  --radius: var(--radius);
+  --radius-lg: var(--radius-lg);
 }
 
 html {
@@ -28,6 +101,20 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* S7.4: enforce min text size for inline / paragraph content.
+   We don't enforce inside icons (text length 0) or badges (intentional). */
+.text-min, p, span, li, td, th, button, label, input, select, textarea {
+  font-size: max(var(--min-text), 0.875rem);
+}
+
+/* S7.4: min touch target on coarse pointers (mobile). */
+@media (pointer: coarse) {
+  .touch-target, button, [role="button"], .pill, .tab {
+    min-height: var(--min-touch);
+    min-width: var(--min-touch);
+  }
 }
 
 .leaflet-container {
@@ -67,7 +154,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--accent);
   cursor: pointer;
   border: 2px solid #1f2937;
 }
@@ -76,7 +163,7 @@ input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--accent);
   cursor: pointer;
   border: 2px solid #1f2937;
 }
@@ -114,10 +201,13 @@ input[type="range"]::-moz-range-thumb {
   background: #6b7280;
 }
 
+/* S7.1: light theme mapping for the existing gray-* utilities. New code
+   should consume the tokens above; this is a transitional shim for the
+   few remaining `bg-gray-xxx` / `text-gray-xxx` classes. */
 html.light .bg-gray-950,
 html.light .bg-gray-900 {
-  background-color: #f3f4f6 !important;
-  color: #1f2937 !important;
+  background-color: var(--surface) !important;
+  color: var(--text-primary) !important;
 }
 html.light .bg-gray-800,
 html.light .bg-gray-900\/60,
@@ -125,25 +215,25 @@ html.light .bg-gray-900\/50,
 html.light .bg-gray-900\/85,
 html.light .bg-gray-900\/80,
 html.light .bg-gray-900\/30 {
-  background-color: #ffffff !important;
-  color: #1f2937 !important;
+  background-color: var(--surface-raised) !important;
+  color: var(--text-primary) !important;
 }
 html.light .bg-gray-700,
 html.light .bg-gray-800\/40 {
   background-color: #e5e7eb !important;
-  color: #1f2937 !important;
+  color: var(--text-primary) !important;
 }
 html.light .text-gray-300,
 html.light .text-gray-400 {
-  color: #4b5563 !important;
+  color: var(--text-secondary) !important;
 }
 html.light .text-gray-500,
 html.light .text-gray-600 {
-  color: #6b7280 !important;
+  color: var(--text-tertiary) !important;
 }
 html.light .border-gray-800,
 html.light .border-gray-700 {
-  border-color: #d1d5db !important;
+  border-color: var(--border) !important;
 }
 html.light .leaflet-container {
   background: #e5e7eb;

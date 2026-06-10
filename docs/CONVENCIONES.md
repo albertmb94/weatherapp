@@ -205,4 +205,49 @@ El formateo se delega a linters y formatters. Esta sección documenta decisiones
 
 ### Estado de React
 - Usar `useState<T>()` con tipo explícito cuando el inicial sea `null` o `undefined`
-- Para estado complejo, tipar con interfaz命名
+- Para estado complejo, tipar con interfaz
+
+---
+
+## 10. Tokens de diseño (S7)
+
+Todos los tokens viven en `app/globals.css` (`@theme inline`). Se exponen
+como clases Tailwind (`bg-surface`, `text-text-secondary`, etc.) y como
+variables CSS (`var(--surface)`, etc.) para los shims heredados.
+
+### Categorías
+
+| Token | Light | Dark | Uso |
+|-------|-------|------|-----|
+| `--surface` | `#f8f9fa` | `#0a0a0a` | Fondo de página |
+| `--surface-raised` | `#ffffff` | `#111114` | Cards, paneles |
+| `--surface-popover` | `#ffffff` | `#18181b` | Tooltips, popovers |
+| `--border` | `#e5e7eb` | `#27272a` | Divisores finos |
+| `--border-strong` | `#d1d5db` | `#3f3f46` | Hover de borde |
+| `--text-primary` | `#111827` | `#ededed` | Texto principal (AA) |
+| `--text-secondary` | `#4b5563` | `#a1a1aa` | Texto secundario (AA) |
+| `--text-tertiary` | `#6b7280` | `#71717a` | Metadatos |
+| `--text-muted` | `#9ca3af` | `#52525b` | Hints / placeholders |
+| `--accent` | `#2563eb` | `#3b82f6` | Color de marca |
+| `--accent-hover` | `#1d4ed8` | `#60a5fa` | Hover de marca |
+| `--accent-soft` | rgba(37,99,235,0.10) | rgba(59,130,246,0.12) | Fondo de pill activa |
+| `--success` / `--warning` / `--danger` | | | Estados semánticos |
+
+### Reglas
+
+- **Mínimo de texto:** 11 px. Reservar `text-[9px]`/`text-[10px]` solo
+  para badges/etiquetas de una cifra. Aplicado globalmente en
+  `app/globals.css` con `font-size: max(11px, 0.875rem)` sobre
+  `p/span/li/td/button/...`.
+- **Touch target mínimo:** 44 × 44 px en `pointer: coarse` (móvil).
+  Aplicado globalmente a `button`, `[role=button]`, `.pill` y `.tab`.
+- **No usar gris Tailwind crudo** (`bg-gray-800`, `text-gray-400`, …) en
+  código nuevo. Consumir `bg-surface-raised`, `text-text-secondary`, etc.
+  El shim `html.light .bg-gray-xxx` se conserva para las pocas clases
+  heredadas que aún no se han migrado.
+- **Sombras:** reservar `shadow-*` para elementos flotantes (popovers,
+  toasts, dropdowns). En superficies planas usar `bg-surface-raised` +
+  `border-border`, no `bg-background` + sombra.
+- **Radios:** `--radius-sm` (4 px) chips/badges, `--radius` (8 px) cards
+  y pills, `--radius-lg` (12 px) modales.
+- **Animaciones:** 150 ms estándar. Respetar `prefers-reduced-motion`.

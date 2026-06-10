@@ -355,7 +355,15 @@ export default function MapPicker({
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
-        <Marker position={position} />
+        <Marker
+          position={position}
+          icon={L.divIcon({
+            className: 'user-marker',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+            html: '<div class="user-marker-dot"></div>',
+          })}
+        />
         <MapClickHandler onPositionChange={onPositionChange} />
         <MapRecenter center={position} token={recenterToken} />
         <MapReady onReady={handleMapReady} />

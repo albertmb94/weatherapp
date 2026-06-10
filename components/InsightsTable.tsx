@@ -499,9 +499,9 @@ export default function InsightsTable({
 
   return (
     <div className="mb-4 animate-fadeIn">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">{STRINGS[locale].insightsTitle}</h3>
-        <div className="flex items-center gap-0.5 bg-surface-raised border border-border rounded p-0.5 overflow-x-auto scrollbar-none max-w-full">
+      <h3 className="text-sm font-semibold text-text-primary mb-2">{STRINGS[locale].insightsTitle}</h3>
+      <div className="rounded border border-border overflow-hidden">
+        <div className="flex items-center gap-0.5 bg-surface-raised px-1.5 py-1 overflow-x-auto scrollbar-none border-b border-border">
           {BUCKET_OPTIONS.map(b => (
             <button
               key={b}
@@ -530,10 +530,8 @@ export default function InsightsTable({
             ≡
           </button>
         </div>
-      </div>
-
-      <div className="overflow-x-auto rounded border border-border">
-        <table className="w-full border-collapse text-xs table-auto min-w-[380px]">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-xs table-auto min-w-[380px]">
           <thead>
             <tr className="bg-surface-raised text-text-secondary">
               <th className="sticky left-0 top-0 bg-surface-raised text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
@@ -582,6 +580,7 @@ export default function InsightsTable({
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

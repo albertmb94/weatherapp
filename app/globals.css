@@ -253,3 +253,25 @@ html.light ::-webkit-scrollbar-thumb {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* S7 cosmetic: the user-position marker is a divIcon with fixed pixel
+   size, so the dot keeps its shape regardless of container width or
+   devicePixelRatio. The wrapper itself is non-interactive so Leaflet
+   still routes the click to the map. */
+.leaflet-div-icon.user-marker,
+.leaflet-div-icon.user-marker * {
+  background: transparent !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.user-marker-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4), 0 2px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}

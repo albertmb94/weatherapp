@@ -488,12 +488,12 @@ export default function HomeContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
             </svg>
           </button>
-          <div className="hidden md:flex landscape:flex flex-wrap items-center gap-x-2 gap-y-1">
-            <div role="group" aria-label={STRINGS[locale].groupView} className="flex items-center gap-1.5">
+          <div className="hidden md:flex landscape:flex flex-nowrap items-center gap-x-2 overflow-x-auto scrollbar-none">
+            <div role="group" aria-label={STRINGS[locale].groupView} className="shrink-0 flex items-center gap-1.5">
               {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
               {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
             </div>
-            <div role="group" aria-label={STRINGS[locale].groupLayers} className="flex items-center gap-1.5 pl-2 border-l border-border">
+            <div role="group" aria-label={STRINGS[locale].groupLayers} className="shrink-0 flex items-center gap-1.5 pl-2 border-l border-border">
               <button
                 onClick={handleMapToggle}
                 className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
@@ -512,7 +512,7 @@ export default function HomeContent() {
                 {STRINGS[locale].radar}
               </button>
             </div>
-            <div role="group" aria-label={STRINGS[locale].groupData} className="flex items-center gap-1.5 pl-2 border-l border-border">
+            <div role="group" aria-label={STRINGS[locale].groupData} className="shrink-0 flex items-center gap-1.5 pl-2 border-l border-border">
               <button
                 onClick={handleMarineToggle}
                 className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
@@ -536,7 +536,7 @@ export default function HomeContent() {
                 </button>
               )}
             </div>
-            <div role="group" aria-label={STRINGS[locale].groupActions} className="flex items-center gap-1.5 pl-2 border-l border-border">
+            <div role="group" aria-label={STRINGS[locale].groupActions} className="shrink-0 flex items-center gap-1.5 pl-2 border-l border-border">
               <button
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending}
@@ -573,7 +573,7 @@ export default function HomeContent() {
             </div>
             <button
               onClick={toggleTheme}
-              className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
+              className="shrink-0 min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               aria-label="Toggle theme"
             >
@@ -583,19 +583,19 @@ export default function HomeContent() {
                 </svg>
               ) : (
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646A9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
               )}
             </button>
             <button
               onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
-              className="min-h-[32px] px-2 rounded text-[11px] font-semibold text-gray-400 hover:text-white transition-colors cursor-pointer tracking-wider"
+              className="shrink-0 min-h-[32px] px-2 rounded text-[11px] font-semibold text-gray-400 hover:text-white transition-colors cursor-pointer tracking-wider"
               title={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
             >
               {locale === 'en' ? 'ES' : 'EN'}
             </button>
             <RefreshButton />
-            <span className="text-[10px] text-gray-600 ml-auto truncate max-w-[160px]">{cityName} ({position[0].toFixed(2)}, {position[1].toFixed(2)})</span>
+            <span className="shrink min-w-0 text-[10px] text-gray-600 truncate max-w-[160px]">{cityName} ({position[0].toFixed(2)}, {position[1].toFixed(2)})</span>
           </div>
           <button
             onClick={() => setMobileMenuOpen(o => !o)}

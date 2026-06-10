@@ -178,13 +178,13 @@ export default function DailySummary({
                   <span className="text-[10px] text-text-tertiary">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
                 </div>
               )}
-              <div className="mt-0.5 flex items-center justify-center gap-1 text-[10px] text-text-tertiary leading-none">
-                {showBasic && <span title="Precipitation total">💧{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>}
-                {showBasic && <span title="Max wind gusts">≋{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>}
+              <div className="mt-0.5 flex items-center justify-center gap-0.5 text-[9px] text-text-tertiary leading-none tabular-nums">
+                {showBasic && <span title="Precipitation total">{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>}
+                {showBasic && <span className="text-text-muted">·</span>}
+                {showBasic && <span title="Max wind gusts">{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>}
               </div>
               {showMarine && d.hasMarineData && (
-                <div className="mt-0.5 flex items-center justify-center text-[10px] text-cyan-300 leading-none" title="Max wave height / mean wave period">
-                  <span aria-hidden className="mr-0.5">🌊</span>
+                <div className="mt-0.5 flex items-center justify-center text-[9px] text-cyan-300 leading-none tabular-nums" title="Max wave height / mean wave period">
                   {d.waveHeightMax !== null ? d.waveHeightMax.toFixed(1) : '–'}
                   {d.wavePeriodMean !== null && <span className="ml-0.5 text-text-tertiary">/{Math.round(d.wavePeriodMean)}s</span>}
                 </div>

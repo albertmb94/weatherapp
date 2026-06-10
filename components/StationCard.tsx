@@ -24,7 +24,7 @@ function fmt(v: number | null | undefined, d = 1): string {
 }
 
 export default function StationCard({ station }: { station: MeteoclimaticObservation }) {
-  const { temperature: t, humidity: h, wind: w, precipitation: p, name, updatedAt } = station
+  const { temperature: t, humidity: h, wind: w, precipitation: p, name } = station
 
   return (
     <div className="bg-gray-900/70 border border-gray-800 rounded-lg px-3 py-2 hover:border-gray-700 transition-all duration-200 hover:shadow-sm hover:-translate-y-0.5">

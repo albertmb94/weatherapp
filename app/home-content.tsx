@@ -92,6 +92,7 @@ export default function HomeContent() {
   // written to the URL yet (the debounce in useUrlState means there's
   // a brief window where position is ahead of urlState).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPosition(prev => (prev[0] === urlState.lat && prev[1] === urlState.lon) ? prev : [urlState.lat, urlState.lon])
   }, [urlState.lat, urlState.lon])
 

@@ -24,7 +24,7 @@ export default function RefreshButton() {
       if (!res.ok) throw new Error('Failed to fetch refresh status')
       return res.json()
     },
-    refetchInterval: (query) => {
+    refetchInterval: () => {
       return typeof document !== 'undefined' && document.visibilityState === 'visible' ? 60_000 : false
     },
     refetchOnWindowFocus: true,

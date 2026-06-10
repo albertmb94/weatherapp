@@ -478,7 +478,7 @@ export default function InsightsTable({
     }
 
     return buckets
-  }, [activeModels, times, series, bucket, maxHours, locale])
+  }, [activeModels, times, series, bucket, maxHours, locale, utcOffsetSeconds])
 
   if (activeModels.length === 0) return null
 

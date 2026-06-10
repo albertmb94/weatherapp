@@ -17,7 +17,7 @@ describe('i18n', () => {
 
     it('has non-empty strings for all keys', () => {
       for (const locale of ['es', 'en'] as Locale[]) {
-        for (const [key, value] of Object.entries(STRINGS[locale])) {
+        for (const [, value] of Object.entries(STRINGS[locale])) {
           expect(value).toBeTruthy()
           expect(typeof value).toBe('string')
         }

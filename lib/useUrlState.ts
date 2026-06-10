@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { METRICS, type MetricId } from './models'
+import { METRICS } from './models'
 
 interface UrlState {
   lat: number

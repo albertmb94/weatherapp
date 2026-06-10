@@ -132,7 +132,7 @@ export default function StationDashboard() {
       result = result.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
     }
     return result
-  }, [allStations, region, search, regionBounds])
+  }, [allStations, regionBounds, search])
 
   const isLoading = aemetQ.isLoading || (includeMeteo && meteoQ.isLoading)
   const isFetching = aemetQ.isFetching || (includeMeteo && meteoQ.isFetching)

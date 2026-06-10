@@ -95,6 +95,9 @@ function AutoFitBounds({ stations }: { stations: MeteoclimaticObservation[] }) {
       stations.map(s => [s.lat, s.lon] as [number, number])
     )
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 })
+    // We intentionally only key on `stationKey`; adding `stations` would
+    // re-fire on every refetch (the array identity changes every 5 min).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stationKey, map])
 
   return null

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { parseRss, fetchStationData } from '../meteoclimatic'
 
 const SINGLE_STATION_RSS = `<?xml version="1.0" encoding="ISO-8859-15"?>

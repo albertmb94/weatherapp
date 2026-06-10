@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { exportForecastCsv } from '../exportCsv'
-import { MODELS, METRICS } from '../models'
 import type { WeatherModel } from '../models'
 
 describe('exportForecastCsv', () => {

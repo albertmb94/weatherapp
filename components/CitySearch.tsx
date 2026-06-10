@@ -70,7 +70,10 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   // the queryFn running). This way cached results also open the
   // dropdown when the user focuses the input.
   useEffect(() => {
-    if (results.length > 0) setIsOpen(true)
+    if (results.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsOpen(true)
+    }
   }, [results])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {

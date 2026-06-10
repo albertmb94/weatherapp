@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useSyncExternalStore, type ReactNode } from 'react'
 import type { Locale } from './i18n'
 import { LOCALE_STORAGE_KEY } from './i18n'
 
@@ -12,28 +12,28 @@ interface LocaleContextValue {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null)
 
-// M3: avoid hydration mismatch. On the server we always render the default
-// locale; on the client we read localStorage / navigator.language in an
-// effect after mount. This prevents a server-vs-client DOM diff on the
-// `<html lang="…">` attribute and on any text rendered in the first paint.
-function getDefaultLocale(): Locale {
-  return 'es'
-}
+const DEFAULT_LOCALE: Locale = 'es'
+const SERVER_SNAPSHOT: Locale = DEFAULT_LOCALE
 
-function detectClientLocale(): Locale {
-  if (typeof window === 'undefined') return 'es'
+// M3: avoid hydration mismatch. The server always renders the default
+// locale; on the client we read localStorage / navigator.language via
+// useSyncExternalStore (designed exactly for this). The server snapshot
+// equals the default so the first client paint matches the server.
+function getClientSnapshot(): Locale {
+  if (typeof window === 'undefined') return DEFAULT_LOCALE
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
   if (stored === 'en' || stored === 'es') return stored
   return navigator.language?.startsWith('en') ? 'en' : 'es'
 }
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(getDefaultLocale)
+function subscribe(): () => void {
+  // Locale changes only happen through setLocale/toggleLocale in this
+  // provider, which already re-render. No external subscription needed.
+  return () => {}
+}
 
-  useEffect(() => {
-    const detected = detectClientLocale()
-    if (detected !== locale) setLocaleState(detected)
-  }, [])
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  const locale = useSyncExternalStore(subscribe, getClientSnapshot, () => SERVER_SNAPSHOT)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -42,12 +42,25 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }, [locale])
 
   const setLocale = useCallback((l: Locale) => {
-    setLocaleState(l)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCALE_STORAGE_KEY, l)
+    }
+    document.documentElement.lang = l
+    // Re-render consumers of this context by mutating the key the external
+    // store uses. We dispatch a storage event manually so useSyncExternalStore
+    // subscribers re-read the snapshot.
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: LOCALE_STORAGE_KEY,
+        newValue: l,
+        storageArea: window.localStorage,
+      }))
+    }
   }, [])
 
   const toggleLocale = useCallback(() => {
-    setLocaleState(prev => prev === 'es' ? 'en' : 'es')
-  }, [])
+    setLocale(locale === 'es' ? 'en' : 'es')
+  }, [locale, setLocale])
 
   return (
     <LocaleContext.Provider value={{ locale, setLocale, toggleLocale }}>

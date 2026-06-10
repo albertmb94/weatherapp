@@ -49,7 +49,9 @@ function MapRecenter({ center, token }: { center: [number, number]; token: numbe
   // map click), so the user's pan/zoom is no longer yanked back to
   // the position they just clicked.
   const centerRef = useRef(center)
-  centerRef.current = center
+  useEffect(() => {
+    centerRef.current = center
+  }, [center])
   useEffect(() => {
     map.setView(centerRef.current, map.getZoom())
   }, [token, map])

@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import type { WeatherModel } from '@/lib/models'
 
 // Re-implement the pure functions from MapPicker for testing
 // since they're not exported from the component file.

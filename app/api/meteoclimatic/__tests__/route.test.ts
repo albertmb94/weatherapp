@@ -1,16 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-
-const MOCK_STATION_RSS = `<?xml version="1.0" encoding="ISO-8859-15"?>
-<rss version="2.0">
- <channel>
-  <item>
-   <title>Badalona - BCIN (Barcelona)</title>
-   <pubDate>Thu, 04 Jun 2026 09:00:00 +0000</pubDate>
-   <description><![CDATA[<!-- [[<BEGIN:ESCAT0800000008915C:DATA>]] [[<ESCAT0800000008915C;(21,4;22,4;21,0;sun);(90,0;90,0;80,0);(1014,6;1017,1;1014,6);(23,0;43,0;180);(0,0);Badalona - BCIN>]] [[<END:ESCAT0800000008915C:DATA>]] --></description>
-   <georss:point>41.46 2.26</georss:point>
-  </item>
- </channel>
-</rss>`
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/meteoclimatic', () => ({
   fetchStationData: vi.fn(),

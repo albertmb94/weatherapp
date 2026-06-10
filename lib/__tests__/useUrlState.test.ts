@@ -14,7 +14,8 @@ describe('useUrlState pure functions', () => {
         result.lon = Number(lon)
       }
       const metric = params.get('metric')
-      if (metric) result.metric = metric
+      const ALLOWED_METRICS = new Set(['temperature','cloud_cover','wind_speed','precipitation','humidity','uv_index','pressure','wave_height'])
+      if (metric && ALLOWED_METRICS.has(metric)) result.metric = metric
       const models = params.get('models')
       if (models !== null) {
         result.models = models === 'none' ? [] : models.split(',').filter(Boolean)
@@ -22,7 +23,8 @@ describe('useUrlState pure functions', () => {
       const hour = params.get('hour')
       if (hour && !isNaN(Number(hour))) result.hour = Number(hour)
       const range = params.get('range')
-      if (range && !isNaN(Number(range))) result.range = Number(range)
+      const ALLOWED_RANGES = new Set([24, 48, 72, 168, 336])
+      if (range && ALLOWED_RANGES.has(Number(range))) result.range = Number(range)
       const showMap = params.get('map')
       if (showMap !== null) result.showMap = showMap === '1'
       const showRadar = params.get('radar')
@@ -55,6 +57,32 @@ describe('useUrlState pure functions', () => {
     it('parses metric', () => {
       const params = new URLSearchParams('metric=temperature')
       expect(parseUrlParams(params).metric).toBe('temperature')
+    })
+
+    it('A3: ignores invalid metric (whitelist)', () => {
+      // A3: ?metric=foo must NOT crash the app. It should be ignored so the
+      // default metric is used.
+      const params = new URLSearchParams('metric=__invalid_metric__')
+      expect(parseUrlParams(params).metric).toBeUndefined()
+    })
+
+    it('A3: accepts all valid metric ids', () => {
+      for (const m of ['temperature', 'cloud_cover', 'wind_speed', 'precipitation', 'humidity', 'uv_index', 'pressure', 'wave_height']) {
+        const params = new URLSearchParams(`metric=${m}`)
+        expect(parseUrlParams(params).metric).toBe(m)
+      }
+    })
+
+    it('B4: ignores invalid range (whitelist)', () => {
+      const params = new URLSearchParams('range=9999')
+      expect(parseUrlParams(params).range).toBeUndefined()
+    })
+
+    it('accepts valid range values', () => {
+      for (const r of [24, 48, 72, 168, 336]) {
+        const params = new URLSearchParams(`range=${r}`)
+        expect(parseUrlParams(params).range).toBe(r)
+      }
     })
 
     it('parses models as array', () => {

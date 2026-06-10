@@ -33,8 +33,7 @@ export function parseOpenMeteoTimes(times: string[]): Date[] {
  */
 export function getLocationNow(utcOffsetSeconds: number): Date {
   const now = new Date()
-  const localOffsetMs = now.getTimezoneOffset() * 60 * 1000
-  return new Date(now.getTime() + utcOffsetSeconds * 1000 + localOffsetMs)
+  return new Date(now.getTime() + utcOffsetSeconds * 1000)
 }
 
 /**

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { METRICS, type MetricId } from './models'
 
 interface UrlState {
   lat: number
@@ -16,6 +17,8 @@ interface UrlState {
 }
 
 const ALLOWED_BUCKETS = new Set([1, 2, 3, 4, 6, 12, 24])
+const ALLOWED_METRICS = new Set<string>(METRICS.map(m => m.id))
+const ALLOWED_RANGES = new Set([24, 48, 72, 168, 336])
 
 const MODELS_NONE_TOKEN = 'none'
 
@@ -28,7 +31,7 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
     result.lon = Number(lon)
   }
   const metric = params.get('metric')
-  if (metric) result.metric = metric
+  if (metric && ALLOWED_METRICS.has(metric)) result.metric = metric
   const models = params.get('models')
   if (models !== null) {
     result.models = models === MODELS_NONE_TOKEN ? [] : models.split(',').filter(Boolean)
@@ -36,7 +39,7 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   const hour = params.get('hour')
   if (hour && !isNaN(Number(hour))) result.hour = Number(hour)
   const range = params.get('range')
-  if (range && !isNaN(Number(range))) result.range = Number(range)
+  if (range && ALLOWED_RANGES.has(Number(range))) result.range = Number(range)
   const showMap = params.get('map')
   if (showMap !== null) result.showMap = showMap === '1'
   const showRadar = params.get('radar')
@@ -103,7 +106,6 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       marine: parsed.marine ?? defaults.marine,
       basic: parsed.basic ?? defaults.basic,
     }
-    stateRef.current = initial
     return initial
   })
 

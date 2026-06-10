@@ -63,7 +63,11 @@ export default function StationDashboard() {
       if (!res.ok || body.error) throw new Error(body.detail || body.error || `HTTP ${res.status}`)
       const seen = new Map<string, MeteoclimaticObservation>()
       for (const s of body.stations as AemetRaw[]) {
-        if (!seen.has(s.idema)) seen.set(s.idema, mapAemet(s))
+        const mapped = mapAemet(s)
+        const existing = seen.get(s.idema)
+        if (!existing || (mapped.updatedAt > existing.updatedAt)) {
+          seen.set(s.idema, mapped)
+        }
       }
       return [...seen.values()]
     },

@@ -104,3 +104,44 @@ describe('StationDashboard retry behavior', () => {
     expect(dashboard.lastElementChild).toBe(errorBlock)
   })
 })
+
+describe('StationDashboard AEMET dedup (A2)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('A2: keeps the most recent observation per idema, not the first', async () => {
+    // AEMET returns ~24h of observations per idema, sorted by fint ASC.
+    // Before A2 fix, the first (oldest) was kept. We now keep the latest.
+    // Coordinates are inside the default BCN region.
+    const stationsResponse = {
+      stations: [
+        { idema: 'A001', ubi: 'Station 1', lat: 41.4, lon: 2.15, fint: '2026-06-09T10:00:00', ta: 10 },
+        { idema: 'A001', ubi: 'Station 1', lat: 41.4, lon: 2.15, fint: '2026-06-10T10:00:00', ta: 25 },
+        { idema: 'A001', ubi: 'Station 1', lat: 41.4, lon: 2.15, fint: '2026-06-09T20:00:00', ta: 18 },
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(stationsResponse),
+    }))
+
+    render(<StationDashboard />, { wrapper: createWrapper() })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    // After A2 fix, the latest observation (2026-06-10) should win.
+    // StationCard displays "25.0°" (the current temperature from the
+    // most recent fint) rather than "10.0°" (the oldest).
+    const allCards = screen.getAllByText(/25\.0°/)
+    expect(allCards.length).toBeGreaterThan(0)
+  })
+})

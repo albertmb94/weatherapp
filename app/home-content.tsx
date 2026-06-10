@@ -26,6 +26,7 @@ import { getLocationNow, floorHourLocation, formatLocationTime, formatLocationDa
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation } from '@/lib/localStorageLocations'
 import { formatAge } from '@/lib/formatAge'
+import { useRefresh } from '@/lib/useRefresh'
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -82,6 +83,9 @@ export default function HomeContent() {
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
   const { theme, toggleTheme } = useTheme()
+  // S6: shared refresh hook. Used by the mobile header pill and by
+  // RefreshButton so the in-flight state is never duplicated.
+  const { refresh, isPending: isRefreshing } = useRefresh()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'models' | 'stations'>('models')
 
@@ -385,9 +389,11 @@ export default function HomeContent() {
           <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
         </div>
         {refreshStatus?.lastRefreshedAt && (
-          <div className="md:hidden mt-0.5 text-[9px] text-gray-600">
-            {locale === 'en' ? 'Updated' : 'Actualizado'} {formatAge(refreshStatus.ageMs ?? null, locale)}
-          </div>
+          <MobileRefreshButton
+            refresh={refresh}
+            isPending={isRefreshing}
+            ageMs={refreshStatus.ageMs ?? null}
+          />
         )}
       </div>
 
@@ -817,5 +823,35 @@ export default function HomeContent() {
         </div>
       )}
     </div>
+  )
+}
+
+function MobileRefreshButton({ refresh, isPending, ageMs }: {
+  refresh: () => void
+  isPending: boolean
+  ageMs: number | null
+}) {
+  // S6.2: a single tappable pill (≥44 px target) that re-fetches the
+  // current forecast. Mirrors the desktop RefreshButton's age label.
+  const { locale } = useLocale()
+  const label = locale === 'en' ? 'Updated' : 'Actualizado'
+  const age = formatAge(ageMs, locale)
+  return (
+    <button
+      type="button"
+      onClick={refresh}
+      disabled={isPending}
+      className="md:hidden mt-1 min-h-[32px] px-2 py-1 text-[11px] text-gray-400 hover:text-white bg-gray-900/60 border border-gray-800 rounded inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+      aria-label={locale === 'en' ? `Refresh forecast (last update ${age || 'never'})` : `Actualizar previsión (última actualización ${age || 'nunca'})`}
+    >
+      {isPending ? (
+        <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      )}
+      <span>{label} {age}</span>
+    </button>
   )
 }

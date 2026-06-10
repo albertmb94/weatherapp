@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { formatAge } from '@/lib/formatAge'
 import { useLocale } from '@/lib/LocaleContext'
+import { useRefresh } from '@/lib/useRefresh'
 
 interface RefreshStatus {
   lastRefreshedAt: number | null
@@ -13,9 +14,9 @@ interface RefreshStatus {
 }
 
 export default function RefreshButton() {
-  const queryClient = useQueryClient()
   const [feedback, setFeedback] = useState<string | null>(null)
   const { locale } = useLocale()
+  const { refresh, isPending, lastOutcome } = useRefresh()
 
   const { data: status } = useQuery<RefreshStatus>({
     queryKey: ['refresh-status'],
@@ -30,46 +31,32 @@ export default function RefreshButton() {
     refetchOnWindowFocus: true,
   })
 
-  const refreshMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/refresh', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error ?? 'Refresh failed')
-      return data as { skipped: boolean; reason?: string; refreshedAt?: number; ageMs?: number | null }
-    },
-    onSuccess: result => {
-      queryClient.invalidateQueries({ queryKey: ['refresh-status'] })
-      if (result.skipped) {
-        const remainingMs = (status?.cooldownMs ?? 0) - (result.ageMs ?? 0)
-        const mins = Math.max(1, Math.ceil(remainingMs / 60000))
-        setFeedback(`${mins}m`)
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['forecast'] })
-        setFeedback('now')
-      }
-    },
-    onError: err => {
-      setFeedback(err instanceof Error ? err.message : 'err')
-    },
-  })
-
+  // S6: show a transient label for the last outcome. After the cooldown
+  // the label fades back to the age.
   useEffect(() => {
-    if (!feedback) return
+    if (!lastOutcome) return
+    if (lastOutcome.kind === 'refreshed') {
+      setFeedback('now')
+    } else {
+      const mins = Math.max(1, Math.ceil(lastOutcome.remainingMs / 60000))
+      setFeedback(`${mins}m`)
+    }
     const t = setTimeout(() => setFeedback(null), 3000)
     return () => clearTimeout(t)
-  }, [feedback])
+  }, [lastOutcome])
 
   const ageLabel = formatAge(status?.ageMs ?? null, locale)
-  const disabled = refreshMutation.isPending
 
   return (
     <button
-      onClick={() => refreshMutation.mutate()}
-      disabled={disabled}
+      onClick={refresh}
+      disabled={isPending}
       className="px-1.5 py-1 rounded text-[10px] font-medium text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
       title={status?.lastRefreshedAt ? `Last refresh: ${new Date(status.lastRefreshedAt).toLocaleString()}` : 'Never refreshed'}
+      aria-label={status?.lastRefreshedAt ? `Last refresh ${ageLabel || 'never'}. Press to refresh.` : 'Press to refresh data.'}
+      aria-live="polite"
     >
-      {disabled ? (
+      {isPending ? (
         <div className="w-2.5 h-2.5 border border-gray-400 border-t-transparent rounded-full animate-spin" />
       ) : (
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -534,7 +534,7 @@ export default function InsightsTable({
           <table className="w-full border-collapse text-xs table-auto min-w-[380px]">
           <thead>
             <tr className="bg-surface-raised text-text-secondary">
-              <th className="sticky left-0 top-0 bg-surface-raised text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)] after:absolute after:inset-0 after:bg-surface-raised after:-z-10">{STRINGS[locale].tableWhen}</th>
+              <th className="sticky left-0 top-0 isolate bg-surface-raised text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-accent' : ''
                 return (
@@ -558,19 +558,21 @@ export default function InsightsTable({
             {rows.map((r, i) => {
               const isActive = selectedHour >= r.startIdx && selectedHour <= r.endIdx
               const zebra = i % 2 === 1
+              const whenBg = isActive ? 'bg-accent-soft' : zebra ? 'bg-surface-raised' : 'bg-surface-raised'
+              const bodyBg = isActive ? 'bg-accent-soft' : zebra ? 'bg-surface-raised/40' : ''
               return (
                 <tr
                   key={i}
                   onClick={() => onSelectHour(r.centerIdx)}
-                  className={`cursor-pointer transition-colors ${isActive ? 'bg-accent-soft' : zebra ? 'bg-surface-raised/30' : ''} hover:bg-surface-raised`}
+                  className="cursor-pointer transition-colors hover:[&>td]:bg-surface-raised"
                 >
-                  <td className={`sticky left-0 z-20 px-1.5 py-1.5 whitespace-nowrap text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${isActive ? 'bg-accent-soft' : zebra ? 'bg-surface-raised/60' : 'bg-surface-raised'}`}>
+                  <td className={`sticky left-0 z-20 isolate px-1.5 py-1.5 whitespace-nowrap text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => (
                     <td
                       key={col.id}
-                      className={`text-center ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
+                      className={`text-center ${bodyBg} ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
                     >
                       <CellContent id={col.id} r={r} />
                     </td>

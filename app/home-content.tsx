@@ -796,6 +796,7 @@ export default function HomeContent() {
             <div
               // eslint-disable-next-line react-hooks/refs
               ref={pullToRefreshRef.ref}
+              className="landscape:grid landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] landscape:gap-3"
             >
               {isLoading && (
                 <div className="space-y-4">
@@ -813,46 +814,50 @@ export default function HomeContent() {
 
               {viewData && (
                 <>
-                  <DailySummary
-                    models={displayModels}
-                    activeModelIds={displayActiveModelIds}
-                    times={viewData.time}
-                    series={viewData.series}
-                    selectedHour={selectedHour}
-                    onSelectHour={handleHourChange}
-                    maxHours={effectiveMaxHours}
-                    showMarine={marine}
-                    showBasic={showBasic}
-                  />
-                  <ModelSelector
-                    models={displayModels}
-                    selected={selectedModels}
-                    onChange={handleModelChange}
-                  />
-                  <InsightsTable
-                    models={displayModels}
-                    activeModelIds={displayActiveModelIds}
-                    times={viewData.time}
-                    series={viewData.series}
-                    bucket={bucket}
-                    onBucketChange={handleBucketChange}
-                    selectedHour={selectedHour}
-                    onSelectHour={handleHourChange}
-                    maxHours={effectiveMaxHours}
-                    utcOffsetSeconds={viewData.utcOffsetSeconds}
-                    showMarine={marine}
-                    showBasic={showBasic}
-                  />
-                  <ModelComparisonChart
-                    models={displayModels}
-                    activeModelIds={displayActiveModelIds}
-                    metric={selectedMetric}
-                    times={viewData.time}
-                    series={viewData.series}
-                    onHourHover={handleHourChange}
-                    hoveredHour={selectedHour}
-                    maxHours={effectiveMaxHours}
-                  />
+                  <div className="landscape:col-start-1 landscape:row-start-1 order-2 landscape:order-1">
+                    <ModelComparisonChart
+                      models={displayModels}
+                      activeModelIds={displayActiveModelIds}
+                      metric={selectedMetric}
+                      times={viewData.time}
+                      series={viewData.series}
+                      onHourHover={handleHourChange}
+                      hoveredHour={selectedHour}
+                      maxHours={effectiveMaxHours}
+                    />
+                  </div>
+                  <div className="landscape:col-start-2 landscape:row-span-2 order-1 landscape:order-2">
+                    <DailySummary
+                      models={displayModels}
+                      activeModelIds={displayActiveModelIds}
+                      times={viewData.time}
+                      series={viewData.series}
+                      selectedHour={selectedHour}
+                      onSelectHour={handleHourChange}
+                      maxHours={effectiveMaxHours}
+                      showMarine={marine}
+                      showBasic={showBasic}
+                    />
+                    <ModelSelector
+                      models={displayModels}
+                      selected={selectedModels}
+                      onChange={handleModelChange}
+                    />
+                    <InsightsTable
+                      models={displayModels}
+                      activeModelIds={displayActiveModelIds}
+                      times={viewData.time}
+                      series={viewData.series}
+                      bucket={bucket}
+                      onBucketChange={handleBucketChange}
+                      selectedHour={selectedHour}
+                      onSelectHour={handleHourChange}
+                      maxHours={effectiveMaxHours}
+                      utcOffsetSeconds={viewData.utcOffsetSeconds}
+                      showMarine={marine}
+                      showBasic={showBasic}
+                    />
+                  </div>
                 </>
               )}
             </div>

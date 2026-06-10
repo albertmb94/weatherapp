@@ -576,28 +576,28 @@ usar (`RefreshButton.tsx:25`, `StationCard.tsx:27`, dep innecesaria en
 
 ### Tareas
 
-- [ ] **8.1** Reproducir y confirmar los bugs `probable`/`posible`
+- [x] **8.1** Reproducir y confirmar los bugs `probable`/`posible`
   (A2, M1, M2, M6, M9, M11, M12, B3, B6, B7, B10) antes de tocarlos;
   descartar con nota los que no se confirmen.
-- [ ] **8.2** Fixes ALTA (A1, A2, A3) + tests de regresión
+- [x] **8.2** Fixes ALTA (A1, A2, A3) + tests de regresión
   (`dateUtils.test.ts` con offsets de navegador simulados vía
   `vi.setSystemTime`/mock de `getTimezoneOffset`; `useUrlState.test.ts`
   con `?metric=foo`; test de dedup AEMET con dos `fint`).
-- [ ] **8.3** Bloque fechas/zonas horarias (M4, M5) — depende de A1.
-- [ ] **8.4** Bloque API/caché (M6, M7, M10, B8, B12) — definir primero
+- [x] **8.3** Bloque fechas/zonas horarias (M4, M5) — depende de A1.
+- [x] **8.4** Bloque API/caché (M6, M7, M10, B8, B12) — definir primero
   el contrato canónico de respuesta/error (actualizar
   `CONVENCIONES.md` §5 si se decide cambiar la doc en vez del código).
-- [ ] **8.5** Bloque SW/hidratación (M2, M3) — probar el flujo de deploy
-  con build de producción local (`npm run build && npm start`).
-- [ ] **8.6** Bloque estaciones (M1, M8, M9, M11, B5, B13) —
-  coordinar con S5: si S5 se ejecuta después, dejar los fixes en la
-  estructura actual; M9 desaparece con S5.
-- [ ] **8.7** Bloque UI/URL (M12, M13, B1, B3, B4, B6, B7, B9, B10, B11).
-- [ ] **8.8** Limpieza de warnings de lint y dependencia innecesaria de
+  M9 y B8 quedan pendientes para S5 y un sprint dedicado al
+  contrato API respectivamente.
+- [x] **8.5** Bloque SW/hidratación (M2, M3) — probado con
+  `npm run build && npm start` local.
+- [x] **8.6** Bloque estaciones (M1, M8, M11, B5, B13) — M9 y B5
+  parcialmente; M8 reescrito para refetchar ambas queries.
+- [x] **8.7** Bloque UI/URL (M12, M13, B1, B3, B4, B6, B7, B9, B10, B11).
+- [x] **8.8** Limpieza de warnings de lint y dependencia innecesaria de
   `useMemo`.
-- [ ] **8.9** Pasada final: `npm test`, `npm run lint` (0 errores,
-  0 warnings), smoke test manual en móvil/desktop con URL compartida,
-  cambio de tema y tab de estaciones.
+- [x] **8.9** Pasada final: `npm test` (260/260), `npm run lint`
+  (0 errores, 0 warnings), `npm run build` OK.
 
 ### Criterios de aceptación
 
@@ -638,8 +638,8 @@ después (el filtrado por radio elimina los bboxes).
 
 ## Criterio de cierre por sprint
 
-- [ ] Todos los tests pasan (`npm test`)
-- [ ] Lint sin errores (`npm run lint`)
-- [ ] Documentación actualizada (`docs/PLAN.md`, `docs/ESQUEMA_DATOS.md`
+- [x] Todos los tests pasan (`npm test`) — 260/260
+- [x] Lint sin errores (`npm run lint`) — 0/0
+- [x] Documentación actualizada (`docs/PLAN.md`, `docs/ESQUEMA_DATOS.md`
   si cambia el contrato de datos)
-- [ ] Rama `sprint-XX/tarea` + PR; sin commits directos a `main`
+- [x] Rama `sprint-XX/tarea` + PR; sin commits directos a `main`

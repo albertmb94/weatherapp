@@ -51,6 +51,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
   }
 
+  // M6: Force timezone=auto server-side so different client timezones don't
+  // poison the same cache cell with different `hourly.time` / utc_offset.
+  if (searchParams.get('timezone') !== 'auto') {
+    searchParams.set('timezone', 'auto')
+  }
+
   const cacheKey = buildForecastCacheKey(searchParams)
 
   // Cache lookup.

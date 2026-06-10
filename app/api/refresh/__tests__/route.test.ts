@@ -9,9 +9,14 @@ vi.mock('@/lib/forecastCache', () => ({
   purgeAllForecastCache: vi.fn(),
 }))
 
+vi.mock('@/lib/marineCache', () => ({
+  purgeAllMarineCache: vi.fn(),
+}))
+
 import { GET, POST } from '@/app/api/refresh/route'
 import { getRefreshStatus, recordRefresh } from '@/lib/appState'
 import { purgeAllForecastCache } from '@/lib/forecastCache'
+import { purgeAllMarineCache } from '@/lib/marineCache'
 
 describe('/api/refresh', () => {
   beforeEach(() => {
@@ -83,6 +88,19 @@ describe('/api/refresh', () => {
 
       await POST()
       expect(purgeAllForecastCache).toHaveBeenCalled()
+    })
+
+    it('M7: purges marine cache after refresh', async () => {
+      vi.mocked(getRefreshStatus).mockResolvedValue({
+        lastRefreshedAt: null,
+        ageMs: null,
+        canRefresh: true,
+        cooldownMs: 14400000,
+      })
+      vi.mocked(recordRefresh).mockResolvedValue(Date.now())
+
+      await POST()
+      expect(purgeAllMarineCache).toHaveBeenCalled()
     })
 
     it('returns 500 on error', async () => {

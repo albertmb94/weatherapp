@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getRefreshStatus, recordRefresh } from '@/lib/appState'
 import { purgeAllForecastCache } from '@/lib/forecastCache'
+import { purgeAllMarineCache } from '@/lib/marineCache'
 
 export async function GET() {
   try {
@@ -23,11 +24,16 @@ export async function POST() {
       )
     }
     const refreshedAt = await recordRefresh(now)
-    // Wipe the forecast cache so the next GETs repopulate from Open-Meteo.
+    // Wipe the forecast AND marine caches so the next GETs repopulate from
+    // Open-Meteo (M7: previously only forecast was purged, so a refresh
+    // would mix old marine data with new land data).
     try {
-      await purgeAllForecastCache()
+      await Promise.all([
+        purgeAllForecastCache(),
+        purgeAllMarineCache(),
+      ])
     } catch (err) {
-      console.warn('forecast_cache purge failed', err)
+      console.warn('cache purge failed', err)
     }
     return NextResponse.json({ skipped: false, refreshedAt })
   } catch (err) {

@@ -1,16 +1,19 @@
 /**
  * Build a canonical cache key from Open-Meteo forecast request params.
  *
- * - `timezone` is dropped (we only use 'auto' / 'UTC' which doesn't change
- *   the data values, just the timestamp interpretation client-side).
- * - latitude / longitude are rounded to 1 decimal (~11 km) so clicks within
- *   the same neighborhood reuse the same cache entry.
+ * - `timezone` is part of the key (M6): although we only ever forward
+ *   `auto` / `UTC` to Open-Meteo, the server response (`hourly.time`,
+ *   `utc_offset_seconds`) differs between them and omitting it from the
+ *   key caused cache poisoning when one timezone value overwrote a cell
+ *   previously fetched with the other.
+ * - latitude / longitude are rounded to 2 decimals (~1.1 km) so clicks
+ *   within the same neighborhood reuse the same cache entry.
  * - For bulk multi-location requests the (lat,lon) pairs are sorted as a
  *   set so the order in the URL doesn't matter.
  * - All other params are sorted alphabetically.
  */
 const LATLON_DECIMALS = 2
-const SKIP_PARAMS = new Set(['timezone'])
+const SKIP_PARAMS = new Set<string>()
 
 function roundCoord(s: string): string {
   const n = Number(s)

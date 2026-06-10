@@ -34,7 +34,7 @@ export default function ModelSelector({ models, selected, onChange }: ModelSelec
         <button
           onClick={selectAll}
           className={`shrink-0 min-h-[36px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-            allSelected ? 'text-white' : 'text-gray-600 hover:text-gray-400'
+            allSelected ? 'text-text-primary' : 'text-text-tertiary hover:text-text-secondary'
           }`}
         >
           All
@@ -42,12 +42,12 @@ export default function ModelSelector({ models, selected, onChange }: ModelSelec
         <button
           onClick={selectNone}
           className={`shrink-0 min-h-[36px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-            noneSelected ? 'text-white' : 'text-gray-600 hover:text-gray-400'
+            noneSelected ? 'text-text-primary' : 'text-text-tertiary hover:text-text-secondary'
           }`}
         >
           None
         </button>
-        <div className="w-px h-3 bg-gray-800 mx-0.5 shrink-0" />
+        <div className="w-px h-3 bg-border mx-0.5 shrink-0" />
         {models.map(m => {
           const active = selected.includes(m.id)
           return (
@@ -55,7 +55,7 @@ export default function ModelSelector({ models, selected, onChange }: ModelSelec
               key={m.id}
               onClick={() => selectOnly(m.id)}
               className={`shrink-0 min-h-[36px] px-2.5 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                active ? 'text-white' : 'text-gray-600 hover:text-gray-400'
+                active ? 'text-text-primary' : 'text-text-tertiary hover:text-text-secondary'
               }`}
               title={`${m.label} (${m.weight}%)`}
             >

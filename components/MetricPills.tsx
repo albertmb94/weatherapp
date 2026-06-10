@@ -139,8 +139,8 @@ export default function MetricPills({ metrics, selected, onChange, group = 'all'
             onClick={() => onChange(m.id as MetricId)}
             className={`min-w-[44px] min-h-[44px] px-1.5 py-1 rounded text-xs font-medium transition-all cursor-pointer flex items-center justify-center ${
               active
-                ? 'bg-white/10 text-white'
-                : 'text-gray-500 hover:text-gray-300'
+                ? 'bg-accent-soft text-accent'
+                : 'text-text-tertiary hover:text-text-primary'
             }`}
             title={m.label}
             aria-label={m.label}

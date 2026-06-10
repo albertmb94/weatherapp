@@ -500,14 +500,14 @@ export default function InsightsTable({
   return (
     <div className="mb-4 animate-fadeIn">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-300">{STRINGS[locale].insightsTitle}</h3>
-        <div className="flex items-center gap-0.5 bg-gray-900/60 border border-gray-800 rounded p-0.5">
+        <h3 className="text-sm font-semibold text-text-primary">{STRINGS[locale].insightsTitle}</h3>
+        <div className="flex items-center gap-0.5 bg-surface-raised border border-border rounded p-0.5">
           {BUCKET_OPTIONS.map(b => (
             <button
               key={b}
               onClick={() => onBucketChange(b)}
               className={`px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
-                bucket === b ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
+                bucket === b ? 'bg-white/10 text-text-primary' : 'text-text-tertiary hover:text-text-primary'
               }`}
             >
               {BUCKET_LABELS[b]}
@@ -516,7 +516,7 @@ export default function InsightsTable({
           {!isDefaultOrder && (
             <button
               onClick={resetColumnOrder}
-              className="px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] text-gray-500 hover:text-white ml-0.5"
+              className="px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] text-text-tertiary hover:text-text-primary ml-0.5"
               title="Reset column order"
             >
               ↺
@@ -524,7 +524,7 @@ export default function InsightsTable({
           )}
           <button
             onClick={() => setCompact(c => !c)}
-            className={`md:hidden px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`md:hidden px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-white/10 text-text-primary' : 'text-text-tertiary hover:text-text-primary'}`}
             title="Compact mode"
           >
             ≡
@@ -532,13 +532,13 @@ export default function InsightsTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded border border-gray-800">
+      <div className="overflow-x-auto rounded border border-border">
         <table className="w-full border-collapse text-xs table-auto min-w-[380px]">
           <thead>
-            <tr className="bg-gray-900 text-gray-400">
-              <th className="sticky left-0 bg-gray-900 text-center px-1.5 py-1.5 font-medium z-30 border-b border-gray-800 w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
+            <tr className="bg-surface-raised text-text-secondary">
+              <th className="sticky left-0 bg-surface-raised text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
-                const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-blue-500' : ''
+                const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-accent' : ''
                 return (
                   <th
                     key={col.id}
@@ -547,7 +547,7 @@ export default function InsightsTable({
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`text-center px-1 py-1.5 font-medium border-b border-gray-800 cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
+                    className={`text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}
@@ -563,9 +563,9 @@ export default function InsightsTable({
                 <tr
                   key={i}
                   onClick={() => onSelectHour(r.centerIdx)}
-                  className={`cursor-pointer transition-colors ${isActive ? 'bg-blue-900/30' : 'hover:bg-gray-800/40'}`}
+                  className={`cursor-pointer transition-colors ${isActive ? 'bg-accent-soft' : 'hover:bg-surface-raised'}`}
                 >
-                  <td className={`sticky left-0 z-20 px-1.5 py-1.5 whitespace-nowrap text-gray-300 border-b border-gray-800/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] ${isActive ? 'bg-blue-900' : 'bg-gray-950'}`}>
+                  <td className={`sticky left-0 z-20 px-1.5 py-1.5 whitespace-nowrap text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] ${isActive ? 'bg-accent-soft' : 'bg-surface'}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => (

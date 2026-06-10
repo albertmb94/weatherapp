@@ -141,6 +141,7 @@ weather/
 | S5 | **Estaciones por ciudad (Meteoclimatic)**: resolución coordenadas → prefijo de provincia, filtrado por radio, conexión con la ciudad buscada. Detalle operativo en `docs/SPRINTS.md`. |
 | S6 | **Refresco desde móvil**: indicador accionable, pull-to-refresh, recarga de la última búsqueda aunque haya cooldown. Detalle operativo en `docs/SPRINTS.md`. |
 | S7 | **Mejoras estéticas mobile/desktop**: tokens de diseño, bottom tab bar móvil, layout de dos columnas en landscape, pulido desktop. Detalle operativo en `docs/SPRINTS.md`. |
+| S8 | **Corrección de errores**: catálogo de la auditoría 2026-06-10 (3 altos: hora local desplazada, datos AEMET antiguos, crash por URL malformada; 13 medios; 13 bajos). Se ejecuta **antes** que S5–S7. Detalle operativo en `docs/SPRINTS.md`. |
 
 ---
 

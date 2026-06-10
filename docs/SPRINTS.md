@@ -1,6 +1,6 @@
-# SPRINTS.md — Plan operativo S5–S7
+# SPRINTS.md — Plan operativo S5–S8
 
-Plan de los tres próximos sprints. Continúa el roadmap de `docs/PLAN.md`
+Plan de los próximos sprints. Continúa el roadmap de `docs/PLAN.md`
 (S1–S4 completados; el detalle de S4/marine está en `docs/SPRINTS_PLAN.md`).
 
 | Sprint | Tema | Objetivo |
@@ -8,6 +8,7 @@ Plan de los tres próximos sprints. Continúa el roadmap de `docs/PLAN.md`
 | S5 | Estaciones por ciudad (Meteoclimatic) | Las estaciones del tab "Estaciones" se obtienen automáticamente para la ciudad que el usuario está consultando, incluyendo Meteoclimatic |
 | S6 | Refresco desde móvil | En móvil se puede forzar el refresco de la última búsqueda de modelos, no solo ver la antigüedad de la descarga |
 | S7 | Mejoras estéticas | Pulido visual en mobile y desktop; mobile horizontal se comporta como desktop |
+| S8 | Corrección de errores | Resolver el catálogo de bugs de la auditoría de 2026-06-10 (3 altos, 13 medios, 13 bajos) |
 
 ---
 
@@ -218,7 +219,7 @@ cabeceras `Cache-Control: public, s-maxage=120, stale-while-revalidate=300`
     (10/30/60 km) con la etiqueta «Cerca de {placeName}».
   - Dedup AEMET/Meteoclimatic: mantener el criterio actual (~0.01° de
     proximidad) pero sobre estructuras indexadas, no el bucle O(n²)
-    actual (ver bug B-08 en S8).
+    actual (ver bug B5 en S8).
   - Orden: por `distanceKm` ascendente; `StationCard` muestra la
     distancia («4,2 km») junto al nombre.
 - `home-content.tsx:722`: `<StationDashboard position={position} placeName={placeName} />`
@@ -234,7 +235,7 @@ Crear `lib/__tests__/fixtures/meteoclimatic-province.xml` con un feed
 real (anonimizado si hace falta) de un prefijo de provincia con ≥3
 estaciones, incluyendo: una con todos los campos, una con campos vacíos
 (`_`/`-`) y una sin `georss:point` (el parser actual le pone lat/lon 0
-— ver bug B-07 en S8: debe descartarse en modo por coordenadas para no
+— ver bug B13 en S8: debe descartarse en modo por coordenadas para no
 fabricar distancias falsas).
 
 ### Tareas
@@ -475,15 +476,165 @@ optimizar el espacio vertical. Stack: Tailwind 4 con `@theme` en
 
 ---
 
+## Sprint 8 — Corrección de errores
+
+### Contexto
+
+Catálogo resultante de la auditoría del 2026-06-10 (revisión de código de
+`app/`, `lib/`, `components/`, rutas API y service worker, contrastada
+con `docs/CONVENCIONES.md`). Estado de las puertas de calidad en el
+momento de la auditoría: `npm test` **244/244 en verde**;
+`npm run lint` **1 error + 10 warnings**.
+
+Cada bug lleva confianza (`seguro` = verificado leyendo/calculando;
+`probable`/`posible` = requiere reproducción). Los tres de severidad
+alta están verificados de forma independiente. **Regla del sprint:**
+cada fix incluye un test de regresión que falla antes del cambio.
+
+### Severidad ALTA
+
+**A1 — `getLocationNow` desplaza «ahora» según la zona horaria del navegador** · seguro
+
+- `lib/dateUtils.ts:34-38` (consumido en `app/home-content.tsx:295-304`).
+- El término `localOffsetMs = getTimezoneOffset() * 60000` sobra: para la
+  hora de pared de la ubicación en formato «fake-UTC» basta
+  `now.getTime() + utcOffsetSeconds * 1000`. Verificado: navegador en
+  Madrid (UTC+2) mirando una ciudad UTC+2 → resultado 2 h en el pasado;
+  navegador en Nueva York (UTC−4) → 4 h en el futuro. Solo es correcto
+  con el navegador en UTC.
+- Impacto: `startIndex` recorta mal la serie, el botón «Now»/«+0h» no
+  apunta a la hora actual y `nowOffset` desalinea el heatmap.
+- Fix: `return new Date(now.getTime() + utcOffsetSeconds * 1000)`.
+
+**A2 — El dedup de AEMET se queda con la observación más antigua (hasta ~24 h)** · probable
+
+- `components/StationDashboard.tsx:64-68`.
+- `/observacion/convencional/todas` devuelve ~24 h de observaciones por
+  estación ordenadas ascendentemente por `fint`; el bucle
+  `if (!seen.has(s.idema)) seen.set(...)` conserva la **primera** =
+  la más antigua. El dashboard muestra como actuales datos de ayer.
+- Fix: comparar `fint` y conservar la observación más reciente por
+  `idema`. Confirmar antes el orden real del feed (tarea 8.1).
+
+**A3 — `?metric=` inválido en la URL tumba toda la app** · seguro
+
+- `lib/useUrlState.ts:30-31` acepta `metric` sin whitelist →
+  `components/ColorLegend.tsx:26-29` hace `SCALES[metric].stops[0]` sobre
+  `undefined` → TypeError → ErrorBoundary a pantalla completa (el mapa
+  está visible por defecto en desktop). `MapPicker.fetchHeatmapGrid`
+  también lanza. Cualquier enlace compartido malformado rompe la app.
+- Fix: validar `metric` contra `METRICS` en `parseUrlParams`, igual que
+  ya se hace con `bucket` (`ALLOWED_BUCKETS`, `useUrlState.ts:44-45`).
+
+### Severidad MEDIA
+
+| ID | Bug | Ubicación | Conf. | Dirección del fix |
+|----|-----|-----------|-------|-------------------|
+| M1 | Viento AEMET en m/s mostrado como km/h (Meteoclimatic sí da km/h; se mezclan en el mismo dashboard) | `StationDashboard.tsx:39`, `StationMap.tsx:71`, `StationCard.tsx:46` | probable | Multiplicar `vv`/`vmax` × 3.6 en `mapAemet` |
+| M2 | SW: HTML cache-first con `weather-v1` fijo → tras un deploy el HTML cacheado referencia chunks inexistentes (app rota hasta 2ª recarga); además cachea cada URL con query como entrada separada | `public/sw.js:1,31-43`, registro en `app/layout.tsx:58-62` | probable | Network-first para `mode === 'navigate'`, versionar `CACHE_NAME` por build, limitar entradas |
+| M3 | Mismatches de hidratación sistemáticos: `matchMedia` en initializer (`home-content.tsx:64`), `location.search` (`useUrlState.ts:87-108`), localStorage/navigator (`LocaleContext.tsx:15-23`, `ThemeContext.tsx:15-23`), `SavedLocations.tsx:31` | varios | seguro | Inicializar con valor de servidor y ajustar en `useEffect` |
+| M4 | CSV exporta horas locales etiquetadas como UTC (`toISOString()` sobre fechas «fake-local» añade `Z`) | `lib/exportCsv.ts:17` | seguro | Exportar sin sufijo `Z` o convertir a UTC real con `utcOffsetSeconds` |
+| M5 | «Hoy/Mañ» de InsightsTable compara día de la ubicación (`getUTCDate`) con día del navegador (`getDate`) | `components/InsightsTable.tsx:144-153` | seguro | Usar `getLocationNow(utcOffsetSeconds)` + `getUTC*` (tras corregir A1) |
+| M6 | Cache poisoning: `timezone` excluida de la clave de caché pero sí cambia la respuesta (`hourly.time`, `utc_offset_seconds`); una petición con `timezone=UTC` envenena la celda 4 h | `lib/cacheKey.ts:13`, `app/api/forecast/route.ts:54-69`, `app/api/marine/route.ts` | probable | Incluir `timezone` en la clave o forzar `timezone=auto` server-side |
+| M7 | `POST /api/refresh` purga forecast pero no marine (`purgeAllMarineCache` existe y no se usa); tras refresh se mezclan pasadas de modelo distintas | `app/api/refresh/route.ts:26-31`, `lib/marineCache.ts:75` | seguro | Añadir `await purgeAllMarineCache()` (encaja con S6, tarea 6.4) |
+| M8 | (a) El botón «Reintentar» del bloque de error solo refetchea AEMET, no Meteoclimatic; (b) `const error = aemetQ.error \|\| (includeMeteo && meteoQ.error)` puede valer `false` y se castea `(error as Error)` | `StationDashboard.tsx:123,196-203` | seguro | Refetch de ambas queries; `aemetQ.error ?? (includeMeteo ? meteoQ.error : null)` |
+| M9 | Bboxes de `REGIONS` recortan estaciones legítimas del feed pedido (p. ej. Maresme: Mataró lon 2.45 > `lonMax 2.3` de BCN) — descarte silencioso | `lib/meteoclimatic-types.ts:46-55`, `StationDashboard.tsx:109-113` | probable | Desaparece con S5 (filtrado por radio); si S8 va antes, no aplicar bbox a estaciones del feed regional |
+| M10 | Validación de entrada ausente en rutas API: forecast/marine reenvían `searchParams` sin validar rangos; `POST /api/locations` acepta `latitude`/`longitude` de cualquier tipo (un string guardado → TypeError en cliente con `.toFixed`) y `name` sin límite; `DELETE` pasa NaN a SQL; geocode reenvía todo al upstream; POST/DELETE de locations sin rate limit | `app/api/*/route.ts` | seguro | Validar tipos/rangos → 400 con formato de `CONVENCIONES.md` §5 |
+| M11 | El mapa de estaciones resetea zoom/encuadre cada 5 min: `AutoFitBounds` depende de la identidad del array `stations`, que cambia en cada `refetchInterval` | `StationMap.tsx:84-94`, `StationDashboard.tsx:70,87` | probable | Hacer `fitBounds` solo cuando cambie la clave derivada (lista de códigos) |
+| M12 | Selección «solo Marine» rompe la UI: `marine_global.maxHours: 0` → `effectiveMaxHours=0` → slider `max=-1`, tabla/resumen/CSV vacíos; relacionado: «All» de ModelSelector compara longitudes de listas distintas (9 vs 10) y nunca aparece activo | `lib/models.ts:19`, `app/home-content.tsx:288-291,325` | probable | Excluir `marine_global` de `maxModelHours` o tratar `maxHours 0` como «sin límite» |
+| M13 | Error de lint bloqueante (`react-hooks/refs`): se escribe `stateRef.current` dentro del initializer de `useState` (fase de render). Rompe la puerta `npm run lint` de todos los sprints | `lib/useUrlState.ts:87-108` (escritura en `:106`) | seguro | Mover la asignación al `useEffect` ya existente (`:113` ya la repite — basta eliminar la del initializer) |
+
+### Severidad BAJA
+
+| ID | Bug | Ubicación | Conf. | Dirección del fix |
+|----|-----|-----------|-------|-------------------|
+| B1 | Atajo `/` roto: busca `input[placeholder="Search city..."]` pero el placeholder real es `"Search..."`; el footer anuncia un atajo que no hace nada | `home-content.tsx:349`, `CitySearch.tsx:92` | seguro | Usar `ref`/`id` en lugar del placeholder |
+| B2 | `decodeEntities` no decodifica `&apos;` ni entidades hex («L&apos;Hospitalet» se muestra literal); `&amp;` se reemplaza antes que `&lt;`/`&gt;` → doble decodificación | `lib/meteoclimatic.ts:5-8` | seguro | Añadir `&apos;`/hex; decodificar `&amp;` en último lugar |
+| B3 | La banda de spread del gráfico sombrea 0→max en vez de min→max (dos `<Area>` con el mismo `stackId` apilan los valores) | `ModelComparisonChart.tsx:192-193` | probable | Area `min` transparente + Area `max−min` apilada encima |
+| B4 | `hour`/`range` de URL sin clamp: `?hour=5000` produce slider fuera de rango y «+5000h»; al reducir el rango `selectedHour` no se reajusta | `useUrlState.ts:36-39`, `home-content.tsx:312-318` | seguro | Clamp de `hour` a `[0, effectiveMaxHours−1]`, whitelist de `range` |
+| B5 | Dedup de estaciones O(n²) con materialización de array por iteración (~4.000 AEMET × N Meteoclimatic): jank en móvil al activar Meteoclimatic | `StationDashboard.tsx:98-103` | seguro | Índice por celdas de 0.01° (lo necesita también S5) |
+| B6 | `CitySearch` abre el dropdown con un side-effect dentro de `queryFn`: las búsquedas servidas del caché (staleTime 1 h) no lo abren | `CitySearch.tsx:62` | probable | Efecto sobre `results`, no side-effect en `queryFn` |
+| B7 | `MapRecenter` re-centra el mapa en cada click porque el efecto depende de `center` además del `recenterToken` | `MapPicker.tsx:45-51` | probable | Depender solo de `token` (leer `center` de un ref) |
+| B8 | Las respuestas API no cumplen el contrato de `CONVENCIONES.md` §5: errores `{error: string}` vs `{error:{code,message}}`; `/api/locations` devuelve array plano; `/api/refresh` usa otras claves; `/api/aemet` devuelve **200 con `error`** sin API key (provoca 5 reintentos inútiles del cliente); redondeo de caché 2 decimales vs 1 documentado | todas las rutas + `lib/cacheKey.ts:12` | seguro | Decidir contrato canónico y alinear código **y** doc |
+| B9 | `formatAge` sin i18n: en español se muestra «Actualizado now» | `lib/formatAge.ts:4`, `home-content.tsx:369` | seguro | Parametrizar locale (relevante para S6) |
+| B10 | `position` no se sincroniza con popstate (el handler actualiza `urlState` pero el mapa/forecast no cambian) y el early-return `Object.keys(parsed).length === 0` impide restaurar defaults al volver a la URL limpia | `home-content.tsx:73`, `useUrlState.ts:128-147` | posible | Derivar `position` de `urlState`; eliminar el early-return |
+| B11 | Zoom de pinch deshabilitado (`maximumScale: 1, userScalable: false`): barrera de accesibilidad con tipografías de 9-10 px | `app/layout.tsx:29-35` | seguro | Eliminar ambas restricciones (S7 sube además la tipografía mínima) |
+| B12 | `/api/aemet` y `/api/meteoclimatic` sin rate limit (el resto de rutas lo aplican; AEMET tiene cuota por API key) | `app/api/aemet/route.ts`, `app/api/meteoclimatic/route.ts` | seguro | Aplicar `rateLimit` como en las demás rutas |
+| B13 | Estaciones Meteoclimatic sin `<georss:point>` reciben lat/lon 0 («Null Island») en vez de descartarse; hoy las oculta el filtro bbox por casualidad, pero S5 (radio) las haría visibles con distancias falsas | `lib/meteoclimatic.ts:40-46` | seguro | Devolver `null` en `parseItem` o marcar sin coordenadas |
+
+Además, limpieza menor: 10 warnings de lint por imports/variables sin
+usar (`RefreshButton.tsx:25`, `StationCard.tsx:27`, dep innecesaria en
+`StationDashboard.tsx:119` y 7 en archivos de test).
+
+### Verificado sin hallazgo (no perder tiempo aquí)
+
+- Paridad i18n ES/EN completa (el tipo `Record<Locale, …>` la fuerza).
+- Parser Meteoclimatic: la regex de código acepta códigos reales
+  (`[A-Za-z0-9]+`), el orden lat/lon de `georss:point` es correcto,
+  `bearingToDirection` correcto.
+- `lib/rateLimit.ts` sin fuga de memoria (purga de buckets inactivos OK).
+
+### Tareas
+
+- [ ] **8.1** Reproducir y confirmar los bugs `probable`/`posible`
+  (A2, M1, M2, M6, M9, M11, M12, B3, B6, B7, B10) antes de tocarlos;
+  descartar con nota los que no se confirmen.
+- [ ] **8.2** Fixes ALTA (A1, A2, A3) + tests de regresión
+  (`dateUtils.test.ts` con offsets de navegador simulados vía
+  `vi.setSystemTime`/mock de `getTimezoneOffset`; `useUrlState.test.ts`
+  con `?metric=foo`; test de dedup AEMET con dos `fint`).
+- [ ] **8.3** Bloque fechas/zonas horarias (M4, M5) — depende de A1.
+- [ ] **8.4** Bloque API/caché (M6, M7, M10, B8, B12) — definir primero
+  el contrato canónico de respuesta/error (actualizar
+  `CONVENCIONES.md` §5 si se decide cambiar la doc en vez del código).
+- [ ] **8.5** Bloque SW/hidratación (M2, M3) — probar el flujo de deploy
+  con build de producción local (`npm run build && npm start`).
+- [ ] **8.6** Bloque estaciones (M1, M8, M9, M11, B5, B13) —
+  coordinar con S5: si S5 se ejecuta después, dejar los fixes en la
+  estructura actual; M9 desaparece con S5.
+- [ ] **8.7** Bloque UI/URL (M12, M13, B1, B3, B4, B6, B7, B9, B10, B11).
+- [ ] **8.8** Limpieza de warnings de lint y dependencia innecesaria de
+  `useMemo`.
+- [ ] **8.9** Pasada final: `npm test`, `npm run lint` (0 errores,
+  0 warnings), smoke test manual en móvil/desktop con URL compartida,
+  cambio de tema y tab de estaciones.
+
+### Criterios de aceptación
+
+- Los 3 bugs ALTA corregidos con test de regresión que falla en `main`.
+- `npm run lint` sin errores ni warnings.
+- Ningún parámetro de URL malformado provoca pantalla de error.
+- La hora «Now» es correcta con el navegador en una zona horaria
+  distinta a la de la ubicación consultada (probar con `TZ=America/New_York`).
+- Los bugs `probable` no confirmados quedan documentados como descartados.
+
+### Riesgos
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Fixes de fechas (A1, M4, M5) rompen casos que «funcionaban» por compensación de errores | Tests con matriz de zonas horarias (UTC, Madrid, Nueva York) antes de cambiar |
+| Alinear el contrato API (B8) rompe consumidores (el propio cliente) | Cambiar cliente y servidor en el mismo commit; los tests de rutas existentes cubren el contrato |
+| El fix del SW (M2) deja SWs viejos activos en clientes | `skipWaiting` + borrado de caches antiguas en `activate` por nombre versionado |
+
+---
+
 ## Orden y dependencias
 
 ```
+S8 (bugs) ── primero: estabiliza la base; varios fixes tocan los
+             mismos archivos que S5/S6 (M7→S6, M8/M9/M11/B5/B13→S5,
+             B9→S6, B11→S7) y A1/M13 afectan a cualquier trabajo posterior
+
 S5 (estaciones por ciudad) ──┐
-                             ├── independientes entre sí
+                             ├── independientes entre sí, tras S8
 S6 (refresco móvil) ─────────┘
-S7 (estética) — preferible en último lugar: toca los mismos
-                componentes que S5/S6 y así evita re-trabajo
+
+S7 (estética) — en último lugar: toca los mismos componentes que
+                S5/S6 y así evita re-trabajo
 ```
+
+Excepción razonable: M9 puede saltarse en S8 si S5 va inmediatamente
+después (el filtrado por radio elimina los bboxes).
 
 ## Criterio de cierre por sprint
 

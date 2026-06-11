@@ -345,6 +345,23 @@ export default function MapPicker({
     }
   }, [showHeatmap])
 
+  // PC: move the canvas into Leaflet's overlayPane so it sits in the
+  // correct z-index slot of Leaflet's own layer system instead of
+  // competing with the MapContainer as a sibling. The overlayPane is
+  // z-index: 400 — above the tiles (200) and below the shadow/marker
+  // (500/600) so the user's location pin still wins.
+  useEffect(() => {
+    if (!mapInstance || !canvasRef.current) return
+    const pane = mapInstance.getPane('overlayPane')
+    if (pane && canvasRef.current.parentElement !== pane) {
+      pane.appendChild(canvasRef.current)
+      // After re-parenting, size the canvas to the map container and
+      // request a redraw. The re-parent can otherwise leave the canvas
+      // at its previous (zero) dimensions on the first paint.
+      mapInstance.invalidateSize()
+    }
+  }, [mapInstance])
+
   const handleMapReady = useCallback((map: L.Map) => {
     setMapInstance(map)
   }, [])
@@ -393,7 +410,7 @@ export default function MapPicker({
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full rounded-lg pointer-events-none"
-        style={{ zIndex: 1000 }}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
         aria-hidden="true"
       />
       <div className="sr-only" role="status" aria-live="polite">

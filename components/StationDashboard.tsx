@@ -205,14 +205,13 @@ export default function StationDashboard({ position = null, placeName }: Station
   }, [allStations, position, radius, regionBounds, search])
 
   // AEMET is the primary, reliable source: it alone gates the loading state
-  // and the blocking error. Meteoclimatic is supplementary (opt-in checkbox),
-  // so its failure must never blank the dashboard or hide AEMET stations — it
-  // only surfaces a subtle notice. This also prevents Meteoclimatic's retries
+  // and the blocking error. Meteoclimatic and Meteocat are supplementary
+  // (opt-in or always-on-but-degrades), so their failures must never blank
+  // the dashboard or hide AEMET stations. This also prevents their retries
   // from keeping the whole tab spinning while AEMET data is already available.
   const showLoading = aemetQ.isLoading
   const error = aemetQ.error
   const showError = !!error && !aemetQ.isFetching
-  const meteoUnavailable = includeMeteo && !!meteoQ.error && !meteoQ.isFetching
 
   return (
     <div className="flex flex-col gap-3 animate-fadeIn">
@@ -275,12 +274,6 @@ export default function StationDashboard({ position = null, placeName }: Station
           ↻
         </button>
       </div>
-
-      {meteoUnavailable && (
-        <p className="text-[10px] text-amber-500/80 -mt-1" role="status">
-          {STRINGS[locale].meteoclimaticUnavailable}
-        </p>
-      )}
 
       <div className="w-full aspect-[2/1] min-h-[180px] max-h-[320px] rounded-lg overflow-hidden">
         <StationMap stations={filtered} />

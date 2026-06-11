@@ -64,7 +64,6 @@ export const STRINGS: Record<Locale, {
   noResults: string
   noStationsRegion: string
   stationError: string
-  meteoclimaticUnavailable: string
   retry: string
   searchPlaceholder: string
   humidity: string
@@ -132,7 +131,6 @@ export const STRINGS: Record<Locale, {
     noResults: 'Sin resultados para',
     noStationsRegion: 'Sin estaciones en esta región',
     stationError: 'Error al cargar estaciones',
-    meteoclimaticUnavailable: 'Meteoclimatic no disponible ahora mismo; mostrando solo estaciones AEMET.',
     retry: 'Reintentar',
     searchPlaceholder: 'Buscar...',
     humidity: 'Humedad',
@@ -200,7 +198,6 @@ export const STRINGS: Record<Locale, {
     noResults: 'No results for',
     noStationsRegion: 'No stations in this region',
     stationError: 'Error loading stations',
-    meteoclimaticUnavailable: 'Meteoclimatic is unavailable right now; showing AEMET stations only.',
     retry: 'Retry',
     searchPlaceholder: 'Search...',
     humidity: 'Humidity',

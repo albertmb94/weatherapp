@@ -456,7 +456,7 @@ export default function HomeContent() {
     <div className="min-h-screen flex flex-col bg-gray-950 text-white overflow-x-clip pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0 landscape:pb-0">
       <div
         data-header-collapsed={isHeaderCollapsed ? 'true' : 'false'}
-        className={`sticky top-0 z-[1000] bg-gray-900 border-b border-gray-800 shrink-0 px-3 transition-[padding] duration-150 ${
+        className={`sticky top-0 z-[1100] bg-gray-900 border-b border-gray-800 shrink-0 px-3 transition-[padding] duration-150 ${
           isHeaderCollapsed ? 'py-1' : 'py-1.5'
         }`}
       >
@@ -740,7 +740,7 @@ export default function HomeContent() {
         <SavedLocations onSelect={handleCitySelect} />
 
         {showMap && (
-          <div className="h-[40vh] min-h-[260px] max-h-[440px] m-1.5 p-1 rounded-lg border border-border relative shrink-0 overflow-hidden isolate">
+          <div className="h-[40vh] min-h-[260px] max-h-[440px] m-1.5 p-1 rounded-lg border border-border relative shrink-0 overflow-hidden">
             <MapPicker
               position={position}
               recenterToken={recenterToken}
@@ -752,7 +752,7 @@ export default function HomeContent() {
               nowOffset={startIndex}
               showRadar={showRadar}
             />
-            <div className="absolute bottom-2.5 left-2.5 z-[500] bg-gray-900/90 p-2 rounded-lg shadow-lg pointer-events-none">
+            <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-gray-900/90 p-2 rounded-lg shadow-lg pointer-events-none">
               <ColorLegend metric={legendMetric} />
             </div>
           </div>

@@ -393,7 +393,7 @@ export default function MapPicker({
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full rounded-lg pointer-events-none"
-        style={{ zIndex: 450 }}
+        style={{ zIndex: 1000 }}
         aria-hidden="true"
       />
       <div className="sr-only" role="status" aria-live="polite">

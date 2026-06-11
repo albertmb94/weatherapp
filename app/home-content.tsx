@@ -14,6 +14,7 @@ import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
 import MobileTabBar from '@/components/MobileTabBar'
 import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import RefreshButton from '@/components/RefreshButton'
 import { DailySummarySkeleton, InsightsSkeleton, ChartSkeleton } from '@/components/Skeletons'
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId } from '@/lib/models'
@@ -46,8 +47,38 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
   return { time, timeStrings, series, utcOffsetSeconds: data.utcOffsetSeconds }
 }
 
-const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false })
-const StationDashboard = dynamic(() => import('@/components/StationDashboard'), { ssr: false })
+// A new deploy changes the hashed chunk filenames. A browser tab that was
+// opened before the deploy still references the old names, so lazy-loading a
+// route (e.g. the Stations dashboard) throws a ChunkLoadError when its chunk
+// 404s. Recover with a one-shot full reload, which fetches fresh HTML that
+// points at the current chunks. Guarded via sessionStorage so we never loop.
+function importWithChunkReload<T>(factory: () => Promise<T>): Promise<T> {
+  return factory().catch((err: unknown) => {
+    const isChunkError =
+      err instanceof Error &&
+      (err.name === 'ChunkLoadError' ||
+        /loading chunk|failed to load chunk|dynamically imported module/i.test(err.message))
+    if (isChunkError && typeof window !== 'undefined') {
+      const KEY = 'chunkReloadAt'
+      const last = Number(sessionStorage.getItem(KEY) || '0')
+      if (Date.now() - last > 10_000) {
+        sessionStorage.setItem(KEY, String(Date.now()))
+        window.location.reload()
+      }
+    }
+    throw err
+  })
+}
+
+const MapPicker = dynamic(() => importWithChunkReload(() => import('@/components/MapPicker')), { ssr: false })
+const StationDashboard = dynamic(() => importWithChunkReload(() => import('@/components/StationDashboard')), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
+      <div className="animate-spin w-5 h-5 border-2 border-gray-600 border-t-white rounded-full" />
+    </div>
+  ),
+})
 
 const DEFAULT_POS: [number, number] = [41.4500, 2.2475]
 const DEFAULT_CITY = 'Badalona'
@@ -801,7 +832,21 @@ export default function HomeContent() {
           </div>
 
           {activeTab === 'stations' ? (
-            <StationDashboard position={position} placeName={cityName} />
+            <ErrorBoundary
+              fallback={
+                <div className="text-center py-10" role="alert">
+                  <p className="text-sm text-red-400">{STRINGS[locale].stationError}</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"
+                  >
+                    {STRINGS[locale].retry}
+                  </button>
+                </div>
+              }
+            >
+              <StationDashboard position={position} placeName={cityName} />
+            </ErrorBoundary>
           ) : (
             <div
               // eslint-disable-next-line react-hooks/refs

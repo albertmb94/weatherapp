@@ -196,9 +196,23 @@ export default function MapPicker({
     }
     mapInstance.on('moveend', onMoveOrZoom)
     mapInstance.on('zoomend', onMoveOrZoom)
+
+    // PC: the map container can change size (window resize, sidebar
+    // collapse, devtools open/close) and the heatmap canvas needs to
+    // re-render against the new dimensions. The 'resize' event on the
+    // map instance is fired by Leaflet when the container size changes;
+    // ResizeObserver catches container size changes that don't go
+    // through Leaflet (e.g. flexbox reflow after tab switch).
+    mapInstance.on('resize', onMoveOrZoom)
+    const container = mapInstance.getContainer()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => onMoveOrZoom()) : null
+    if (ro) ro.observe(container)
+
     return () => {
       mapInstance.off('moveend', onMoveOrZoom)
       mapInstance.off('zoomend', onMoveOrZoom)
+      mapInstance.off('resize', onMoveOrZoom)
+      if (ro) ro.disconnect()
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [mapInstance])
@@ -379,7 +393,7 @@ export default function MapPicker({
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full rounded-lg pointer-events-none"
-        style={{ zIndex: 400 }}
+        style={{ zIndex: 450 }}
         aria-hidden="true"
       />
       <div className="sr-only" role="status" aria-live="polite">

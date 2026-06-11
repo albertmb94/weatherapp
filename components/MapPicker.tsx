@@ -345,34 +345,6 @@ export default function MapPicker({
     }
   }, [showHeatmap])
 
-  // Reparent the canvas into Leaflet's own container (the
-  // `.leaflet-container` div) so it sits in Leaflet's own stacking
-  // context. The previous attempt put it into the `overlayPane` but
-  // that pane has no explicit position/dimensions of its own, so the
-  // canvas inherited zero size and vanished. The `.leaflet-container`
-  // has position:relative and the map's full pixel size, so an
-  // absolutely-positioned canvas inside it fills the map.
-  useEffect(() => {
-    if (!mapInstance || !canvasRef.current) return
-    const container = mapInstance.getContainer()
-    if (canvasRef.current.parentElement !== container) {
-      container.appendChild(canvasRef.current)
-      // After re-parenting, the canvas style left over from the
-      // sibling layout (top:0 left:0 width:100% height:100%) is
-      // exactly what we want inside the container, so we just
-      // re-assert it and trigger a redraw.
-      const c = canvasRef.current
-      c.style.position = 'absolute'
-      c.style.top = '0'
-      c.style.left = '0'
-      c.style.width = '100%'
-      c.style.height = '100%'
-      c.style.zIndex = '450'
-      c.style.pointerEvents = 'none'
-      mapInstance.invalidateSize()
-    }
-  }, [mapInstance])
-
   const handleMapReady = useCallback((map: L.Map) => {
     setMapInstance(map)
   }, [])
@@ -386,11 +358,11 @@ export default function MapPicker({
   }, [showHeatmap, loadingHeatmap, errorMsg, gridSeries.length])
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full overflow-hidden rounded-lg">
       <MapContainer
         center={position}
         zoom={6}
-        className="w-full h-full rounded-lg transition-all duration-300"
+        className="w-full h-full"
         zoomControl={true}
       >
         <TileLayer
@@ -420,8 +392,8 @@ export default function MapPicker({
       </MapContainer>
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full rounded-lg pointer-events-none"
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ zIndex: 500 }}
         aria-hidden="true"
       />
       <div className="sr-only" role="status" aria-live="polite">

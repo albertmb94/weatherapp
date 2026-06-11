@@ -84,10 +84,10 @@ describe('StationDashboard retry behavior', () => {
         await vi.advanceTimersByTimeAsync(6000)
       })
 
-      // AEMET (primary) retries 5×  -> 6 attempts. Meteoclimatic is
-      // supplementary and fails fast on transient errors (2 retries) -> 3
-      // attempts. 6 + 3 = 9 total calls.
-      expect(callCount).toBe(9)
+      // AEMET (primary) retries 5×  -> 6 attempts. Meteoclimatic and Meteocat
+      // are supplementary and fail fast on transient errors (2 retries each)
+      // -> 3 attempts each. 6 + 3 + 3 = 12 total calls.
+      expect(callCount).toBe(12)
       expect(screen.getByText('Error loading stations')).toBeInTheDocument()
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
     })

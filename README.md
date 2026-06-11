@@ -16,6 +16,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Environment variables
+
+Weather station data sources are optional and degrade gracefully when not
+configured:
+
+- `METEOCAT_API_KEY` — API key for the [Meteocat](https://apidocs.meteocat.gencat.cat/)
+  XEMA network (official automatic stations in Catalonia). Free for personal
+  use; quotas are monthly, so the `/api/meteocat` route fetches the whole
+  network once and caches it (~30 min). When the key is absent the Stations tab
+  simply shows no Meteocat stations (AEMET and Meteoclimatic still work).
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

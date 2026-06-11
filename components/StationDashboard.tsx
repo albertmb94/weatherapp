@@ -122,8 +122,30 @@ export default function StationDashboard({ position = null, placeName }: Station
     retryDelay: STATION_RETRY_DELAY_MS,
   })
 
+  // Meteocat XEMA: official Catalan network. Location-independent (the route
+  // returns the whole network, cached server-side); we filter by radius
+  // client-side below. No-ops gracefully when the server has no API key.
+  const meteocatQ = useQuery<MeteoclimaticObservation[]>({
+    queryKey: ['meteocat-stations'],
+    queryFn: async () => {
+      const res = await fetch('/api/meteocat')
+      const body = await res.json()
+      if (!res.ok || body.error) throw new Error(body.detail || body.error || `HTTP ${res.status}`)
+      return body.stations as MeteoclimaticObservation[]
+    },
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    retry: (failureCount, err) => {
+      const msg = err instanceof Error ? err.message : ''
+      if (/\b(400|401|403|404)\b/.test(msg)) return false
+      return failureCount < 2
+    },
+    retryDelay: STATION_RETRY_DELAY_MS,
+  })
+
   const allStations = useMemo(() => {
     const aemet = aemetQ.data ?? []
+    const meteocat = meteocatQ.data ?? []
     const meteo = includeMeteo ? (meteoQ.data ?? []) : []
     const seen = new Map<string, MeteoclimaticObservation>()
     const spatialIndex = new Map<string, MeteoclimaticObservation>()
@@ -132,6 +154,17 @@ export default function StationDashboard({ position = null, placeName }: Station
       if (!spatialIndex.has(cell)) spatialIndex.set(cell, s)
     }
     for (const s of aemet) seen.set('A-' + s.code, s)
+    // Meteocat (official) before Meteoclimatic (amateur): when two stations
+    // share a cell, the official reading wins.
+    for (const s of meteocat) {
+      const key = 'C-' + s.code
+      if (seen.has(key)) continue
+      const cell = `${Math.round(s.lat * 100)}:${Math.round(s.lon * 100)}`
+      if (!spatialIndex.has(cell)) {
+        seen.set(key, s)
+        spatialIndex.set(cell, s)
+      }
+    }
     for (const s of meteo) {
       const key = 'M-' + s.code
       if (seen.has(key)) continue
@@ -142,7 +175,7 @@ export default function StationDashboard({ position = null, placeName }: Station
       }
     }
     return [...seen.values()]
-  }, [aemetQ.data, meteoQ.data, includeMeteo])
+  }, [aemetQ.data, meteocatQ.data, meteoQ.data, includeMeteo])
 
   // Filter: when a position is provided we filter AEMET by the
   // user-selected radius; otherwise we keep the legacy region-bbox
@@ -235,7 +268,7 @@ export default function StationDashboard({ position = null, placeName }: Station
         <div className="flex-1" />
         <span className="text-[10px] text-gray-600">{filtered.length}</span>
         <button
-          onClick={() => { aemetQ.refetch(); if (includeMeteo) meteoQ.refetch() }}
+          onClick={() => { aemetQ.refetch(); meteocatQ.refetch(); if (includeMeteo) meteoQ.refetch() }}
           disabled={aemetQ.isFetching}
           className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors cursor-pointer disabled:opacity-50"
         >
@@ -283,7 +316,7 @@ export default function StationDashboard({ position = null, placeName }: Station
           <p className="text-sm text-red-400">{STRINGS[locale].stationError}</p>
           <p className="text-xs text-gray-500 mt-1">{error instanceof Error ? error.message : String(error)}</p>
           <button
-            onClick={() => { aemetQ.refetch(); if (includeMeteo) meteoQ.refetch() }}
+            onClick={() => { aemetQ.refetch(); meteocatQ.refetch(); if (includeMeteo) meteoQ.refetch() }}
             className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"
           >
             {STRINGS[locale].retry}

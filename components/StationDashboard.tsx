@@ -111,7 +111,14 @@ export default function StationDashboard({ position = null, placeName }: Station
     enabled: includeMeteo,
     refetchInterval: 5 * 60 * 1000,
     staleTime: 2 * 60 * 1000,
-    retry: STATION_RETRY_COUNT,
+    // Meteoclimatic frequently blocks server-side requests with a 4xx
+    // (403/404). Those won't recover on retry, so fail fast instead of
+    // hammering for ~5s; only retry transient (5xx/network) errors.
+    retry: (failureCount, err) => {
+      const msg = err instanceof Error ? err.message : ''
+      if (/\b(400|403|404)\b/.test(msg)) return false
+      return failureCount < 2
+    },
     retryDelay: STATION_RETRY_DELAY_MS,
   })
 
@@ -164,11 +171,15 @@ export default function StationDashboard({ position = null, placeName }: Station
     return result
   }, [allStations, position, radius, regionBounds, search])
 
-  const isLoading = aemetQ.isLoading || (includeMeteo && meteoQ.isLoading)
-  const isFetching = aemetQ.isFetching || (includeMeteo && meteoQ.isFetching)
-  const error = aemetQ.error ?? (includeMeteo ? meteoQ.error : null)
-  const showLoading = isLoading || isFetching
-  const showError = !!error && !isFetching
+  // AEMET is the primary, reliable source: it alone gates the loading state
+  // and the blocking error. Meteoclimatic is supplementary (opt-in checkbox),
+  // so its failure must never blank the dashboard or hide AEMET stations — it
+  // only surfaces a subtle notice. This also prevents Meteoclimatic's retries
+  // from keeping the whole tab spinning while AEMET data is already available.
+  const showLoading = aemetQ.isLoading
+  const error = aemetQ.error
+  const showError = !!error && !aemetQ.isFetching
+  const meteoUnavailable = includeMeteo && !!meteoQ.error && !meteoQ.isFetching
 
   return (
     <div className="flex flex-col gap-3 animate-fadeIn">
@@ -225,12 +236,18 @@ export default function StationDashboard({ position = null, placeName }: Station
         <span className="text-[10px] text-gray-600">{filtered.length}</span>
         <button
           onClick={() => { aemetQ.refetch(); if (includeMeteo) meteoQ.refetch() }}
-          disabled={isLoading}
+          disabled={aemetQ.isFetching}
           className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors cursor-pointer disabled:opacity-50"
         >
           ↻
         </button>
       </div>
+
+      {meteoUnavailable && (
+        <p className="text-[10px] text-amber-500/80 -mt-1" role="status">
+          {STRINGS[locale].meteoclimaticUnavailable}
+        </p>
+      )}
 
       <div className="w-full aspect-[2/1] min-h-[180px] max-h-[320px] rounded-lg overflow-hidden">
         <StationMap stations={filtered} />

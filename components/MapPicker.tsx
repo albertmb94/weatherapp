@@ -345,19 +345,30 @@ export default function MapPicker({
     }
   }, [showHeatmap])
 
-  // PC: move the canvas into Leaflet's overlayPane so it sits in the
-  // correct z-index slot of Leaflet's own layer system instead of
-  // competing with the MapContainer as a sibling. The overlayPane is
-  // z-index: 400 — above the tiles (200) and below the shadow/marker
-  // (500/600) so the user's location pin still wins.
+  // Reparent the canvas into Leaflet's own container (the
+  // `.leaflet-container` div) so it sits in Leaflet's own stacking
+  // context. The previous attempt put it into the `overlayPane` but
+  // that pane has no explicit position/dimensions of its own, so the
+  // canvas inherited zero size and vanished. The `.leaflet-container`
+  // has position:relative and the map's full pixel size, so an
+  // absolutely-positioned canvas inside it fills the map.
   useEffect(() => {
     if (!mapInstance || !canvasRef.current) return
-    const pane = mapInstance.getPane('overlayPane')
-    if (pane && canvasRef.current.parentElement !== pane) {
-      pane.appendChild(canvasRef.current)
-      // After re-parenting, size the canvas to the map container and
-      // request a redraw. The re-parent can otherwise leave the canvas
-      // at its previous (zero) dimensions on the first paint.
+    const container = mapInstance.getContainer()
+    if (canvasRef.current.parentElement !== container) {
+      container.appendChild(canvasRef.current)
+      // After re-parenting, the canvas style left over from the
+      // sibling layout (top:0 left:0 width:100% height:100%) is
+      // exactly what we want inside the container, so we just
+      // re-assert it and trigger a redraw.
+      const c = canvasRef.current
+      c.style.position = 'absolute'
+      c.style.top = '0'
+      c.style.left = '0'
+      c.style.width = '100%'
+      c.style.height = '100%'
+      c.style.zIndex = '450'
+      c.style.pointerEvents = 'none'
       mapInstance.invalidateSize()
     }
   }, [mapInstance])

@@ -162,48 +162,54 @@ function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' |
   return `${day} ${h0}–${h1}`
 }
 
-function CellContent({ id, r }: { id: MetricCellId; r: Row }) {
+interface CellResult {
+  node: React.ReactNode
+  bg?: string
+  text?: string
+}
+
+function cellData(id: MetricCellId, r: Row): CellResult {
   switch (id) {
     case 'cond':
-      return <span className="inline-flex items-center justify-center"><WeatherConditionIcon icon={r.icon} size="sm" /></span>
+      return { node: <span className="inline-flex items-center justify-center"><WeatherConditionIcon icon={r.icon} size="sm" /></span> }
     case 'temp':
-      return <CellInner value={r.tempMean} metric="temperature" suffix="°" />
+      return cellInner({ value: r.tempMean, metric: 'temperature', suffix: '°' })
     case 'min':
-      return <CellInner value={r.tempMin} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMin)} />
+      return cellInner({ value: r.tempMin, metric: 'temperature', suffix: '°', emoji: tempEmoji(r.tempMin) })
     case 'max':
-      return <CellInner value={r.tempMax} metric="temperature" suffix="°" emoji={tempEmoji(r.tempMax)} />
+      return cellInner({ value: r.tempMax, metric: 'temperature', suffix: '°', emoji: tempEmoji(r.tempMax) })
     case 'clouds':
-      return <CellInner value={r.cloudMean} metric="cloud_cover" suffix="%" />
+      return cellInner({ value: r.cloudMean, metric: 'cloud_cover', suffix: '%' })
     case 'wind':
-      return <CellInner value={r.windMean} metric="wind_speed" icon={<WindArrow degrees={r.windDirection} />} tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
+      return cellInner({ value: r.windMean, metric: 'wind_speed', icon: <WindArrow degrees={r.windDirection} />, tooltip: r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined })
     case 'gusts':
-      return <CellInner value={r.gustsMax} metric="wind_gusts" icon={<WindArrow degrees={r.windDirection} />} tooltip={r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined} />
+      return cellInner({ value: r.gustsMax, metric: 'wind_gusts', icon: <WindArrow degrees={r.windDirection} />, tooltip: r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined })
     case 'precip':
-      return <CellInner value={r.precipSum} metric="precipitation" decimals={1} />
+      return cellInner({ value: r.precipSum, metric: 'precipitation', decimals: 1 })
     case 'humidity':
-      return <CellInner value={r.humidityMean} metric="humidity" suffix="%" />
+      return cellInner({ value: r.humidityMean, metric: 'humidity', suffix: '%' })
     case 'uv':
-      return <CellInner value={r.uvIndexMean} metric="uv_index" decimals={1} />
+      return cellInner({ value: r.uvIndexMean, metric: 'uv_index', decimals: 1 })
     case 'pressure':
-      return <CellInner value={r.pressureMean} metric="pressure" decimals={0} />
+      return cellInner({ value: r.pressureMean, metric: 'pressure', decimals: 0 })
     case 'dewpoint':
-      return <CellInner value={r.dewpointMean} metric="dewpoint" suffix="°" decimals={1} />
+      return cellInner({ value: r.dewpointMean, metric: 'dewpoint', suffix: '°', decimals: 1 })
     case 'visibility':
-      return <CellInner value={r.visibilityMean} metric="visibility" suffix="km" decimals={1} />
+      return cellInner({ value: r.visibilityMean, metric: 'visibility', suffix: 'km', decimals: 1 })
     case 'wave_height':
-      return <CellInner value={r.waveHeightMax} metric="wave_height" suffix="m" decimals={1} />
+      return cellInner({ value: r.waveHeightMax, metric: 'wave_height', suffix: 'm', decimals: 1 })
     case 'wave_period':
-      return <CellInner value={r.wavePeriodMean} metric="wave_period" suffix="s" decimals={0} />
+      return cellInner({ value: r.wavePeriodMean, metric: 'wave_period', suffix: 's', decimals: 0 })
     case 'wave_direction':
-      return <CellInner value={r.waveDirection} metric="wave_direction" suffix="°" decimals={0} icon={<WindArrow degrees={r.waveDirection} />} tooltip={r.waveDirection !== null ? `${Math.round(r.waveDirection)}°` : undefined} />
+      return cellInner({ value: r.waveDirection, metric: 'wave_direction', suffix: '°', decimals: 0, icon: <WindArrow degrees={r.waveDirection} />, tooltip: r.waveDirection !== null ? `${Math.round(r.waveDirection)}°` : undefined })
     case 'wind_wave_height':
-      return <CellInner value={r.windWaveHeightMax} metric="wind_wave_height" suffix="m" decimals={1} />
+      return cellInner({ value: r.windWaveHeightMax, metric: 'wind_wave_height', suffix: 'm', decimals: 1 })
     case 'wind_wave_period':
-      return <CellInner value={r.windWavePeriodMean} metric="wind_wave_period" suffix="s" decimals={0} />
+      return cellInner({ value: r.windWavePeriodMean, metric: 'wind_wave_period', suffix: 's', decimals: 0 })
     case 'swell_wave_height':
-      return <CellInner value={r.swellHeightMax} metric="swell_wave_height" suffix="m" decimals={1} />
+      return cellInner({ value: r.swellHeightMax, metric: 'swell_wave_height', suffix: 'm', decimals: 1 })
     case 'swell_wave_period':
-      return <CellInner value={r.swellPeriodMean} metric="swell_wave_period" suffix="s" decimals={0} />
+      return cellInner({ value: r.swellPeriodMean, metric: 'swell_wave_period', suffix: 's', decimals: 0 })
   }
 }
 
@@ -569,14 +575,19 @@ export default function InsightsTable({
                   <td className={`sticky left-0 z-20 isolate px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
                     {r.label}
                   </td>
-                  {colDefs.map(col => (
-                    <td
-                      key={col.id}
-                      className={`text-center ${bodyBg} ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
-                    >
-                      <CellContent id={col.id} r={r} />
-                    </td>
-                  ))}
+                  {colDefs.map(col => {
+                    const cell = cellData(col.id, r)
+                    const colored = cell.bg !== undefined
+                    return (
+                      <td
+                        key={col.id}
+                        className={`text-center px-1 py-1.5 font-mono tabular-nums ${colored ? '' : bodyBg} ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
+                        style={colored ? { backgroundColor: cell.bg, color: cell.text } : undefined}
+                      >
+                        {cell.node}
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}
@@ -598,20 +609,20 @@ interface CellInnerProps {
   tooltip?: string
 }
 
-function CellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip }: CellInnerProps) {
+function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip }: CellInnerProps): CellResult {
   const bg = getColor(metric, value)
   const text = value !== null ? contrastText(bg) : '#888'
   const display = value !== null
     ? (decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString())
     : '–'
-  return (
-    <span
-      className="text-center px-1 py-1.5 font-mono inline-flex items-center gap-0.5 justify-center w-full"
-      style={{ backgroundColor: bg, color: text }}
-      title={tooltip}
-    >
-      {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
-      <span>{display}{suffix}</span>
-    </span>
-  )
+  return {
+    bg,
+    text,
+    node: (
+      <span className="inline-flex items-center gap-0.5 justify-center" title={tooltip}>
+        {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
+        <span>{display}{suffix}</span>
+      </span>
+    ),
+  }
 }

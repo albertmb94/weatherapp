@@ -506,7 +506,7 @@ export default function InsightsTable({
             <button
               key={b}
               onClick={() => onBucketChange(b)}
-              className={`shrink-0 px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
+              className={`flex-1 px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
                 bucket === b ? 'bg-white/10 text-text-primary' : 'text-text-tertiary hover:text-text-primary'
               }`}
             >
@@ -531,7 +531,7 @@ export default function InsightsTable({
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-xs table-auto [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]">
+          <table className={`w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${showMarine ? 'table-auto' : 'table-fixed'}`}>
           <thead>
             <tr className="bg-surface-raised text-text-secondary">
               <th className="sticky left-0 top-0 isolate bg-surface-raised text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
@@ -566,7 +566,7 @@ export default function InsightsTable({
                   onClick={() => onSelectHour(r.centerIdx)}
                   className="cursor-pointer transition-colors hover:[&>td]:bg-surface-raised"
                 >
-                  <td className={`sticky left-0 z-20 isolate px-1.5 py-1.5 whitespace-nowrap text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
+                  <td className={`sticky left-0 z-20 isolate px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => (

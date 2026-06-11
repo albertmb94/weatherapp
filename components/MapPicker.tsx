@@ -256,22 +256,34 @@ export default function MapPicker({
 
     const canvas = canvasRef.current
     const container = mapInstance.getContainer()
-    const dpr = window.devicePixelRatio || 1
     const width = container.clientWidth
     const height = container.clientHeight
+    if (width === 0 || height === 0) return
 
-    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-      canvas.width = width * dpr
-      canvas.height = height * dpr
-      canvas.style.width = `${width}px`
-      canvas.style.height = `${height}px`
+    // Cap the backing-store resolution. On a wide desktop (especially HiDPI)
+    // width*devicePixelRatio can exceed the browser/GPU max canvas dimension,
+    // and the whole canvas then fails to paint — which is exactly why the
+    // heatmap showed on mobile (small canvas) but not on desktop. The heatmap
+    // is a smooth bilinear gradient, so rendering at a capped internal
+    // resolution and letting CSS scale it up is visually identical.
+    const dpr = window.devicePixelRatio || 1
+    const MAX_DIM = 2048
+    const rawW = width * dpr
+    const rawH = height * dpr
+    const resScale = Math.min(1, MAX_DIM / Math.max(rawW, rawH))
+    const cw = Math.max(1, Math.round(rawW * resScale))
+    const ch = Math.max(1, Math.round(rawH * resScale))
+
+    if (canvas.width !== cw || canvas.height !== ch) {
+      canvas.width = cw
+      canvas.height = ch
     }
+    canvas.style.width = `${width}px`
+    canvas.style.height = `${height}px`
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const cw = width * dpr
-    const ch = height * dpr
     ctx.clearRect(0, 0, cw, ch)
 
     const realIdx = hourIndex + nowOffset
@@ -279,15 +291,16 @@ export default function MapPicker({
     const allNull = values.every(v => v === null)
     if (allNull) return
 
-    const step = Math.max(1, Math.round(4 * dpr))
+    // Map a backing-store pixel back to a container (CSS) point.
+    const sx = width / cw
+    const sy = height / ch
+    const step = 4
     const imageData = ctx.createImageData(cw, ch)
     const data = imageData.data
 
     for (let py = 0; py < ch; py += step) {
       for (let px = 0; px < cw; px += step) {
-        const containerX = px / dpr
-        const containerY = py / dpr
-        const latLng = mapInstance.containerPointToLatLng(L.point(containerX, containerY))
+        const latLng = mapInstance.containerPointToLatLng(L.point(px * sx, py * sy))
         const value = bilinearInterpolate(latLng.lat, latLng.lng, gridCells, values as number[], HEATMAP_ROWS, HEATMAP_COLS)
         const color = getColor(effectiveMetric, value)
         const [r, g, b] = parseColor(color)

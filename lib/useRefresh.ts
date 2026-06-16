@@ -50,6 +50,7 @@ export function useRefresh(): UseRefreshResult {
       queryClient.invalidateQueries({ queryKey: ['forecast'] })
       queryClient.invalidateQueries({ queryKey: ['refresh-status'] })
       queryClient.invalidateQueries({ queryKey: ['aemet-stations'] })
+      queryClient.invalidateQueries({ queryKey: ['meteocat-stations'] })
       queryClient.invalidateQueries({ queryKey: ['meteoclimatic'] })
       queryClient.invalidateQueries({ queryKey: ['meteoclimatic-coord'] })
 

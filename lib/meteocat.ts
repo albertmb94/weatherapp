@@ -192,7 +192,12 @@ async function getJson(url: string, apiKey: string, signal?: AbortSignal): Promi
  */
 export async function fetchMeteocatStations(apiKey: string, signal?: AbortSignal): Promise<MeteoclimaticObservation[]> {
   const day = todayPathMadrid()
-  const metaJson = await getJson(`${BASE_URL}/estacions/metadades?estat=ope`, apiKey, signal)
+  // The XEMA API rejects `?estat=ope` unless `data=` is also supplied
+  // (HTTP 400: "Els paràmetres 'data' i 'estat' són necessaris conjuntament").
+  // Returning all stations is cheap (~245 records, single response) and the
+  // downstream pipeline drops anything without a current temperature reading,
+  // so non-operational stations fall out naturally without extra filtering.
+  const metaJson = await getJson(`${BASE_URL}/estacions/metadades`, apiKey, signal)
   const meta = parseStationsMetadata(metaJson)
 
   const entries = Object.entries(XEMA_VAR) as [keyof typeof XEMA_VAR, number][]

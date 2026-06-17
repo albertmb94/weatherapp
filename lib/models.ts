@@ -22,6 +22,7 @@ export const MODELS: WeatherModel[] = [
 export type MetricId =
   | 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation'
   | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility'
+  | 'sea_surface_temperature'
   | 'wave_height' | 'wave_period' | 'wave_direction'
   | 'wind_wave_height' | 'wind_wave_period'
   | 'swell_wave_height' | 'swell_wave_period'
@@ -47,6 +48,7 @@ export const METRICS: Metric[] = [
   { id: 'pressure', label: 'Pressure', unit: 'hPa', hourlyParam: 'surface_pressure', group: 'land' },
   { id: 'dewpoint', label: 'Dewpoint', unit: '°C', hourlyParam: 'dewpoint_2m', group: 'land' },
   { id: 'visibility', label: 'Visibility', unit: 'km', hourlyParam: 'visibility', group: 'land' },
+  { id: 'sea_surface_temperature', label: 'Sea Temperature', unit: '°C', hourlyParam: 'sea_surface_temperature', group: 'marine' },
   { id: 'wave_height', label: 'Wave Height', unit: 'm', hourlyParam: 'wave_height', group: 'marine' },
   { id: 'wave_period', label: 'Wave Period', unit: 's', hourlyParam: 'wave_period', group: 'marine' },
   { id: 'wave_direction', label: 'Wave Direction', unit: '°', hourlyParam: 'wave_direction', group: 'marine' },

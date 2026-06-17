@@ -76,6 +76,14 @@ export const SCALES: Record<ScaleMetric, ColorStop[]> = {
     { value: 15, color: [0, 200, 100] },
     { value: 30, color: [0, 150, 255] },
   ],
+  sea_surface_temperature: [
+    { value: 0, color: [30, 0, 100] },
+    { value: 8, color: [0, 120, 220] },
+    { value: 14, color: [0, 190, 200] },
+    { value: 20, color: [0, 200, 80] },
+    { value: 26, color: [255, 220, 0] },
+    { value: 32, color: [255, 60, 0] },
+  ],
   wave_height: [
     { value: 0, color: [0, 180, 0] },
     { value: 0.5, color: [255, 255, 0] },

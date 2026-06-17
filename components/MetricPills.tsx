@@ -82,6 +82,12 @@ const ICONS: Record<MetricId, React.ReactNode> = {
       <circle cx="8" cy="8" r="2" />
     </svg>
   ),
+  sea_surface_temperature: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+      <path d="M9.5 2.5a1.5 1.5 0 0 1 3 0v6a2.5 2.5 0 1 1-3 0z" />
+      <path d="M1 13c1.3-1.6 2.6-1.6 4 0s2.7 1.6 4 0" strokeOpacity={0.6} />
+    </svg>
+  ),
   wave_height: (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
       <path d="M1 10c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0" />

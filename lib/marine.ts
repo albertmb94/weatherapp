@@ -14,6 +14,7 @@ export interface MarineResult {
 interface MarineRaw {
   hourly: {
     time: string[]
+    sea_surface_temperature?: (number | null)[]
     wave_height?: (number | null)[]
     wave_period?: (number | null)[]
     wave_direction?: (number | null)[]

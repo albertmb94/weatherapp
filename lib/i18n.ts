@@ -24,6 +24,7 @@ export const STRINGS: Record<Locale, {
   tablePressure: string
   tableDewpoint: string
   tableVisibility: string
+  tableSeaTemp: string
   tableWaveHeight: string
   tableWavePeriod: string
   tableWaveDirection: string
@@ -91,6 +92,7 @@ export const STRINGS: Record<Locale, {
     tablePressure: 'Pres hPa',
     tableDewpoint: 'Rocío °C',
     tableVisibility: 'Vis km',
+    tableSeaTemp: 'Mar °C',
     tableWaveHeight: 'Ola m',
     tableWavePeriod: 'Periodo s',
     tableWaveDirection: 'Dir ola',
@@ -158,6 +160,7 @@ export const STRINGS: Record<Locale, {
     tablePressure: 'Pres hPa',
     tableDewpoint: 'Dew °C',
     tableVisibility: 'Vis km',
+    tableSeaTemp: 'Sea °C',
     tableWaveHeight: 'Wave m',
     tableWavePeriod: 'Period s',
     tableWaveDirection: 'Wave dir',

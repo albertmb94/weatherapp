@@ -58,6 +58,7 @@ describe('fetchMarine', () => {
       json: async () => ({
         hourly: {
           time: ['2026-01-01T00:00', '2026-01-01T01:00'],
+          sea_surface_temperature: [18.2, 18.4],
           wave_height: [0.5, 0.6],
           wave_period: [6, 7],
           swell_wave_height: [0.2, 0.3],
@@ -69,11 +70,26 @@ describe('fetchMarine', () => {
     const result = await fetchMarine(41.39, 2.17, METRICS, 1)
 
     expect(Object.keys(result.series)).toEqual(['marine_global'])
+    expect(result.series.marine_global.sea_surface_temperature).toEqual([18.2, 18.4])
     expect(result.series.marine_global.wave_height).toEqual([0.5, 0.6])
     expect(result.series.marine_global.wave_period).toEqual([6, 7])
     expect(result.series.marine_global.swell_wave_height).toEqual([0.2, 0.3])
     expect(result.time).toHaveLength(2)
     expect(result.utcOffsetSeconds).toBe(3600)
+  })
+
+  it('requests the sea surface temperature parameter', async () => {
+    vi.mocked(fetchWithTimeout).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        hourly: { time: ['2026-01-01T00:00'], sea_surface_temperature: [18.2] },
+      }),
+    } as Response)
+
+    await fetchMarine(41.39, 2.17, METRICS, 1)
+    const url = vi.mocked(fetchWithTimeout).mock.calls[0]?.[0] as string
+    expect(url).toContain('sea_surface_temperature')
   })
 
   it('throws on non-OK response', async () => {

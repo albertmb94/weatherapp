@@ -4,12 +4,13 @@ import { parseOpenMeteoTimes } from './dateUtils'
 
 export const MARINE_API_DAYS_MAX = 7
 
-// Sea surface temperature is NOT provided by the wave models that back the
-// marine `best_match` default. Open-Meteo serves it from a dedicated ocean
-// model, so it has to be requested explicitly via `models=`. Requesting it
-// alongside the wave variables (without a model) silently returns nulls.
+// Sea surface temperature has to be requested on its own. The marine API
+// resolves `best_match` to a single model per request, so mixing SST with the
+// wave variables makes it pick a wave model that returns null SST. Fetching it
+// in an isolated request (just `hourly=sea_surface_temperature`, no `models=`,
+// which the marine endpoint does not accept) lets best_match pick the ocean
+// model that actually serves it.
 export const SST_METRIC_ID = 'sea_surface_temperature'
-export const SST_MODEL = 'meteofrance_sea_surface_temperature'
 
 export interface MarineResult {
   time: Date[]
@@ -33,10 +34,10 @@ function numberArray(value: unknown, length: number): (number | null)[] {
 }
 
 /**
- * Fetch the sea surface temperature series from its dedicated ocean model and
- * return it aligned to the canonical `baseTimeStrings` grid (the wave grid).
- * Open-Meteo suffixes variable names with the model id when `models=` is set,
- * so we look the value up by prefix to stay robust to both shapes.
+ * Fetch the sea surface temperature series in an isolated request and return it
+ * aligned to the canonical `baseTimeStrings` grid (the wave grid). `cell_selection=sea`
+ * snaps near-shore coordinates to the nearest ocean cell so coastal points
+ * still resolve to data.
  */
 async function fetchSeaSurfaceTemperature(
   lat: number,
@@ -49,7 +50,7 @@ async function fetchSeaSurfaceTemperature(
     latitude: lat.toString(),
     longitude: lon.toString(),
     hourly: SST_METRIC_ID,
-    models: SST_MODEL,
+    cell_selection: 'sea',
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
   })

@@ -78,7 +78,7 @@ describe('fetchMarine', () => {
     expect(result.utcOffsetSeconds).toBe(3600)
   })
 
-  it('fetches sea surface temperature from its dedicated ocean model', async () => {
+  it('fetches sea surface temperature in an isolated request', async () => {
     vi.mocked(fetchWithTimeout).mockResolvedValue({
       ok: true,
       status: 200,
@@ -90,15 +90,17 @@ describe('fetchMarine', () => {
     await fetchMarine(41.39, 2.17, METRICS, 1)
     const urls = vi.mocked(fetchWithTimeout).mock.calls.map(c => c[0] as string)
 
-    // The wave request must NOT carry SST (best_match waves don't serve it)...
+    // The wave request must NOT carry SST: mixing them makes marine best_match
+    // pick a wave model that returns null SST.
     const waveUrl = urls.find(u => u.includes('wave_height'))
     expect(waveUrl).toBeDefined()
     expect(waveUrl).not.toContain('sea_surface_temperature')
 
-    // ...and SST must be requested separately with its dedicated model.
+    // SST is requested separately, without a (rejected) models param.
     const sstUrl = urls.find(u => u.includes('sea_surface_temperature'))
     expect(sstUrl).toBeDefined()
-    expect(sstUrl).toContain('models=meteofrance_sea_surface_temperature')
+    expect(sstUrl).not.toContain('wave_height')
+    expect(sstUrl).not.toContain('models=')
   })
 
   it('throws on non-OK response', async () => {

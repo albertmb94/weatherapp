@@ -14,10 +14,13 @@ export function exportForecastCsv(
   models: WeatherModel[],
   times: Date[],
   series: Record<string, Record<string, (number | null)[]>>,
-  maxHours: number
+  maxHours: number,
+  utcOffsetSeconds = 0
 ): string {
-  const nonAllMetrics = METRICS.filter(m => m.id !== 'all')
-  const header = ['Hour', 'DateTime', ...models.flatMap(m => nonAllMetrics.map(met => `${m.label} ${met.label}`))]
+  // B-NEW-11: header + units row + UTC offset comment so the file is
+  // self-describing when opened in a spreadsheet.
+  const header = ['Hour', 'DateTime', ...models.flatMap(m => METRICS.map(met => `${m.label} ${met.label}`))]
+  const unitsRow = ['', '', ...models.flatMap(() => METRICS.map(met => met.unit))]
   const rows: string[][] = []
   const limit = Math.min(times.length, maxHours)
 
@@ -25,7 +28,7 @@ export function exportForecastCsv(
     const row: string[] = [
       String(i),
       fakeUtcToLocalIsoString(times[i]),
-      ...models.flatMap(m => nonAllMetrics.map(met => {
+      ...models.flatMap(m => METRICS.map(met => {
         const v = series[m.id]?.[met.id]?.[i]
         return v !== null && v !== undefined ? String(v) : ''
       }))
@@ -33,7 +36,8 @@ export function exportForecastCsv(
     rows.push(row)
   }
 
-  return [header.join(','), ...rows.map(r => r.join(','))].join('\n')
+  const offsetComment = `# utc_offset_seconds=${utcOffsetSeconds}\n`
+  return offsetComment + [header.join(','), unitsRow.join(','), ...rows.map(r => r.join(','))].join('\n')
 }
 
 export function downloadCsv(filename: string, csv: string): void {

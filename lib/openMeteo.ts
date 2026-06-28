@@ -3,9 +3,10 @@ import { METRICS, MODELS } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { fetchMarine, computeMarineDays } from './marine'
 import { parseOpenMeteoTimes } from './dateUtils'
+import { HEATMAP_MAX_MODELS } from './heatmapConfig'
 
 const MAX_FORECAST_MODELS = 6
-const MAX_HEATMAP_MODELS = 4
+const MAX_HEATMAP_MODELS = HEATMAP_MAX_MODELS
 
 // Open-Meteo only returns hourly `uv_index` data when the forecast horizon
 // is at least 7 days. For shorter ranges the key is missing from the
@@ -61,7 +62,7 @@ export async function fetchForecast(
   const landModels = models.filter(m => m.id !== 'marine_global')
   const capped = capModels(landModels, MAX_FORECAST_MODELS, forecastDays)
   const modelIds = capped.map(m => m.id).join(',')
-  const hourlyList = metrics.filter(m => m.id !== 'all').map(m => m.hourlyParam)
+  const hourlyList = metrics.map(m => m.hourlyParam)
   // Always fetch wind direction so insights can render a direction arrow.
   if (!hourlyList.includes('wind_direction_10m')) hourlyList.push('wind_direction_10m')
 
@@ -85,7 +86,6 @@ export async function fetchForecast(
   for (const model of capped) {
     series[model.id] = {}
     for (const metric of metrics) {
-      if (metric.id === 'all') continue
       const key = `${metric.hourlyParam}_${model.id}`
       series[model.id][metric.id] = data.hourly[key] ?? null
     }
@@ -135,16 +135,24 @@ export async function fetchForecast(
 export interface HeatmapGridResult {
   series: (number | null)[][]
   times: Date[]
+  /** B-NEW-5: when true, the user selected more models than
+   *  HEATMAP_MAX_MODELS and the heatmap only reflects the top-N by
+   *  weight. The UI should warn the user. */
+  modelCapExceeded: boolean
+  requestedModels: number
+  usedModels: number
 }
 
 export async function fetchHeatmapGrid(
   latLngs: { lat: number; lng: number }[],
   modelIds: string[],
-  metric: Exclude<MetricId, 'all'>,
+  metric: MetricId,
   forecastDays: number,
   signal?: AbortSignal
 ): Promise<HeatmapGridResult> {
-  if (latLngs.length === 0) return { series: [], times: [] }
+  if (latLngs.length === 0) {
+    return { series: [], times: [], modelCapExceeded: false, requestedModels: 0, usedModels: 0 }
+  }
 
   const hourlyParam = METRICS.find(m => m.id === metric)?.hourlyParam
   if (!hourlyParam) throw new Error(`Unknown metric: ${metric}`)
@@ -213,5 +221,11 @@ export async function fetchHeatmapGrid(
     return out
   })
 
-  return { series, times }
+  return {
+    series,
+    times,
+    modelCapExceeded: requestedModels.length > heatmapModels.length,
+    requestedModels: requestedModels.length,
+    usedModels: heatmapModels.length,
+  }
 }

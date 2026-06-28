@@ -1,5 +1,9 @@
 export type WeatherIconId = 'sunny' | 'partly' | 'cloudy' | 'rainy' | 'stormy' | 'snowy'
 
+export const WEATHER_ICON_IDS: readonly WeatherIconId[] = [
+  'sunny', 'partly', 'cloudy', 'rainy', 'stormy', 'snowy',
+]
+
 export interface IconInput {
   cloudCoverPct: number | null
   precipitationMmDay: number | null

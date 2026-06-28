@@ -89,7 +89,7 @@ export async function fetchMarine(
   forecastDays: number,
   signal?: AbortSignal
 ): Promise<MarineResult> {
-  const marineMetrics = metrics.filter(m => m.id !== 'all' && m.group === 'marine')
+const marineMetrics = metrics.filter(m => m.group === 'marine')
   const waveMetrics = marineMetrics.filter(m => m.id !== SST_METRIC_ID)
   const wantsSst = marineMetrics.some(m => m.id === SST_METRIC_ID)
   const hourlyList = waveMetrics.map(m => m.hourlyParam)

@@ -44,22 +44,38 @@ describe('exportForecastCsv', () => {
   it('returns CSV with header row', () => {
     const csv = exportForecastCsv(testModels, times, series, 3)
     const lines = csv.split('\n')
-    expect(lines[0]).toContain('Hour')
-    expect(lines[0]).toContain('DateTime')
-    expect(lines[0]).toContain('GFS 13km')
-    expect(lines[0]).toContain('ICON 13km')
+    // B-NEW-11: line 0 is the UTC offset comment, line 1 the header.
+    expect(lines[0]).toMatch(/^# utc_offset_seconds=/)
+    expect(lines[1]).toContain('Hour')
+    expect(lines[1]).toContain('DateTime')
+    expect(lines[1]).toContain('GFS 13km')
+    expect(lines[1]).toContain('ICON 13km')
+  })
+
+  it('B-NEW-11: writes a units row beneath the header', () => {
+    const csv = exportForecastCsv(testModels, times, series, 1)
+    const lines = csv.split('\n')
+    // comment + header + units + 1 data row
+    expect(lines[2]).toContain('°C')
+    expect(lines[2]).toContain('%')
+  })
+
+  it('B-NEW-11: writes the UTC offset from the parameter', () => {
+    const csv = exportForecastCsv(testModels, times, series, 1, 7200)
+    expect(csv.split('\n')[0]).toBe('# utc_offset_seconds=7200')
   })
 
   it('has correct number of data rows', () => {
     const csv = exportForecastCsv(testModels, times, series, 3)
     const lines = csv.split('\n')
-    expect(lines.length).toBe(4) // header + 3 data rows
+    // comment + header + units + 3 data rows = 6
+    expect(lines.length).toBe(6)
   })
 
   it('limits rows by maxHours', () => {
     const csv = exportForecastCsv(testModels, times, series, 2)
     const lines = csv.split('\n')
-    expect(lines.length).toBe(3) // header + 2 data rows
+    expect(lines.length).toBe(5) // comment + header + units + 2 data rows
   })
 
   it('handles null values as empty strings', () => {
@@ -79,8 +95,8 @@ describe('exportForecastCsv', () => {
     }
     const csv = exportForecastCsv([testModels[0]], times, sparseSeries, 3)
     const lines = csv.split('\n')
-    // Row 2 (index 2) has temperature=null at column index 2
-    const rowWithNull = lines[2].split(',')
+    // comment (0) + header (1) + units (2) + data row 1 (3) + data row 2 (4, null temp) + data row 3 (5)
+    const rowWithNull = lines[4].split(',')
     // temperature is the first metric column after Hour,DateTime
     expect(rowWithNull[2]).toBe('') // null -> empty
     expect(rowWithNull[3]).toBe('60') // cloud_cover value present
@@ -89,13 +105,14 @@ describe('exportForecastCsv', () => {
   it('handles empty times array', () => {
     const csv = exportForecastCsv(testModels, [], series, 7)
     const lines = csv.split('\n')
-    expect(lines.length).toBe(1) // header only
+    // comment + header + units + nothing
+    expect(lines.length).toBe(3)
   })
 
   it('handles single model', () => {
     const csv = exportForecastCsv([testModels[0]], times, series, 3)
     const lines = csv.split('\n')
-    expect(lines[0]).toContain('GFS 13km')
-    expect(lines[0]).not.toContain('ICON')
+    expect(lines[1]).toContain('GFS 13km')
+    expect(lines[1]).not.toContain('ICON')
   })
 })

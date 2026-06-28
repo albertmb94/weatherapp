@@ -26,7 +26,6 @@ export type MetricId =
   | 'wave_height' | 'wave_period' | 'wave_direction'
   | 'wind_wave_height' | 'wind_wave_period'
   | 'swell_wave_height' | 'swell_wave_period'
-  | 'all'
 
 export interface Metric {
   id: MetricId
@@ -37,7 +36,6 @@ export interface Metric {
 }
 
 export const METRICS: Metric[] = [
-  { id: 'all', label: 'All Metrics', unit: '', hourlyParam: '', group: 'land' },
   { id: 'temperature', label: 'Temperature', unit: '°C', hourlyParam: 'temperature_2m', group: 'land' },
   { id: 'cloud_cover', label: 'Cloud Cover', unit: '%', hourlyParam: 'cloud_cover', group: 'land' },
   { id: 'wind_speed', label: 'Wind Speed', unit: 'km/h', hourlyParam: 'wind_speed_10m', group: 'land' },

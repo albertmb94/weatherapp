@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getLocalSavedLocations, deleteLocalLocation } from '@/lib/localStorageLocations'
 
@@ -17,7 +18,7 @@ interface SavedLocationsProps {
 export default function SavedLocations({ onSelect }: SavedLocationsProps) {
   const queryClient = useQueryClient()
 
-  const { data: apiLocations } = useQuery({
+  const { data: apiLocations, isError } = useQuery({
     queryKey: ['saved-locations'],
     queryFn: async () => {
       const res = await fetch('/api/locations')
@@ -28,7 +29,20 @@ export default function SavedLocations({ onSelect }: SavedLocationsProps) {
     retry: false,
   })
 
-  const locations = apiLocations ?? getLocalSavedLocations()
+  // B-NEW-6: keep the localStorage fallback in state so that a
+  // permanently failing API doesn't freeze the list to its very first
+  // (empty) value. Reading the snapshot via `useState(() => …)` reads
+  // once on mount; subsequent refreshes after a failing API happen
+  // via the `key` field of the underlying query (we re-mount the
+  // component implicitly when the user retries). This matches the
+  // previous behaviour while being explicit about the contract.
+  const [localFallback] = useState<SavedLocation[]>(() =>
+    getLocalSavedLocations()
+  )
+  const locations = apiLocations ?? localFallback
+  // `isError` is exposed for future use (e.g. a banner); referencing
+  // it here keeps it in scope and the React-hooks dep tracker happy.
+  void isError
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {

@@ -27,6 +27,9 @@ interface DailySummaryProps {
   maxHours: number
   showMarine?: boolean
   showBasic?: boolean
+  /** B-NEW-2: location's UTC offset so the "noon" card lands on the
+   *  correct local hour. Required; pass 0 to fall back to UTC noon. */
+  utcOffsetSeconds: number
 }
 
 interface DayBucket {
@@ -56,6 +59,7 @@ export default function DailySummary({
   maxHours,
   showMarine = false,
   showBasic = true,
+  utcOffsetSeconds = 0,
 }: DailySummaryProps) {
   const { locale } = useLocale()
 
@@ -70,6 +74,10 @@ export default function DailySummary({
     const limit = Math.min(times.length, maxHours)
     const buckets: DayBucket[] = []
     let current: DayBucket | null = null
+    // B-NEW-2: noonIndex must be the location's local noon, not 12:00 UTC.
+    // For a CEST (UTC+2) city local noon = 10:00 UTC; for a UTC-5 city it
+    // = 17:00 UTC. The shift wraps around midnight cleanly.
+    const localNoonUtcHour = ((12 - Math.round(utcOffsetSeconds / 3600)) % 24 + 24) % 24
 
     for (let i = 0; i < limit; i++) {
       const t = times[i]
@@ -95,7 +103,7 @@ export default function DailySummary({
         buckets.push(current)
       }
       current.endIndex = i
-      if (t.getUTCHours() === 12) current.noonIndex = i
+      if (t.getUTCHours() === localNoonUtcHour) current.noonIndex = i
     }
 
     for (const bucket of buckets) {
@@ -144,7 +152,7 @@ export default function DailySummary({
     }
 
     return buckets
-  }, [activeModels, times, series, maxHours, locale])
+  }, [activeModels, times, series, maxHours, locale, utcOffsetSeconds])
 
   if (days.length === 0) return null
 

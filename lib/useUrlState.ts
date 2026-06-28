@@ -131,8 +131,12 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
     function onPopState() {
       const params = new URLSearchParams(window.location.search)
       const parsed = parseUrlParams(params)
-      if (Object.keys(parsed).length === 0) return
       setState(prev => {
+        // B-NEW-1: an empty `parsed` (browser back to the clean URL)
+        // must restore the SSR-safe defaults rather than leaving the
+        // previous city/metric/range active. The early-return we had
+        // here was the root cause of "atrás no me lleva al inicio".
+        if (Object.keys(parsed).length === 0) return defaults
         const hasChange = Object.entries(parsed).some(([key, value]) => {
           const prevValue = prev[key as keyof UrlState]
           if (Array.isArray(prevValue) && Array.isArray(value)) {
@@ -146,7 +150,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
-  }, [])
+  }, [defaults])
 
   const update = useCallback((updates: Partial<UrlState>) => {
     setState(prev => ({ ...prev, ...updates }))

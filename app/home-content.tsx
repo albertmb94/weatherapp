@@ -30,6 +30,8 @@ import { saveLocalLocation } from '@/lib/localStorageLocations'
 import { formatAge } from '@/lib/formatAge'
 import { useRefresh } from '@/lib/useRefresh'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
+import { saveLastView, loadLastView } from '@/lib/lastView'
+import { saveLastForecast, loadLastForecast } from '@/lib/forecastIndexedDB'
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -115,10 +117,10 @@ export default function HomeContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
-  const { theme, toggleTheme } = useTheme()
+  const { theme, preference, cycleTheme } = useTheme()
   // S6: shared refresh hook. Used by the mobile header pill and by
   // RefreshButton so the in-flight state is never duplicated.
-  const { refresh, isPending: isRefreshing } = useRefresh()
+  const { refresh, isPending: isRefreshing, lastOutcome } = useRefresh()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'models' | 'stations'>('models')
 
@@ -137,6 +139,54 @@ export default function HomeContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPosition(prev => (prev[0] === urlState.lat && prev[1] === urlState.lon) ? prev : [urlState.lat, urlState.lon])
   }, [urlState.lat, urlState.lon])
+
+  // M-UI-6: persist the user's last view (metric, models, range, …)
+  // so that returning later without a URL still restores their
+  // preferences. Position is intentionally NOT persisted — it's tied
+  // to the city the user picked and they can re-pick it. We save
+  // whenever the state changes after the first paint.
+  useEffect(() => {
+    saveLastView({
+      metric: urlState.metric,
+      models: urlState.models,
+      hour: urlState.hour,
+      range: urlState.range,
+      showMap: urlState.showMap,
+      showRadar: urlState.showRadar,
+      bucket: urlState.bucket,
+      marine: urlState.marine,
+      basic: urlState.basic,
+    })
+  }, [
+    urlState.metric, urlState.models, urlState.hour, urlState.range,
+    urlState.showMap, urlState.showRadar, urlState.bucket,
+    urlState.marine, urlState.basic,
+  ])
+
+  // M-UI-6 companion: on first mount, if the URL has no params at all
+  // (clean /), restore the last-view prefs into URL state. We use a
+  // ref to avoid running this more than once.
+  const lastViewAppliedRef = useRef(false)
+  useEffect(() => {
+    if (lastViewAppliedRef.current) return
+    lastViewAppliedRef.current = true
+    if (typeof window === 'undefined') return
+    const sp = new URLSearchParams(window.location.search)
+    if ([...sp.keys()].length > 0) return // URL has params; user came from a share
+    const saved = loadLastView()
+    if (!saved) return
+    updateUrl({
+      metric: saved.metric,
+      models: saved.models,
+      hour: saved.hour,
+      range: saved.range,
+      showMap: saved.showMap,
+      showRadar: saved.showRadar,
+      bucket: saved.bucket,
+      marine: saved.marine,
+      basic: saved.basic,
+    })
+  }, [updateUrl])
 
   useEffect(() => {
     if (!mobileMenuOpen) return
@@ -219,6 +269,28 @@ export default function HomeContent() {
     return () => clearTimeout(t)
   }, [toast])
 
+  // M-UI-4: surface the refresh outcome as a toast. We toast on
+  // `lastOutcome` change; the duration is intentionally longer than the
+  // neutral toast because cooldown messages are actionable info.
+  const lastOutcomeTsRef = useRef<unknown>(null)
+  useEffect(() => {
+    const o = lastOutcome
+    if (!o || lastOutcomeTsRef.current === o) return
+    lastOutcomeTsRef.current = o
+    if (o.kind === 'refreshed') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setToast(locale === 'en' ? 'Models updated' : 'Modelos actualizados')
+    } else {
+      const mins = Math.max(1, Math.ceil(o.remainingMs / 60_000))
+       
+      setToast(
+        locale === 'en'
+          ? `Data reloaded · new models in ${mins}m`
+          : `Datos recargados · modelos nuevos en ${mins}m`
+      )
+    }
+  }, [lastOutcome, locale])
+
   const selectedMetric = urlState.metric as MetricId
   const selectedModels = urlState.models
   const selectedHour = urlState.hour
@@ -249,6 +321,40 @@ export default function HomeContent() {
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   })
+
+  // F-5: persist every successful forecast to IndexedDB so the user
+  // can read their last known data offline. Best-effort; failures are
+  // swallowed inside `saveLastForecast`.
+  useEffect(() => {
+    if (!data) return
+    void saveLastForecast({
+      position: [position[0], position[1]],
+      cityName,
+      utcOffsetSeconds: data.utcOffsetSeconds,
+      fetchedAt: Date.now(),
+      data,
+    })
+  }, [data, position, cityName])
+
+  // F-5: when we're offline and the query has errored, hydrate from
+  // IndexedDB so the app stays useful. We never *block* the UI on this;
+  // it just makes the offline state less empty.
+  const [offlineSnapshot, setOfflineSnapshot] = useState<Awaited<ReturnType<typeof loadLastForecast>>>(null)
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return
+    const onChange = () => {
+      if (!navigator.onLine && error) {
+        void loadLastForecast().then(s => { if (s) setOfflineSnapshot(s) })
+      }
+    }
+    onChange()
+    window.addEventListener('online', onChange)
+    window.addEventListener('offline', onChange)
+    return () => {
+      window.removeEventListener('online', onChange)
+      window.removeEventListener('offline', onChange)
+    }
+  }, [error])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -350,7 +456,7 @@ export default function HomeContent() {
     )
   }, [updateUrl, locale])
 
-  const legendMetric: Exclude<MetricId, 'all'> = selectedMetric === 'all' ? 'temperature' : selectedMetric
+  const legendMetric = selectedMetric
 
   // Filter out the virtual marine model when the marine toggle is off, so
   // it does not appear in the model selector, comparison chart, or daily
@@ -580,7 +686,7 @@ export default function HomeContent() {
               {viewData && (
                 <button
                   onClick={() => {
-                    const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours)
+                    const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours, viewData.utcOffsetSeconds)
                     downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
                   }}
                   className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
@@ -603,11 +709,38 @@ export default function HomeContent() {
                   {STRINGS[locale].share}
                 </button>
               )}
+              {/* F-9: always-available "copy short link" button. Works
+                 without Web Share API and is friendly to desktop too. */}
+              <button
+                onClick={async () => {
+                  try {
+                    const query = new URLSearchParams(window.location.search).toString()
+                    const res = await fetch('/api/shorten', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ params: query }),
+                    })
+                    if (!res.ok) throw new Error('shorten failed')
+                    const data = await res.json()
+                    const shortUrl = `${window.location.origin}/s/${data.id}`
+                    await navigator.clipboard?.writeText(shortUrl)
+                    setToast(locale === 'en' ? `Short link copied: ${shortUrl}` : `Link corto copiado: ${shortUrl}`)
+                  } catch {
+                    // Fall back to copying the long URL.
+                    await navigator.clipboard?.writeText(window.location.href)
+                    setToast(locale === 'en' ? 'Link copied (no short id)' : 'Link copiado (sin id corto)')
+                  }
+                }}
+                className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+                title="Copy short link"
+              >
+                Link
+              </button>
             </div>
             <button
-              onClick={toggleTheme}
+              onClick={cycleTheme}
               className="shrink-0 min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={preference === 'auto' ? `Theme: auto (${theme})` : `Theme: ${preference}`}
               aria-label="Toggle theme"
             >
               {theme === 'dark' ? (
@@ -701,7 +834,7 @@ export default function HomeContent() {
               {viewData && (
                 <button
                   onClick={() => {
-                    const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours)
+                    const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours, viewData.utcOffsetSeconds)
                     downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
                   }}
                   className="min-h-[36px] px-3 rounded text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700 cursor-pointer"
@@ -711,7 +844,7 @@ export default function HomeContent() {
               )}
               <RefreshButton />
               <button
-                onClick={toggleTheme}
+                onClick={cycleTheme}
                 className="min-h-[36px] min-w-[36px] flex items-center justify-center bg-gray-800 text-gray-400 border border-gray-700 rounded cursor-pointer"
                 aria-label="Toggle theme"
               >
@@ -831,6 +964,19 @@ export default function HomeContent() {
             </button>
           </div>
 
+          {/* F-5: offline banner — visible only when navigator.onLine is false. */}
+          {typeof navigator !== 'undefined' && !navigator.onLine && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mb-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs"
+            >
+              {offlineSnapshot
+                ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
+                : (STRINGS[locale].offlineBanner ?? 'Offline — no cached data')}
+            </div>
+          )}
+
           {activeTab === 'stations' ? (
             <ErrorBoundary
               fallback={
@@ -879,6 +1025,7 @@ export default function HomeContent() {
                       maxHours={effectiveMaxHours}
                       showMarine={marine}
                       showBasic={showBasic}
+                      utcOffsetSeconds={viewData.utcOffsetSeconds}
                     />
                     <ModelSelector
                       models={displayModels}

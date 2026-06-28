@@ -30,18 +30,12 @@ describe('MODELS', () => {
 })
 
 describe('METRICS', () => {
-  it('has an "all" metric', () => {
-    expect(METRICS.some(m => m.id === 'all')).toBe(true)
-  })
-
   it('each metric has required fields', () => {
     for (const m of METRICS) {
       expect(m.id).toBeTruthy()
       expect(m.label).toBeTruthy()
       expect(m.unit).toBeDefined()
-      if (m.id !== 'all') {
-        expect(m.hourlyParam).toBeTruthy()
-      }
+      expect(m.hourlyParam).toBeTruthy()
     }
   })
 
@@ -50,20 +44,23 @@ describe('METRICS', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('has unique hourlyParam for non-all metrics', () => {
-    const nonAll = METRICS.filter(m => m.id !== 'all')
-    const params = nonAll.map(m => m.hourlyParam)
+  it('has unique hourlyParam across all metrics', () => {
+    const params = METRICS.map(m => m.hourlyParam)
     expect(new Set(params).size).toBe(params.length)
   })
 
   it('classifies metrics into land and marine groups', () => {
-    const land = METRICS.filter(m => m.group === 'land' && m.id !== 'all')
+    const land = METRICS.filter(m => m.group === 'land')
     const marine = METRICS.filter(m => m.group === 'marine')
     expect(land.length).toBeGreaterThan(0)
     expect(marine.length).toBeGreaterThan(0)
     for (const m of marine) {
       expect(MARINE_METRIC_IDS).toContain(m.id)
     }
+  })
+
+  it('B-NEW-3: does not expose a dead "all" metric', () => {
+    expect(METRICS.some(m => m.id === 'all')).toBe(false)
   })
 })
 

@@ -160,6 +160,7 @@ export default function MapPicker({
   const [gridCells, setGridCells] = useState<GridCell[]>([])
   const [loadingHeatmap, setLoadingHeatmap] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [modelCapInfo, setModelCapInfo] = useState<{ requested: number; used: number } | null>(null)
   const [radarFrames, setRadarFrames] = useState<RainviewerFrame[]>([])
   const [radarFrameIndex, setRadarFrameIndex] = useState(0)
   const [radarPlaying, setRadarPlaying] = useState(true)
@@ -184,7 +185,7 @@ export default function MapPicker({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const renderFrameRef = useRef<number | null>(null)
 
-  const effectiveMetric: Exclude<MetricId, 'all'> = metric === 'all' ? 'temperature' : metric
+  const effectiveMetric = metric
 
   useEffect(() => {
     if (!mapInstance) return
@@ -240,6 +241,11 @@ export default function MapPicker({
       .then(result => {
         if (controller.signal.aborted) return
         setGridSeries(result.series)
+        setModelCapInfo(
+          result.modelCapExceeded
+            ? { requested: result.requestedModels, used: result.usedModels }
+            : null
+        )
         setLoadingHeatmap(false)
       })
       .catch((err: unknown) => {
@@ -341,6 +347,14 @@ export default function MapPicker({
       last = now
       if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current)
       renderFrameRef.current = requestAnimationFrame(() => {
+        // B-NEW-4: the canvas repaint during panning uses the *current*
+        // gridCells/gridSeries from the closure of the most recent
+        // renderCanvas (which is recreated whenever those deps change).
+        // To avoid races between an in-flight fetch that updates
+        // gridCells and a stale repaint, we no-op the repaint when
+        // a fetch is in flight (loadingHeatmap) — the explicit effect
+        // on the data deps will repaint cleanly once the data lands.
+        if (loadingHeatmap) return
         renderCanvas()
         renderFrameRef.current = null
       })
@@ -349,7 +363,7 @@ export default function MapPicker({
     return () => {
       mapInstance.off('move', onMove)
     }
-  }, [mapInstance, renderCanvas])
+  }, [mapInstance, renderCanvas, loadingHeatmap])
 
   useEffect(() => {
     if (!showHeatmap && canvasRef.current) {
@@ -367,8 +381,12 @@ export default function MapPicker({
     if (loadingHeatmap) return 'Loading heatmap…'
     if (errorMsg) return `Heatmap error: ${errorMsg}`
     if (gridSeries.length === 0) return 'No heatmap data'
+    if (modelCapInfo) {
+      // B-NEW-5: warn the user when their selection was capped.
+      return `Heatmap: ${modelCapInfo.used} of ${modelCapInfo.requested} models (top by weight)`
+    }
     return null
-  }, [showHeatmap, loadingHeatmap, errorMsg, gridSeries.length])
+  }, [showHeatmap, loadingHeatmap, errorMsg, gridSeries.length, modelCapInfo])
 
   return (
     <div className="relative w-full h-full overflow-hidden rounded-lg">

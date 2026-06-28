@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback, useState, useEffect } from 'react'
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import type { WeatherModel, MetricId } from '@/lib/models'
 import { METRICS } from '@/lib/models'
 import {
@@ -15,6 +15,7 @@ import {
   Area,
 } from 'recharts'
 import { ChartSkeleton } from './Skeletons'
+import { exportSvgToPng } from '@/lib/chartExport'
 
 interface ModelComparisonChartProps {
   models: WeatherModel[]
@@ -39,11 +40,30 @@ export default function ModelComparisonChart({
 }: ModelComparisonChartProps) {
   const [localHover, setLocalHover] = useState<number | null>(null)
   const [renderChart, setRenderChart] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [exporting, setExporting] = useState(false)
   useEffect(() => {
     const id = requestAnimationFrame(() => setRenderChart(true))
     return () => cancelAnimationFrame(id)
   }, [])
   const activeHour = localHover ?? hoveredHour
+
+  const displayMetric = metric
+  const unit = METRICS.find(m => m.id === displayMetric)?.unit ?? ''
+
+  // F-12: PNG export. Recharts renders into the first <svg> child of
+  // the container; we serialise that, paint into a canvas, and trigger
+  // a download.
+  const handleExportPng = useCallback(async () => {
+    const svg = containerRef.current?.querySelector('svg')
+    if (!svg || exporting) return
+    setExporting(true)
+    try {
+      await exportSvgToPng(svg, `forecast-${displayMetric}.png`)
+    } finally {
+      setExporting(false)
+    }
+  }, [displayMetric, exporting])
 
   const displayTimes = times.filter(t => t instanceof Date).slice(0, maxHours)
 
@@ -51,9 +71,6 @@ export default function ModelComparisonChart({
     if (activeModelIds.length === 0) return []
     return models.filter(m => activeModelIds.includes(m.id))
   }, [models, activeModelIds])
-
-  const displayMetric = metric === 'all' ? 'temperature' : metric
-  const unit = METRICS.find(m => m.id === displayMetric)?.unit ?? ''
 
   const chartData = useMemo(() => {
     return displayTimes.map((t, i) => {
@@ -132,10 +149,21 @@ export default function ModelComparisonChart({
 
   return (
     <div className="animate-fadeIn">
-      <h3 className="text-sm font-semibold text-gray-300 mb-2">
-        Multi-model comparison — {METRICS.find(m => m.id === displayMetric)?.label}
-      </h3>
-      <div className="h-56 sm:h-64 w-full min-w-[300px]">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-gray-300">
+          Multi-model comparison — {METRICS.find(m => m.id === displayMetric)?.label}
+        </h3>
+        <button
+          type="button"
+          onClick={handleExportPng}
+          disabled={exporting}
+          className="text-[11px] px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors cursor-pointer disabled:opacity-50"
+          title="Export chart as PNG"
+        >
+          {exporting ? 'Exporting…' : 'PNG'}
+        </button>
+      </div>
+      <div ref={containerRef} className="h-56 sm:h-64 w-full min-w-[300px]">
         {!renderChart && <ChartSkeleton />}
         {renderChart && <ResponsiveContainer width="100%" height="100%" debounce={1}>
           <ComposedChart

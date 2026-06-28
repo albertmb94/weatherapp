@@ -49,9 +49,7 @@ describe('getColor', () => {
     }
   })
 
-  it('uses temperature scale for "all" metric', () => {
-    const colorAll = getColor('all', 20)
-    const colorTemp = getColor('temperature', 20)
-    expect(colorAll).toBe(colorTemp)
+  it('B-NEW-3: returns null-scale color for null values', () => {
+    expect(getColor('temperature', null)).toBe('#2a2a2a')
   })
 })

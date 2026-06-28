@@ -6,18 +6,10 @@ interface MetricPillsProps {
   metrics: Metric[]
   selected: MetricId
   onChange: (id: MetricId) => void
-  group?: 'land' | 'marine' | 'all'
+  group?: 'land' | 'marine'
 }
 
 const ICONS: Record<MetricId, React.ReactNode> = {
-  all: (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-3.5 h-3.5">
-      <rect x="2" y="2" width="5" height="5" rx="1" />
-      <rect x="9" y="2" width="5" height="5" rx="1" />
-      <rect x="2" y="9" width="5" height="5" rx="1" />
-      <rect x="9" y="9" width="5" height="5" rx="1" />
-    </svg>
-  ),
   temperature: (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
       <path d="M8 1.5v8.5" />
@@ -133,8 +125,8 @@ const ICONS: Record<MetricId, React.ReactNode> = {
   ),
 }
 
-export default function MetricPills({ metrics, selected, onChange, group = 'all' }: MetricPillsProps) {
-  const filtered = group === 'all' ? metrics : metrics.filter(m => m.group === group)
+export default function MetricPills({ metrics, selected, onChange, group }: MetricPillsProps) {
+  const filtered = group ? metrics.filter(m => m.group === group) : metrics
   return (
     <div className="flex gap-0.5">
       {filtered.map(m => {

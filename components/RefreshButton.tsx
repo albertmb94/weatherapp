@@ -47,6 +47,10 @@ export default function RefreshButton() {
   }, [lastOutcome])
 
   const ageLabel = formatAge(status?.ageMs ?? null, locale)
+  // M-UI-3: when the cache is older than 4 hours the data is stale;
+  // tint the label so the user notices without reading the icon.
+  const isStale = (status?.ageMs ?? 0) > 4 * 3600_000
+  const labelColor = feedback ? 'text-emerald-400' : isStale ? 'text-amber-400' : 'text-gray-600'
 
   return (
     <button
@@ -64,7 +68,7 @@ export default function RefreshButton() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       )}
-      <span className="text-gray-600">{feedback ?? (ageLabel || '')}</span>
+      <span className={labelColor}>{feedback ?? (ageLabel || '')}</span>
     </button>
   )
 }

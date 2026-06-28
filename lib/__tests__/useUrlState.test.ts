@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { renderHook, act } from '@testing-library/react'
+import { useUrlState } from '../useUrlState'
 
 describe('useUrlState pure functions', () => {
   // We test parseUrlParams and buildQuery logic inline since they're not exported.
@@ -144,6 +146,69 @@ describe('useUrlState pure functions', () => {
 
     it('omits basic when not present in URL', () => {
       expect(parseUrlParams(new URLSearchParams('')).basic).toBeUndefined()
+    })
+  })
+
+  describe('useUrlState hook — popstate behaviour', () => {
+    interface DS {
+      lat: number; lon: number; metric: string; models: string[]; hour: number; range: number
+      showMap: boolean; showRadar: boolean; bucket: number; locale: string; marine: boolean; basic: boolean
+    }
+
+    function makeDefaults(): DS {
+      return {
+        lat: 41.45, lon: 2.2475, metric: 'temperature', models: ['gfs_global'], hour: 0,
+        range: 168, showMap: true, showRadar: false, bucket: 4, locale: '', marine: false, basic: true,
+      }
+    }
+
+    it('B-NEW-1: popstate to a clean URL restores defaults', () => {
+      // The user lands at /?lat=41.65&lon=-0.88 (Zaragoza), then hits back
+      // to the bare URL. The state must revert to the SSR-safe defaults,
+      // not stay pinned to Zaragoza.
+      window.history.replaceState(null, '', '/?lat=41.65&lon=-0.88')
+      const { result } = renderHook(() => useUrlState(makeDefaults()))
+      expect(result.current[0].lat).toBe(41.65)
+      expect(result.current[0].lon).toBe(-0.88)
+
+      window.history.replaceState(null, '', '/')
+      act(() => {
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      })
+
+      expect(result.current[0].lat).toBe(41.45)
+      expect(result.current[0].lon).toBe(2.2475)
+    })
+
+    it('popstate to a partial URL merges with the current state', () => {
+      window.history.replaceState(null, '', '/?lat=41.65&lon=-0.88&metric=temperature')
+      const { result } = renderHook(() => useUrlState(makeDefaults()))
+      expect(result.current[0].metric).toBe('temperature')
+
+      // Navigate to a URL that only sets the metric — the lat/lon should
+      // stay from the previous state.
+      window.history.replaceState(null, '', '/?metric=wind_speed')
+      act(() => {
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      })
+
+      expect(result.current[0].metric).toBe('wind_speed')
+      expect(result.current[0].lat).toBe(41.65)
+      expect(result.current[0].lon).toBe(-0.88)
+    })
+
+    it('popstate with no change is a no-op', () => {
+      window.history.replaceState(null, '', '/?lat=41.65&lon=-0.88')
+      const { result } = renderHook(() => useUrlState(makeDefaults()))
+      const before = result.current[0]
+
+      // Dispatch without changing the URL — the state should be identical
+      // (same object reference).
+      act(() => {
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      })
+
+      expect(result.current[0]).toBe(before)
     })
   })
 })

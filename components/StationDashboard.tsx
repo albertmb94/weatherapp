@@ -63,7 +63,7 @@ export interface StationDashboardProps {
 export default function StationDashboard({ position = null, placeName }: StationDashboardProps = {}) {
   const { locale } = useLocale()
   const [region, setRegion] = useState(REGIONS[0].code)
-  const [radius, setRadius] = useState(30)
+  const [radius, setRadius] = useState(10)
   const [search, setSearch] = useState('')
   const [includeMeteo, setIncludeMeteo] = useState(true)
 
@@ -215,6 +215,10 @@ export default function StationDashboard({ position = null, placeName }: Station
 
   return (
     <div className="flex flex-col gap-3 animate-fadeIn">
+      {/* B-NEW-8: split the toolbar into two rows on mobile portrait so the
+         search input is not crushed by the radius selector and the
+         "Meteoclimatic" toggle. The desktop layout (>=md) collapses back
+         to a single row. */}
       <div className="flex items-center gap-2 flex-wrap">
         {position ? (
           <span className="text-xs text-gray-300 bg-gray-900/50 border border-gray-800 rounded-lg px-2 py-1.5">
@@ -255,15 +259,6 @@ export default function StationDashboard({ position = null, placeName }: Station
             ))}
           </select>
         )}
-        <label className="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={includeMeteo}
-            onChange={e => setIncludeMeteo(e.target.checked)}
-            className="rounded border-gray-700 bg-gray-900 text-blue-500 focus:ring-gray-600 w-3 h-3"
-          />
-          Meteoclimatic
-        </label>
         <div className="flex-1" />
         <span className="text-[10px] text-gray-600">{filtered.length}</span>
         <button
@@ -273,6 +268,17 @@ export default function StationDashboard({ position = null, placeName }: Station
         >
           ↻
         </button>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={includeMeteo}
+            onChange={e => setIncludeMeteo(e.target.checked)}
+            className="rounded border-gray-700 bg-gray-900 text-blue-500 focus:ring-gray-600 w-3 h-3"
+          />
+          Meteoclimatic
+        </label>
       </div>
 
       <div className="w-full aspect-[2/1] min-h-[180px] max-h-[320px] rounded-lg overflow-hidden">
@@ -287,13 +293,37 @@ export default function StationDashboard({ position = null, placeName }: Station
       )}
 
       {!showLoading && filtered.length === 0 && (
-        <p className="text-xs text-gray-500 text-center py-4">
-          {search
-            ? `${STRINGS[locale].noResults} "${search}"`
-            : position
-              ? `${STRINGS[locale].noStationsRadius.replace('{km}', String(radius))}`
-              : STRINGS[locale].noStationsRegion}
-        </p>
+        // M-UI-1: empty state is now illustrated with an SVG icon and a
+        // primary "widen radius" CTA when relevant. Plain text only
+        // when search has no matches (no actionable next step).
+        <div className="flex flex-col items-center gap-2 py-6 text-center">
+          {search ? (
+            <p className="text-xs text-gray-500">
+              {STRINGS[locale].noResults} &quot;{search}&quot;
+            </p>
+          ) : position ? (
+            <>
+              <svg className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.4}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <p className="text-xs text-gray-500 max-w-xs">
+                {STRINGS[locale].noStationsRadius.replace('{km}', String(radius))}
+              </p>
+              {radius < 100 && (
+                <button
+                  type="button"
+                  onClick={() => setRadius(r => Math.min(100, r === 10 ? 30 : r === 30 ? 60 : 100))}
+                  className="mt-1 px-3 py-1.5 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer"
+                >
+                  {STRINGS[locale].expandRadius.replace('{km}', String(radius === 10 ? 30 : radius === 30 ? 60 : 100))}
+                </button>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-gray-500">{STRINGS[locale].noStationsRegion}</p>
+          )}
+        </div>
       )}
 
       {filtered.length > 0 && (

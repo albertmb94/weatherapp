@@ -16,8 +16,15 @@
  */
 
 export function parseOpenMeteoTime(iso: string): Date {
-  // Open-Meteo returns strings without offset (e.g. "2026-01-01T00:00").
-  // If the string already ends with Z or an offset, parse it directly.
+  // B-NEW-10 (docs): the supported input shapes are:
+  //  - `"YYYY-MM-DDTHH:MM"`     (no offset → treated as location-local)
+  //  - `"YYYY-MM-DDTHH:MM:SS"`  (same)
+  //  - `"YYYY-MM-DDTHH:MMZ"`    (UTC)
+  //  - `"YYYY-MM-DDTHH:MM±HH:MM"` (explicit offset, e.g. `+05:30`)
+  // Anything else (e.g. `+0530` without colon, fractional seconds, named
+  // TZs) falls back to appending `Z`, which is what the old implementation
+  // already did — callers that pass exotic strings get a best-effort Date.
+  // Open-Meteo itself only emits the first two formats in practice.
   const safe = iso.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z'
   return new Date(safe)
 }

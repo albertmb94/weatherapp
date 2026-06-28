@@ -1,6 +1,6 @@
 import type { MetricId } from './models'
 
-export type ScaleMetric = Exclude<MetricId, 'all'>
+export type ScaleMetric = MetricId
 
 export interface ColorStop {
   value: number
@@ -148,8 +148,7 @@ function lerpColor(c1: [number, number, number], c2: [number, number, number], t
 
 export function getColor(metric: MetricId, value: number | null): string {
   if (value === null || value === undefined) return '#2a2a2a'
-  const scaleMetric = metric === 'all' ? 'temperature' : metric
-  const stops = SCALES[scaleMetric]
+  const stops = SCALES[metric]
   if (value <= stops[0].value) {
     const [r, g, b] = stops[0].color
     return `rgb(${r},${g},${b})`

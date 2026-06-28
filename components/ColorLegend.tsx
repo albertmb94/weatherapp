@@ -5,7 +5,7 @@ import { METRICS } from '@/lib/models'
 import { SCALES, type ScaleMetric } from '@/lib/colorScales'
 
 interface ColorLegendProps {
-  metric: Exclude<MetricId, 'all'>
+  metric: MetricId
 }
 
 function buildGradientStops(metric: ScaleMetric): string {

@@ -7,22 +7,14 @@ import { useTheme } from '@/lib/ThemeContext'
 import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
 import { formatAge } from '@/lib/formatAge'
-import TimeRangeSelector from './TimeRangeSelector'
 import { useRefresh } from '@/lib/useRefresh'
 import type { WeatherModel, MetricId } from '@/lib/models'
 
 interface SettingsPanelProps {
-  range: number
-  onRangeChange: (hours: number) => void
-  maxRange: number
   marine: boolean
   onMarineToggle: () => void
   showBasic: boolean
   onBasicToggle: () => void
-  showRadar: boolean
-  onRadarToggle: () => void
-  showMap: boolean
-  onMapToggle: () => void
   cityName: string
   positionLat: number
   positionLon: number
@@ -154,23 +146,9 @@ export default function SettingsPanel(props: SettingsPanelProps) {
 
       <section className="rounded-2xl border border-border bg-surface-raised p-4">
         <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold mb-3">
-          {locale === 'en' ? 'Layers' : 'Capas'}
+          {locale === 'en' ? 'Data sources' : 'Fuentes de datos'}
         </h3>
         <div className="space-y-2">
-          <ToggleRow
-            label={s.map}
-            description={locale === 'en' ? 'Show map & heatmap' : 'Mostrar mapa y mapa de calor'}
-            active={props.showMap}
-            onClick={props.onMapToggle}
-            accent="sky"
-          />
-          <ToggleRow
-            label={s.radar}
-            description="RainViewer"
-            active={props.showRadar}
-            onClick={props.onRadarToggle}
-            accent="sky"
-          />
           <ToggleRow
             label={s.marine}
             description={locale === 'en' ? 'Open-Meteo marine API' : 'API marina Open-Meteo'}
@@ -187,15 +165,6 @@ export default function SettingsPanel(props: SettingsPanelProps) {
               accent="emerald"
             />
           ) : null}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-border bg-surface-raised p-4">
-        <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold mb-3">
-          {locale === 'en' ? 'Data range' : 'Rango de datos'}
-        </h3>
-        <div className="overflow-x-auto scrollbar-none">
-          <TimeRangeSelector selected={props.range} onChange={props.onRangeChange} maxAvailable={props.maxRange} showLabel />
         </div>
       </section>
 

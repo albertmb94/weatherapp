@@ -71,6 +71,7 @@ export async function fetchForecast(
     longitude: lon.toString(),
     hourly: hourlyList.join(','),
     models: modelIds,
+    past_days: '1',
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
   })

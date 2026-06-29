@@ -105,10 +105,13 @@ export const STRINGS: Record<Locale, {
   realFeel: string
   chanceOfRain: string
   uvIndex: string
+  uvPeak: string
   windSpeed: string
   hourlyTitle: string
-  airTitle: string
+  metricsTitle: string
   weekTitle: string
+  weekOption7: string
+  weekOption14: string
   chanceLabel: string
   conditionSunny: string
   conditionPartly: string
@@ -125,13 +128,16 @@ export const STRINGS: Record<Locale, {
   settingsTitle: string
   settingsLanguage: string
   settingsTheme: string
-  settingsMarine: string
-  settingsBasic: string
   settingsSaveLocation: string
-  settingsRadar: string
   settingsExport: string
   settingsShare: string
   navAria: string
+  layersTitle: string
+  citiesEmpty: string
+  citiesEmptyHint: string
+  citiesSaveCurrent: string
+  citiesSaved: string
+  noUnits: string
 }> = {
   es: {
     today: 'Hoy',
@@ -207,10 +213,13 @@ export const STRINGS: Record<Locale, {
     realFeel: 'Sensación',
     chanceOfRain: 'Prob. lluvia',
     uvIndex: 'Índice UV',
+    uvPeak: 'Pico UV hoy',
     windSpeed: 'Viento',
     hourlyTitle: 'Previsión de hoy',
-    airTitle: 'Calidad del aire',
-    weekTitle: 'Próximos 7 días',
+    metricsTitle: 'Métricas',
+    weekTitle: 'Próximos días',
+    weekOption7: '7 días',
+    weekOption14: '14 días',
     chanceLabel: 'Probabilidad de lluvia:',
     conditionSunny: 'Soleado',
     conditionPartly: 'Parcialmente nublado',
@@ -227,13 +236,16 @@ export const STRINGS: Record<Locale, {
     settingsTitle: 'Ajustes',
     settingsLanguage: 'Idioma',
     settingsTheme: 'Tema',
-    settingsMarine: 'Datos marinos',
-    settingsBasic: 'Modo básico',
     settingsSaveLocation: 'Guardar ubicación',
-    settingsRadar: 'Radar de lluvia',
     settingsExport: 'Exportar CSV',
     settingsShare: 'Compartir enlace',
     navAria: 'Navegación principal',
+    layersTitle: 'Capas',
+    citiesEmpty: 'Aún no hay ciudades guardadas',
+    citiesEmptyHint: 'Pulsa “Guardar ciudad” para añadir la ubicación actual.',
+    citiesSaveCurrent: 'Guardar ciudad',
+    citiesSaved: 'Guardado',
+    noUnits: 'N/A',
   },
   en: {
     today: 'Today',
@@ -309,10 +321,13 @@ export const STRINGS: Record<Locale, {
     realFeel: 'Real Feel',
     chanceOfRain: 'Chance of rain',
     uvIndex: 'UV Index',
+    uvPeak: 'UV peak',
     windSpeed: 'Wind',
     hourlyTitle: "Today’s forecast",
-    airTitle: 'Air conditions',
-    weekTitle: '7-day forecast',
+    metricsTitle: 'Metrics',
+    weekTitle: 'Upcoming days',
+    weekOption7: '7 days',
+    weekOption14: '14 days',
     chanceLabel: 'Chance of rain:',
     conditionSunny: 'Sunny',
     conditionPartly: 'Partly cloudy',
@@ -329,12 +344,15 @@ export const STRINGS: Record<Locale, {
     settingsTitle: 'Settings',
     settingsLanguage: 'Language',
     settingsTheme: 'Theme',
-    settingsMarine: 'Marine data',
-    settingsBasic: 'Basic mode',
     settingsSaveLocation: 'Save location',
-    settingsRadar: 'Rain radar',
     settingsExport: 'Export CSV',
     settingsShare: 'Share link',
     navAria: 'Primary navigation',
+    layersTitle: 'Layers',
+    citiesEmpty: 'No saved cities yet',
+    citiesEmptyHint: 'Tap “Save city” to bookmark the current location.',
+    citiesSaveCurrent: 'Save city',
+    citiesSaved: 'Saved',
+    noUnits: 'N/A',
   },
 }

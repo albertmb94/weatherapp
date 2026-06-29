@@ -1,8 +1,8 @@
 'use client'
 
-import { useLocale } from '@/lib/LocaleContext'
 import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
+import { useLocale } from '@/lib/LocaleContext'
 import type { HourlySlot } from '@/lib/friendlyForecast'
 import { computeHourlySlots } from '@/lib/friendlyForecast'
 import WeatherConditionIcon from './WeatherConditionIcon'
@@ -10,9 +10,11 @@ import WeatherConditionIcon from './WeatherConditionIcon'
 interface HourlyForecastStripProps {
   models: WeatherModel[]
   activeIds: string[]
+  /** Full untrimmed forecast (must include today's 00:00). */
   time: Date[]
   series: Record<string, Record<string, (number | null)[]>>
-  startIndex: number
+  /** Index in `time` of the current local hour. */
+  nowIndex: number
   title: string
 }
 
@@ -25,14 +27,15 @@ export default function HourlyForecastStrip({
   activeIds,
   time,
   series,
-  startIndex,
+  nowIndex,
   title,
 }: HourlyForecastStripProps) {
   const { locale } = useLocale()
 
-  const slots = useMemo<HourlySlot[]>(() => {
-    return computeHourlySlots({ time, series }, models, activeIds, startIndex, locale, 8)
-  }, [models, activeIds, time, series, startIndex, locale])
+  const slots = useMemo<HourlySlot[]>(
+    () => computeHourlySlots({ time, series }, models, activeIds, nowIndex, locale, 6, 4),
+    [models, activeIds, time, series, nowIndex, locale]
+  )
 
   if (slots.length === 0) return null
 
@@ -48,12 +51,14 @@ export default function HourlyForecastStrip({
         {slots.map((slot, i) => (
           <li
             key={`${slot.index}-${i}`}
-            className="flex flex-col items-center gap-1 md:gap-1.5 min-w-[48px] md:min-w-0 md:flex-1"
+            className="flex flex-col items-center gap-1 md:gap-1.5 min-w-[56px] md:min-w-0 md:flex-1"
           >
-            <span className="text-[10px] uppercase tracking-wide text-text-secondary">
-              {i === 0
-                ? (locale === 'en' ? 'Now' : 'Ahora')
-                : slot.hourLabel}
+            <span
+              className={`text-[10px] uppercase tracking-wide tabular-nums ${
+                slot.isPast ? 'text-text-muted' : 'text-text-secondary'
+              }`}
+            >
+              {slot.hourLabel}
             </span>
             <WeatherConditionIcon icon={slot.icon} />
             <span className="text-sm md:text-base font-semibold text-text-primary tabular-nums">

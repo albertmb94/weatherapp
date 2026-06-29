@@ -15,12 +15,14 @@ interface UrlState {
   marine: boolean
   basic: boolean
   view: 'weather' | 'cities' | 'map' | 'stations' | 'settings'
+  weekDays: 7 | 14
 }
 
 const ALLOWED_BUCKETS = new Set([1, 2, 3, 4, 6, 12, 24])
 const ALLOWED_METRICS = new Set<string>(METRICS.map(m => m.id))
 const ALLOWED_RANGES = new Set([24, 48, 72, 168, 336])
 const ALLOWED_VIEWS = new Set(['weather', 'cities', 'map', 'stations', 'settings'])
+const ALLOWED_WEEK_DAYS = new Set([7, 14])
 
 const MODELS_NONE_TOKEN = 'none'
 
@@ -58,6 +60,10 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   if (view && ALLOWED_VIEWS.has(view)) {
     result.view = view as UrlState['view']
   }
+  const weekDays = params.get('week')
+  if (weekDays && ALLOWED_WEEK_DAYS.has(Number(weekDays))) {
+    result.weekDays = Number(weekDays) as UrlState['weekDays']
+  }
   return result
 }
 
@@ -86,6 +92,7 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   if (state.marine !== defaults.marine) params.set('marine', state.marine ? '1' : '0')
   if (state.basic !== defaults.basic) params.set('basic', state.basic ? '1' : '0')
   if (state.view !== defaults.view) params.set('view', state.view)
+  if (state.weekDays !== defaults.weekDays) params.set('week', String(state.weekDays))
   return params.toString()
 }
 
@@ -113,6 +120,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       marine: parsed.marine ?? defaults.marine,
       basic: parsed.basic ?? defaults.basic,
       view: parsed.view ?? defaults.view,
+      weekDays: parsed.weekDays ?? defaults.weekDays,
     }
     return initial
   })

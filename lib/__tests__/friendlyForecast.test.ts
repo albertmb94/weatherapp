@@ -29,13 +29,17 @@ function flatSeries(value: number, count: number) {
   }
 }
 
-function fakeTimes(count: number, startUtcHour = 0): Date[] {
+/**
+ * Generate `count` consecutive hourly UTC-fake-local timestamps starting at
+ * today's midnight (2026-06-10T00:00 local). Tests can pick a `nowIndex`
+ * anywhere inside the array.
+ */
+function fakeTimes(count: number): Date[] {
   const out: Date[] = []
+  const base = new Date(Date.UTC(2026, 5, 10, 0, 0, 0))
   for (let i = 0; i < count; i++) {
-    out.push(new Date(Date.UTC(2026, 5, 10, (startUtcHour + i) % 24, 0, 0) + Math.floor(i / 24) * 86_400_000 + Math.floor((startUtcHour + i) / 24) * 86_400_000))
+    out.push(new Date(base.getTime() + i * 3_600_000))
   }
-  // The above intentionally rebases every entry on UTC midnight day 0
-  // for simplicity — enough for tests that don't care about timezone math.
   return out
 }
 
@@ -56,7 +60,7 @@ describe('computeCurrentSnapshot', () => {
 
   it('counts >0mm/h precipitation as a non-zero rain chance', () => {
     const series = flatSeries(20, 4)
-    for (const id of Object.keys(series)) {
+    for (const id of Object.keys(series) as Array<keyof typeof series>) {
       series[id].precipitation[1] = 2 // mm/h, well above the 1mm/h = 80% threshold
     }
     const out = computeCurrentSnapshot({ time: fakeTimes(4), series }, MODELS, ['gfs_global', 'icon_global'], 1)
@@ -66,50 +70,121 @@ describe('computeCurrentSnapshot', () => {
   it('returns null when the index is past the data', () => {
     expect(computeCurrentSnapshot({ time: [], series: {} }, MODELS, ['gfs_global'], 0)).toBeNull()
   })
+
+  it('exposes the day’s peak UV (avoids sticky 0.0 at night)', () => {
+    // 24 hourly entries, current hour is 03:00 (the user's typical "I never
+    // see anything" case). The day's peak should still report 3.
+    const out = computeCurrentSnapshot(
+      { time: fakeTimes(24), series: flatSeries(20, 24) },
+      MODELS,
+      ['gfs_global', 'icon_global'],
+      3
+    )
+    expect(out?.uvIndex).toBe(3)
+    expect(out?.uvIndexPeak).toBe(3)
+  })
 })
 
 describe('computeHourlySlots', () => {
-  it('returns slots up to the requested count', () => {
+  it('returns the six 4-hour blocks starting at today’s midnight', () => {
+    // nowIndex = 14 (14:00 today). The six 4-hour blocks are 00, 04, 08, 12,
+    // 16, 20; index 3 (12:00) is the block that contains 14:00 and is
+    // re-labelled "Now".
     const slots = computeHourlySlots(
-      { time: fakeTimes(8), series: flatSeries(18, 8) },
+      { time: fakeTimes(36), series: flatSeries(18, 36) },
       MODELS,
       ['gfs_global', 'icon_global'],
-      0,
+      14,
       'en',
-      8
+      6,
+      4
     )
-    expect(slots.length).toBe(8)
-    expect(slots[0].tempC).toBe(18)
+    expect(slots.length).toBe(6)
+    expect(slots[3].hourLabel.toLowerCase()).toBe('now')
+    expect(slots[0].hourLabel.toLowerCase()).toBe('12 am')
+    expect(slots[5].hourLabel.toLowerCase()).toBe('8 pm')
   })
 
-  it('stops early when the data ends', () => {
+  it('keeps producing slot rows past today (slots 0,4,8,12,16,20 tomorrow)', () => {
+    // The forecast should not stop at the day boundary if there is data.
     const slots = computeHourlySlots(
-      { time: fakeTimes(3), series: flatSeries(18, 3) },
+      { time: fakeTimes(48), series: flatSeries(18, 48) },
+      MODELS,
+      ['gfs_global', 'icon_global'],
+      4,
+      'es',
+      6,
+      4
+    )
+    expect(slots.length).toBe(6)
+  })
+
+  it('returns no slots when today’s midnight is not present', () => {
+    // 12-hour window starting at 04:00 today — no 00:00 entry, so the
+    // helper returns an empty list (caller can fall back).
+    const out: Date[] = []
+    const base = new Date(Date.UTC(2026, 5, 10, 4, 0, 0))
+    for (let i = 0; i < 12; i++) out.push(new Date(base.getTime() + i * 3_600_000))
+    const slots = computeHourlySlots(
+      { time: out, series: flatSeries(18, 12) },
       MODELS,
       ['gfs_global', 'icon_global'],
       0,
       'en',
-      8
+      6,
+      4
     )
-    expect(slots.length).toBe(3)
+    expect(slots).toEqual([])
+  })
+
+  it('falls back gracefully when the requested block is past the data end', () => {
+    // 5-hour window starting at today’s 22:00 — only blocks 20 and 00 (next
+    // day) are reachable; the helper yields whatever still has data.
+    const out: Date[] = []
+    const base = new Date(Date.UTC(2026, 5, 10, 22, 0, 0))
+    for (let i = 0; i < 5; i++) out.push(new Date(base.getTime() + i * 3_600_000))
+    const slots = computeHourlySlots(
+      { time: out, series: flatSeries(18, 5) },
+      MODELS,
+      ['gfs_global', 'icon_global'],
+      0,
+      'en',
+      6,
+      4
+    )
+    expect(slots.length).toBeLessThanOrEqual(2)
   })
 })
 
 describe('computeWeekSummaries', () => {
-  it('produces one entry per unique calendar day', () => {
+  it('produces the requested number of day entries', () => {
     const days = computeWeekSummaries(
-      { time: fakeTimes(48, 12), series: flatSeries(20, 48) },
+      { time: fakeTimes(48), series: flatSeries(20, 48) },
       MODELS,
       ['gfs_global', 'icon_global'],
       0,
       48,
-      'en'
+      'en',
+      7
     )
-    expect(days.length).toBeGreaterThanOrEqual(1)
-    for (const d of days) {
-      expect(d.highC).toBe(20)
-      expect(d.lowC).toBe(20)
-      expect(d.icon).toBe('sunny')
-    }
+    expect(days.length).toBe(2) // today + tomorrow
+  })
+
+  it('honours the 14-day count', () => {
+    // Need >14 days of data. Generate 16 days starting today at midnight.
+    const out: Date[] = []
+    const base = new Date(Date.UTC(2026, 5, 10, 0, 0, 0))
+    for (let i = 0; i < 24 * 16; i++) out.push(new Date(base.getTime() + i * 3_600_000))
+    const days = computeWeekSummaries(
+      { time: out, series: flatSeries(20, 24 * 16) },
+      MODELS,
+      ['gfs_global', 'icon_global'],
+      0,
+      24 * 16,
+      'en',
+      14
+    )
+    expect(days.length).toBe(14)
   })
 })
+

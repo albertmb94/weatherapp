@@ -153,14 +153,15 @@ describe('useUrlState pure functions', () => {
     interface DS {
       lat: number; lon: number; metric: string; models: string[]; hour: number; range: number
       showMap: boolean; showRadar: boolean; bucket: number; locale: string; marine: boolean; basic: boolean;
-      view: 'weather' | 'cities' | 'map' | 'stations' | 'settings'
+      view: 'weather' | 'cities' | 'map' | 'stations' | 'settings';
+      weekDays: 7 | 14
     }
 
     function makeDefaults(): DS {
       return {
         lat: 41.45, lon: 2.2475, metric: 'temperature', models: ['gfs_global'], hour: 0,
         range: 168, showMap: true, showRadar: false, bucket: 4, locale: '', marine: false, basic: true,
-        view: 'weather',
+        view: 'weather', weekDays: 7,
       }
     }
 

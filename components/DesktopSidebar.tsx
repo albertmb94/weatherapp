@@ -5,10 +5,23 @@ import { STRINGS } from '@/lib/i18n'
 
 export type SidebarSection = 'weather' | 'cities' | 'map' | 'stations' | 'settings'
 
+export interface LayerState {
+  showMap: boolean
+  showRadar: boolean
+  marine: boolean
+  showBasic: boolean
+}
+
 interface DesktopSidebarProps {
   active: SidebarSection
   onSelect: (section: SidebarSection) => void
-  unsavedChanges?: boolean
+  layers: LayerState
+  onLayerToggle: {
+    map: () => void
+    radar: () => void
+    marine: () => void
+    basic: () => void
+  }
 }
 
 interface ItemDef {
@@ -71,20 +84,41 @@ const ITEMS: ItemDef[] = [
   { id: 'settings', labelKey: 'navSettings', icon: <SettingsIcon /> },
 ]
 
-export default function DesktopSidebar({ active, onSelect }: DesktopSidebarProps) {
+interface ToggleSpec {
+  id: keyof LayerState
+  labelKey: 'map' | 'radar' | 'marine' | 'basic'
+  accent: string
+  active: boolean
+  onClick: () => void
+}
+
+export default function DesktopSidebar({ active, onSelect, layers, onLayerToggle }: DesktopSidebarProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
+
+  // The Basic toggle is only meaningful when Marine is enabled, so the row
+  // hides itself to keep the layers panel compact.
+  const toggles: ToggleSpec[] = [
+    { id: 'showMap', labelKey: 'map', accent: 'bg-sky-500', active: layers.showMap, onClick: onLayerToggle.map },
+    { id: 'showRadar', labelKey: 'radar', accent: 'bg-sky-500', active: layers.showRadar, onClick: onLayerToggle.radar },
+    { id: 'marine', labelKey: 'marine', accent: 'bg-cyan-500', active: layers.marine, onClick: onLayerToggle.marine },
+  ]
+  if (layers.marine) {
+    toggles.push({ id: 'showBasic', labelKey: 'basic', accent: 'bg-emerald-500', active: layers.showBasic, onClick: onLayerToggle.basic })
+  }
 
   return (
     <nav
       aria-label={s.navAria}
-      className="hidden md:flex flex-col items-center py-4 gap-1 w-[88px] shrink-0 bg-surface/80 border-r border-border"
+      className="hidden md:flex flex-col items-stretch py-4 gap-1 w-[200px] shrink-0 bg-surface/80 border-r border-border"
     >
-      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/20">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-          <path d="M3 15a4 4 0 0 1 .4-7.96A5 5 0 0 1 13 6.5a3 3 0 0 1 0 6H6a3 3 0 0 1-3-3z" fill="white" fillOpacity="0.2" />
-          <circle cx="9" cy="9" r="3" fill="white" />
-        </svg>
+      <div className="flex flex-col items-center gap-1 px-3 pb-3">
+        <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/20">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+            <path d="M3 15a4 4 0 0 1 .4-7.96A5 5 0 0 1 13 6.5a3 3 0 0 1 0 6H6a3 3 0 0 1-3-3z" fill="white" fillOpacity="0.2" />
+            <circle cx="9" cy="9" r="3" fill="white" />
+          </svg>
+        </div>
       </div>
       <ul className="flex flex-col gap-1 w-full px-2">
         {ITEMS.map(item => {
@@ -96,21 +130,55 @@ export default function DesktopSidebar({ active, onSelect }: DesktopSidebarProps
                 onClick={() => onSelect(item.id)}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={s[item.labelKey]}
-                className={`group flex w-full flex-col items-center gap-1 rounded-lg px-1.5 py-2.5 text-[10px] font-medium transition-all ${
+                title={s[item.labelKey]}
+                className={`group flex w-full flex-row items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium transition-all ${
                   isActive
                     ? 'bg-accent-soft text-accent shadow-sm'
                     : 'text-text-tertiary hover:bg-surface-popover hover:text-text-secondary'
                 }`}
               >
-                <span className="flex h-6 w-6 items-center justify-center">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                   {item.icon}
                 </span>
-                <span>{s[item.labelKey]}</span>
+                <span className="text-left">{s[item.labelKey]}</span>
               </button>
             </li>
           )
         })}
       </ul>
+
+      <div className="mt-4 px-3 pt-3 border-t border-border mx-2">
+        <p className="text-[10px] uppercase tracking-widest text-text-tertiary font-semibold mb-2">
+          {s.layersTitle}
+        </p>
+        <ul className="flex flex-col gap-1.5">
+          {toggles.map(t => (
+            <li key={t.id}>
+              <button
+                type="button"
+                onClick={t.onClick}
+                aria-pressed={t.active}
+                className="group w-full flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-surface-popover/60 transition-colors"
+              >
+                <span className={`text-xs ${t.active ? 'text-text-primary' : 'text-text-secondary'}`}>
+                  {s[t.labelKey]}
+                </span>
+                <span
+                  className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                    t.active ? t.accent : 'bg-border'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${
+                      t.active ? 'translate-x-[14px]' : 'translate-x-[2px]'
+                    }`}
+                  />
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </nav>
   )
 }

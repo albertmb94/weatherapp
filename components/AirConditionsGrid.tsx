@@ -12,6 +12,7 @@ interface AirConditionsGridProps {
 interface CardProps {
   label: string
   value: string
+  unit?: string
   icon: React.ReactNode
   accent?: 'amber' | 'sky' | 'rose' | 'emerald'
 }
@@ -63,7 +64,7 @@ function UvIcon() {
   )
 }
 
-function AirCard({ label, value, icon, accent = 'sky' }: CardProps) {
+function AirCard({ label, value, unit, icon, accent = 'sky' }: CardProps) {
   const accentMap: Record<NonNullable<CardProps['accent']>, string> = {
     amber: 'text-amber-300 bg-amber-500/10',
     sky: 'text-sky-300 bg-sky-500/10',
@@ -76,17 +77,39 @@ function AirCard({ label, value, icon, accent = 'sky' }: CardProps) {
         <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${accentMap[accent]}`}>{icon}</span>
         <span className="text-[11px] font-medium uppercase tracking-wide truncate">{label}</span>
       </div>
-      <span className="text-2xl md:text-3xl font-semibold text-text-primary tabular-nums leading-none mt-1">
-        {value}
-      </span>
+      <div className="flex items-baseline gap-1 mt-1">
+        <span className="text-2xl md:text-3xl font-semibold text-text-primary tabular-nums leading-none">
+          {value}
+        </span>
+        {unit ? (
+          <span className="text-xs text-text-tertiary tabular-nums">{unit}</span>
+        ) : null}
+      </div>
     </div>
   )
+}
+
+/**
+ * Today's UV index, displayed alongside a small "UV peak" tag so the reading
+ * stays meaningful at night and during the early morning when the raw current
+ * UV is 0.
+ */
+function pickUvDisplay(snapshot: CurrentSnapshot | null): { value: string; unit: string } {
+  if (snapshot === null) return { value: '–', unit: '' }
+  const current = snapshot.uvIndex
+  const peak = snapshot.uvIndexPeak
+  // Prefer the raw current UV when there is any daylight reading; otherwise
+  // show the day's peak so the card never reads 0.0 once the sun has been up.
+  const raw = current !== null && current > 0 ? current : peak
+  if (raw === null) return { value: '–', unit: '' }
+  return { value: raw.toFixed(1), unit: peak !== null && raw === peak && (current === null || current < peak) ? 'peak' : '' }
 }
 
 export default function AirConditionsGrid({ snapshot, title }: AirConditionsGridProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
-  const heading = title ?? s.airTitle
+  const heading = title ?? s.metricsTitle
+  const uv = pickUvDisplay(snapshot)
 
   return (
     <section aria-label={heading} className="rounded-2xl border border-border bg-surface-raised p-4 md:p-5">
@@ -104,7 +127,8 @@ export default function AirConditionsGrid({ snapshot, title }: AirConditionsGrid
         />
         <AirCard
           label={s.windSpeed}
-          value={`${fmtWind(snapshot?.windKmh ?? snapshot?.windGustsKmh ?? null)} km/h`}
+          value={`${fmtWind(snapshot?.windKmh ?? snapshot?.windGustsKmh ?? null)}`}
+          unit="km/h"
           icon={<WindIcon />}
           accent="sky"
         />
@@ -116,7 +140,8 @@ export default function AirConditionsGrid({ snapshot, title }: AirConditionsGrid
         />
         <AirCard
           label={s.uvIndex}
-          value={snapshot?.uvIndex === null || snapshot?.uvIndex === undefined ? '–' : snapshot.uvIndex.toFixed(1)}
+          value={uv.value}
+          unit={uv.unit === 'peak' ? s.uvPeak : ''}
           icon={<UvIcon />}
           accent="emerald"
         />

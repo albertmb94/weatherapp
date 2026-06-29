@@ -102,13 +102,14 @@ export default function HomeContent() {
     models: DEFAULT_MODELS,
     hour: 0,
     range: DEFAULT_RANGE,
-    showMap: true,
+    showMap: false,
     showRadar: false,
     bucket: 4,
     locale: '',
     marine: false,
     basic: true,
     view: 'weather' as const,
+    weekDays: 7 as const,
   }))
   const [urlState, updateUrl] = useUrlState(defaults)
 
@@ -304,6 +305,7 @@ export default function HomeContent() {
   const marine = urlState.marine
   const showBasic = urlState.basic
   const selectedView: SidebarSection = urlState.view
+  const weekDays: 7 | 14 = urlState.weekDays
 
   const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null; ageMs: number | null }>({
     queryKey: ['refresh-status'],
@@ -381,6 +383,20 @@ export default function HomeContent() {
     },
   })
 
+  // Mirrors the Cities panel's lookup so we can highlight when the current
+  // location is already bookmarked. React Query dedupes by key, so this
+  // shares a cache with CitiesList / SavedLocations.
+  const { data: savedLocations } = useQuery<{ id: number; name: string; latitude: number; longitude: number }[]>({
+    queryKey: ['saved-locations'],
+    queryFn: async () => {
+      const res = await fetch('/api/locations')
+      if (!res.ok) throw new Error('API failed')
+      return res.json()
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+
   const handleCitySelect = useCallback((name: string, lat: number, lon: number) => {
     setCityName(name)
     setPosition([lat, lon])
@@ -439,13 +455,10 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handleViewSelect = useCallback((section: SidebarSection) => {
-    // Sidebar section change updates the URL view, and when the user
-    // jumps to a specific section we also drive secondary state so the
-    // page reflects their intent without an extra click.
-    const updates: Partial<typeof urlState> = { view: section }
-    if (section === 'map' && !showMap) updates.showMap = true
-    updateUrl(updates)
-  }, [showMap, updateUrl])
+    // Just set the active sidebar section. The map's own visibility is now
+    // controlled independently by the Layers toggle in the sidebar.
+    updateUrl({ view: section })
+  }, [updateUrl])
 
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) return
@@ -752,12 +765,28 @@ export default function HomeContent() {
       )}
 
       <div className="flex flex-1 min-h-0">
-        <DesktopSidebar active={selectedView} onSelect={handleViewSelect} />
+        <DesktopSidebar
+          active={selectedView}
+          onSelect={handleViewSelect}
+          layers={{
+            showMap,
+            showRadar,
+            marine,
+            showBasic,
+          }}
+          onLayerToggle={{
+            map: handleMapToggle,
+            radar: handleRadarToggle,
+            marine: handleMarineToggle,
+            basic: handleBasicToggle,
+          }}
+        />
 
         <main className="flex-1 min-w-0 min-h-0 flex">
           <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
-            {/* Search bar — full-width on tablet/desktop, sitting at the
-                top of the main column like the reference mock. */}
+            {/* Sticky search + range on tablet/desktop, sitting at the top of
+                the main column. The range pill lives directly under the city
+                search so it's always pinned in the desktop layout. */}
             <div className="hidden md:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border px-4 lg:px-6 py-3">
               <div className="relative">
                 <svg
@@ -773,7 +802,15 @@ export default function HomeContent() {
                 </svg>
                 <CitySearch onSelect={handleCitySelect} />
               </div>
-              <div className="mt-2 hidden md:flex flex-nowrap items-center gap-x-2 overflow-x-auto scrollbar-none pb-0.5 -mx-1 px-1">
+              <div className="mt-3 flex flex-nowrap items-center justify-between gap-3">
+                <div className="overflow-x-auto scrollbar-none min-w-0">
+                  <TimeRangeSelector
+                    selected={selectedRange}
+                    onChange={handleRangeChange}
+                    maxAvailable={maxModelHours}
+                    showLabel={false}
+                  />
+                </div>
                 <div role="group" aria-label={STRINGS[locale].groupView} className="shrink-0 flex items-center gap-1.5">
                   {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
                   {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
@@ -801,9 +838,9 @@ export default function HomeContent() {
                   cityIsLoading={isLoading && !viewData}
                   models={displayModels}
                   activeIds={displayActiveModelIds}
-                  time={viewData?.time ?? []}
-                  series={viewData?.series ?? {}}
-                  selectedIndex={selectedHour}
+                  time={data?.time ?? []}
+                  series={data?.series ?? {}}
+                  nowIndex={startIndex + selectedHour}
                 />
               )}
 
@@ -811,7 +848,7 @@ export default function HomeContent() {
                 <SavedLocations onSelect={handleCitySelect} />
               )}
 
-              {(selectedView === 'weather' || selectedView === 'map') && showMap && (
+              {selectedView === 'map' && showMap && (
                 <div className="h-[40vh] min-h-[260px] max-h-[440px] rounded-2xl border border-border bg-surface-raised relative overflow-hidden">
                   <MapPicker
                     position={position}
@@ -830,7 +867,7 @@ export default function HomeContent() {
                 </div>
               )}
 
-              {(selectedView === 'weather' || selectedView === 'map') && showMap && (
+              {selectedView === 'map' && showMap && (
                 <div className="rounded-2xl border border-border bg-surface-raised p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-[10px] text-text-secondary font-mono">{hourLabel}</span>
@@ -955,7 +992,22 @@ export default function HomeContent() {
                         : 'Gestiona tus ubicaciones guardadas. Toca una para ir a ella.'}
                     </p>
                   </div>
-                  <CitiesList onSelect={handleCitySelect} />
+                  <CitiesList
+                    onSelect={handleCitySelect}
+                    currentCityName={cityName}
+                    currentCityId={(() => {
+                      // Match by name + ~50m coordinate tolerance so a re-load
+                      // of the same place is recognised as already-saved.
+                      const around = savedLocations?.find(l =>
+                        l.name === cityName &&
+                        Math.abs(l.latitude - position[0]) < 0.0005 &&
+                        Math.abs(l.longitude - position[1]) < 0.0005
+                      )
+                      return around?.id
+                    })()}
+                    onSaveCurrent={() => saveMutation.mutate()}
+                    saving={saveMutation.isPending}
+                  />
                 </section>
               )}
 
@@ -979,17 +1031,10 @@ export default function HomeContent() {
 
               {selectedView === 'settings' && (
                 <SettingsPanel
-                  range={selectedRange}
-                  onRangeChange={handleRangeChange}
-                  maxRange={maxModelHours}
                   marine={marine}
                   onMarineToggle={handleMarineToggle}
                   showBasic={showBasic}
                   onBasicToggle={handleBasicToggle}
-                  showRadar={showRadar}
-                  onRadarToggle={handleRadarToggle}
-                  showMap={showMap}
-                  onMapToggle={handleMapToggle}
                   cityName={cityName}
                   positionLat={position[0]}
                   positionLon={position[1]}
@@ -1011,10 +1056,12 @@ export default function HomeContent() {
               <WeekForecastPanel
                 models={displayModels}
                 activeIds={displayActiveModelIds}
-                time={viewData?.time ?? []}
-                series={viewData?.series ?? {}}
-                startIndex={startIndex}
+                time={data?.time ?? []}
+                series={data?.series ?? {}}
+                nowIndex={startIndex + selectedHour}
                 maxHours={effectiveMaxHours}
+                weekDays={weekDays}
+                onWeekDaysChange={(d) => updateUrl({ weekDays: d })}
                 onSelectHour={handleHourChange}
               />
             </div>
@@ -1050,11 +1097,24 @@ export default function HomeContent() {
   )
 }
 
-function CitiesList({ onSelect }: { onSelect: (name: string, lat: number, lon: number) => void }) {
-  // Tiny view that prefers the larger SavedLocations chunk but renders
-  // gracefully when it's empty (the SavedLocations component returns null
-  // when it has nothing to show).
+function CitiesList({
+  onSelect,
+  currentCityName,
+  currentCityId,
+  onSaveCurrent,
+  saving,
+}: {
+  onSelect: (name: string, lat: number, lon: number) => void
+  currentCityName: string
+  currentCityId?: number
+  onSaveCurrent: () => void
+  saving: boolean
+}) {
+  // Saved-cities panel for the Ciudades sidebar entry. Renders the user's
+  // bookmarked locations with a "Save city" CTA so the current weather view
+  // can be bookmarked without leaving the friendly layout.
   const { locale } = useLocale()
+  const s = STRINGS[locale]
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['saved-locations'],
@@ -1073,44 +1133,77 @@ function CitiesList({ onSelect }: { onSelect: (name: string, lat: number, lon: n
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-locations'] }),
   })
-  if (isLoading) {
-    return <p className="text-sm text-text-tertiary">{STRINGS[locale].loadingStations}</p>
-  }
-  if (!data || data.length === 0) {
-    return (
-      <p className="text-sm text-text-tertiary">
-        {locale === 'en'
-          ? 'No saved locations yet. Open the friendly view and tap “Save” to bookmark this city.'
-          : 'Aún no hay ubicaciones guardadas. Abre la vista principal y pulsa “Guardar” para añadir esta ciudad.'}
-      </p>
-    )
-  }
+
+  const empty = !data || data.length === 0
+
   return (
-    <ul className="space-y-1">
-      {data.map(loc => (
-        <li
-          key={loc.id}
-          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2"
-        >
-          <button
-            onClick={() => onSelect(loc.name, loc.latitude, loc.longitude)}
-            className="min-h-[36px] flex-1 text-left text-sm text-text-primary hover:text-accent transition-colors"
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={onSaveCurrent}
+        disabled={saving || currentCityId !== undefined}
+        aria-label={s.citiesSaveCurrent}
+        className={`w-full flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+          currentCityId !== undefined
+            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+            : 'border-border bg-accent text-white hover:bg-accent-hover disabled:opacity-60'
+        }`}
+      >
+        <span className="flex flex-col">
+          <span className="text-sm font-semibold">{s.citiesSaveCurrent}</span>
+          <span
+            className={`text-xs truncate ${currentCityId !== undefined ? 'text-emerald-300/80' : 'text-white/80'}`}
           >
-            {loc.name}
-            <span className="block text-xs text-text-tertiary tabular-nums">
-              {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
-            </span>
-          </button>
-          <button
-            onClick={() => deleteMutation.mutate(loc.id)}
-            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-tertiary hover:text-red-400 transition-colors"
-            aria-label={`Remove ${loc.name}`}
-          >
-            ×
-          </button>
-        </li>
-      ))}
-    </ul>
+            {currentCityName}
+          </span>
+        </span>
+        {saving ? (
+          <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : currentCityId !== undefined ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        )}
+      </button>
+
+      {isLoading ? (
+        <p className="text-sm text-text-tertiary">{s.loadingStations}</p>
+      ) : empty ? (
+        <p className="text-sm text-text-tertiary">
+          {s.citiesEmpty} {s.citiesEmptyHint}
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {data!.map(loc => (
+            <li
+              key={loc.id}
+              className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2"
+            >
+              <button
+                onClick={() => onSelect(loc.name, loc.latitude, loc.longitude)}
+                className="min-h-[36px] flex-1 text-left text-sm text-text-primary hover:text-accent transition-colors"
+              >
+                {loc.name}
+                <span className="block text-xs text-text-tertiary tabular-nums">
+                  {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
+                </span>
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(loc.id)}
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-tertiary hover:text-red-400 transition-colors"
+                aria-label={`Remove ${loc.name}`}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

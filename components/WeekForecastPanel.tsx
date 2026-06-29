@@ -13,9 +13,12 @@ interface WeekForecastPanelProps {
   activeIds: string[]
   time: Date[]
   series: Record<string, Record<string, (number | null)[]>>
-  startIndex: number
+  /** Index in `time` of the current local hour — drives which day is "today". */
+  nowIndex: number
   maxHours: number
-  /** Optional selected hour handler so the row feels interactive. */
+  /** Selected range (7 | 14) and the setter so the panel can drive its own toggle. */
+  weekDays: 7 | 14
+  onWeekDaysChange: (next: 7 | 14) => void
   onSelectHour?: (hour: number) => void
 }
 
@@ -28,16 +31,18 @@ export default function WeekForecastPanel({
   activeIds,
   time,
   series,
-  startIndex,
+  nowIndex,
   maxHours,
+  weekDays,
+  onWeekDaysChange,
   onSelectHour,
 }: WeekForecastPanelProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
 
   const days = useMemo<DaySummary[]>(
-    () => computeWeekSummaries({ time, series }, models, activeIds, startIndex, maxHours, locale),
-    [models, activeIds, time, series, startIndex, maxHours, locale]
+    () => computeWeekSummaries({ time, series }, models, activeIds, nowIndex, maxHours, locale, weekDays),
+    [models, activeIds, time, series, nowIndex, maxHours, locale, weekDays]
   )
 
   if (days.length === 0) return null
@@ -47,17 +52,47 @@ export default function WeekForecastPanel({
       aria-label={s.weekTitle}
       className="rounded-2xl border border-border bg-surface-raised p-4 md:p-5 lg:sticky lg:top-4"
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2">
         <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
           {s.weekTitle}
         </h3>
+        <div
+          role="group"
+          aria-label={s.weekTitle}
+          className="inline-flex items-center rounded-full border border-border bg-surface p-0.5"
+        >
+          <button
+            type="button"
+            onClick={() => onWeekDaysChange(7)}
+            aria-pressed={weekDays === 7}
+            className={`min-h-[24px] px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
+              weekDays === 7
+                ? 'bg-accent text-white'
+                : 'text-text-tertiary hover:text-text-secondary'
+            }`}
+          >
+            {s.weekOption7}
+          </button>
+          <button
+            type="button"
+            onClick={() => onWeekDaysChange(14)}
+            aria-pressed={weekDays === 14}
+            className={`min-h-[24px] px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
+              weekDays === 14
+                ? 'bg-accent text-white'
+                : 'text-text-tertiary hover:text-text-secondary'
+            }`}
+          >
+            {s.weekOption14}
+          </button>
+        </div>
       </div>
       <ol className="space-y-2.5">
         {days.map((d, i) => (
           <li key={d.fullDate}>
             <button
               type="button"
-              onClick={onSelectHour ? () => onSelectHour(startIndex + i * 12) : undefined}
+              onClick={onSelectHour ? () => onSelectHour(nowIndex + i * 12) : undefined}
               className="w-full grid grid-cols-[42px_24px_1fr_auto] items-center gap-3 py-1.5 px-1 rounded-md hover:bg-surface-popover/60 transition-colors text-left"
             >
               <span className="text-sm font-medium text-text-primary capitalize">{d.label}</span>

@@ -33,6 +33,7 @@ export interface CurrentSnapshot {
   precipitationMm: number | null
   chanceOfRainPct: number | null
   uvIndex: number | null
+  uvIndexPeak: number | null
   cloudCoverPct: number | null
   humidityPct: number | null
   icon: WeatherIconId
@@ -86,6 +87,28 @@ function precipChance(precipMm: number | null): number | null {
   return Math.round(precipMm * 80)
 }
 
+/**
+ * Maximum UV index across the entire UTC-fake-local *current calendar day*
+ * (00:00 → 23:00). Powers the "UV peak" reading shown next to the current UV
+ * in the metrics card so the value stays meaningful at night and during the
+ * early morning when the raw current UV is 0.
+ */
+function dailyUvPeak(bag: SeriesBag, models: WeatherModel[], activeIds: string[], nowIndex: number): number | null {
+  const t = bag.time[nowIndex]
+  if (!(t instanceof Date)) return null
+  const dayKey = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
+  let peak: number | null = null
+  for (let i = 0; i < bag.time.length; i++) {
+    const ti = bag.time[i]
+    if (!(ti instanceof Date)) continue
+    if (`${ti.getUTCFullYear()}-${ti.getUTCMonth()}-${ti.getUTCDate()}` !== dayKey) continue
+    const v = meanAcrossModels(bag, 'uv_index', i, models, activeIds)
+    if (v === null) continue
+    if (peak === null || v > peak) peak = v
+  }
+  return peak
+}
+
 export function computeCurrentSnapshot(
   bag: SeriesBag,
   models: WeatherModel[],
@@ -100,6 +123,7 @@ export function computeCurrentSnapshot(
   const uv = meanAcrossModels(bag, 'uv_index', hourIndex, models, activeIds)
   const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds)
   const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds)
+  const peak = dailyUvPeak(bag, models, activeIds, hourIndex)
 
   let dailyHigh: number | null = null
   let dailyLow: number | null = null
@@ -132,6 +156,7 @@ export function computeCurrentSnapshot(
     precipitationMm: precip,
     chanceOfRainPct: precipChance(precip),
     uvIndex: uv,
+    uvIndexPeak: peak,
     cloudCoverPct: cloud,
     humidityPct: humidity,
     icon,
@@ -147,45 +172,94 @@ export interface HourlySlot {
   icon: WeatherIconId
   tempC: number | null
   precipMm: number | null
+  isPast: boolean
+}
+
+function formatBlockLabel(hour: number, locale: 'en' | 'es'): string {
+  const hh = ((hour % 24) + 24) % 24
+  if (locale === 'en') {
+    const period = hh >= 12 ? 'PM' : 'AM'
+    const hour12 = hh % 12 === 0 ? 12 : hh % 12
+    return `${hour12} ${period}`
+  }
+  return `${hh}h`
 }
 
 /**
- * Build 24 hourly slots starting at `startIndex`. The caller is expected to
- * pass in the *trimmed* series start (i.e. after current-time slicing).
+ * Build today's six 4-hour slots anchored at 00:00 local time, e.g. for a
+ * forecast at 14:30 we render 00, 04, 08, 12, 16, 20; the slot whose 4-hour
+ * block contains the current time is labelled "Now" instead of its hour.
+ *
+ * `bag.time` is expected to span past_days + today + forecast_days so that
+ * today’s 00:00 is reachable. For any past slot whose data is unavailable
+ * in the underlying API response we still emit the slot with `tempC=null`
+ * so the UI can render an em-dash instead of guessing.
  */
 export function computeHourlySlots(
   bag: SeriesBag,
   models: WeatherModel[],
   activeIds: string[],
-  startIndex: number,
+  nowIndex: number,
   locale: 'en' | 'es',
-  count = 24
+  count = 6,
+  intervalHours = 4
 ): HourlySlot[] {
   const out: HourlySlot[] = []
+  if (!bag.time[nowIndex]) return out
+  const nowT = bag.time[nowIndex]
+  if (!(nowT instanceof Date)) return out
+
+  // Find today's local 00:00 (UTC-fake-local).
+  const todayStart = new Date(nowT.getTime())
+  todayStart.setUTCHours(0, 0, 0, 0)
+  const todayStartTs = todayStart.getTime()
+
+  // The slot time stamps are 00, 04, 08, 12, 16, 20 — strictly anchored.
+  let todayStartIdx = -1
+  for (let i = 0; i < bag.time.length; i++) {
+    const t = bag.time[i]
+    if (t instanceof Date && t.getTime() === todayStartTs) {
+      todayStartIdx = i
+      break
+    }
+  }
+  if (todayStartIdx === -1) return out
+
+  // Determine which block "now" lives in: the block whose [start, end) range
+  // contains the current local hour. We pick by floor(currentHour / interval).
+  const nowHour = nowT.getUTCHours()
+  const nowBlockStart = Math.floor(nowHour / intervalHours) * intervalHours
+
   for (let i = 0; i < count; i++) {
-    const idx = startIndex + i
-    if (!bag.time[idx]) break
+    const slotStartHour = i * intervalHours
+    const idx = todayStartIdx + i * intervalHours
+    if (idx >= bag.time.length) break
     const t = bag.time[idx]
+    if (!(t instanceof Date)) break
+
     const temp = meanAcrossModels(bag, 'temperature', idx, models, activeIds)
     const precip = meanAcrossModels(bag, 'precipitation', idx, models, activeIds)
     const cloud = meanAcrossModels(bag, 'cloud_cover', idx, models, activeIds)
     const gusts = meanAcrossModels(bag, 'wind_gusts', idx, models, activeIds)
-    const low = temp !== null ? temp : null
+
     const icon = pickWeatherIcon({
       cloudCoverPct: cloud,
       precipitationMmDay: precip,
       windGustsKmh: gusts,
-      minTempC: low,
+      minTempC: temp,
     })
-    const hour = t instanceof Date
-      ? t.toLocaleTimeString(locale === 'en' ? 'en-US' : 'es-ES', {
-          timeZone: 'UTC',
-          hour: 'numeric',
-          hour12: locale === 'en',
-        })
-      : ''
-    out.push({ index: idx, hourLabel: hour, icon, tempC: temp, precipMm: precip })
+
+    let hourLabel: string
+    if (slotStartHour === nowBlockStart) {
+      hourLabel = locale === 'en' ? 'Now' : 'Ahora'
+    } else {
+      hourLabel = formatBlockLabel(slotStartHour, locale)
+    }
+
+    const isPast = idx < nowIndex
+    out.push({ index: idx, hourLabel, icon, tempC: temp, precipMm: precip, isPast })
   }
+
   return out
 }
 
@@ -199,16 +273,18 @@ export interface DaySummary {
 }
 
 /**
- * Build up to 7 day buckets starting from the *current* day (i.e. the bucket
- * containing `startIndex`), exactly matching the right-sidebar "week" panel.
+ * Build up to `count` day buckets (7 or 14) starting from the *current* day
+ * (i.e. the bucket containing `nowIndex`). Powers the right-sidebar week /
+ * fortnight panel.
  */
 export function computeWeekSummaries(
   bag: SeriesBag,
   models: WeatherModel[],
   activeIds: string[],
-  startIndex: number,
+  nowIndex: number,
   maxHours: number,
-  locale: 'en' | 'es'
+  locale: 'en' | 'es',
+  count: 7 | 14 = 7
 ): DaySummary[] {
   interface Bucket { key: string; dayIdx: number; start: number; end: number }
   const buckets: Bucket[] = []
@@ -216,7 +292,7 @@ export function computeWeekSummaries(
   const limit = Math.min(bag.time.length, maxHours)
   const activeModels = models.filter(m => activeIds.includes(m.id))
   if (activeModels.length === 0) return []
-  for (let i = startIndex; i < limit; i++) {
+  for (let i = nowIndex; i < limit; i++) {
     const t = bag.time[i]
     if (!(t instanceof Date)) continue
     const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
@@ -226,7 +302,7 @@ export function computeWeekSummaries(
     } else {
       current.end = i
     }
-    if (buckets.length === 7) break
+    if (buckets.length === count) break
   }
 
   return buckets.map(b => {

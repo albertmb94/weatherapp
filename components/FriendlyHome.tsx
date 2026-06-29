@@ -17,11 +17,14 @@ interface FriendlyHomeProps {
   cityIsLoading: boolean
   models: WeatherModel[]
   activeIds: string[]
+  /**
+   * Full untrimmed forecast (must cover today 00:00). Used by the hourly
+   * strip so today can be sliced into 4-hour blocks starting at 00:00.
+   */
   time: Date[]
   series: Record<string, Record<string, (number | null)[]>>
-  /** Index in the (already trimmed) series that corresponds to the user's
-   *  currently-selected hour. Defaults to 0. */
-  selectedIndex: number
+  /** Index in `time` (full) of the current local hour. */
+  nowIndex: number
 }
 
 export default function FriendlyHome({
@@ -31,14 +34,14 @@ export default function FriendlyHome({
   activeIds,
   time,
   series,
-  selectedIndex,
+  nowIndex,
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
 
   const snapshot: CurrentSnapshot | null = useMemo(
-    () => computeCurrentSnapshot({ time, series }, models, activeIds, selectedIndex),
-    [models, activeIds, time, series, selectedIndex]
+    () => computeCurrentSnapshot({ time, series }, models, activeIds, nowIndex),
+    [models, activeIds, time, series, nowIndex]
   )
 
   return (
@@ -49,7 +52,7 @@ export default function FriendlyHome({
         activeIds={activeIds}
         time={time}
         series={series}
-        startIndex={selectedIndex}
+        nowIndex={nowIndex}
         title={s.hourlyTitle}
       />
       <AirConditionsGrid snapshot={snapshot} />

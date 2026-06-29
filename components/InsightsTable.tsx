@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useCallback, useRef } from 'react'
 import type { WeatherModel } from '@/lib/models'
-import { getColor } from '@/lib/colorScales'
-import { weightedAvg, contrastText } from '@/lib/ensemble'
+import { getColor, SCALES } from '@/lib/colorScales'
+import type { ScaleMetric } from '@/lib/colorScales'
+import { weightedAvg } from '@/lib/ensemble'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
@@ -123,11 +124,76 @@ function saveColumnOrder(order: MetricCellId[]) {
   } catch {}
 }
 
-function tempEmoji(t: number | null): string {
-  if (t === null) return ''
-  if (t <= 0) return '🥶'
-  if (t >= 30) return '🥵'
-  return ''
+/**
+ * Convert an rgb()/hex colour to its raw "r, g, b" triple so it can be
+ * dropped into an rgba(...) value. Used to layer translucent gradients on
+ * top of the Insights table cells.
+ */
+function rgbTriple(color: string): string {
+  const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+  if (m) return `${m[1]}, ${m[2]}, ${m[3]}`
+  const hex = color.replace('#', '')
+  if (hex.length === 6) {
+    const r = parseInt(hex.slice(0, 2), 16)
+    const g = parseInt(hex.slice(2, 4), 16)
+    const b = parseInt(hex.slice(4, 6), 16)
+    return `${r}, ${g}, ${b}`
+  }
+  return '120, 120, 120'
+}
+
+/**
+ * Map the metric value to a 0..1 "intensity" used to drive how saturated
+ * the cell shading is. We pick the closest scale stop and weight by how
+ * far the value is from the scale's neutral midpoint. 0 = neutral / cool,
+ * 1 = extreme. Returns null when the value is missing or the metric has
+ * no usable scale.
+ */
+function intensityFor(metric: ScaleMetric, value: number | null): number | null {
+  if (value === null || value === undefined) return null
+  const stops = SCALES[metric]
+  if (!stops || stops.length === 0) return null
+  // Find the enclosing stop pair.
+  let lo = stops[0]
+  let hi = stops[stops.length - 1]
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (value >= stops[i].value && value <= stops[i + 1].value) {
+      lo = stops[i]
+      hi = stops[i + 1]
+      break
+    }
+  }
+  if (value <= stops[0].value) {
+    lo = stops[0]
+    hi = stops[0]
+  } else if (value >= stops[stops.length - 1].value) {
+    lo = stops[stops.length - 1]
+    hi = stops[stops.length - 1]
+  }
+  const loDist = Math.abs(value - lo.value)
+  const hiDist = Math.abs(value - hi.value)
+  const range = Math.max(1, hi.value - lo.value)
+  const proximity = 1 - (loDist + hiDist) / (range * 2) // 0 (far from stops) … 1 (at a stop)
+  return Math.max(0.35, Math.min(1, 0.4 + proximity * 0.6))
+}
+
+/**
+ * Build a layered background that gives the cell a soft "glow" in the
+ * centre and fades to transparent at the edges. The hue comes from the
+ * metric scale and the alpha is driven by the value intensity.
+ */
+function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperties {
+  if (value === null || value === undefined) {
+    return { background: 'transparent' }
+  }
+  const color = getColor(metric, value)
+  const triple = rgbTriple(color)
+  const intensity = intensityFor(metric, value) ?? 0.5
+  const core = Math.round(intensity * 70)   // 0..70% alpha at the core
+  const mid = Math.round(intensity * 35)   // 0..35% at the mid radius
+  return {
+    background: `radial-gradient(ellipse 70% 100% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 55%, rgba(${triple},0) 100%)`,
+  }
 }
 
 function WindArrow({ degrees }: { degrees: number | null }) {
@@ -167,8 +233,9 @@ function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' |
 
 interface CellResult {
   node: React.ReactNode
-  bg?: string
-  text?: string
+  style?: React.CSSProperties
+  /** When set, the cell renders with an extra ring/badge for the active row. */
+  textClassName?: string
 }
 
 function cellData(id: MetricCellId, r: Row): CellResult {
@@ -178,9 +245,9 @@ function cellData(id: MetricCellId, r: Row): CellResult {
     case 'temp':
       return cellInner({ value: r.tempMean, metric: 'temperature', suffix: '°' })
     case 'min':
-      return cellInner({ value: r.tempMin, metric: 'temperature', suffix: '°', emoji: tempEmoji(r.tempMin) })
+      return cellInner({ value: r.tempMin, metric: 'temperature', suffix: '°' })
     case 'max':
-      return cellInner({ value: r.tempMax, metric: 'temperature', suffix: '°', emoji: tempEmoji(r.tempMax) })
+      return cellInner({ value: r.tempMax, metric: 'temperature', suffix: '°' })
     case 'clouds':
       return cellInner({ value: r.cloudMean, metric: 'cloud_cover', suffix: '%' })
     case 'wind':
@@ -520,15 +587,17 @@ export default function InsightsTable({
 
   return (
     <div className="mb-4 animate-fadeIn">
-      <h3 className="text-sm font-semibold text-text-primary mb-2">{STRINGS[locale].insightsTitle}</h3>
-      <div className="rounded border border-border overflow-hidden">
-        <div className="flex items-center gap-0.5 bg-surface-raised px-1.5 py-1 overflow-x-auto scrollbar-none border-b border-border">
+      <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold mb-3">
+        {STRINGS[locale].insightsTitle}
+      </h3>
+      <div className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
+        <div className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">
           {BUCKET_OPTIONS.map(b => (
             <button
               key={b}
               onClick={() => onBucketChange(b)}
-              className={`flex-1 px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
-                bucket === b ? 'bg-white/10 text-text-primary' : 'text-text-tertiary hover:text-text-primary'
+              className={`flex-1 px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
+                bucket === b ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
               }`}
             >
               {BUCKET_LABELS[b]}
@@ -537,7 +606,7 @@ export default function InsightsTable({
           {!isDefaultOrder && (
             <button
               onClick={resetColumnOrder}
-              className="shrink-0 px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] text-text-tertiary hover:text-text-primary ml-0.5"
+              className="shrink-0 px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] text-text-tertiary hover:text-text-secondary ml-0.5"
               title="Reset column order"
             >
               ↺
@@ -545,7 +614,7 @@ export default function InsightsTable({
           )}
           <button
             onClick={() => setCompact(c => !c)}
-            className={`shrink-0 md:hidden px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-white/10 text-text-primary' : 'text-text-tertiary hover:text-text-primary'}`}
+            className={`shrink-0 md:hidden px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'}`}
             title="Compact mode"
           >
             ≡
@@ -554,8 +623,8 @@ export default function InsightsTable({
         <div className="overflow-x-auto">
           <table className={`w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${showMarine ? 'table-auto' : 'table-fixed'}`}>
           <thead>
-            <tr className="bg-surface-raised text-text-secondary">
-              <th className="sticky left-0 top-0 isolate bg-surface-raised text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
+            <tr className="bg-surface/60 text-text-secondary">
+              <th className="sticky left-0 top-0 isolate bg-surface/60 backdrop-blur text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-accent' : ''
                 return (
@@ -566,7 +635,7 @@ export default function InsightsTable({
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`sticky top-0 bg-surface-raised text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
+                    className={`sticky top-0 bg-surface/60 backdrop-blur text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}
@@ -579,25 +648,27 @@ export default function InsightsTable({
             {rows.map((r, i) => {
               const isActive = selectedHour >= r.startIdx && selectedHour <= r.endIdx
               const zebra = i % 2 === 1
-              const whenBg = isActive ? 'bg-accent-soft' : zebra ? 'bg-surface-raised' : 'bg-surface-raised'
-              const bodyBg = isActive ? 'bg-accent-soft' : zebra ? 'bg-surface-raised/40' : ''
+              const whenBg = isActive
+                ? 'bg-accent-soft/70 ring-1 ring-inset ring-accent/40'
+                : zebra
+                  ? 'bg-surface-raised/30'
+                  : 'bg-transparent'
               return (
                 <tr
                   key={i}
                   onClick={() => onSelectHour(r.centerIdx)}
-                  className="cursor-pointer transition-colors hover:[&>td]:bg-surface-raised"
+                  className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10"
                 >
                   <td className={`sticky left-0 z-20 isolate px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => {
                     const cell = cellData(col.id, r)
-                    const colored = cell.bg !== undefined
                     return (
                       <td
                         key={col.id}
-                        className={`text-center px-1 py-1.5 font-mono tabular-nums ${colored ? '' : bodyBg} ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
-                        style={colored ? { backgroundColor: cell.bg, color: cell.text } : undefined}
+                        className={`text-center px-1 py-1.5 font-mono tabular-nums text-text-primary ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
+                        style={cell.style}
                       >
                         {cell.node}
                       </td>
@@ -616,7 +687,7 @@ export default function InsightsTable({
 
 interface CellInnerProps {
   value: number | null
-  metric: 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation' | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility' | 'sea_surface_temperature' | 'wave_height' | 'wave_period' | 'wave_direction' | 'wind_wave_height' | 'wind_wave_period' | 'swell_wave_height' | 'swell_wave_period'
+  metric: ScaleMetric
   suffix?: string
   emoji?: string
   icon?: React.ReactNode
@@ -625,16 +696,13 @@ interface CellInnerProps {
 }
 
 function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip }: CellInnerProps): CellResult {
-  const bg = getColor(metric, value)
-  const text = value !== null ? contrastText(bg) : '#888'
   const display = value !== null
     ? (decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString())
     : '–'
   return {
-    bg,
-    text,
+    style: heatStyle(metric, value),
     node: (
-      <span className="inline-flex items-center gap-0.5 justify-center" title={tooltip}>
+      <span className="relative z-10 inline-flex items-center gap-0.5 justify-center" title={tooltip}>
         {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
         <span>{display}{suffix}</span>
       </span>

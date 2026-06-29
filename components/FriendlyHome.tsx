@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
+import { getLocationNow } from '@/lib/dateUtils'
 import {
   computeCurrentSnapshot,
   type CurrentSnapshot,
@@ -25,6 +26,9 @@ interface FriendlyHomeProps {
   series: Record<string, Record<string, (number | null)[]>>
   /** Index in `time` (full) of the current local hour. */
   nowIndex: number
+  /** UTC offset seconds for the location (used to derive "today" for the
+   *  "Ahora" label in the hourly strip). */
+  utcOffsetSeconds?: number
 }
 
 export default function FriendlyHome({
@@ -35,6 +39,7 @@ export default function FriendlyHome({
   time,
   series,
   nowIndex,
+  utcOffsetSeconds = 0,
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -43,6 +48,17 @@ export default function FriendlyHome({
     () => computeCurrentSnapshot({ time, series }, models, activeIds, nowIndex),
     [models, activeIds, time, series, nowIndex]
   )
+
+  const isViewingToday = useMemo(() => {
+    const nowT = time[nowIndex]
+    if (!(nowT instanceof Date)) return true
+    const today = getLocationNow(utcOffsetSeconds)
+    return (
+      nowT.getUTCFullYear() === today.getUTCFullYear() &&
+      nowT.getUTCMonth() === today.getUTCMonth() &&
+      nowT.getUTCDate() === today.getUTCDate()
+    )
+  }, [time, nowIndex, utcOffsetSeconds])
 
   return (
     <div className="space-y-3 md:space-y-4">
@@ -53,6 +69,7 @@ export default function FriendlyHome({
         time={time}
         series={series}
         nowIndex={nowIndex}
+        isViewingToday={isViewingToday}
         title={s.hourlyTitle}
       />
       <AirConditionsGrid snapshot={snapshot} />

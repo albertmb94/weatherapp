@@ -201,38 +201,48 @@ export function computeHourlySlots(
   activeIds: string[],
   nowIndex: number,
   locale: 'en' | 'es',
-  count = 6,
-  intervalHours = 4
+  count = 7,
+  intervalHours = 4,
+  /** When false, the "Ahora" / "Now" label is suppressed (used when the
+   *  caller has selected a future day via the day chips). Defaults to true
+   *  for backward compatibility. */
+  isViewingToday = true
 ): HourlySlot[] {
   const out: HourlySlot[] = []
   if (!bag.time[nowIndex]) return out
   const nowT = bag.time[nowIndex]
   if (!(nowT instanceof Date)) return out
 
-  // Find today's local 00:00 (UTC-fake-local).
-  const todayStart = new Date(nowT.getTime())
-  todayStart.setUTCHours(0, 0, 0, 0)
-  const todayStartTs = todayStart.getTime()
+  // The strip is "Ahora + 6 saltos de 4h, aunque pase al día siguiente" — i.e.
+  // a forward-looking forecast of the next ~24 h. Slots are anchored to the
+  // 4-hour block that contains the selected hour (nowIndex) and the next
+  // blocks every `intervalHours` hours, regardless of which calendar day
+  // they fall on.
+  //
+  // When `isViewingToday` is false the caller is anchoring on a *future*
+  // day (e.g. via the day chips) and the "Ahora" label is misleading, so
+  // we always render a plain hour-of-day label instead.
 
-  // The slot time stamps are 00, 04, 08, 12, 16, 20 — strictly anchored.
-  let todayStartIdx = -1
+  // Find the index of the 4h block that contains the current selection.
+  const selectedHour = nowT.getUTCHours()
+  const blockStartHour = Math.floor(selectedHour / intervalHours) * intervalHours
+  const blockDayKey = `${nowT.getUTCFullYear()}-${nowT.getUTCMonth()}-${nowT.getUTCDate()}`
+
+  // Walk time[] looking for the first entry whose hour matches blockStartHour
+  // AND whose day matches blockDayKey. That is the "now slot" anchor.
+  let startIdx = -1
   for (let i = 0; i < bag.time.length; i++) {
     const t = bag.time[i]
-    if (t instanceof Date && t.getTime() === todayStartTs) {
-      todayStartIdx = i
-      break
-    }
+    if (!(t instanceof Date)) continue
+    if (t.getUTCHours() !== blockStartHour) continue
+    if (`${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}` !== blockDayKey) continue
+    startIdx = i
+    break
   }
-  if (todayStartIdx === -1) return out
-
-  // Determine which block "now" lives in: the block whose [start, end) range
-  // contains the current local hour. We pick by floor(currentHour / interval).
-  const nowHour = nowT.getUTCHours()
-  const nowBlockStart = Math.floor(nowHour / intervalHours) * intervalHours
+  if (startIdx === -1) return out
 
   for (let i = 0; i < count; i++) {
-    const slotStartHour = i * intervalHours
-    const idx = todayStartIdx + i * intervalHours
+    const idx = startIdx + i * intervalHours
     if (idx >= bag.time.length) break
     const t = bag.time[idx]
     if (!(t instanceof Date)) break
@@ -250,13 +260,13 @@ export function computeHourlySlots(
     })
 
     let hourLabel: string
-    if (slotStartHour === nowBlockStart) {
+    if (i === 0 && isViewingToday) {
       hourLabel = locale === 'en' ? 'Now' : 'Ahora'
     } else {
-      hourLabel = formatBlockLabel(slotStartHour, locale)
+      hourLabel = formatBlockLabel(t.getUTCHours(), locale)
     }
 
-    const isPast = idx < nowIndex
+    const isPast = isViewingToday && idx < nowIndex
     out.push({ index: idx, hourLabel, icon, tempC: temp, precipMm: precip, isPast })
   }
 

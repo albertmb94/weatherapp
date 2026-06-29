@@ -7,7 +7,6 @@ import dynamic from 'next/dynamic'
 import CitySearch from '@/components/CitySearch'
 import MetricPills from '@/components/MetricPills'
 import ModelSelector from '@/components/ModelSelector'
-import TimeRangeSelector from '@/components/TimeRangeSelector'
 import ModelComparisonChart from '@/components/ModelComparisonChart'
 import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
@@ -89,7 +88,10 @@ const DEFAULT_POS: [number, number] = [41.4500, 2.2475]
 const DEFAULT_CITY = 'Badalona'
 const DEFAULT_METRIC: MetricId = 'temperature'
 const DEFAULT_MODELS = MODELS.map(m => m.id)
-const DEFAULT_RANGE = 168
+// 14-day window is the single supported forecast range; the picker was
+// removed from the UI in favour of a fixed horizon. Bump this constant
+// if we ever re-introduce the user-facing selector.
+const DEFAULT_RANGE = 336
 const OPEN_METEO_MAX_DAYS = 16
 
 export default function HomeContent() {
@@ -120,7 +122,7 @@ export default function HomeContent() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [advancedExpanded, setAdvancedExpanded] = useState(false)
+  const [advancedExpanded, setAdvancedExpanded] = useState(true)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
@@ -251,14 +253,11 @@ export default function HomeContent() {
     return () => mobileMql.removeEventListener('change', onChange)
   }, [])
 
+  // The advanced section starts open on both desktop and mobile. We keep
+  // a ref so a re-mount (HMR / fast refresh) doesn't clobber the user's
+  // explicit collapse on subsequent renders.
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (advancedInitialisedRef.current) return
     advancedInitialisedRef.current = true
-    if (!window.matchMedia('(min-width: 768px)').matches) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAdvancedExpanded(true)
-    }
   }, [])
 
   useEffect(() => {
@@ -463,10 +462,6 @@ export default function HomeContent() {
     updateUrl({ models: ids })
   }, [updateUrl])
 
-  const handleRangeChange = useCallback((hours: number) => {
-    updateUrl({ range: hours })
-  }, [updateUrl])
-
   const handleHourChange = useCallback((hour: number) => {
     updateUrl({ hour })
   }, [updateUrl])
@@ -651,7 +646,6 @@ export default function HomeContent() {
                 ageMs={refreshStatus.ageMs ?? null}
               />
             )}
-            <TimeRangeSelector selected={selectedRange} onChange={handleRangeChange} maxAvailable={maxModelHours} showLabel={false} />
           </div>
         </div>
       </div>
@@ -846,14 +840,6 @@ export default function HomeContent() {
                 </svg>
                 <CitySearch onSelect={handleCitySelect} />
               </div>
-              <div className="mt-3 overflow-x-auto scrollbar-none">
-                <TimeRangeSelector
-                  selected={selectedRange}
-                  onChange={handleRangeChange}
-                  maxAvailable={maxModelHours}
-                  showLabel={false}
-                />
-              </div>
             </div>
 
             {/* F-5: offline banner — visible only when navigator.onLine is false. */}
@@ -879,6 +865,7 @@ export default function HomeContent() {
                   time={data?.time ?? []}
                   series={data?.series ?? {}}
                   nowIndex={startIndex + selectedHour}
+                  utcOffsetSeconds={data?.utcOffsetSeconds ?? 0}
                 />
               )}
 

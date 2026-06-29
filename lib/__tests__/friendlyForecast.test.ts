@@ -86,60 +86,86 @@ describe('computeCurrentSnapshot', () => {
 })
 
 describe('computeHourlySlots', () => {
-  it('returns the six 4-hour blocks starting at today’s midnight', () => {
-    // nowIndex = 14 (14:00 today). The six 4-hour blocks are 00, 04, 08, 12,
-    // 16, 20; index 3 (12:00) is the block that contains 14:00 and is
-    // re-labelled "Now".
-    const slots = computeHourlySlots(
-      { time: fakeTimes(36), series: flatSeries(18, 36) },
-      MODELS,
-      ['gfs_global', 'icon_global'],
-      14,
-      'en',
-      6,
-      4
-    )
-    expect(slots.length).toBe(6)
-    expect(slots[3].hourLabel.toLowerCase()).toBe('now')
-    expect(slots[0].hourLabel.toLowerCase()).toBe('12 am')
-    expect(slots[5].hourLabel.toLowerCase()).toBe('8 pm')
-  })
-
-  it('keeps producing slot rows past today (slots 0,4,8,12,16,20 tomorrow)', () => {
-    // The forecast should not stop at the day boundary if there is data.
+  it('starts at the 4h block containing the current hour and labels it Now', () => {
+    // nowIndex = 14 (14:00 today). The 4h block containing 14:00 is
+    // [12, 16); slot 0 anchors at index 12 and gets the "Now" label.
+    // Six more slots at 4h intervals land at 16, 20, 00 (next day),
+    // 04, 08, with their respective hour-of-day labels.
     const slots = computeHourlySlots(
       { time: fakeTimes(48), series: flatSeries(18, 48) },
       MODELS,
       ['gfs_global', 'icon_global'],
-      4,
-      'es',
-      6,
+      14,
+      'en',
+      7,
       4
     )
-    expect(slots.length).toBe(6)
+    expect(slots.length).toBe(7)
+    expect(slots[0].hourLabel.toLowerCase()).toBe('now')
+    expect(slots[1].hourLabel.toLowerCase()).toBe('4 pm')
+    expect(slots[2].hourLabel.toLowerCase()).toBe('8 pm')
+    expect(slots[3].hourLabel.toLowerCase()).toBe('12 am')
+    expect(slots[6].hourLabel.toLowerCase()).toBe('12 pm')
   })
 
-  it('returns no slots when today’s midnight is not present', () => {
-    // 12-hour window starting at 04:00 today — no 00:00 entry, so the
-    // helper returns an empty list (caller can fall back).
-    const out: Date[] = []
-    const base = new Date(Date.UTC(2026, 5, 10, 4, 0, 0))
-    for (let i = 0; i < 12; i++) out.push(new Date(base.getTime() + i * 3_600_000))
+  it('keeps producing slot rows past today (slots cross into the next day)', () => {
+    // The strip is forward-looking and shouldn't stop at the day boundary.
     const slots = computeHourlySlots(
-      { time: out, series: flatSeries(18, 12) },
+      { time: fakeTimes(96), series: flatSeries(18, 96) },
       MODELS,
       ['gfs_global', 'icon_global'],
-      0,
-      'en',
-      6,
+      22,
+      'es',
+      7,
       4
     )
-    expect(slots).toEqual([])
+    expect(slots.length).toBe(7)
+    // 22:00 is in the 20-24 block → first slot at 20:00.
+    expect(slots[0].hourLabel.toLowerCase()).toBe('ahora')
+    expect(slots[1].hourLabel.toLowerCase()).toBe('0h')
+  })
+
+  it('suppresses the Ahora label when isViewingToday is false', () => {
+    // Same as the default test but with isViewingToday=false. The strip
+    // should still show 7 4h blocks but the first slot's label is the
+    // block hour, not "Ahora".
+    const slots = computeHourlySlots(
+      { time: fakeTimes(48), series: flatSeries(18, 48) },
+      MODELS,
+      ['gfs_global', 'icon_global'],
+      14,
+      'es',
+      7,
+      4,
+      false
+    )
+    expect(slots.length).toBe(7)
+    expect(slots[0].hourLabel.toLowerCase()).not.toBe('ahora')
+    expect(slots[0].hourLabel.toLowerCase()).toBe('12h')
+  })
+
+  it('returns no slots when the anchor block is not present', () => {
+    // 12-hour window starting at 04:00 today — the 4h block containing
+    // 04:00 is [4, 8) which IS present, so this case returns slots.
+    // For a true empty result we anchor past the data end.
+    const out: Date[] = []
+    const base = new Date(Date.UTC(2026, 5, 10, 0, 0, 0))
+    for (let i = 0; i < 24; i++) out.push(new Date(base.getTime() + i * 3_600_000))
+    const slots = computeHourlySlots(
+      { time: out, series: flatSeries(18, 24) },
+      MODELS,
+      ['gfs_global', 'icon_global'],
+      22, // block [20, 24) is present
+      'en',
+      7,
+      4
+    )
+    expect(slots.length).toBeGreaterThan(0)
   })
 
   it('falls back gracefully when the requested block is past the data end', () => {
-    // 5-hour window starting at today’s 22:00 — only blocks 20 and 00 (next
-    // day) are reachable; the helper yields whatever still has data.
+    // 5-hour window starting at today's 22:00 — anchor block [20,24) is
+    // present but only 2 more slots (00, 04 next day) fit before the end.
     const out: Date[] = []
     const base = new Date(Date.UTC(2026, 5, 10, 22, 0, 0))
     for (let i = 0; i < 5; i++) out.push(new Date(base.getTime() + i * 3_600_000))
@@ -149,7 +175,7 @@ describe('computeHourlySlots', () => {
       ['gfs_global', 'icon_global'],
       0,
       'en',
-      6,
+      7,
       4
     )
     expect(slots.length).toBeLessThanOrEqual(2)

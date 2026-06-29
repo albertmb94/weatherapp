@@ -523,25 +523,19 @@ export default function HomeContent() {
 
   const legendMetric = selectedMetric
 
-  // Filter out the virtual marine model when the marine toggle is off, so
-  // it does not appear in the model selector, comparison chart, or daily
-  // summary. The wave data itself only lives on `series.marine_global` and
-  // is consumed directly by InsightsTable / DailySummary when marine is on.
+  // Filter out the virtual marine model only when the marine toggle is
+  // *off*. With marine=on we keep every model so that the chart, the
+  // Insights table and the friendly cards still compute proper averages
+  // and gradients — the InsightsTable hides the basic land columns on
+  // its own when `showBasic=false`, so the user keeps the marine view
+  // without losing land-model coverage.
   const displayModels = useMemo(
-    () => {
-      if (!marine) return MODELS.filter(m => m.id !== 'marine_global')
-      if (!showBasic) return MODELS.filter(m => m.id === 'marine_global')
-      return MODELS
-    },
-    [marine, showBasic]
+    () => (marine ? MODELS : MODELS.filter(m => m.id !== 'marine_global')),
+    [marine]
   )
   const displayActiveModelIds = useMemo(
-    () => {
-      if (!marine) return selectedModels.filter(id => id !== 'marine_global')
-      if (!showBasic) return selectedModels.filter(id => id === 'marine_global')
-      return selectedModels
-    },
-    [marine, showBasic, selectedModels]
+    () => (marine ? selectedModels : selectedModels.filter(id => id !== 'marine_global')),
+    [marine, selectedModels]
   )
 
   const maxModelHours = useMemo(() => {

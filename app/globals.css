@@ -270,6 +270,21 @@ html.light .now-slot {
   );
 }
 
+/* Insights table cells: a stronger radial so colours diffuminate well
+ * inside each cell. The cell component already inlines a
+ * `radial-gradient(...)` background via React; CSS here only overrides
+ * it on mobile + dark mode, where users asked for the original solid
+ * hue look. The cell passes the colour RGB triple as `--heat-rgb-triple`.
+ */
+@media (max-width: 767px) {
+  /* Mobile: solid colour, matching the historic "strong" look.
+   * Targeting elements with the inline CSS variable lets us keep the
+   * JS-driven hue without re-implementing the scale. */
+  [style*='--heat-rgb-triple'] {
+    background: rgb(var(--heat-rgb-triple)) !important;
+  }
+}
+
 .scrollbar-none {
   scrollbar-width: none;
 }

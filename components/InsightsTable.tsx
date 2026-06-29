@@ -181,7 +181,9 @@ function intensityFor(metric: ScaleMetric, value: number | null): number | null 
  * Build a layered background that gives the cell a soft "glow" in the
  * centre and fades to transparent well before reaching the cell edges.
  * The hue comes from the metric scale and the alpha is driven by the
- * value intensity.
+ * value intensity. The triple-RGB is also exposed as a CSS variable so
+ * the global stylesheet can fall back to a solid fill on mobile dark
+ * mode where the gradient feels too washed out.
  */
 function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperties {
   if (value === null || value === undefined) {
@@ -195,8 +197,9 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   const core = Math.round(intensity * 55)   // 0..55% alpha at the very core
   const mid = Math.round(intensity * 22)    // 0..22% at the mid radius
   return {
+    ['--heat-rgb-triple' as string]: triple,
     background: `radial-gradient(ellipse 35% 65% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 45%, rgba(${triple},0) 90%)`,
-  }
+  } as React.CSSProperties
 }
 
 function WindArrow({ degrees }: { degrees: number | null }) {
@@ -627,7 +630,7 @@ export default function InsightsTable({
           <table className={`w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${showMarine ? 'table-auto' : 'table-fixed'}`}>
           <thead>
             <tr className="bg-surface text-text-secondary">
-              <th className="sticky left-0 top-0 isolate bg-surface text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px]">{STRINGS[locale].tableWhen}</th>
+              <th className="sticky left-0 top-0 isolate z-40 bg-surface text-center px-1.5 py-1.5 font-medium border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-accent' : ''
                 return (
@@ -662,7 +665,7 @@ export default function InsightsTable({
                   onClick={() => onSelectHour(r.centerIdx)}
                   className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10"
                 >
-                  <td className={`sticky left-0 z-20 isolate px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
+                  <td className={`sticky left-0 isolate z-30 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => {

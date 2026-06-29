@@ -179,8 +179,9 @@ function intensityFor(metric: ScaleMetric, value: number | null): number | null 
 
 /**
  * Build a layered background that gives the cell a soft "glow" in the
- * centre and fades to transparent at the edges. The hue comes from the
- * metric scale and the alpha is driven by the value intensity.
+ * centre and fades to transparent well before reaching the cell edges.
+ * The hue comes from the metric scale and the alpha is driven by the
+ * value intensity.
  */
 function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperties {
   if (value === null || value === undefined) {
@@ -189,10 +190,12 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   const color = getColor(metric, value)
   const triple = rgbTriple(color)
   const intensity = intensityFor(metric, value) ?? 0.5
-  const core = Math.round(intensity * 70)   // 0..70% alpha at the core
-  const mid = Math.round(intensity * 35)   // 0..35% at the mid radius
+  // Tighter ellipse + a three-stop gradient so the color never reaches
+  // the cell border; it always diffuses into the surrounding surface.
+  const core = Math.round(intensity * 55)   // 0..55% alpha at the very core
+  const mid = Math.round(intensity * 22)    // 0..22% at the mid radius
   return {
-    background: `radial-gradient(ellipse 70% 100% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 55%, rgba(${triple},0) 100%)`,
+    background: `radial-gradient(ellipse 35% 65% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 45%, rgba(${triple},0) 90%)`,
   }
 }
 
@@ -623,8 +626,8 @@ export default function InsightsTable({
         <div className="overflow-x-auto">
           <table className={`w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${showMarine ? 'table-auto' : 'table-fixed'}`}>
           <thead>
-            <tr className="bg-surface/60 text-text-secondary">
-              <th className="sticky left-0 top-0 isolate bg-surface/60 backdrop-blur text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px]">{STRINGS[locale].tableWhen}</th>
+            <tr className="bg-surface text-text-secondary">
+              <th className="sticky left-0 top-0 isolate bg-surface text-center px-1.5 py-1.5 font-medium z-30 border-b border-border w-[64px]">{STRINGS[locale].tableWhen}</th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-accent' : ''
                 return (
@@ -635,7 +638,7 @@ export default function InsightsTable({
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`sticky top-0 bg-surface/60 backdrop-blur text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
+                    className={`sticky top-0 bg-surface text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}

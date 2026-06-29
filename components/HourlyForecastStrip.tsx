@@ -58,7 +58,7 @@ export default function HourlyForecastStrip({
             <li
               key={`${slot.index}-${i}`}
               className={`relative flex flex-col items-center gap-1 md:gap-1.5 min-w-[58px] md:min-w-0 md:flex-1 px-1 py-1.5 rounded-lg ${
-                isNowSlot ? 'bg-accent-soft/40 ring-1 ring-accent/40' : ''
+                isNowSlot ? 'now-slot' : ''
               }`}
             >
               <span

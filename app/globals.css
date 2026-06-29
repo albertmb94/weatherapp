@@ -247,6 +247,29 @@ html.light ::-webkit-scrollbar-thumb {
   background: #9ca3af;
 }
 
+/* "Ahora" slot in the hourly forecast strip. A soft radial gradient that
+ * diffuses well before the cell border, so the accent colour never
+ * "stops" abruptly at the edge. We pick the colour from the theme
+ * accent token so it tracks light/dark mode. */
+.now-slot {
+  background: var(--accent);
+  background: radial-gradient(
+    ellipse 60% 80% at 50% 50%,
+    color-mix(in srgb, var(--accent) 28%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 12%, transparent) 45%,
+    transparent 90%
+  );
+}
+html.light .now-slot {
+  background: var(--accent);
+  background: radial-gradient(
+    ellipse 60% 80% at 50% 50%,
+    color-mix(in srgb, var(--accent) 22%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 8%, transparent) 45%,
+    transparent 90%
+  );
+}
+
 .scrollbar-none {
   scrollbar-width: none;
 }

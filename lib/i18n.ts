@@ -7,6 +7,30 @@ export const DAY_NAMES: Record<Locale, string[]> = {
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
 }
 
+export const DAY_FULL: Record<Locale, string[]> = {
+  es: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+}
+
+export const CONDITION_LABEL: Record<Locale, Record<string, string>> = {
+  es: {
+    sunny: 'Soleado',
+    partly: 'Parcialmente nublado',
+    cloudy: 'Nublado',
+    rainy: 'Lluvioso',
+    stormy: 'Tormenta',
+    snowy: 'Nieve',
+  },
+  en: {
+    sunny: 'Sunny',
+    partly: 'Partly cloudy',
+    cloudy: 'Cloudy',
+    rainy: 'Rainy',
+    stormy: 'Storm',
+    snowy: 'Snow',
+  },
+}
+
 export const STRINGS: Record<Locale, {
   today: string
   tomorrow: string
@@ -77,6 +101,37 @@ export const STRINGS: Record<Locale, {
   expandRadius: string
   offlineBanner: string
   lastSeen: string
+  searchPlaceholderCity: string
+  realFeel: string
+  chanceOfRain: string
+  uvIndex: string
+  windSpeed: string
+  hourlyTitle: string
+  airTitle: string
+  weekTitle: string
+  chanceLabel: string
+  conditionSunny: string
+  conditionPartly: string
+  conditionCloudy: string
+  conditionRainy: string
+  conditionStormy: string
+  conditionSnowy: string
+  navWeather: string
+  navCities: string
+  navMap: string
+  navStations: string
+  navSettings: string
+  navAdvanced: string
+  settingsTitle: string
+  settingsLanguage: string
+  settingsTheme: string
+  settingsMarine: string
+  settingsBasic: string
+  settingsSaveLocation: string
+  settingsRadar: string
+  settingsExport: string
+  settingsShare: string
+  navAria: string
 }> = {
   es: {
     today: 'Hoy',
@@ -148,6 +203,37 @@ export const STRINGS: Record<Locale, {
     expandRadius: 'Ampliar a {km} km',
     offlineBanner: 'Sin conexión',
     lastSeen: 'última actualización',
+    searchPlaceholderCity: 'Buscar ciudades',
+    realFeel: 'Sensación',
+    chanceOfRain: 'Prob. lluvia',
+    uvIndex: 'Índice UV',
+    windSpeed: 'Viento',
+    hourlyTitle: 'Previsión de hoy',
+    airTitle: 'Calidad del aire',
+    weekTitle: 'Próximos 7 días',
+    chanceLabel: 'Probabilidad de lluvia:',
+    conditionSunny: 'Soleado',
+    conditionPartly: 'Parcialmente nublado',
+    conditionCloudy: 'Nublado',
+    conditionRainy: 'Lluvioso',
+    conditionStormy: 'Tormenta',
+    conditionSnowy: 'Nieve',
+    navWeather: 'Tiempo',
+    navCities: 'Ciudades',
+    navMap: 'Mapa',
+    navStations: 'Estaciones',
+    navSettings: 'Ajustes',
+    navAdvanced: 'Avanzado',
+    settingsTitle: 'Ajustes',
+    settingsLanguage: 'Idioma',
+    settingsTheme: 'Tema',
+    settingsMarine: 'Datos marinos',
+    settingsBasic: 'Modo básico',
+    settingsSaveLocation: 'Guardar ubicación',
+    settingsRadar: 'Radar de lluvia',
+    settingsExport: 'Exportar CSV',
+    settingsShare: 'Compartir enlace',
+    navAria: 'Navegación principal',
   },
   en: {
     today: 'Today',
@@ -219,5 +305,36 @@ export const STRINGS: Record<Locale, {
     expandRadius: 'Widen to {km} km',
     offlineBanner: 'Offline',
     lastSeen: 'last seen',
+    searchPlaceholderCity: 'Search for cities',
+    realFeel: 'Real Feel',
+    chanceOfRain: 'Chance of rain',
+    uvIndex: 'UV Index',
+    windSpeed: 'Wind',
+    hourlyTitle: "Today’s forecast",
+    airTitle: 'Air conditions',
+    weekTitle: '7-day forecast',
+    chanceLabel: 'Chance of rain:',
+    conditionSunny: 'Sunny',
+    conditionPartly: 'Partly cloudy',
+    conditionCloudy: 'Cloudy',
+    conditionRainy: 'Rainy',
+    conditionStormy: 'Storm',
+    conditionSnowy: 'Snow',
+    navWeather: 'Weather',
+    navCities: 'Cities',
+    navMap: 'Map',
+    navStations: 'Stations',
+    navSettings: 'Settings',
+    navAdvanced: 'Advanced',
+    settingsTitle: 'Settings',
+    settingsLanguage: 'Language',
+    settingsTheme: 'Theme',
+    settingsMarine: 'Marine data',
+    settingsBasic: 'Basic mode',
+    settingsSaveLocation: 'Save location',
+    settingsRadar: 'Rain radar',
+    settingsExport: 'Export CSV',
+    settingsShare: 'Share link',
+    navAria: 'Primary navigation',
   },
 }

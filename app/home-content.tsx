@@ -9,14 +9,16 @@ import MetricPills from '@/components/MetricPills'
 import ModelSelector from '@/components/ModelSelector'
 import TimeRangeSelector from '@/components/TimeRangeSelector'
 import ModelComparisonChart from '@/components/ModelComparisonChart'
-import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
 import MobileTabBar from '@/components/MobileTabBar'
 import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import RefreshButton from '@/components/RefreshButton'
-import { DailySummarySkeleton, InsightsSkeleton, ChartSkeleton } from '@/components/Skeletons'
+import FriendlyHome from '@/components/FriendlyHome'
+import WeekForecastPanel from '@/components/WeekForecastPanel'
+import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
+import SettingsPanel from '@/components/SettingsPanel'
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId } from '@/lib/models'
 import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
@@ -106,6 +108,7 @@ export default function HomeContent() {
     locale: '',
     marine: false,
     basic: true,
+    view: 'weather' as const,
   }))
   const [urlState, updateUrl] = useUrlState(defaults)
 
@@ -115,14 +118,14 @@ export default function HomeContent() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [advancedExpanded, setAdvancedExpanded] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
-  const { theme, preference, cycleTheme } = useTheme()
+  const { theme, cycleTheme } = useTheme()
   // S6: shared refresh hook. Used by the mobile header pill and by
   // RefreshButton so the in-flight state is never duplicated.
   const { refresh, isPending: isRefreshing, lastOutcome } = useRefresh()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'models' | 'stations'>('models')
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
   // metric pills row, and re-expands when they scroll back up. Disabled on
@@ -282,7 +285,7 @@ export default function HomeContent() {
       setToast(locale === 'en' ? 'Models updated' : 'Modelos actualizados')
     } else {
       const mins = Math.max(1, Math.ceil(o.remainingMs / 60_000))
-       
+
       setToast(
         locale === 'en'
           ? `Data reloaded · new models in ${mins}m`
@@ -300,6 +303,7 @@ export default function HomeContent() {
   const bucket = urlState.bucket as BucketHours
   const marine = urlState.marine
   const showBasic = urlState.basic
+  const selectedView: SidebarSection = urlState.view
 
   const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null; ageMs: number | null }>({
     queryKey: ['refresh-status'],
@@ -434,6 +438,15 @@ export default function HomeContent() {
     updateUrl({ bucket: b })
   }, [updateUrl])
 
+  const handleViewSelect = useCallback((section: SidebarSection) => {
+    // Sidebar section change updates the URL view, and when the user
+    // jumps to a specific section we also drive secondary state so the
+    // page reflects their intent without an extra click.
+    const updates: Partial<typeof urlState> = { view: section }
+    if (section === 'map' && !showMap) updates.showMap = true
+    updateUrl(updates)
+  }, [showMap, updateUrl])
+
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) return
     setGeoLoading(true)
@@ -558,11 +571,14 @@ export default function HomeContent() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [selectedHour, effectiveMaxHours, handleHourChange, handleMapToggle])
 
+  const mobileTabFromView = selectedView === 'map' ? 'map' : selectedView === 'stations' ? 'stations' : (selectedView === 'weather' || selectedView === 'cities' ? 'models' : 'models')
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-950 text-white overflow-x-clip pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0 landscape:pb-0">
+    <div className="min-h-screen flex flex-col bg-background text-foreground overflow-x-hidden pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0 landscape:pb-0">
+      {/* MOBILE-ONLY: compact top header (search + range pill + refresh). */}
       <div
         data-header-collapsed={isHeaderCollapsed ? 'true' : 'false'}
-        className={`sticky top-0 z-[1100] bg-gray-900 border-b border-gray-800 shrink-0 px-3 transition-[padding] duration-150 ${
+        className={`md:hidden landscape:hidden sticky top-0 z-[1100] bg-surface-raised border-b border-border shrink-0 px-3 transition-[padding] duration-150 ${
           isHeaderCollapsed ? 'py-1' : 'py-1.5'
         }`}
       >
@@ -583,30 +599,20 @@ export default function HomeContent() {
         </div>
       </div>
 
-      {marine && (
-        <div className="md:hidden landscape:hidden px-2 py-1 bg-gray-900 border-b border-gray-800 overflow-x-auto flex-shrink-0">
-          <div className="flex items-center gap-1 min-w-max">
-            {showBasic && (
-              <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
-            )}
-            <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
-          </div>
-        </div>
-      )}
-
-      <div ref={mobileMenuRef} className="px-3 py-1.5 bg-gray-900 border-b border-gray-800">
+      {/* MOBILE-ONLY: secondary header (geo, map toggle, theme, lang, hamburger). */}
+      <div ref={mobileMenuRef} className="md:hidden landscape:hidden px-3 py-1.5 bg-surface-raised border-b border-border">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-          <h1 className="text-xs font-semibold text-gray-400 whitespace-nowrap hidden sm:block">Weather</h1>
-          <div className="w-px h-4 bg-gray-800 hidden sm:block" />
+          <h1 className="text-xs font-semibold text-text-secondary whitespace-nowrap hidden sm:block">Weather</h1>
+          <div className="w-px h-4 bg-border hidden sm:block" />
           <button
             onClick={handleGeolocate}
             disabled={geoLoading}
-            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-gray-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50"
             title="Use my location"
             aria-label="Use my location"
           >
             {geoLoading ? (
-              <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-border-strong border-t-transparent rounded-full animate-spin" />
             ) : (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
@@ -616,8 +622,8 @@ export default function HomeContent() {
           </button>
           <button
             onClick={handleMapToggle}
-            className={`md:hidden landscape:hidden min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors cursor-pointer ${
-              showMap ? 'text-white' : 'text-gray-500 hover:text-white'
+            className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors cursor-pointer ${
+              showMap ? 'text-text-primary' : 'text-text-tertiary hover:text-text-primary'
             }`}
             title="Toggle map"
             aria-label="Toggle map"
@@ -627,145 +633,32 @@ export default function HomeContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
             </svg>
           </button>
-          <div className="hidden md:flex landscape:flex flex-nowrap items-center gap-x-2 overflow-x-auto scrollbar-none">
-            <div role="group" aria-label={STRINGS[locale].groupView} className="shrink-0 flex items-center gap-1.5">
-              {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
-              {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
-            </div>
-            <div role="group" aria-label={STRINGS[locale].groupLayers} className="shrink-0 flex items-center gap-1.5 pl-2 border-l border-border">
-              <button
-                onClick={handleMapToggle}
-                className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                  showMap ? 'text-text-primary' : 'text-text-tertiary hover:text-text-secondary'
-                }`}
-              >
-                {STRINGS[locale].map}
-              </button>
-              <button
-                onClick={handleRadarToggle}
-                className={`min-h-[32px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                  showRadar ? 'text-sky-300' : 'text-text-tertiary hover:text-text-secondary'
-                }`}
-                title="Toggle rain radar (RainViewer)"
-              >
-                {STRINGS[locale].radar}
-              </button>
-            </div>
-            <div role="group" aria-label={STRINGS[locale].groupData} className="shrink-0 flex items-center gap-1.5 pl-2 border-l border-border">
-              <button
-                onClick={handleMarineToggle}
-                className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
-                  marine ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40' : 'bg-surface-raised text-text-tertiary border-border hover:text-text-secondary hover:border-border-strong'
-                }`}
-                title="Marine/wave data (Open-Meteo)"
-                aria-pressed={marine}
-              >
-                {STRINGS[locale].marine}
-              </button>
-              {marine && (
-                <button
-                  onClick={handleBasicToggle}
-                  className={`min-h-[32px] px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer border ${
-                    showBasic ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40' : 'bg-surface-raised text-text-tertiary border-border hover:text-text-secondary hover:border-border-strong'
-                  }`}
-                  title="Basic land stats (temperature, wind, etc.)"
-                  aria-pressed={showBasic}
-                >
-                  {STRINGS[locale].basic}
-                </button>
-              )}
-            </div>
-            <div role="group" aria-label={STRINGS[locale].groupActions} className="shrink-0 flex items-center gap-1.5 pl-2 border-l border-border">
-              <button
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-                className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {STRINGS[locale].save}
-              </button>
-              {viewData && (
-                <button
-                  onClick={() => {
-                    const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours, viewData.utcOffsetSeconds)
-                    downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
-                  }}
-                  className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
-                  title="Export forecast to CSV"
-                >
-                  {STRINGS[locale].csv}
-                </button>
-              )}
-              {typeof navigator !== 'undefined' && 'share' in navigator && viewData && (
-                <button
-                  onClick={() => {
-                    navigator.share({
-                      title: `Weather ${cityName}`,
-                      url: window.location.href,
-                    }).catch(() => {})
-                  }}
-                  className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
-                  title="Share"
-                >
-                  {STRINGS[locale].share}
-                </button>
-              )}
-              {/* F-9: always-available "copy short link" button. Works
-                 without Web Share API and is friendly to desktop too. */}
-              <button
-                onClick={async () => {
-                  try {
-                    const query = new URLSearchParams(window.location.search).toString()
-                    const res = await fetch('/api/shorten', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ params: query }),
-                    })
-                    if (!res.ok) throw new Error('shorten failed')
-                    const data = await res.json()
-                    const shortUrl = `${window.location.origin}/s/${data.id}`
-                    await navigator.clipboard?.writeText(shortUrl)
-                    setToast(locale === 'en' ? `Short link copied: ${shortUrl}` : `Link corto copiado: ${shortUrl}`)
-                  } catch {
-                    // Fall back to copying the long URL.
-                    await navigator.clipboard?.writeText(window.location.href)
-                    setToast(locale === 'en' ? 'Link copied (no short id)' : 'Link copiado (sin id corto)')
-                  }
-                }}
-                className="min-h-[32px] px-2 rounded text-[11px] font-medium text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
-                title="Copy short link"
-              >
-                Link
-              </button>
-            </div>
-            <button
-              onClick={cycleTheme}
-              className="shrink-0 min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
-              title={preference === 'auto' ? `Theme: auto (${theme})` : `Theme: ${preference}`}
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? (
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646A9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
-              className="shrink-0 min-h-[32px] px-2 rounded text-[11px] font-semibold text-gray-400 hover:text-white transition-colors cursor-pointer tracking-wider"
-              title={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
-            >
-              {locale === 'en' ? 'ES' : 'EN'}
-            </button>
-            <RefreshButton />
-            <span className="shrink min-w-0 text-[10px] text-gray-600 truncate max-w-[160px]">{cityName} ({position[0].toFixed(2)}, {position[1].toFixed(2)})</span>
-          </div>
+          <button
+            onClick={cycleTheme}
+            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646A9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            )}
+          </button>
+          <button
+            onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
+            className="min-h-[36px] px-2 rounded text-[11px] font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer tracking-wider"
+            title={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
+          >
+            {locale === 'en' ? 'ES' : 'EN'}
+          </button>
+          <RefreshButton />
           <button
             onClick={() => setMobileMenuOpen(o => !o)}
-            className="md:hidden landscape:hidden min-h-[36px] min-w-[36px] flex items-center justify-center text-gray-400 hover:text-white cursor-pointer ml-auto"
+            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary cursor-pointer ml-auto"
             aria-label="Toggle menu"
             aria-expanded={mobileMenuOpen}
           >
@@ -780,17 +673,17 @@ export default function HomeContent() {
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden landscape:hidden mt-2 pt-2 border-t border-gray-800 space-y-3 animate-fadeIn">
+          <div className="mt-2 pt-2 border-t border-border space-y-3 animate-fadeIn">
             <div>
               {(showBasic || !marine) && (
                 <>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Basic</span>
+                  <span className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1 block">Basic</span>
                   <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
                 </>
               )}
               {marine && (
                 <div className={showBasic ? 'mt-1' : ''}>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Marine</span>
+                  <span className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1 block">Marine</span>
                   <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
                 </div>
               )}
@@ -799,7 +692,7 @@ export default function HomeContent() {
               <button
                 onClick={handleRadarToggle}
                 className={`min-h-[36px] px-3 rounded text-xs font-medium transition-all cursor-pointer ${
-                  showRadar ? 'bg-sky-600/30 text-sky-200 border border-sky-500/50' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                  showRadar ? 'bg-sky-600/30 text-sky-200 border border-sky-500/50' : 'bg-surface-popover text-text-secondary border border-border'
                 }`}
               >
                 Radar
@@ -807,7 +700,7 @@ export default function HomeContent() {
               <button
                 onClick={handleMarineToggle}
                 className={`min-h-[36px] px-3 rounded text-xs font-semibold transition-all cursor-pointer border ${
-                  marine ? 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50' : 'bg-gray-800 text-gray-400 border-gray-700'
+                  marine ? 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50' : 'bg-surface-popover text-text-secondary border border-border'
                 }`}
                 aria-pressed={marine}
               >
@@ -817,7 +710,7 @@ export default function HomeContent() {
                 <button
                   onClick={handleBasicToggle}
                   className={`min-h-[36px] px-3 rounded text-xs font-semibold transition-all cursor-pointer border ${
-                    showBasic ? 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50' : 'bg-gray-800 text-gray-400 border-gray-700'
+                    showBasic ? 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50' : 'bg-surface-popover text-text-secondary border border-border'
                   }`}
                   aria-pressed={showBasic}
                 >
@@ -827,7 +720,7 @@ export default function HomeContent() {
               <button
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending}
-                className="min-h-[36px] px-3 rounded text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700 disabled:opacity-50 cursor-pointer"
+                className="min-h-[36px] px-3 rounded text-xs font-medium bg-surface-popover text-text-secondary border border-border disabled:opacity-50 cursor-pointer"
               >
                 Save
               </button>
@@ -837,257 +730,387 @@ export default function HomeContent() {
                     const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours, viewData.utcOffsetSeconds)
                     downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
                   }}
-                  className="min-h-[36px] px-3 rounded text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700 cursor-pointer"
+                  className="min-h-[36px] px-3 rounded text-xs font-medium bg-surface-popover text-text-secondary border border-border cursor-pointer"
                 >
                   CSV
                 </button>
               )}
-              <RefreshButton />
-              <button
-                onClick={cycleTheme}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center bg-gray-800 text-gray-400 border border-gray-700 rounded cursor-pointer"
-                aria-label="Toggle theme"
-              >
-                {theme === 'dark' ? (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
-              <button
-                onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
-                className="min-h-[36px] px-3 rounded text-xs font-semibold bg-gray-800 text-gray-400 border border-gray-700 cursor-pointer tracking-wider"
-              >
-                {locale === 'en' ? 'ES' : 'EN'}
-              </button>
             </div>
           </div>
         )}
       </div>
 
-      <div className="flex flex-col">
-        <SavedLocations onSelect={handleCitySelect} />
-
-        {showMap && (
-          <div className="h-[40vh] min-h-[260px] max-h-[440px] m-1.5 p-1 rounded-lg border border-border relative shrink-0 overflow-hidden">
-            <MapPicker
-              position={position}
-              recenterToken={recenterToken}
-              onPositionChange={handlePositionChange}
-              showHeatmap={showMap}
-              metric={selectedMetric}
-              selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
-              hourIndex={selectedHour}
-              nowOffset={startIndex}
-              showRadar={showRadar}
-            />
-            <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-gray-900/90 p-2 rounded-lg shadow-lg pointer-events-none">
-              <ColorLegend metric={legendMetric} />
-            </div>
+      {marine && (
+        <div className="md:hidden landscape:hidden px-2 py-1 bg-surface-raised border-b border-border overflow-x-auto flex-shrink-0">
+          <div className="flex items-center gap-1 min-w-max">
+            {showBasic && (
+              <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
+            )}
+            <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
           </div>
-        )}
+        </div>
+      )}
 
-        {showMap && (
-          <div className="bg-gray-900/60 border-b border-gray-800 px-2 py-1.5 shrink-0">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-[10px] text-gray-400 font-mono">{hourLabel}</span>
-              <span className="text-[10px] text-gray-600">+{selectedHour}h</span>
-              {utcOffsetLabel && (
-                <span className="text-[10px] text-gray-600 ml-auto">{utcOffsetLabel}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => handleHourChange(Math.max(0, selectedHour - 1))}
-                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                aria-label="Previous hour"
-              >−1h</button>
-              <button
-                onClick={() => handleHourChange(Math.max(0, selectedHour - 24))}
-                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                aria-label="Previous day"
-              >−24h</button>
-              <input
-                type="range"
-                min={0}
-                max={effectiveMaxHours - 1}
-                value={selectedHour}
-                onChange={e => handleHourChange(Number(e.target.value))}
-                className="flex-1 accent-blue-500 min-w-0"
-                aria-label="Forecast hour"
-                aria-valuetext={hourLabel}
-              />
-              <button
-                onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 24))}
-                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                aria-label="Next day"
-              >+24h</button>
-              <button
-                onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1))}
-                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                aria-label="Next hour"
-              >+1h</button>
-              <button
-                onClick={jumpToNow}
-                className="min-h-[36px] px-2 bg-gray-800 hover:bg-gray-700 rounded text-xs cursor-pointer transition-colors"
-                aria-label="Jump to current hour"
-              >Now</button>
-            </div>
-          </div>
-        )}
+      <div className="flex flex-1 min-h-0">
+        <DesktopSidebar active={selectedView} onSelect={handleViewSelect} />
 
-        <div className="p-3">
-          <div className="flex items-center gap-0.5 mb-3 border-b border-gray-800 pb-1.5">
-            <button
-              onClick={() => setActiveTab('models')}
-              className={`px-3 py-1 rounded text-xs font-medium transition-all duration-200 cursor-pointer ${
-                activeTab === 'models'
-                  ? 'text-white bg-gray-800 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-gray-900/50'
-              }`}
-            >
-              Modelos
-            </button>
-            <button
-              onClick={() => setActiveTab('stations')}
-              className={`px-3 py-1 rounded text-xs font-medium transition-all duration-200 cursor-pointer ${
-                activeTab === 'stations'
-                  ? 'text-white bg-gray-800 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-gray-900/50'
-              }`}
-            >
-              Estaciones
-            </button>
-          </div>
-
-          {/* F-5: offline banner — visible only when navigator.onLine is false. */}
-          {typeof navigator !== 'undefined' && !navigator.onLine && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mb-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs"
-            >
-              {offlineSnapshot
-                ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
-                : (STRINGS[locale].offlineBanner ?? 'Offline — no cached data')}
-            </div>
-          )}
-
-          {activeTab === 'stations' ? (
-            <ErrorBoundary
-              fallback={
-                <div className="text-center py-10" role="alert">
-                  <p className="text-sm text-red-400">{STRINGS[locale].stationError}</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="mt-2 text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"
-                  >
-                    {STRINGS[locale].retry}
-                  </button>
+        <main className="flex-1 min-w-0 min-h-0 flex">
+          <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+            {/* Search bar — full-width on tablet/desktop, sitting at the
+                top of the main column like the reference mock. */}
+            <div className="hidden md:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border px-4 lg:px-6 py-3">
+              <div className="relative">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+                </svg>
+                <CitySearch onSelect={handleCitySelect} />
+              </div>
+              <div className="mt-2 hidden md:flex flex-nowrap items-center gap-x-2 overflow-x-auto scrollbar-none pb-0.5 -mx-1 px-1">
+                <div role="group" aria-label={STRINGS[locale].groupView} className="shrink-0 flex items-center gap-1.5">
+                  {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
+                  {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
                 </div>
-              }
-            >
-              <StationDashboard position={position} placeName={cityName} />
-            </ErrorBoundary>
-          ) : (
+              </div>
+            </div>
+
+            {/* F-5: offline banner — visible only when navigator.onLine is false. */}
+            {typeof navigator !== 'undefined' && !navigator.onLine && (
+              <div className="mx-4 md:mx-6 mt-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs">
+                {offlineSnapshot
+                  ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
+                  : (STRINGS[locale].offlineBanner ?? 'Offline — no cached data')}
+              </div>
+            )}
+
             <div
               // eslint-disable-next-line react-hooks/refs
               ref={pullToRefreshRef.ref}
+              className="p-3 md:p-4 lg:p-6 space-y-3 md:space-y-4"
             >
-              {isLoading && (
-                <div className="space-y-4">
-                  <DailySummarySkeleton />
-                  <InsightsSkeleton />
-                  <ChartSkeleton />
-                </div>
+              {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map' || selectedView === 'stations') && (
+                <FriendlyHome
+                  city={cityName}
+                  cityIsLoading={isLoading && !viewData}
+                  models={displayModels}
+                  activeIds={displayActiveModelIds}
+                  time={viewData?.time ?? []}
+                  series={viewData?.series ?? {}}
+                  selectedIndex={selectedHour}
+                />
               )}
 
-              {error && (
-                <div className="text-red-400 text-center py-8 text-sm">
-                  {STRINGS[locale].errorForecast}
-                </div>
+              {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map') && (
+                <SavedLocations onSelect={handleCitySelect} />
               )}
 
-              {viewData && (
-                <>
-                  <div>
-                    <DailySummary
-                      models={displayModels}
-                      activeModelIds={displayActiveModelIds}
-                      times={viewData.time}
-                      series={viewData.series}
-                      selectedHour={selectedHour}
-                      onSelectHour={handleHourChange}
-                      maxHours={effectiveMaxHours}
-                      showMarine={marine}
-                      showBasic={showBasic}
-                      utcOffsetSeconds={viewData.utcOffsetSeconds}
-                    />
-                    <ModelSelector
-                      models={displayModels}
-                      selected={selectedModels}
-                      onChange={handleModelChange}
-                    />
-                    <InsightsTable
-                      models={displayModels}
-                      activeModelIds={displayActiveModelIds}
-                      times={viewData.time}
-                      series={viewData.series}
-                      bucket={bucket}
-                      onBucketChange={handleBucketChange}
-                      selectedHour={selectedHour}
-                      onSelectHour={handleHourChange}
-                      maxHours={effectiveMaxHours}
-                      utcOffsetSeconds={viewData.utcOffsetSeconds}
-                      showMarine={marine}
-                      showBasic={showBasic}
-                    />
-                    <ModelComparisonChart
-                      models={displayModels}
-                      activeModelIds={displayActiveModelIds}
-                      metric={selectedMetric}
-                      times={viewData.time}
-                      series={viewData.series}
-                      onHourHover={handleHourChange}
-                      hoveredHour={selectedHour}
-                      maxHours={effectiveMaxHours}
-                    />
+              {(selectedView === 'weather' || selectedView === 'map') && showMap && (
+                <div className="h-[40vh] min-h-[260px] max-h-[440px] rounded-2xl border border-border bg-surface-raised relative overflow-hidden">
+                  <MapPicker
+                    position={position}
+                    recenterToken={recenterToken}
+                    onPositionChange={handlePositionChange}
+                    showHeatmap={showMap}
+                    metric={selectedMetric}
+                    selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
+                    hourIndex={selectedHour}
+                    nowOffset={startIndex}
+                    showRadar={showRadar}
+                  />
+                  <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-surface-raised/90 p-2 rounded-lg shadow-lg pointer-events-none">
+                    <ColorLegend metric={legendMetric} />
                   </div>
-                </>
+                </div>
+              )}
+
+              {(selectedView === 'weather' || selectedView === 'map') && showMap && (
+                <div className="rounded-2xl border border-border bg-surface-raised p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px] text-text-secondary font-mono">{hourLabel}</span>
+                    <span className="text-[10px] text-text-tertiary">+{selectedHour}h</span>
+                    {utcOffsetLabel ? (
+                      <span className="text-[10px] text-text-tertiary ml-auto">{utcOffsetLabel}</span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleHourChange(Math.max(0, selectedHour - 1))}
+                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors"
+                      aria-label="Previous hour"
+                    >−1h</button>
+                    <button
+                      onClick={() => handleHourChange(Math.max(0, selectedHour - 24))}
+                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors hidden sm:inline-flex"
+                      aria-label="Previous day"
+                    >−24h</button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={effectiveMaxHours - 1}
+                      value={selectedHour}
+                      onChange={e => handleHourChange(Number(e.target.value))}
+                      className="flex-1 min-w-0"
+                      aria-label="Forecast hour"
+                      aria-valuetext={hourLabel}
+                    />
+                    <button
+                      onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 24))}
+                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors hidden sm:inline-flex"
+                      aria-label="Next day"
+                    >+24h</button>
+                    <button
+                      onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1))}
+                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors"
+                      aria-label="Next hour"
+                    >+1h</button>
+                    <button
+                      onClick={jumpToNow}
+                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors"
+                      aria-label="Jump to current hour"
+                    >Now</button>
+                  </div>
+                </div>
+              )}
+
+              {selectedView === 'weather' && (
+                <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedExpanded(o => !o)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-text-primary hover:bg-surface-popover/40 transition-colors"
+                    aria-expanded={advancedExpanded}
+                    aria-controls="advanced-section"
+                  >
+                    <span className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold text-text-tertiary">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
+                        <path d="M3 17l6-6 4 4 8-8" />
+                        <path d="M14 7h7v7" />
+                      </svg>
+                      {STRINGS[locale].navAdvanced}
+                    </span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      className={`w-4 h-4 text-text-tertiary transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
+                      aria-hidden="true"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                  {advancedExpanded ? (
+                    <div id="advanced-section" className="px-4 pb-4 space-y-3">
+                      <ModelSelector
+                        models={displayModels}
+                        selected={selectedModels}
+                        onChange={handleModelChange}
+                      />
+                      <InsightsTable
+                        models={displayModels}
+                        activeModelIds={displayActiveModelIds}
+                        times={viewData?.time ?? []}
+                        series={viewData?.series ?? {}}
+                        bucket={bucket}
+                        onBucketChange={handleBucketChange}
+                        selectedHour={selectedHour}
+                        onSelectHour={handleHourChange}
+                        maxHours={effectiveMaxHours}
+                        utcOffsetSeconds={viewData?.utcOffsetSeconds ?? 0}
+                        showMarine={marine}
+                        showBasic={showBasic}
+                      />
+                      <ModelComparisonChart
+                        models={displayModels}
+                        activeModelIds={displayActiveModelIds}
+                        metric={selectedMetric}
+                        times={viewData?.time ?? []}
+                        series={viewData?.series ?? {}}
+                        onHourHover={handleHourChange}
+                        hoveredHour={selectedHour}
+                        maxHours={effectiveMaxHours}
+                      />
+                    </div>
+                  ) : null}
+                </section>
+              )}
+
+              {selectedView === 'cities' && (
+                <section className="rounded-2xl border border-border bg-surface-raised p-5 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-text-primary mb-1">
+                      {locale === 'en' ? 'Cities' : 'Ciudades'}
+                    </h3>
+                    <p className="text-xs text-text-tertiary">
+                      {locale === 'en'
+                        ? 'Manage your saved locations. Tap one to jump to it.'
+                        : 'Gestiona tus ubicaciones guardadas. Toca una para ir a ella.'}
+                    </p>
+                  </div>
+                  <CitiesList onSelect={handleCitySelect} />
+                </section>
+              )}
+
+              {selectedView === 'stations' && (
+                <ErrorBoundary
+                  fallback={
+                    <div className="text-center py-10" role="alert">
+                      <p className="text-sm text-red-400">{STRINGS[locale].stationError}</p>
+                      <button
+                        onClick={() => window.location.reload()}
+                        className="mt-2 text-xs text-text-tertiary hover:text-text-secondary underline cursor-pointer"
+                      >
+                        {STRINGS[locale].retry}
+                      </button>
+                    </div>
+                  }
+                >
+                  <StationDashboard position={position} placeName={cityName} />
+                </ErrorBoundary>
+              )}
+
+              {selectedView === 'settings' && (
+                <SettingsPanel
+                  range={selectedRange}
+                  onRangeChange={handleRangeChange}
+                  maxRange={maxModelHours}
+                  marine={marine}
+                  onMarineToggle={handleMarineToggle}
+                  showBasic={showBasic}
+                  onBasicToggle={handleBasicToggle}
+                  showRadar={showRadar}
+                  onRadarToggle={handleRadarToggle}
+                  showMap={showMap}
+                  onMapToggle={handleMapToggle}
+                  cityName={cityName}
+                  positionLat={position[0]}
+                  positionLon={position[1]}
+                  viewData={viewData ? { time: viewData.time, series: viewData.series, utcOffsetSeconds: viewData.utcOffsetSeconds } : null}
+                  displayModels={displayModels}
+                  effectiveMaxHours={effectiveMaxHours}
+                  selectedMetric={selectedMetric}
+                />
               )}
             </div>
-          )}
-        </div>
+          </div>
+
+          <aside
+            aria-label={STRINGS[locale].weekTitle}
+            className="hidden lg:block w-[320px] shrink-0 border-l border-border overflow-y-auto"
+            style={{ maxHeight: 'calc(100dvh)' }}
+          >
+            <div className="p-4 xl:p-5 space-y-4 xl:sticky xl:top-0">
+              <WeekForecastPanel
+                models={displayModels}
+                activeIds={displayActiveModelIds}
+                time={viewData?.time ?? []}
+                series={viewData?.series ?? {}}
+                startIndex={startIndex}
+                maxHours={effectiveMaxHours}
+                onSelectHour={handleHourChange}
+              />
+            </div>
+          </aside>
+        </main>
       </div>
 
-      <div className="hidden md:flex md:mt-auto px-3 py-0.5 bg-gray-900/50 border-t border-gray-800/50 text-[9px] text-gray-700 gap-3 shrink-0">
+      {/* F-9: footer keyboard hints, hidden on mobile (mobile tab bar lives at the bottom). */}
+      <div className="hidden md:flex md:mt-auto px-3 py-0.5 bg-surface/50 border-t border-border text-[9px] text-text-tertiary gap-3 shrink-0">
         <span>← → {STRINGS[locale].footerHours}</span>
         <span>/ {STRINGS[locale].footerSearch}</span>
         <span>m {STRINGS[locale].footerMap}</span>
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2000] bg-gray-800/95 border border-gray-700 text-white text-xs px-3 py-1.5 rounded-md shadow-lg animate-fadeIn" style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-[2000] bg-surface-popover border border-border text-text-primary text-xs px-3 py-1.5 rounded-md shadow-lg animate-fadeIn"
+          style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        >
           {toast}
         </div>
       )}
 
       <MobileTabBar
-        active={showMap ? 'map' : activeTab}
+        active={mobileTabFromView}
         onChange={(next) => {
-          if (next === 'map') {
-            if (!showMap) handleMapToggle()
-          } else {
-            if (showMap) handleMapToggle()
-            setActiveTab(next)
-          }
+          if (next === 'map') handleViewSelect('map')
+          else if (next === 'stations') handleViewSelect('stations')
+          else handleViewSelect('weather')
         }}
       />
     </div>
+  )
+}
+
+function CitiesList({ onSelect }: { onSelect: (name: string, lat: number, lon: number) => void }) {
+  // Tiny view that prefers the larger SavedLocations chunk but renders
+  // gracefully when it's empty (the SavedLocations component returns null
+  // when it has nothing to show).
+  const { locale } = useLocale()
+  const queryClient = useQueryClient()
+  const { data, isLoading } = useQuery({
+    queryKey: ['saved-locations'],
+    queryFn: async () => {
+      const res = await fetch('/api/locations')
+      if (!res.ok) throw new Error('API failed')
+      return res.json() as Promise<{ id: number; name: string; latitude: number; longitude: number }[]>
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/locations?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('API failed')
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-locations'] }),
+  })
+  if (isLoading) {
+    return <p className="text-sm text-text-tertiary">{STRINGS[locale].loadingStations}</p>
+  }
+  if (!data || data.length === 0) {
+    return (
+      <p className="text-sm text-text-tertiary">
+        {locale === 'en'
+          ? 'No saved locations yet. Open the friendly view and tap “Save” to bookmark this city.'
+          : 'Aún no hay ubicaciones guardadas. Abre la vista principal y pulsa “Guardar” para añadir esta ciudad.'}
+      </p>
+    )
+  }
+  return (
+    <ul className="space-y-1">
+      {data.map(loc => (
+        <li
+          key={loc.id}
+          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2"
+        >
+          <button
+            onClick={() => onSelect(loc.name, loc.latitude, loc.longitude)}
+            className="min-h-[36px] flex-1 text-left text-sm text-text-primary hover:text-accent transition-colors"
+          >
+            {loc.name}
+            <span className="block text-xs text-text-tertiary tabular-nums">
+              {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
+            </span>
+          </button>
+          <button
+            onClick={() => deleteMutation.mutate(loc.id)}
+            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-tertiary hover:text-red-400 transition-colors"
+            aria-label={`Remove ${loc.name}`}
+          >
+            ×
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -1108,7 +1131,7 @@ function MobileRefreshButton({ refresh, isPending, ageMs }: {
       disabled={isPending}
       title={locale === 'en' ? `Refresh forecast (last update ${age || 'never'})` : `Actualizar previsión (última actualización ${age || 'nunca'})`}
       aria-label={locale === 'en' ? `Refresh forecast (last update ${age || 'never'})` : `Actualizar previsión (última actualización ${age || 'nunca'})`}
-      className="md:hidden shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-text-tertiary hover:text-text-primary bg-surface-raised border border-border rounded transition-colors disabled:opacity-50"
+      className="md:hidden shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-text-tertiary hover:text-text-primary bg-surface-popover border border-border rounded transition-colors disabled:opacity-50"
     >
       {isPending ? (
         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -1120,4 +1143,3 @@ function MobileRefreshButton({ refresh, isPending, ageMs }: {
     </button>
   )
 }
-

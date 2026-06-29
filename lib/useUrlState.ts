@@ -14,11 +14,13 @@ interface UrlState {
   locale: string
   marine: boolean
   basic: boolean
+  view: 'weather' | 'cities' | 'map' | 'stations' | 'settings'
 }
 
 const ALLOWED_BUCKETS = new Set([1, 2, 3, 4, 6, 12, 24])
 const ALLOWED_METRICS = new Set<string>(METRICS.map(m => m.id))
 const ALLOWED_RANGES = new Set([24, 48, 72, 168, 336])
+const ALLOWED_VIEWS = new Set(['weather', 'cities', 'map', 'stations', 'settings'])
 
 const MODELS_NONE_TOKEN = 'none'
 
@@ -52,6 +54,10 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   if (marine !== null) result.marine = marine === '1'
   const basic = params.get('basic')
   if (basic !== null) result.basic = basic === '1'
+  const view = params.get('view')
+  if (view && ALLOWED_VIEWS.has(view)) {
+    result.view = view as UrlState['view']
+  }
   return result
 }
 
@@ -79,6 +85,7 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   if (state.locale !== defaults.locale) params.set('locale', state.locale)
   if (state.marine !== defaults.marine) params.set('marine', state.marine ? '1' : '0')
   if (state.basic !== defaults.basic) params.set('basic', state.basic ? '1' : '0')
+  if (state.view !== defaults.view) params.set('view', state.view)
   return params.toString()
 }
 
@@ -105,6 +112,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       locale: parsed.locale ?? defaults.locale,
       marine: parsed.marine ?? defaults.marine,
       basic: parsed.basic ?? defaults.basic,
+      view: parsed.view ?? defaults.view,
     }
     return initial
   })

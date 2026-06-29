@@ -91,7 +91,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   }
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className="relative w-full">
       <input
         id="city-search-input"
         type="text"
@@ -99,23 +99,23 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         onChange={handleChange}
         onFocus={() => { if (results.length > 0) setIsOpen(true) }}
         placeholder="Search..."
-        className="w-full min-w-0 px-2 py-1 bg-transparent text-white text-xs placeholder-gray-600 focus:outline-none focus:placeholder-gray-400 border-b border-transparent focus:border-blue-500/40 transition-colors"
+        className="w-full min-w-0 pl-9 pr-3 py-2 bg-surface-popover text-text-primary text-sm rounded-lg placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 border border-border transition-colors"
       />
       {isFetching && (
-        <div className="absolute right-1 top-1.5">
-          <div className="w-2.5 h-2.5 border border-gray-500 border-t-transparent rounded-full animate-spin" />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <div className="w-3 h-3 border-2 border-text-tertiary border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {isOpen && results.length > 0 && (
-        <ul className="absolute z-50 left-0 right-0 sm:w-48 mt-1 bg-gray-900 border border-gray-800 rounded-md shadow-lg max-h-48 overflow-auto animate-fadeIn">
+        <ul className="absolute z-50 left-0 right-0 mt-1 bg-surface-popover border border-border rounded-lg shadow-lg max-h-48 overflow-auto animate-fadeIn">
           {results.map(r => (
             <li
               key={r.id}
               onClick={() => handleSelect(r)}
-              className="px-2 py-2.5 sm:py-1.5 cursor-pointer hover:bg-gray-800 text-white text-xs transition-colors"
+              className="px-3 py-2 cursor-pointer hover:bg-surface text-text-primary text-sm transition-colors"
             >
               <span>{r.name}</span>
-              {r.country && <span className="text-gray-500">, {r.country}</span>}
+              {r.country && <span className="text-text-tertiary">, {r.country}</span>}
             </li>
           ))}
         </ul>

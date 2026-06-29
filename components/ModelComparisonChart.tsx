@@ -222,10 +222,12 @@ export default function ModelComparisonChart({
                 )
               }}
             />
-            <Legend wrapperStyle={{ fontSize: '11px' }} />
+            <Legend wrapperStyle={{ fontSize: '11px' }} iconType="line" />
             {/* B3: stack a transparent "min" base under a "spread" area so the
-                shaded region is bounded by min..max, not 0..max. */}
-            <Area type="monotone" dataKey="min" stackId="spread" stroke="none" fill="transparent" name="Spread" />
+                shaded region is bounded by min..max, not 0..max. The
+                transparent base is hidden from the legend so only the
+                gradient "Spread" entry is rendered. */}
+            <Area type="monotone" dataKey="min" stackId="spread" stroke="none" fill="transparent" name="" legendType="none" />
             <Area type="monotone" dataKey="spread" stackId="spread" stroke="none" fill="url(#spreadGradient)" name="Spread" />
             {activeHour >= 0 && activeHour < displayTimes.length && (
               <ReferenceLine

@@ -9,6 +9,7 @@ import MetricPills from '@/components/MetricPills'
 import ModelSelector from '@/components/ModelSelector'
 import TimeRangeSelector from '@/components/TimeRangeSelector'
 import ModelComparisonChart from '@/components/ModelComparisonChart'
+import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
 import MobileTabBar from '@/components/MobileTabBar'
 import SavedLocations from '@/components/SavedLocations'
@@ -133,6 +134,16 @@ export default function HomeContent() {
   // desktop and on mobile-landscape (where the toolbar is already compact).
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
 
+  // Track the current viewport so we can pick layout-level defaults that
+  // differ between mobile and desktop (Advanced auto-open, InsightsTable
+  // daily grouping, etc.) — without forcing an SSR-incompatible media
+  // match at render time.
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+
+  // On mobile (< md) the Advanced section is rendered open by default with
+  // a daily grouping — desktop users keep the collapsible behaviour.
+  const advancedInitialisedRef = useRef(false)
+
   // B10: sync local position / cityName from urlState. This makes back/
   // forward navigation, and any external URL change, actually drive the
   // map and forecast. Only sync when the URL position differs from
@@ -226,6 +237,27 @@ export default function HomeContent() {
     return () => {
       landscapeMql.removeEventListener('change', onChange)
       desktopMql.removeEventListener('change', onChange)
+    }
+  }, [])
+
+  // Mobile (< md) opens the Advanced section by default and groups its data
+  // per day. Desktop keeps the collapsible, user-bucketed experience.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mobileMql = window.matchMedia('(max-width: 767px)')
+    const onChange = () => setIsMobileViewport(mobileMql.matches)
+    onChange()
+    mobileMql.addEventListener('change', onChange)
+    return () => mobileMql.removeEventListener('change', onChange)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (advancedInitialisedRef.current) return
+    advancedInitialisedRef.current = true
+    if (!window.matchMedia('(min-width: 768px)').matches) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAdvancedExpanded(true)
     }
   }, [])
 
@@ -326,6 +358,18 @@ export default function HomeContent() {
     queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine),
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    // F-5: keep the previous forecast on screen while a new fetch is in
+    // flight, so the city-search / range slider don't briefly flash
+    // dashes. We only keep the placeholder if the position hasn't
+    // changed (i.e. only the range / marine flag toggled).
+    placeholderData: (prev, prevQuery) => {
+      if (!prev) return prev
+      const prevKey = prevQuery?.queryKey as unknown[] | undefined
+      if (!prevKey || prevKey[1] !== position[0] || prevKey[2] !== position[1]) {
+        return undefined
+      }
+      return prev
+    },
   })
 
   // F-5: persist every successful forecast to IndexedDB so the user
@@ -785,8 +829,8 @@ export default function HomeContent() {
         <main className="flex-1 min-w-0 min-h-0 flex">
           <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
             {/* Sticky search + range on tablet/desktop, sitting at the top of
-                the main column. The range pill lives directly under the city
-                search so it's always pinned in the desktop layout. */}
+                the main column. The metric pills are NOT rendered here — they
+                live next to the Map view (which is what they drive). */}
             <div className="hidden md:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border px-4 lg:px-6 py-3">
               <div className="relative">
                 <svg
@@ -802,19 +846,13 @@ export default function HomeContent() {
                 </svg>
                 <CitySearch onSelect={handleCitySelect} />
               </div>
-              <div className="mt-3 flex flex-nowrap items-center justify-between gap-3">
-                <div className="overflow-x-auto scrollbar-none min-w-0">
-                  <TimeRangeSelector
-                    selected={selectedRange}
-                    onChange={handleRangeChange}
-                    maxAvailable={maxModelHours}
-                    showLabel={false}
-                  />
-                </div>
-                <div role="group" aria-label={STRINGS[locale].groupView} className="shrink-0 flex items-center gap-1.5">
-                  {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
-                  {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
-                </div>
+              <div className="mt-3 overflow-x-auto scrollbar-none">
+                <TimeRangeSelector
+                  selected={selectedRange}
+                  onChange={handleRangeChange}
+                  maxAvailable={maxModelHours}
+                  showLabel={false}
+                />
               </div>
             </div>
 
@@ -848,26 +886,39 @@ export default function HomeContent() {
                 <SavedLocations onSelect={handleCitySelect} />
               )}
 
-              {selectedView === 'map' && showMap && (
-                <div className="h-[40vh] min-h-[260px] max-h-[440px] rounded-2xl border border-border bg-surface-raised relative overflow-hidden">
-                  <MapPicker
-                    position={position}
-                    recenterToken={recenterToken}
-                    onPositionChange={handlePositionChange}
-                    showHeatmap={showMap}
-                    metric={selectedMetric}
-                    selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
-                    hourIndex={selectedHour}
-                    nowOffset={startIndex}
-                    showRadar={showRadar}
-                  />
-                  <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-surface-raised/90 p-2 rounded-lg shadow-lg pointer-events-none">
-                    <ColorLegend metric={legendMetric} />
+              {showMap && (
+                <section className="space-y-2">
+                  {/* Metric pills live next to the Map view (which is what
+                      they drive). Hidden on mobile (md:hidden) since the
+                      mobile map toolbar still has its own controls. */}
+                  <div
+                    role="group"
+                    aria-label={STRINGS[locale].groupView}
+                    className="hidden md:flex items-center gap-1.5 overflow-x-auto scrollbar-none px-0.5"
+                  >
+                    {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
+                    {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
                   </div>
-                </div>
+                  <div className="h-[40vh] min-h-[260px] max-h-[440px] rounded-2xl border border-border bg-surface-raised relative overflow-hidden">
+                    <MapPicker
+                      position={position}
+                      recenterToken={recenterToken}
+                      onPositionChange={handlePositionChange}
+                      showHeatmap={showMap}
+                      metric={selectedMetric}
+                      selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
+                      hourIndex={selectedHour}
+                      nowOffset={startIndex}
+                      showRadar={showRadar}
+                    />
+                    <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-surface-raised/90 p-2 rounded-lg shadow-lg pointer-events-none">
+                      <ColorLegend metric={legendMetric} />
+                    </div>
+                  </div>
+                </section>
               )}
 
-              {selectedView === 'map' && showMap && (
+              {showMap && (
                 <div className="rounded-2xl border border-border bg-surface-raised p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-[10px] text-text-secondary font-mono">{hourLabel}</span>
@@ -918,10 +969,23 @@ export default function HomeContent() {
 
               {selectedView === 'weather' && (
                 <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
+                  {/* Mobile (< md): the Advanced section is always open with
+                      per-day grouping; the toggle button is hidden. */}
+                  <div className="md:hidden px-4 py-3 flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold text-text-tertiary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
+                      <path d="M3 17l6-6 4 4 8-8" />
+                      <path d="M14 7h7v7" />
+                    </svg>
+                    {STRINGS[locale].navAdvanced}
+                  </div>
+                  {/* Desktop (>= md): collapsible header. The mobile state is
+                      forced open on mount, so the conditional below always
+                      renders content here. On desktop this still honours
+                      the user's collapsed/expanded toggle. */}
                   <button
                     type="button"
                     onClick={() => setAdvancedExpanded(o => !o)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-text-primary hover:bg-surface-popover/40 transition-colors"
+                    className="hidden md:flex w-full items-center justify-between px-4 py-3 text-text-primary hover:bg-surface-popover/40 transition-colors"
                     aria-expanded={advancedExpanded}
                     aria-controls="advanced-section"
                   >
@@ -946,17 +1010,33 @@ export default function HomeContent() {
                   </button>
                   {advancedExpanded ? (
                     <div id="advanced-section" className="px-4 pb-4 space-y-3">
+                      <DailySummary
+                        models={displayModels}
+                        activeModelIds={displayActiveModelIds}
+                        times={viewData?.time ?? []}
+                        series={viewData?.series ?? {}}
+                        selectedHour={selectedHour}
+                        onSelectHour={handleHourChange}
+                        maxHours={effectiveMaxHours}
+                        showMarine={marine}
+                        showBasic={showBasic}
+                        utcOffsetSeconds={viewData?.utcOffsetSeconds ?? 0}
+                      />
                       <ModelSelector
                         models={displayModels}
                         selected={selectedModels}
                         onChange={handleModelChange}
                       />
+                      {/* On mobile the table defaults to 1-day buckets so the
+                          Advanced section reads as a per-day summary, matching
+                          the friendly layout above. Desktop still uses the
+                          user's chosen bucket. */}
                       <InsightsTable
                         models={displayModels}
                         activeModelIds={displayActiveModelIds}
                         times={viewData?.time ?? []}
                         series={viewData?.series ?? {}}
-                        bucket={bucket}
+                        bucket={isMobileViewport ? 24 : bucket}
                         onBucketChange={handleBucketChange}
                         selectedHour={selectedHour}
                         onSelectHour={handleHourChange}

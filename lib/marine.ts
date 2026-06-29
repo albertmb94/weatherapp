@@ -51,6 +51,7 @@ async function fetchSeaSurfaceTemperature(
     longitude: lon.toString(),
     hourly: SST_METRIC_ID,
     cell_selection: 'sea',
+    past_days: '1',
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
   })
@@ -89,7 +90,7 @@ export async function fetchMarine(
   forecastDays: number,
   signal?: AbortSignal
 ): Promise<MarineResult> {
-const marineMetrics = metrics.filter(m => m.group === 'marine')
+  const marineMetrics = metrics.filter(m => m.group === 'marine')
   const waveMetrics = marineMetrics.filter(m => m.id !== SST_METRIC_ID)
   const wantsSst = marineMetrics.some(m => m.id === SST_METRIC_ID)
   const hourlyList = waveMetrics.map(m => m.hourlyParam)
@@ -98,6 +99,7 @@ const marineMetrics = metrics.filter(m => m.group === 'marine')
     latitude: lat.toString(),
     longitude: lon.toString(),
     hourly: hourlyList.join(','),
+    past_days: '1',
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
   })

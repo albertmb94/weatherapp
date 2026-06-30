@@ -329,6 +329,9 @@ export default function MapPicker({
   useEffect(() => {
     if (!showHeatmap || !mapInstance) return
     if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current)
+    // Paint immediately as a fallback — the rAF callback may be cancelled
+    // by the cleanup before it fires during rapid state transitions.
+    renderCanvas()
     renderFrameRef.current = requestAnimationFrame(() => {
       renderCanvas()
       renderFrameRef.current = null
@@ -424,7 +427,7 @@ export default function MapPicker({
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 500 }}
+        style={{ zIndex: 999 }}
         aria-hidden="true"
       />
       <div className="sr-only" role="status" aria-live="polite">

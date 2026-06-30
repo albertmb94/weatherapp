@@ -456,14 +456,8 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handleViewSelect = useCallback((section: SidebarSection) => {
-    // Switching to the Mapa view also flips the map on so the user lands
-    // on a visible map with its Layers row, not an empty placeholder.
-    // The map's own visibility stays controlled independently afterwards
-    // by the Layers / Mapa toggle in the sidebar and the mobile icons.
-    const updates: Partial<typeof urlState> = { view: section }
-    if (section === 'map' && !showMap) updates.showMap = true
-    updateUrl(updates)
-  }, [showMap, updateUrl])
+    updateUrl({ view: section })
+  }, [updateUrl])
 
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) return

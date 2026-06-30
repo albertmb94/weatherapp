@@ -675,49 +675,7 @@ export default function HomeContent() {
 
         {mobileMenuOpen && (
           <div className="mt-2 pt-2 border-t border-border space-y-3 animate-fadeIn">
-            <div>
-              {(showBasic || !marine) && (
-                <>
-                  <span className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1 block">Basic</span>
-                  <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
-                </>
-              )}
-              {marine && (
-                <div className={showBasic ? 'mt-1' : ''}>
-                  <span className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1 block">Marine</span>
-                  <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
-                </div>
-              )}
-            </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleRadarToggle}
-                className={`min-h-[36px] px-3 rounded text-xs font-medium transition-all cursor-pointer ${
-                  showRadar ? 'bg-sky-600/30 text-sky-200 border border-sky-500/50' : 'bg-surface-popover text-text-secondary border border-border'
-                }`}
-              >
-                Radar
-              </button>
-              <button
-                onClick={handleMarineToggle}
-                className={`min-h-[36px] px-3 rounded text-xs font-semibold transition-all cursor-pointer border ${
-                  marine ? 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50' : 'bg-surface-popover text-text-secondary border border-border'
-                }`}
-                aria-pressed={marine}
-              >
-                Marine
-              </button>
-              {marine && (
-                <button
-                  onClick={handleBasicToggle}
-                  className={`min-h-[36px] px-3 rounded text-xs font-semibold transition-all cursor-pointer border ${
-                    showBasic ? 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50' : 'bg-surface-popover text-text-secondary border border-border'
-                  }`}
-                  aria-pressed={showBasic}
-                >
-                  Basic
-                </button>
-              )}
               <button
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending}
@@ -740,17 +698,6 @@ export default function HomeContent() {
           </div>
         )}
       </div>
-
-      {marine && (
-        <div className="md:hidden landscape:hidden px-2 py-1 bg-surface-raised border-b border-border overflow-x-auto flex-shrink-0">
-          <div className="flex items-center gap-1 min-w-max">
-            {showBasic && (
-              <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />
-            )}
-            <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-1 min-h-0">
         <DesktopSidebar
@@ -825,13 +772,71 @@ export default function HomeContent() {
 
               {showMap && (
                 <section className="space-y-2">
-                  {/* Metric pills live next to the Map view (which is what
-                      they drive). Hidden on mobile (md:hidden) since the
-                      mobile map toolbar still has its own controls. */}
+                  {/* Layer toggles (Map / Radar / Marine / Basic) live just
+                      above the map so they're reachable in the same scroll
+                      viewport as the map itself on mobile. */}
+                  <div
+                    role="group"
+                    aria-label={STRINGS[locale].layersTitle ?? 'Layers'}
+                    className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-0.5"
+                  >
+                    <button
+                      type="button"
+                      onClick={handleMapToggle}
+                      aria-pressed={showMap}
+                      className={`min-h-[32px] px-3 rounded-full text-[11px] font-medium border transition-colors ${
+                        showMap
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-surface-popover text-text-secondary border-border'
+                      }`}
+                    >
+                      {STRINGS[locale].map}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRadarToggle}
+                      aria-pressed={showRadar}
+                      className={`min-h-[32px] px-3 rounded-full text-[11px] font-medium border transition-colors ${
+                        showRadar
+                          ? 'bg-sky-500 text-white border-sky-500'
+                          : 'bg-surface-popover text-text-secondary border-border'
+                      }`}
+                    >
+                      {STRINGS[locale].radar}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleMarineToggle}
+                      aria-pressed={marine}
+                      className={`min-h-[32px] px-3 rounded-full text-[11px] font-medium border transition-colors ${
+                        marine
+                          ? 'bg-cyan-500 text-white border-cyan-500'
+                          : 'bg-surface-popover text-text-secondary border-border'
+                      }`}
+                    >
+                      {STRINGS[locale].marine}
+                    </button>
+                    {marine && (
+                      <button
+                        type="button"
+                        onClick={handleBasicToggle}
+                        aria-pressed={showBasic}
+                        className={`min-h-[32px] px-3 rounded-full text-[11px] font-medium border transition-colors ${
+                          showBasic
+                            ? 'bg-emerald-500 text-white border-emerald-500'
+                            : 'bg-surface-popover text-text-secondary border-border'
+                        }`}
+                      >
+                        {STRINGS[locale].basic}
+                      </button>
+                    )}
+                  </div>
+                  {/* Metric pills drive what the heatmap shows. They live
+                      next to the layers on every layout. */}
                   <div
                     role="group"
                     aria-label={STRINGS[locale].groupView}
-                    className="hidden md:flex items-center gap-1.5 overflow-x-auto scrollbar-none px-0.5"
+                    className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-0.5"
                   >
                     {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
                     {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}

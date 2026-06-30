@@ -29,7 +29,6 @@ import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
 import { getLocationNow, floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation } from '@/lib/localStorageLocations'
-import { formatAge } from '@/lib/formatAge'
 import { useRefresh } from '@/lib/useRefresh'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { saveLastView, loadLastView } from '@/lib/lastView'
@@ -126,21 +125,15 @@ export default function HomeContent() {
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
-  // S6: shared refresh hook. Used by the mobile header pill and by
-  // RefreshButton so the in-flight state is never duplicated.
-  const { refresh, isPending: isRefreshing, lastOutcome } = useRefresh()
+  // S6: shared refresh hook. RefreshButton in the secondary header is
+  // the single source of truth for the refresh action.
+  const { refresh, lastOutcome } = useRefresh()
   const queryClient = useQueryClient()
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
   // metric pills row, and re-expands when they scroll back up. Disabled on
   // desktop and on mobile-landscape (where the toolbar is already compact).
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
-
-  // Track the current viewport so we can pick layout-level defaults that
-  // differ between mobile and desktop (Advanced auto-open, InsightsTable
-  // daily grouping, etc.) — without forcing an SSR-incompatible media
-  // match at render time.
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
 
   // On mobile (< md) the Advanced section is rendered open by default with
   // a daily grouping — desktop users keep the collapsible behaviour.
@@ -242,17 +235,6 @@ export default function HomeContent() {
     }
   }, [])
 
-  // Mobile (< md) opens the Advanced section by default and groups its data
-  // per day. Desktop keeps the collapsible, user-bucketed experience.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mobileMql = window.matchMedia('(max-width: 767px)')
-    const onChange = () => setIsMobileViewport(mobileMql.matches)
-    onChange()
-    mobileMql.addEventListener('change', onChange)
-    return () => mobileMql.removeEventListener('change', onChange)
-  }, [])
-
   // The advanced section starts open on both desktop and mobile. We keep
   // a ref so a re-mount (HMR / fast refresh) doesn't clobber the user's
   // explicit collapse on subsequent renders.
@@ -337,18 +319,6 @@ export default function HomeContent() {
   const showBasic = urlState.basic
   const selectedView: SidebarSection = urlState.view
   const weekDays: 7 | 14 = urlState.weekDays
-
-  const { data: refreshStatus } = useQuery<{ lastRefreshedAt: number | null; ageMs: number | null }>({
-    queryKey: ['refresh-status'],
-    queryFn: async () => {
-      const res = await fetch('/api/refresh')
-      if (!res.ok) throw new Error('refresh status')
-      return res.json()
-    },
-    staleTime: 60_000,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: false,
-  })
 
   const forecastDays = computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS)
 
@@ -633,13 +603,8 @@ export default function HomeContent() {
             <CitySearch onSelect={handleCitySelect} />
           </div>
           <div className="shrink-0 flex items-center gap-1.5">
-            {refreshStatus?.lastRefreshedAt && (
-              <MobileRefreshButton
-                refresh={refresh}
-                isPending={isRefreshing}
-                ageMs={refreshStatus.ageMs ?? null}
-              />
-            )}
+            {/* Top map icon (mobile secondary header) was removed in favour of
+                the Mapa entry in the bottom tab bar. */}
           </div>
         </div>
       </div>
@@ -664,19 +629,6 @@ export default function HomeContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             )}
-          </button>
-          <button
-            onClick={handleMapToggle}
-            className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors cursor-pointer ${
-              showMap ? 'text-text-primary' : 'text-text-tertiary hover:text-text-primary'
-            }`}
-            title="Toggle map"
-            aria-label="Toggle map"
-            aria-pressed={showMap}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
-            </svg>
           </button>
           <button
             onClick={cycleTheme}
@@ -1017,7 +969,7 @@ export default function HomeContent() {
                         activeModelIds={displayActiveModelIds}
                         times={viewData?.time ?? []}
                         series={viewData?.series ?? {}}
-                        bucket={isMobileViewport ? 24 : bucket}
+                        bucket={bucket}
                         onBucketChange={handleBucketChange}
                         selectedHour={selectedHour}
                         onSelectHour={handleHourChange}
@@ -1265,35 +1217,5 @@ function CitiesList({
         </ul>
       )}
     </div>
-  )
-}
-
-function MobileRefreshButton({ refresh, isPending, ageMs }: {
-  refresh: () => void
-  isPending: boolean
-  ageMs: number | null
-}) {
-  // S7 cosmetic: icon-only, 44px square, sits to the right of the search
-  // input. The age lives in the title/aria-label so it is discoverable on
-  // hover/long-press without taking horizontal space.
-  const { locale } = useLocale()
-  const age = formatAge(ageMs, locale)
-  return (
-    <button
-      type="button"
-      onClick={refresh}
-      disabled={isPending}
-      title={locale === 'en' ? `Refresh forecast (last update ${age || 'never'})` : `Actualizar previsión (última actualización ${age || 'nunca'})`}
-      aria-label={locale === 'en' ? `Refresh forecast (last update ${age || 'never'})` : `Actualizar previsión (última actualización ${age || 'nunca'})`}
-      className="md:hidden shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-text-tertiary hover:text-text-primary bg-surface-popover border border-border rounded transition-colors disabled:opacity-50"
-    >
-      {isPending ? (
-        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-      ) : (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      )}
-    </button>
   )
 }

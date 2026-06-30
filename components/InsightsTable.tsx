@@ -665,7 +665,7 @@ export default function InsightsTable({
                   onClick={() => onSelectHour(r.centerIdx)}
                   className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10"
                 >
-                  <td className={`sticky left-0 isolate z-30 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
+                  <td className={`sticky left-0 isolate z-30 px-1.5 py-1.5 bg-surface ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
                     {r.label}
                   </td>
                   {colDefs.map(col => {

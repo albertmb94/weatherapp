@@ -178,12 +178,10 @@ function intensityFor(metric: ScaleMetric, value: number | null): number | null 
 }
 
 /**
- * Build a layered background that gives the cell a soft "glow" in the
- * centre and fades to transparent well before reaching the cell edges.
- * The hue comes from the metric scale and the alpha is driven by the
- * value intensity. The triple-RGB is also exposed as a CSS variable so
- * the global stylesheet can fall back to a solid fill on mobile dark
- * mode where the gradient feels too washed out.
+ * Build the heatmap cell background. We use a soft radial gradient so
+ * the colour diffuses before reaching the cell border, but the gradient
+ * is intentionally simple (2 stops) so it remains cheap to paint at the
+ * 14 rows × 14 columns size the table reaches on mobile.
  */
 function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperties {
   if (value === null || value === undefined) {
@@ -192,13 +190,13 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   const color = getColor(metric, value)
   const triple = rgbTriple(color)
   const intensity = intensityFor(metric, value) ?? 0.5
-  // Tighter ellipse + a three-stop gradient so the color never reaches
-  // the cell border; it always diffuses into the surrounding surface.
-  const core = Math.round(intensity * 55)   // 0..55% alpha at the very core
-  const mid = Math.round(intensity * 22)    // 0..22% at the mid radius
+  // Capped alpha stops so a 14x14 cell grid paints quickly on slow
+  // mobile GPUs while still showing the "soft glow" character.
+  const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
+  const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
   return {
     ['--heat-rgb-triple' as string]: triple,
-    background: `radial-gradient(ellipse 35% 65% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 45%, rgba(${triple},0) 90%)`,
+    background: `radial-gradient(ellipse 32% 60% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
   } as React.CSSProperties
 }
 
@@ -707,7 +705,8 @@ export default function InsightsTable({
                   {colDefs.map((col, j) => (
                     <HeatCell
                       key={col.id}
-                      cell={rowCells[j]}
+                      node={rowCells[j]?.node}
+                      style={rowCells[j]?.style}
                       hideOnCompact={compact && COMPACT_HIDDEN_COLS.has(col.id)}
                       extraClass={col.hideClass ?? ''}
                     />
@@ -749,26 +748,30 @@ function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0,
 }
 
 /**
- * Memoised wrapper for a single Insights cell. The radial-gradient inline
- * style is only re-computed when (cell.style, hideOnCompact, extraClass)
- * actually changes, so re-rendering the parent no longer re-creates the
- * gradient string for every cell on every URL state change.
- */
+  * Memoised wrapper for a single Insights cell. We pass the raw props
+  * (value, format, etc.) rather than a pre-built CellResult so React.memo
+  * can compare the cell primitives and skip the re-render when nothing
+  * actually changed. The radial-gradient inline style is only re-built
+  * when (value, metric) changes, so the parent URL state changes don't
+  * thrash the GPU with 200+ identical gradient strings.
+  */
 const HeatCell = memo(function HeatCell({
-  cell,
+  node,
+  style,
   hideOnCompact,
   extraClass,
 }: {
-  cell: CellResult
+  node: React.ReactNode
+  style: React.CSSProperties | undefined
   hideOnCompact: boolean
   extraClass: string
 }) {
   return (
     <td
       className={`text-center px-1 py-1.5 font-mono tabular-nums text-text-primary ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
-      style={cell.style}
+      style={style}
     >
-      {cell.node}
+      {node}
     </td>
   )
 })

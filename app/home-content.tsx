@@ -122,12 +122,8 @@ export default function HomeContent() {
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   // Avanzado default is open on both desktop and mobile per product spec.
-  // The heavy components inside (InsightsTable, ModelComparisonChart,
-  // DailySummary) are each lazy-mounted after the first paint via
-  // \`advancedMounted\` so the initial render is light; the user can
-  // collapse the section at any time and the inner state is reset.
+  // The user explicitly wants to see the table on first paint.
   const [advancedExpanded, setAdvancedExpanded] = useState(true)
-  const [advancedMounted, setAdvancedMounted] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
@@ -238,23 +234,8 @@ export default function HomeContent() {
   }, [])
 
   // The Avanzado content (InsightsTable, DailySummary,
-  // ModelComparisonChart) is heavy on first paint. We lazy-mount it on
-  // the next animation frame so the hero / hourly / metrics / week
-  // section paints first and the user can interact immediately. The
-  // `advancedMounted` flag toggles the heavy subtree, the `expanded`
-  // state still controls visibility so collapsing releases the
-  // resources right away.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const id = window.requestAnimationFrame(() => {
-      // Second frame so the initial layout settles before mounting.
-      window.setTimeout(() => setAdvancedMounted(true), 16)
-    })
-    return () => {
-      window.cancelAnimationFrame(id)
-      window.clearTimeout(0)
-    }
-  }, [])
+  // ModelComparisonChart) renders alongside the rest of the page so
+  // the user sees the table on first paint per the product spec.
 
   useEffect(() => {
     if (urlState.locale && urlState.locale !== locale) {
@@ -972,7 +953,7 @@ export default function HomeContent() {
                       <path d="m6 9 6 6 6-6" />
                     </svg>
                   </button>
-                  {advancedExpanded && advancedMounted ? (
+                  {advancedExpanded ? (
                     <div id="advanced-section" className="px-4 pb-4 space-y-3">
                       <DailySummary
                         models={displayModels}

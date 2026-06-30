@@ -908,19 +908,36 @@ export default function HomeContent() {
 
               {selectedView === 'weather' && (
                 <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
-                  {/* Mobile (< md): the Advanced section is always open with
-                      per-day grouping; the toggle button is hidden. */}
-                  <div className="md:hidden px-4 py-3 flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold text-text-tertiary">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
-                      <path d="M3 17l6-6 4 4 8-8" />
-                      <path d="M14 7h7v7" />
+                  {/* Mobile (< md): tap the header to toggle the Avanzado
+                      section. The Desktop variant is below; together they
+                      cover both layouts with a single interactive control. */}
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedExpanded(o => !o)}
+                    className="md:hidden w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-surface-popover/40 transition-colors cursor-pointer"
+                    aria-expanded={advancedExpanded}
+                    aria-controls="advanced-section"
+                  >
+                    <span className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold text-text-tertiary">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
+                        <path d="M3 17l6-6 4 4 8-8" />
+                        <path d="M14 7h7v7" />
+                      </svg>
+                      {STRINGS[locale].navAdvanced}
+                    </span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      className={`w-4 h-4 text-text-tertiary transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
+                      aria-hidden="true"
+                    >
+                      <path d="m6 9 6 6 6-6" />
                     </svg>
-                    {STRINGS[locale].navAdvanced}
-                  </div>
-                  {/* Desktop (>= md): collapsible header. The mobile state is
-                      forced open on mount, so the conditional below always
-                      renders content here. On desktop this still honours
-                      the user's collapsed/expanded toggle. */}
+                  </button>
+                  {/* Desktop (>= md): collapsible header. */}
                   <button
                     type="button"
                     onClick={() => setAdvancedExpanded(o => !o)}

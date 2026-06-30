@@ -126,7 +126,9 @@ export default function HomeContent() {
   const [advancedExpanded, setAdvancedExpanded] = useState(true)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mapSectionRef = useRef<HTMLElement>(null)
+  const stationsSectionRef = useRef<HTMLElement>(null)
   const scrollToMapRef = useRef(false)
+  const scrollToStationsRef = useRef(false)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
   // S6: shared refresh hook. RefreshButton in the secondary header is
@@ -431,7 +433,13 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handleMapToggle = useCallback(() => {
-    updateUrl({ showMap: !showMap })
+    if (showMap) {
+      // Turning the map off — also switch back to models view so the
+      // bottom tab bar reflects Modelos as active.
+      updateUrl({ showMap: false, view: 'weather' })
+    } else {
+      updateUrl({ showMap: true })
+    }
   }, [showMap, updateUrl])
 
   const handleRadarToggle = useCallback(() => {
@@ -588,6 +596,15 @@ export default function HomeContent() {
       mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
   }, [showMap])
+
+  // When the mobile tab bar switches to stations, scroll the section into view.
+  useEffect(() => {
+    if (selectedView !== 'stations' || !scrollToStationsRef.current) return
+    scrollToStationsRef.current = false
+    requestAnimationFrame(() => {
+      stationsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }, [selectedView])
 
   const mobileTabFromView = selectedView === 'map' ? 'map' : selectedView === 'stations' ? 'stations' : (selectedView === 'weather' || selectedView === 'cities' ? 'models' : 'models')
 
@@ -961,6 +978,7 @@ export default function HomeContent() {
               )}
 
               {selectedView === 'stations' && (
+                <section ref={stationsSectionRef}>
                 <ErrorBoundary
                   fallback={
                     <div className="text-center py-10" role="alert">
@@ -976,6 +994,7 @@ export default function HomeContent() {
                 >
                   <StationDashboard position={position} placeName={cityName} />
                 </ErrorBoundary>
+                </section>
               )}
 
               {selectedView === 'settings' && (
@@ -1038,20 +1057,22 @@ export default function HomeContent() {
         active={mobileTabFromView}
         onChange={(next) => {
           if (next === 'map') {
-            // On mobile the map section is hidden behind showMap — enable it
-            // so the section renders, then scroll it into view.
             scrollToMapRef.current = true
             if (!showMap) updateUrl({ showMap: true })
             handleViewSelect('map')
-            // If the map was already visible, scroll immediately.
             if (showMap) {
               requestAnimationFrame(() => {
                 mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
               })
             }
           } else if (next === 'stations') {
+            // Hide the map and switch to stations view.
+            if (showMap) updateUrl({ showMap: false })
+            scrollToStationsRef.current = true
             handleViewSelect('stations')
           } else {
+            // Hide the map and switch to models/weather view.
+            if (showMap) updateUrl({ showMap: false })
             handleViewSelect('weather')
           }
         }}

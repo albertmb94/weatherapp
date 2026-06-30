@@ -650,31 +650,6 @@ export default function HomeContent() {
           </button>
           <RefreshButton />
           <button
-            type="button"
-            onClick={handleMarineToggle}
-            aria-pressed={marine}
-            aria-label={STRINGS[locale].marine}
-            title={STRINGS[locale].marine}
-            className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors cursor-pointer ${
-              marine
-                ? 'text-cyan-300'
-                : 'text-text-tertiary hover:text-text-primary'
-            }`}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M2 12c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2" />
-              <path d="M6 17c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2" />
-            </svg>
-          </button>
-          <button
             onClick={() => setMobileMenuOpen(o => !o)}
             className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary cursor-pointer ml-auto"
             aria-label="Toggle menu"
@@ -938,7 +913,9 @@ export default function HomeContent() {
                   effectiveMaxHours={effectiveMaxHours}
                   bucket={bucket}
                   marine={marine}
+                  onMarineToggle={handleMarineToggle}
                   showBasic={showBasic}
+                  onBasicToggle={handleBasicToggle}
                   selectedMetric={selectedMetric}
                   onModelChange={handleModelChange}
                   onHourChange={handleHourChange}
@@ -1192,7 +1169,9 @@ const AdvancedSection = memo(function AdvancedSection({
   effectiveMaxHours,
   bucket,
   marine,
+  onMarineToggle,
   showBasic,
+  onBasicToggle,
   selectedMetric,
   onModelChange,
   onHourChange,
@@ -1208,7 +1187,9 @@ const AdvancedSection = memo(function AdvancedSection({
   effectiveMaxHours: number
   bucket: BucketHours
   marine: boolean
+  onMarineToggle: () => void
   showBasic: boolean
+  onBasicToggle: () => void
   selectedMetric: MetricId
   onModelChange: (ids: string[]) => void
   onHourChange: (hour: number) => void
@@ -1307,7 +1288,9 @@ const AdvancedSection = memo(function AdvancedSection({
             maxHours={effectiveMaxHours}
             utcOffsetSeconds={viewUtc}
             showMarine={marine}
+            onMarineToggle={onMarineToggle}
             showBasic={showBasic}
+            onBasicToggle={onBasicToggle}
           />
           <ModelComparisonChart
             models={displayModels}

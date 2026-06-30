@@ -24,7 +24,9 @@ interface InsightsTableProps {
   maxHours: number
   utcOffsetSeconds: number
   showMarine?: boolean
+  onMarineToggle?: () => void
   showBasic?: boolean
+  onBasicToggle?: () => void
 }
 
 interface Row {
@@ -57,7 +59,7 @@ interface Row {
   icon: WeatherIconId
 }
 
-const BUCKET_OPTIONS: BucketHours[] = [1, 2, 3, 4, 6, 12, 24]
+const BUCKET_OPTIONS: BucketHours[] = [1, 2, 6, 12, 24]
 const BUCKET_LABELS: Record<BucketHours, string> = {
   1: '1h', 2: '2h', 3: '3h', 4: '4h', 6: '6h', 12: '12h', 24: '1d',
 }
@@ -301,7 +303,9 @@ export default function InsightsTable({
   maxHours,
   utcOffsetSeconds,
   showMarine = false,
+  onMarineToggle,
   showBasic = true,
+  onBasicToggle,
 }: InsightsTableProps) {
   const { locale } = useLocale()
   const activeModels = useMemo(
@@ -635,6 +639,38 @@ export default function InsightsTable({
               {BUCKET_LABELS[b]}
             </button>
           ))}
+          {onMarineToggle && (
+            <button
+              type="button"
+              onClick={onMarineToggle}
+              aria-pressed={showMarine}
+              aria-label={STRINGS[locale].marine}
+              title={STRINGS[locale].marine}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-colors min-h-[28px] border ${
+                showMarine
+                  ? 'bg-cyan-500 text-white border-cyan-500'
+                  : 'bg-surface-popover text-text-secondary border-border'
+              }`}
+            >
+              {STRINGS[locale].marine}
+            </button>
+          )}
+          {onBasicToggle && showMarine && (
+            <button
+              type="button"
+              onClick={onBasicToggle}
+              aria-pressed={showBasic}
+              aria-label={STRINGS[locale].basic}
+              title={STRINGS[locale].basic}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-colors min-h-[28px] border ${
+                showBasic
+                  ? 'bg-emerald-500 text-white border-emerald-500'
+                  : 'bg-surface-popover text-text-secondary border-border'
+              }`}
+            >
+              {STRINGS[locale].basic}
+            </button>
+          )}
           {!isDefaultOrder && (
             <button
               onClick={resetColumnOrder}

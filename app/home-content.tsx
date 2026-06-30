@@ -106,7 +106,7 @@ export default function HomeContent() {
     range: DEFAULT_RANGE,
     showMap: false,
     showRadar: false,
-    bucket: 4,
+    bucket: 24,
     locale: '',
     marine: false,
     basic: true,

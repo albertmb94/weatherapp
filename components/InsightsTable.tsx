@@ -313,6 +313,7 @@ export default function InsightsTable({
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [compact, setCompact] = useState(false)
+  const [showAllRows, setShowAllRows] = useState(false)
   const dragNodeRef = useRef<HTMLTableCellElement | null>(null)
 
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
@@ -681,7 +682,7 @@ export default function InsightsTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => {
+            {(showAllRows ? rows : rows.slice(0, 50)).map((r, i) => {
               const isActive = selectedHour >= r.startIdx && selectedHour <= r.endIdx
               const zebra = i % 2 === 1
               const whenBg = isActive
@@ -694,7 +695,7 @@ export default function InsightsTable({
                 <tr
                   key={i}
                   onClick={() => onSelectHour(r.centerIdx)}
-                  className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10"
+                  className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10 contain-[layout_style_paint]"
                 >
                   <td
                     style={{ background: 'var(--surface)' }}
@@ -716,6 +717,27 @@ export default function InsightsTable({
             })}
           </tbody>
         </table>
+        {rows.length > 50 && !showAllRows ? (
+          <div className="border-t border-border bg-surface-popover/30 px-3 py-2 text-center">
+            <button
+              type="button"
+              onClick={() => setShowAllRows(true)}
+              className="text-[11px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+            >
+              {`+ Show ${rows.length - 50} more rows`}
+            </button>
+          </div>
+        ) : showAllRows && rows.length > 50 ? (
+          <div className="border-t border-border bg-surface-popover/30 px-3 py-2 text-center">
+            <button
+              type="button"
+              onClick={() => setShowAllRows(false)}
+              className="text-[11px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+            >
+              Show fewer rows
+            </button>
+          </div>
+        ) : null}
         </div>
       </div>
     </div>

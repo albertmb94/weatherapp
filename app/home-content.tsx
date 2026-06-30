@@ -121,7 +121,13 @@ export default function HomeContent() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [advancedExpanded, setAdvancedExpanded] = useState(true)
+  // The Avanzado section renders DailySummary + ModelSelector + InsightsTable
+  // + ModelComparisonChart on first paint, which is heavy on slow devices
+  // (heavy radial-gradient cells, Recharts SVG, etc.). We default to
+  // collapsed on both desktop and mobile and let the user expand it
+  // when they want the detail. The section is sticky-pinnable and the
+  // expand is instant.
+  const [advancedExpanded, setAdvancedExpanded] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()

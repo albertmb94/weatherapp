@@ -630,7 +630,12 @@ export default function InsightsTable({
           <table className={`w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${showMarine ? 'table-auto' : 'table-fixed'}`}>
           <thead>
             <tr className="bg-surface text-text-secondary">
-              <th className="sticky left-0 top-0 isolate z-40 bg-surface text-center px-1.5 py-1.5 font-medium border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]">{STRINGS[locale].tableWhen}</th>
+              <th
+                style={{ background: 'var(--surface)' }}
+                className="sticky left-0 top-0 isolate z-40 text-center px-1.5 py-1.5 font-medium border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]"
+              >
+                {STRINGS[locale].tableWhen}
+              </th>
               {colDefs.map((col, idx) => {
                 const dragClass = idx === dragIdx ? 'opacity-40' : idx === overIdx && dragIdx !== null && idx !== dragIdx ? 'border-t-2 border-t-accent' : ''
                 return (
@@ -665,7 +670,10 @@ export default function InsightsTable({
                   onClick={() => onSelectHour(r.centerIdx)}
                   className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10"
                 >
-                  <td className={`sticky left-0 isolate z-30 px-1.5 py-1.5 bg-surface ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}>
+                  <td
+                    style={{ background: 'var(--surface)' }}
+                    className={`sticky left-0 isolate z-30 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
+                  >
                     {r.label}
                   </td>
                   {colDefs.map(col => {

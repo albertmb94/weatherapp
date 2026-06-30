@@ -121,13 +121,13 @@ export default function HomeContent() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  // The Avanzado section renders DailySummary + ModelSelector + InsightsTable
-  // + ModelComparisonChart on first paint, which is heavy on slow devices
-  // (heavy radial-gradient cells, Recharts SVG, etc.). We default to
-  // collapsed on both desktop and mobile and let the user expand it
-  // when they want the detail. The section is sticky-pinnable and the
-  // expand is instant.
-  const [advancedExpanded, setAdvancedExpanded] = useState(false)
+  // Avanzado default is open on both desktop and mobile per product spec.
+  // The heavy components inside (InsightsTable, ModelComparisonChart,
+  // DailySummary) are each lazy-mounted after the first paint via
+  // \`advancedMounted\` so the initial render is light; the user can
+  // collapse the section at any time and the inner state is reset.
+  const [advancedExpanded, setAdvancedExpanded] = useState(true)
+  const [advancedMounted, setAdvancedMounted] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
@@ -140,10 +140,6 @@ export default function HomeContent() {
   // metric pills row, and re-expands when they scroll back up. Disabled on
   // desktop and on mobile-landscape (where the toolbar is already compact).
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
-
-  // On mobile (< md) the Advanced section is rendered open by default with
-  // a daily grouping — desktop users keep the collapsible behaviour.
-  const advancedInitialisedRef = useRef(false)
 
   // B10: sync local position / cityName from urlState. This makes back/
   // forward navigation, and any external URL change, actually drive the
@@ -241,11 +237,23 @@ export default function HomeContent() {
     }
   }, [])
 
-  // The advanced section starts open on both desktop and mobile. We keep
-  // a ref so a re-mount (HMR / fast refresh) doesn't clobber the user's
-  // explicit collapse on subsequent renders.
+  // The Avanzado content (InsightsTable, DailySummary,
+  // ModelComparisonChart) is heavy on first paint. We lazy-mount it on
+  // the next animation frame so the hero / hourly / metrics / week
+  // section paints first and the user can interact immediately. The
+  // `advancedMounted` flag toggles the heavy subtree, the `expanded`
+  // state still controls visibility so collapsing releases the
+  // resources right away.
   useEffect(() => {
-    advancedInitialisedRef.current = true
+    if (typeof window === 'undefined') return
+    const id = window.requestAnimationFrame(() => {
+      // Second frame so the initial layout settles before mounting.
+      window.setTimeout(() => setAdvancedMounted(true), 16)
+    })
+    return () => {
+      window.cancelAnimationFrame(id)
+      window.clearTimeout(0)
+    }
   }, [])
 
   useEffect(() => {
@@ -964,7 +972,7 @@ export default function HomeContent() {
                       <path d="m6 9 6 6 6-6" />
                     </svg>
                   </button>
-                  {advancedExpanded ? (
+                  {advancedExpanded && advancedMounted ? (
                     <div id="advanced-section" className="px-4 pb-4 space-y-3">
                       <DailySummary
                         models={displayModels}

@@ -227,8 +227,8 @@ export default function ModelComparisonChart({
                 shaded region is bounded by min..max, not 0..max. The
                 transparent base is hidden from the legend so only the
                 gradient "Spread" entry is rendered. */}
-            <Area type="monotone" dataKey="min" stackId="spread" stroke="none" fill="transparent" name="" legendType="none" />
-            <Area type="monotone" dataKey="spread" stackId="spread" stroke="none" fill="url(#spreadGradient)" name="Spread" />
+            <Area type="monotone" dataKey="min" stackId="spread" stroke="none" fill="transparent" name="" legendType="none" isAnimationActive={false} />
+            <Area type="monotone" dataKey="spread" stackId="spread" stroke="none" fill="url(#spreadGradient)" name="Spread" isAnimationActive={false} />
             {activeHour >= 0 && activeHour < displayTimes.length && (
               <ReferenceLine
                 x={activeHour}
@@ -248,7 +248,7 @@ export default function ModelComparisonChart({
                 strokeWidth={1.5}
                 dot={false}
                 connectNulls={false}
-                animationDuration={300}
+                isAnimationActive={false}
                 activeDot={{ r: 4 }}
               />
             ))}

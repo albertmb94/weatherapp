@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback, useRef } from 'react'
+import { useMemo, useState, useCallback, useRef, memo } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import { getColor, SCALES } from '@/lib/colorScales'
 import type { ScaleMetric } from '@/lib/colorScales'
@@ -573,23 +573,50 @@ export default function InsightsTable({
     return buckets
   }, [activeModels, times, series, bucket, maxHours, locale, utcOffsetSeconds])
 
-  if (activeModels.length === 0) return null
+  const marineColIds = useMemo(
+    () => new Set<MetricCellId>([
+      'sea_surface_temperature',
+      'wave_height', 'wave_period', 'wave_direction',
+      'wind_wave_height', 'wind_wave_period',
+      'swell_wave_height', 'swell_wave_period',
+    ]),
+    []
+  )
+  const COMPACT_HIDDEN_COLS = useMemo(
+    () => new Set<MetricCellId>([
+      'min', 'max', 'clouds', 'gusts', 'humidity', 'uv', 'pressure', 'dewpoint', 'visibility',
+    ]),
+    []
+  )
+  const visibleIds = useMemo(
+    () => columnOrder.filter(id => {
+      if (!showMarine && marineColIds.has(id)) return false
+      if (showMarine && !showBasic && !marineColIds.has(id)) return false
+      return true
+    }),
+    [columnOrder, showMarine, showBasic, marineColIds]
+  )
+  const colDefs = useMemo(
+    () => visibleIds.map(id => METRIC_COLUMNS.find(c => c.id === id)!),
+    [visibleIds]
+  )
 
-  const MARINE_COL_IDS = new Set<MetricCellId>([
-    'sea_surface_temperature',
-    'wave_height', 'wave_period', 'wave_direction',
-    'wind_wave_height', 'wind_wave_period',
-    'swell_wave_height', 'swell_wave_period',
-  ])
-  const COMPACT_HIDDEN_COLS = new Set<MetricCellId>([
-    'min', 'max', 'clouds', 'gusts', 'humidity', 'uv', 'pressure', 'dewpoint', 'visibility',
-  ])
-  const visibleIds = columnOrder.filter(id => {
-    if (!showMarine && MARINE_COL_IDS.has(id)) return false
-    if (showMarine && !showBasic && !MARINE_COL_IDS.has(id)) return false
-    return true
-  })
-  const colDefs = visibleIds.map(id => METRIC_COLUMNS.find(c => c.id === id)!)
+  // Pre-compute each row's cells once. Without this, the cellData() switch
+  // is invoked 14 cols x 14 rows = 196 times per render even when the
+  // table itself is not in the active viewport.
+  const cellsByRow = useMemo(() => {
+    const result: CellResult[][] = []
+    for (const r of rows) {
+      const row: CellResult[] = []
+      for (const col of colDefs) {
+        row.push(cellData(col.id, r))
+      }
+      result.push(row)
+    }
+    return result
+  }, [rows, colDefs])
+
+  if (activeModels.length === 0) return null
 
   return (
     <div className="mb-4 animate-fadeIn">
@@ -664,6 +691,7 @@ export default function InsightsTable({
                 : zebra
                   ? 'bg-surface-raised/30'
                   : 'bg-transparent'
+              const rowCells = cellsByRow[i] ?? []
               return (
                 <tr
                   key={i}
@@ -676,18 +704,14 @@ export default function InsightsTable({
                   >
                     {r.label}
                   </td>
-                  {colDefs.map(col => {
-                    const cell = cellData(col.id, r)
-                    return (
-                      <td
-                        key={col.id}
-                        className={`text-center px-1 py-1.5 font-mono tabular-nums text-text-primary ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''}`}
-                        style={cell.style}
-                      >
-                        {cell.node}
-                      </td>
-                    )
-                  })}
+                  {colDefs.map((col, j) => (
+                    <HeatCell
+                      key={col.id}
+                      cell={rowCells[j]}
+                      hideOnCompact={compact && COMPACT_HIDDEN_COLS.has(col.id)}
+                      extraClass={col.hideClass ?? ''}
+                    />
+                  ))}
                 </tr>
               )
             })}
@@ -723,3 +747,28 @@ function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0,
     ),
   }
 }
+
+/**
+ * Memoised wrapper for a single Insights cell. The radial-gradient inline
+ * style is only re-computed when (cell.style, hideOnCompact, extraClass)
+ * actually changes, so re-rendering the parent no longer re-creates the
+ * gradient string for every cell on every URL state change.
+ */
+const HeatCell = memo(function HeatCell({
+  cell,
+  hideOnCompact,
+  extraClass,
+}: {
+  cell: CellResult
+  hideOnCompact: boolean
+  extraClass: string
+}) {
+  return (
+    <td
+      className={`text-center px-1 py-1.5 font-mono tabular-nums text-text-primary ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
+      style={cell.style}
+    >
+      {cell.node}
+    </td>
+  )
+})

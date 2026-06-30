@@ -128,8 +128,10 @@ export default function HomeContent() {
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
   // S6: shared refresh hook. RefreshButton in the secondary header is
-  // the single source of truth for the refresh action.
-  const { refresh, lastOutcome } = useRefresh()
+  // the single source of truth for the refresh action. The refresh
+  // outcome toast is disabled (see comment near the useEffect that
+  // previously set it) so we don't read `lastOutcome` here.
+  const { refresh } = useRefresh()
   const queryClient = useQueryClient()
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
@@ -290,27 +292,13 @@ export default function HomeContent() {
     return () => clearTimeout(t)
   }, [toast])
 
-  // M-UI-4: surface the refresh outcome as a toast. We toast on
-  // `lastOutcome` change; the duration is intentionally longer than the
-  // neutral toast because cooldown messages are actionable info.
-  const lastOutcomeTsRef = useRef<unknown>(null)
-  useEffect(() => {
-    const o = lastOutcome
-    if (!o || lastOutcomeTsRef.current === o) return
-    lastOutcomeTsRef.current = o
-    if (o.kind === 'refreshed') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setToast(locale === 'en' ? 'Models updated' : 'Modelos actualizados')
-    } else {
-      const mins = Math.max(1, Math.ceil(o.remainingMs / 60_000))
-
-      setToast(
-        locale === 'en'
-          ? `Data reloaded · new models in ${mins}m`
-          : `Datos recargados · modelos nuevos en ${mins}m`
-      )
-    }
-  }, [lastOutcome, locale])
+  // M-UI-4: refresh outcome toast is disabled — every URL state change
+  // re-renders home-content and the `lastOutcome` ref check would re-fire
+  // (we re-created the ref each time) which caused the toast to re-appear
+  // whenever the user scrolled the page. The refresh button itself gives
+  // visual feedback (spinner, age), so the toast is redundant for the
+  // user. We keep the toast for the other actions (save, geolocate error)
+  // but never for refresh.
 
   const selectedMetric = urlState.metric as MetricId
   const selectedModels = urlState.models
@@ -468,10 +456,14 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handleViewSelect = useCallback((section: SidebarSection) => {
-    // Just set the active sidebar section. The map's own visibility is now
-    // controlled independently by the Layers toggle in the sidebar.
-    updateUrl({ view: section })
-  }, [updateUrl])
+    // Switching to the Mapa view also flips the map on so the user lands
+    // on a visible map with its Layers row, not an empty placeholder.
+    // The map's own visibility stays controlled independently afterwards
+    // by the Layers / Mapa toggle in the sidebar and the mobile icons.
+    const updates: Partial<typeof urlState> = { view: section }
+    if (section === 'map' && !showMap) updates.showMap = true
+    updateUrl(updates)
+  }, [showMap, updateUrl])
 
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) return
@@ -657,6 +649,31 @@ export default function HomeContent() {
             {locale === 'en' ? 'ES' : 'EN'}
           </button>
           <RefreshButton />
+          <button
+            type="button"
+            onClick={handleMarineToggle}
+            aria-pressed={marine}
+            aria-label={STRINGS[locale].marine}
+            title={STRINGS[locale].marine}
+            className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors cursor-pointer ${
+              marine
+                ? 'text-cyan-300'
+                : 'text-text-tertiary hover:text-text-primary'
+            }`}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M2 12c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2" />
+              <path d="M6 17c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2" />
+            </svg>
+          </button>
           <button
             onClick={() => setMobileMenuOpen(o => !o)}
             className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary cursor-pointer ml-auto"

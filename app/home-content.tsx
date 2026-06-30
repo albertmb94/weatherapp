@@ -125,6 +125,8 @@ export default function HomeContent() {
   // The user explicitly wants to see the table on first paint.
   const [advancedExpanded, setAdvancedExpanded] = useState(true)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const mapSectionRef = useRef<HTMLElement>(null)
+  const scrollToMapRef = useRef(false)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
   // S6: shared refresh hook. RefreshButton in the secondary header is
@@ -577,6 +579,16 @@ export default function HomeContent() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [selectedHour, effectiveMaxHours, handleHourChange, handleMapToggle])
 
+  // When the mobile tab bar enables the map, scroll the map section into
+  // view once it mounts.
+  useEffect(() => {
+    if (!showMap || !scrollToMapRef.current) return
+    scrollToMapRef.current = false
+    requestAnimationFrame(() => {
+      mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }, [showMap])
+
   const mobileTabFromView = selectedView === 'map' ? 'map' : selectedView === 'stations' ? 'stations' : (selectedView === 'weather' || selectedView === 'cities' ? 'models' : 'models')
 
   return (
@@ -757,7 +769,7 @@ export default function HomeContent() {
               )}
 
               {showMap && (
-                <section className="space-y-2">
+                <section ref={mapSectionRef} className="space-y-2">
                   {/* Layer toggles (Map / Radar / Marine / Basic) live just
                       above the map so they're reachable in the same scroll
                       viewport as the map itself on mobile. */}
@@ -1025,9 +1037,23 @@ export default function HomeContent() {
       <MobileTabBar
         active={mobileTabFromView}
         onChange={(next) => {
-          if (next === 'map') handleViewSelect('map')
-          else if (next === 'stations') handleViewSelect('stations')
-          else handleViewSelect('weather')
+          if (next === 'map') {
+            // On mobile the map section is hidden behind showMap — enable it
+            // so the section renders, then scroll it into view.
+            scrollToMapRef.current = true
+            if (!showMap) updateUrl({ showMap: true })
+            handleViewSelect('map')
+            // If the map was already visible, scroll immediately.
+            if (showMap) {
+              requestAnimationFrame(() => {
+                mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              })
+            }
+          } else if (next === 'stations') {
+            handleViewSelect('stations')
+          } else {
+            handleViewSelect('weather')
+          }
         }}
       />
     </div>

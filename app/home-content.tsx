@@ -1266,7 +1266,7 @@ const AdvancedSection = memo(function AdvancedSection({
             series={viewSeries}
             selectedHour={selectedHour}
             onSelectHour={onHourChange}
-            maxHours={effectiveMaxHours}
+            maxHours={viewTimes.length || effectiveMaxHours}
             showMarine={marine}
             showBasic={showBasic}
             utcOffsetSeconds={viewUtc}
@@ -1285,7 +1285,7 @@ const AdvancedSection = memo(function AdvancedSection({
             onBucketChange={onBucketChange}
             selectedHour={selectedHour}
             onSelectHour={onHourChange}
-            maxHours={effectiveMaxHours}
+            maxHours={viewTimes.length || effectiveMaxHours}
             utcOffsetSeconds={viewUtc}
             showMarine={marine}
             onMarineToggle={onMarineToggle}
@@ -1300,7 +1300,7 @@ const AdvancedSection = memo(function AdvancedSection({
             series={viewSeries}
             onHourHover={onHourChange}
             hoveredHour={selectedHour}
-            maxHours={effectiveMaxHours}
+            maxHours={viewTimes.length || effectiveMaxHours}
           />
         </div>
       ) : null}

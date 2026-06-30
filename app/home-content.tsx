@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef, memo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 
@@ -19,7 +19,7 @@ import FriendlyHome from '@/components/FriendlyHome'
 import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
 import SettingsPanel from '@/components/SettingsPanel'
-import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId } from '@/lib/models'
+import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
 import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
@@ -153,18 +153,27 @@ export default function HomeContent() {
   // preferences. Position is intentionally NOT persisted — it's tied
   // to the city the user picked and they can re-pick it. We save
   // whenever the state changes after the first paint.
+  // M-UI-6: persist the user's last view (metric, models, range, ...)
+  // so that returning later without a URL still restores their
+  // preferences. Position is intentionally NOT persisted — it's tied
+  // to the city the user picked and they can re-pick it. We save with a
+  // 500ms debounce so a flurry of URL state changes (e.g. dragging the
+  // hour slider) doesn't fire a localStorage write on every frame.
   useEffect(() => {
-    saveLastView({
-      metric: urlState.metric,
-      models: urlState.models,
-      hour: urlState.hour,
-      range: urlState.range,
-      showMap: urlState.showMap,
-      showRadar: urlState.showRadar,
-      bucket: urlState.bucket,
-      marine: urlState.marine,
-      basic: urlState.basic,
-    })
+    const handle = window.setTimeout(() => {
+      saveLastView({
+        metric: urlState.metric,
+        models: urlState.models,
+        hour: urlState.hour,
+        range: urlState.range,
+        showMap: urlState.showMap,
+        showRadar: urlState.showRadar,
+        bucket: urlState.bucket,
+        marine: urlState.marine,
+        basic: urlState.basic,
+      })
+    }, 500)
+    return () => window.clearTimeout(handle)
   }, [
     urlState.metric, urlState.models, urlState.hour, urlState.range,
     urlState.showMap, urlState.showRadar, urlState.bucket,
@@ -896,113 +905,23 @@ export default function HomeContent() {
               )}
 
               {selectedView === 'weather' && (
-                <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
-                  {/* Mobile (< md): tap the header to toggle the Avanzado
-                      section. The Desktop variant is below; together they
-                      cover both layouts with a single interactive control. */}
-                  <button
-                    type="button"
-                    onClick={() => setAdvancedExpanded(o => !o)}
-                    className="md:hidden w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-surface-popover/40 transition-colors cursor-pointer"
-                    aria-expanded={advancedExpanded}
-                    aria-controls="advanced-section"
-                  >
-                    <span className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold text-text-tertiary">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
-                        <path d="M3 17l6-6 4 4 8-8" />
-                        <path d="M14 7h7v7" />
-                      </svg>
-                      {STRINGS[locale].navAdvanced}
-                    </span>
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      className={`w-4 h-4 text-text-tertiary transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
-                      aria-hidden="true"
-                    >
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </button>
-                  {/* Desktop (>= md): collapsible header. */}
-                  <button
-                    type="button"
-                    onClick={() => setAdvancedExpanded(o => !o)}
-                    className="hidden md:flex w-full items-center justify-between px-4 py-3 text-text-primary hover:bg-surface-popover/40 transition-colors"
-                    aria-expanded={advancedExpanded}
-                    aria-controls="advanced-section"
-                  >
-                    <span className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold text-text-tertiary">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
-                        <path d="M3 17l6-6 4 4 8-8" />
-                        <path d="M14 7h7v7" />
-                      </svg>
-                      {STRINGS[locale].navAdvanced}
-                    </span>
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      className={`w-4 h-4 text-text-tertiary transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
-                      aria-hidden="true"
-                    >
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </button>
-                  {advancedExpanded ? (
-                    <div id="advanced-section" className="px-4 pb-4 space-y-3">
-                      <DailySummary
-                        models={displayModels}
-                        activeModelIds={displayActiveModelIds}
-                        times={viewData?.time ?? []}
-                        series={viewData?.series ?? {}}
-                        selectedHour={selectedHour}
-                        onSelectHour={handleHourChange}
-                        maxHours={effectiveMaxHours}
-                        showMarine={marine}
-                        showBasic={showBasic}
-                        utcOffsetSeconds={viewData?.utcOffsetSeconds ?? 0}
-                      />
-                      <ModelSelector
-                        models={displayModels}
-                        selected={selectedModels}
-                        onChange={handleModelChange}
-                      />
-                      {/* On mobile the table defaults to 1-day buckets so the
-                          Advanced section reads as a per-day summary, matching
-                          the friendly layout above. Desktop still uses the
-                          user's chosen bucket. */}
-                      <InsightsTable
-                        models={displayModels}
-                        activeModelIds={displayActiveModelIds}
-                        times={viewData?.time ?? []}
-                        series={viewData?.series ?? {}}
-                        bucket={bucket}
-                        onBucketChange={handleBucketChange}
-                        selectedHour={selectedHour}
-                        onSelectHour={handleHourChange}
-                        maxHours={effectiveMaxHours}
-                        utcOffsetSeconds={viewData?.utcOffsetSeconds ?? 0}
-                        showMarine={marine}
-                        showBasic={showBasic}
-                      />
-                      <ModelComparisonChart
-                        models={displayModels}
-                        activeModelIds={displayActiveModelIds}
-                        metric={selectedMetric}
-                        times={viewData?.time ?? []}
-                        series={viewData?.series ?? {}}
-                        onHourHover={handleHourChange}
-                        hoveredHour={selectedHour}
-                        maxHours={effectiveMaxHours}
-                      />
-                    </div>
-                  ) : null}
-                </section>
+                <AdvancedSection
+                  expanded={advancedExpanded}
+                  onToggle={() => setAdvancedExpanded(o => !o)}
+                  displayModels={displayModels}
+                  displayActiveModelIds={displayActiveModelIds}
+                  selectedModels={selectedModels}
+                  selectedHour={selectedHour}
+                  viewData={viewData}
+                  effectiveMaxHours={effectiveMaxHours}
+                  bucket={bucket}
+                  marine={marine}
+                  showBasic={showBasic}
+                  selectedMetric={selectedMetric}
+                  onModelChange={handleModelChange}
+                  onHourChange={handleHourChange}
+                  onBucketChange={handleBucketChange}
+                />
               )}
 
               {selectedView === 'cities' && (
@@ -1231,3 +1150,155 @@ function CitiesList({
     </div>
   )
 }
+
+/**
+ * Avanzado (model selector + Insights table + comparison chart) is
+ * wrapped in a memoised component so the heavy subtree only re-renders
+ * when one of its actual props changes. Without this memo, every URL
+ * state change (e.g. toggling a model) re-runs the DailySummary,
+ * InsightsTable and ModelComparisonChart tree, which is the dominant
+ * cost on slow mobile.
+ */
+const AdvancedSection = memo(function AdvancedSection({
+  expanded,
+  onToggle,
+  displayModels,
+  displayActiveModelIds,
+  selectedModels,
+  selectedHour,
+  viewData,
+  effectiveMaxHours,
+  bucket,
+  marine,
+  showBasic,
+  selectedMetric,
+  onModelChange,
+  onHourChange,
+  onBucketChange,
+}: {
+  expanded: boolean
+  onToggle: () => void
+  displayModels: WeatherModel[]
+  displayActiveModelIds: string[]
+  selectedModels: string[]
+  selectedHour: number
+  viewData: ReturnType<typeof sliceForecast> | NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
+  effectiveMaxHours: number
+  bucket: BucketHours
+  marine: boolean
+  showBasic: boolean
+  selectedMetric: MetricId
+  onModelChange: (ids: string[]) => void
+  onHourChange: (hour: number) => void
+  onBucketChange: (b: BucketHours) => void
+}) {
+  const { locale } = useLocale()
+  const s = STRINGS[locale]
+  // Pre-extract the dense props so the JSX below is readable.
+  const viewTimes = viewData?.time ?? []
+  const viewSeries = viewData?.series ?? {}
+  const viewUtc = viewData?.utcOffsetSeconds ?? 0
+  return (
+    <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
+      {/* Mobile (< md): tap the header to toggle the Avanzado section. */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="md:hidden w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-surface-popover/40 transition-colors cursor-pointer"
+        aria-expanded={expanded}
+        aria-controls="advanced-section"
+      >
+        <span className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold text-text-tertiary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
+            <path d="M3 17l6-6 4 4 8-8" />
+            <path d="M14 7h7v7" />
+          </svg>
+          {s.navAdvanced}
+        </span>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          className={`w-4 h-4 text-text-tertiary transition-transform ${expanded ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {/* Desktop (>= md): collapsible header. */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="hidden md:flex w-full items-center justify-between px-4 py-3 text-text-primary hover:bg-surface-popover/40 transition-colors"
+        aria-expanded={expanded}
+        aria-controls="advanced-section"
+      >
+        <span className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold text-text-tertiary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
+            <path d="M3 17l6-6 4 4 8-8" />
+            <path d="M14 7h7v7" />
+          </svg>
+          {s.navAdvanced}
+        </span>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          className={`w-4 h-4 text-text-tertiary transition-transform ${expanded ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {expanded ? (
+        <div id="advanced-section" className="px-4 pb-4 space-y-3">
+          <DailySummary
+            models={displayModels}
+            activeModelIds={displayActiveModelIds}
+            times={viewTimes}
+            series={viewSeries}
+            selectedHour={selectedHour}
+            onSelectHour={onHourChange}
+            maxHours={effectiveMaxHours}
+            showMarine={marine}
+            showBasic={showBasic}
+            utcOffsetSeconds={viewUtc}
+          />
+          <ModelSelector
+            models={displayModels}
+            selected={selectedModels}
+            onChange={onModelChange}
+          />
+          <InsightsTable
+            models={displayModels}
+            activeModelIds={displayActiveModelIds}
+            times={viewTimes}
+            series={viewSeries}
+            bucket={bucket}
+            onBucketChange={onBucketChange}
+            selectedHour={selectedHour}
+            onSelectHour={onHourChange}
+            maxHours={effectiveMaxHours}
+            utcOffsetSeconds={viewUtc}
+            showMarine={marine}
+            showBasic={showBasic}
+          />
+          <ModelComparisonChart
+            models={displayModels}
+            activeModelIds={displayActiveModelIds}
+            metric={selectedMetric}
+            times={viewTimes}
+            series={viewSeries}
+            onHourHover={onHourChange}
+            hoveredHour={selectedHour}
+            maxHours={effectiveMaxHours}
+          />
+        </div>
+      ) : null}
+    </section>
+  )
+})

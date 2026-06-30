@@ -790,7 +790,11 @@ const HeatCell = memo(function HeatCell({
 }) {
   return (
     <td
-      className={`text-center px-1 py-1.5 font-mono tabular-nums text-text-primary ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
+      // Heat cells always render dark text on the warm-tinted gradient so
+      // the value stays readable regardless of the dark/light theme. The
+      // text is *not* token-driven because the heatmap colours are vivid in
+      // both modes and white text reads poorly on yellow / pale green.
+      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black dark:text-zinc-900 ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
       style={style}
     >
       {node}

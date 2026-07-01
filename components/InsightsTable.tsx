@@ -826,11 +826,10 @@ const HeatCell = memo(function HeatCell({
 }) {
   return (
     <td
-      // Heat-cell text colour: dark text by default so warm hues (yellow,
-      // pale green) stay readable; flip to near-white only on desktop dark
-      // mode where the table background is dark and the gradient alone is
-      // not enough contrast for the small text.
-      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black md:dark:text-zinc-100 ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
+      // Heat-cell text uses a CSS variable that flips between dark and
+      // light text based on the html.light class. This makes it track the
+      // theme toggle regardless of the OS `prefers-color-scheme` setting.
+      className={`text-center px-1 py-1.5 font-mono tabular-nums text-[color:var(--heat-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
       style={style}
     >
       {node}

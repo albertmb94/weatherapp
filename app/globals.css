@@ -41,6 +41,11 @@
   --radius-lg: 12px;
   --min-text: 11px;
   --min-touch: 44px;
+
+  /* Heat-cell text (Insights table): dark mode uses white so the small
+     text stays legible against the dark table background; light mode
+     keeps black text for the white-ish gradient surface. */
+  --heat-text: #f5f5f5;
 }
 
 html.light {
@@ -66,6 +71,10 @@ html.light {
   --success: #059669;
   --warning: #d97706;
   --danger: #dc2626;
+
+  /* Light theme: heat-cell text falls back to black so it reads on the
+     lighter gradient surface. */
+  --heat-text: #0a0a0a;
 }
 
 @theme inline {

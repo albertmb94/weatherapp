@@ -197,17 +197,15 @@ export default function DailySummary({
               title={`Jump to ${d.label} at 12:00`}
             >
               <div className="text-[11px] font-semibold text-text-primary truncate">{d.label}</div>
-              {showBasic && <div className="flex justify-center my-0.5"><WeatherConditionIcon icon={d.icon} /></div>}
-              {showBasic && (
-                <div className="flex items-baseline justify-center gap-0.5 leading-none">
-                  <span className="text-[11px] font-bold text-text-primary">{d.tMax !== null ? Math.round(d.tMax) : '–'}°</span>
-                  <span className="text-[10px] text-text-tertiary">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
-                </div>
-              )}
-              <div className="mt-0.5 flex items-center justify-center gap-0.5 text-[9px] text-text-tertiary leading-none tabular-nums">
-                {showBasic && <span title="Precipitation total">{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>}
-                {showBasic && <span className="text-text-muted">·</span>}
-                {showBasic && <span title="Max wind gusts">{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>}
+              <div className="flex justify-center my-0.5"><WeatherConditionIcon icon={d.icon} /></div>
+              <div className="flex items-baseline justify-center gap-0.5 leading-none">
+                <span className="text-[11px] font-bold text-text-primary">{d.tMax !== null ? Math.round(d.tMax) : '–'}°</span>
+                <span className="text-[10px] text-text-tertiary">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
+              </div>
+              <div className="mt-0.5 flex items-baseline justify-center gap-0.5 text-[9px] text-text-tertiary leading-none tabular-nums">
+                <span title="Precipitation total">{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>
+                <span className="text-text-muted">·</span>
+                <span title="Max wind gusts">{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>
               </div>
               {showMarine && d.hasMarineData && (
                 <div className="mt-0.5 flex items-center justify-center text-[9px] text-cyan-300 leading-none tabular-nums" title="Max wave height / mean wave period">

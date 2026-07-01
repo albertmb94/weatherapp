@@ -478,8 +478,17 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handleViewSelect = useCallback((section: SidebarSection) => {
-    updateUrl({ view: section })
-  }, [updateUrl])
+    // Selecting the Mapa nav entry from the desktop sidebar should also
+    // enable the map — the user has clearly asked for it. The Capas panel
+    // still owns the off-state (toggling the Map toggle off in the
+    // Capas/Mar layers map will hide it again).
+    if (section === 'map' && !showMap) {
+      scrollToMapRef.current = true
+      updateUrl({ view: section, showMap: true })
+    } else {
+      updateUrl({ view: section })
+    }
+  }, [showMap, updateUrl])
 
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) return

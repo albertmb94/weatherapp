@@ -478,15 +478,15 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handleViewSelect = useCallback((section: SidebarSection) => {
-    // Selecting the Mapa nav entry from the desktop sidebar should also
-    // enable the map — the user has clearly asked for it. The Capas panel
-    // still owns the off-state (toggling the Map toggle off in the
-    // Capas/Mar layers map will hide it again).
-    if (section === 'map' && !showMap) {
-      scrollToMapRef.current = true
-      updateUrl({ view: section, showMap: true })
+    // The map is only visible while the user is on the Mapa nav entry.
+    // Selecting Mapa flips showMap on (and scrolls to the section);
+    // selecting any other view always flips it off, regardless of how
+    // it got turned on (keyboard shortcut, deep link, etc.).
+    if (section === 'map') {
+      if (!showMap) scrollToMapRef.current = true
+      updateUrl({ view: 'map', showMap: true })
     } else {
-      updateUrl({ view: section })
+      updateUrl({ view: section, showMap: false })
     }
   }, [showMap, updateUrl])
 
@@ -601,12 +601,19 @@ export default function HomeContent() {
         e.preventDefault()
         document.getElementById('city-search-input')?.focus()
       } else if (e.key === 'm') {
-        handleMapToggle()
+        // 'm' toggles the map: opens the Mapa view if closed, or returns
+        // to Tiempo if the map was already on. Keeps the keyboard shortcut
+        // in sync with the new "map only on Mapa view" rule.
+        if (showMap) {
+          handleViewSelect('weather')
+        } else {
+          handleViewSelect('map')
+        }
       }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [selectedHour, effectiveMaxHours, handleHourChange, handleMapToggle])
+  }, [selectedHour, effectiveMaxHours, handleHourChange, showMap, handleViewSelect])
 
   // When the mobile tab bar enables the map, scroll the map section into
   // view once it mounts.
@@ -806,7 +813,7 @@ export default function HomeContent() {
                 <SavedLocations onSelect={handleCitySelect} />
               )}
 
-              {showMap && (
+              {showMap && selectedView === 'map' && (
                 <section ref={mapSectionRef} className="space-y-2">
                   {/* Layer toggles (Map / Radar / Marine / Basic) live just
                       above the map so they're reachable in the same scroll
@@ -896,7 +903,7 @@ export default function HomeContent() {
                 </section>
               )}
 
-              {showMap && (
+              {showMap && selectedView === 'map' && (
                 <div className="rounded-2xl border border-border bg-surface-raised p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-[10px] text-text-secondary font-mono">{hourLabel}</span>
@@ -1086,23 +1093,14 @@ export default function HomeContent() {
       <MobileTabBar
         active={mobileTabFromView}
         onChange={(next) => {
+          // handleViewSelect keeps showMap in sync with the Mapa nav —
+          // selecting Map enables it, any other view disables it.
           if (next === 'map') {
-            scrollToMapRef.current = true
-            if (!showMap) updateUrl({ showMap: true })
             handleViewSelect('map')
-            if (showMap) {
-              requestAnimationFrame(() => {
-                mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              })
-            }
           } else if (next === 'stations') {
-            // Hide the map and switch to stations view.
-            if (showMap) updateUrl({ showMap: false })
             scrollToStationsRef.current = true
             handleViewSelect('stations')
           } else {
-            // Hide the map and switch to models/weather view.
-            if (showMap) updateUrl({ showMap: false })
             handleViewSelect('weather')
           }
         }}

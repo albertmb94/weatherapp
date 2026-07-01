@@ -826,11 +826,11 @@ const HeatCell = memo(function HeatCell({
 }) {
   return (
     <td
-      // Heat cells always render dark text on the warm-tinted gradient so
-      // the value stays readable regardless of the dark/light theme. The
-      // text is *not* token-driven because the heatmap colours are vivid in
-      // both modes and white text reads poorly on yellow / pale green.
-      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black dark:text-zinc-900 ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
+      // Heat-cell text colour: dark text by default so warm hues (yellow,
+      // pale green) stay readable; flip to near-white only on desktop dark
+      // mode where the table background is dark and the gradient alone is
+      // not enough contrast for the small text.
+      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black md:dark:text-zinc-100 ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
       style={style}
     >
       {node}

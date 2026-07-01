@@ -5,10 +5,10 @@ import ModelSelector from '@/components/ModelSelector'
 import { MODELS } from '@/lib/models'
 
 describe('ModelSelector', () => {
-  it('renders All and None buttons', () => {
+  it('renders the All button but no None button', () => {
     render(<ModelSelector models={MODELS} selected={MODELS.map(m => m.id)} onChange={vi.fn()} />)
     expect(screen.getByText('All')).toBeInTheDocument()
-    expect(screen.getByText('None')).toBeInTheDocument()
+    expect(screen.queryByText('None')).not.toBeInTheDocument()
   })
 
   it('renders all model buttons', () => {
@@ -25,15 +25,6 @@ describe('ModelSelector', () => {
 
     await user.click(screen.getByText('All'))
     expect(onChange).toHaveBeenCalledWith(MODELS.map(m => m.id))
-  })
-
-  it('calls onChange with empty array when None is clicked', async () => {
-    const onChange = vi.fn()
-    const user = userEvent.setup()
-    render(<ModelSelector models={MODELS} selected={MODELS.map(m => m.id)} onChange={onChange} />)
-
-    await user.click(screen.getByText('None'))
-    expect(onChange).toHaveBeenCalledWith([])
   })
 
   it('selectOnly isolates a single model when multiple are selected', async () => {

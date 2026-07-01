@@ -10,7 +10,6 @@ interface ModelSelectorProps {
 
 export default function ModelSelector({ models, selected, onChange }: ModelSelectorProps) {
   const allSelected = selected.length === models.length
-  const noneSelected = selected.length === 0
 
   function selectOnly(id: string) {
     if (selected.length === 1 && selected.includes(id)) {
@@ -24,10 +23,6 @@ export default function ModelSelector({ models, selected, onChange }: ModelSelec
     onChange(models.map(m => m.id))
   }
 
-  function selectNone() {
-    onChange([])
-  }
-
   return (
     <div className="mb-3 animate-fadeIn">
       <div className="flex items-center gap-0.5 flex-nowrap overflow-x-auto md:flex-wrap md:overflow-visible scrollbar-none">
@@ -38,14 +33,6 @@ export default function ModelSelector({ models, selected, onChange }: ModelSelec
           }`}
         >
           All
-        </button>
-        <button
-          onClick={selectNone}
-          className={`shrink-0 min-h-[36px] px-2 rounded text-[11px] font-medium transition-all cursor-pointer ${
-            noneSelected ? 'text-text-primary' : 'text-text-tertiary hover:text-text-secondary'
-          }`}
-        >
-          None
         </button>
         <div className="w-px h-3 bg-border mx-0.5 shrink-0" />
         {models.map(m => {

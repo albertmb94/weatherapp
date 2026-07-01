@@ -1027,9 +1027,18 @@ export default function HomeContent() {
                 time={data?.time ?? []}
                 series={data?.series ?? {}}
                 nowIndex={startIndex + selectedHour}
-                maxHours={effectiveMaxHours}
+                maxHours={Math.max(effectiveMaxHours, weekDays * 24)}
                 weekDays={weekDays}
-                onWeekDaysChange={(d) => updateUrl({ weekDays: d })}
+                onWeekDaysChange={(d) => {
+                  // WeekForecastPanel needs `range` to cover `weekDays * 24`
+                  // hours of forecast data; bumping one without the other
+                  // silently caps the panel to fewer days than requested.
+                  const requiredHours = d * 24
+                  updateUrl({
+                    weekDays: d,
+                    range: Math.max(requiredHours, urlState.range),
+                  })
+                }}
                 onSelectHour={handleHourChange}
               />
             </div>

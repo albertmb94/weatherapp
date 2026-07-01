@@ -49,6 +49,22 @@ interface DayBucket {
   icon: WeatherIconId
 }
 
+// Robust accessor for series[modelId][metricId][i] that handles all the
+// edge cases Open-Meteo can produce: missing models (key absent), missing
+// metrics (value undefined or literal null), or out-of-range indexes.
+function getMetric(
+  series: Record<string, Record<string, (number | null)[] | null | undefined>>,
+  modelId: string,
+  metricId: string,
+  index: number
+): number | null {
+  const m = series?.[modelId]
+  const arr = m?.[metricId]
+  if (arr === null || arr === undefined) return null
+  const v = arr[index]
+  return v === undefined || v === null ? null : v
+}
+
 export default function DailySummary({
   models,
   activeModelIds,
@@ -112,26 +128,26 @@ export default function DailySummary({
       let waveSum = 0
       let waveCount = 0
       for (let i = bucket.startIndex; i <= bucket.endIndex; i++) {
-        const tVals = activeModels.map(m => series[m.id]?.['temperature']?.[i] ?? null)
+        const tVals = activeModels.map(m => getMetric(series, m.id, 'temperature', i))
         const t = weightedAvg(tVals, weights)
         if (t !== null) {
           if (bucket.tMin === null || t < bucket.tMin) bucket.tMin = t
           if (bucket.tMax === null || t > bucket.tMax) bucket.tMax = t
         }
-        const pVals = activeModels.map(m => series[m.id]?.['precipitation']?.[i] ?? null)
+        const pVals = activeModels.map(m => getMetric(series, m.id, 'precipitation', i))
         const p = weightedAvg(pVals, weights)
         if (p !== null) bucket.precipTotal = (bucket.precipTotal ?? 0) + p
-        const wVals = activeModels.map(m => series[m.id]?.['wind_gusts']?.[i] ?? null)
+        const wVals = activeModels.map(m => getMetric(series, m.id, 'wind_gusts', i))
         const w = weightedAvg(wVals, weights)
         if (w !== null && (bucket.windMax === null || w > bucket.windMax)) bucket.windMax = w
-        const cVals = activeModels.map(m => series[m.id]?.['cloud_cover']?.[i] ?? null)
+        const cVals = activeModels.map(m => getMetric(series, m.id, 'cloud_cover', i))
         const c = weightedAvg(cVals, weights)
         if (c !== null) {
           cloudSum += c
           cloudCount += 1
         }
-        const wh = series['marine_global']?.['wave_height']?.[i] ?? null
-        const wp = series['marine_global']?.['wave_period']?.[i] ?? null
+        const wh = getMetric(series, 'marine_global', 'wave_height', i)
+        const wp = getMetric(series, 'marine_global', 'wave_period', i)
         if (wh !== null && wh !== undefined) {
           bucket.waveHeightMax = bucket.waveHeightMax === null ? wh : Math.max(bucket.waveHeightMax, wh)
           bucket.hasMarineData = true

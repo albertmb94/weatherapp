@@ -316,6 +316,18 @@ export default function HomeContent() {
   const selectedView: SidebarSection = urlState.view
   const weekDays: 7 | 14 = urlState.weekDays
 
+  // Keep `range` in sync with `weekDays` so the forecast fetch covers
+  // enough hours for the Próximos días panel regardless of which URL
+  // params the user landed on. Without this, a deep link like
+  // ?range=168&week=14 silently caps Próximos días to 7 days because the
+  // API only returned 7 days of data.
+  useEffect(() => {
+    const required = weekDays * 24
+    if (urlState.range < required) {
+      updateUrl({ range: required })
+    }
+  }, [weekDays, urlState.range, updateUrl])
+
   const forecastDays = computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS)
 
   const { data, isLoading, error } = useQuery({
@@ -1027,7 +1039,7 @@ export default function HomeContent() {
                 time={data?.time ?? []}
                 series={data?.series ?? {}}
                 nowIndex={startIndex + selectedHour}
-                maxHours={Math.max(effectiveMaxHours, weekDays * 24)}
+                maxHours={Math.max(startIndex + selectedHour, 0) + weekDays * 24}
                 weekDays={weekDays}
                 onWeekDaysChange={(d) => {
                   // WeekForecastPanel needs `range` to cover `weekDays * 24`

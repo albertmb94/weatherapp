@@ -655,7 +655,7 @@ export default function InsightsTable({
               {STRINGS[locale].marine}
             </button>
           )}
-          {onBasicToggle && showMarine && (
+          {onBasicToggle && (
             <button
               type="button"
               onClick={onBasicToggle}

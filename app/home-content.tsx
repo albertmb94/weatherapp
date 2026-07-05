@@ -170,18 +170,17 @@ export default function HomeContent() {
       saveLastView({
         metric: urlState.metric,
         models: urlState.models,
-        hour: urlState.hour,
         range: urlState.range,
         showMap: urlState.showMap,
         showRadar: urlState.showRadar,
-        bucket: urlState.bucket,
+        bucket: (urlState.bucket === 1 || urlState.bucket === 2) ? 24 : urlState.bucket,
         marine: urlState.marine,
         basic: urlState.basic,
       })
     }, 500)
     return () => window.clearTimeout(handle)
   }, [
-    urlState.metric, urlState.models, urlState.hour, urlState.range,
+    urlState.metric, urlState.models, urlState.range,
     urlState.showMap, urlState.showRadar, urlState.bucket,
     urlState.marine, urlState.basic,
   ])
@@ -201,7 +200,6 @@ export default function HomeContent() {
     updateUrl({
       metric: saved.metric,
       models: saved.models,
-      hour: saved.hour,
       range: saved.range,
       showMap: saved.showMap,
       showRadar: saved.showRadar,

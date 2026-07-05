@@ -106,6 +106,9 @@ export const STRINGS: Record<Locale, {
   chanceOfRain: string
   uvIndex: string
   uvPeak: string
+  uvModeAuto: string
+  uvModeCurrent: string
+  uvModePeak: string
   windSpeed: string
   hourlyTitle: string
   metricsTitle: string
@@ -214,6 +217,9 @@ export const STRINGS: Record<Locale, {
     chanceOfRain: 'Prob. lluvia',
     uvIndex: 'Índice UV',
     uvPeak: 'Pico UV hoy',
+    uvModeAuto: 'Auto',
+    uvModeCurrent: 'Ahora',
+    uvModePeak: 'Pico',
     windSpeed: 'Viento',
     hourlyTitle: 'Previsión de hoy',
     metricsTitle: 'Métricas',
@@ -322,6 +328,9 @@ export const STRINGS: Record<Locale, {
     chanceOfRain: 'Chance of rain',
     uvIndex: 'UV Index',
     uvPeak: 'UV peak',
+    uvModeAuto: 'Auto',
+    uvModeCurrent: 'Now',
+    uvModePeak: 'Peak',
     windSpeed: 'Wind',
     hourlyTitle: "Today’s forecast",
     metricsTitle: 'Metrics',

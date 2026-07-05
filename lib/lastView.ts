@@ -3,7 +3,6 @@ const STORAGE_KEY = 'weather-last-view'
 export interface LastViewSnapshot {
   metric: string
   models: string[]
-  hour: number
   range: number
   showMap: boolean
   showRadar: boolean

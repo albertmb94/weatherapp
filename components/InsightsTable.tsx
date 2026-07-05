@@ -317,7 +317,10 @@ export default function InsightsTable({
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [compact, setCompact] = useState(false)
-  const [showAllRows, setShowAllRows] = useState(false)
+  const [showAllRows, setShowAllRows] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('insights-show-all-rows') === 'true'
+  })
   const dragNodeRef = useRef<HTMLTableCellElement | null>(null)
 
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
@@ -369,7 +372,8 @@ export default function InsightsTable({
   const rows = useMemo<Row[]>(() => {
     if (activeModels.length === 0 || times.length === 0) return []
     const weights = activeModels.map(m => m.weight)
-    const limit = Math.min(times.length, maxHours)
+    const effectiveMaxHours = (bucket === 1 || bucket === 2) ? Math.min(maxHours, 120) : maxHours
+    const limit = Math.min(times.length, effectiveMaxHours)
     const buckets: Row[] = []
     let cursor = 0
 
@@ -625,6 +629,11 @@ export default function InsightsTable({
     <div className="mb-4 animate-fadeIn">
       <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold mb-3">
         {STRINGS[locale].insightsTitle}
+        {(bucket === 1 || bucket === 2) && (
+          <span className="ml-2 normal-case tracking-normal font-normal text-text-muted">
+            (Próximas 120h)
+          </span>
+        )}
       </h3>
       <div className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
         <div className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">
@@ -757,7 +766,10 @@ export default function InsightsTable({
           <div className="border-t border-border bg-surface-popover/30 px-3 py-2 text-center">
             <button
               type="button"
-              onClick={() => setShowAllRows(true)}
+              onClick={() => {
+                setShowAllRows(true)
+                try { localStorage.setItem('insights-show-all-rows', 'true') } catch {}
+              }}
               className="text-[11px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
             >
               {`+ Show ${rows.length - 50} more rows`}
@@ -767,7 +779,10 @@ export default function InsightsTable({
           <div className="border-t border-border bg-surface-popover/30 px-3 py-2 text-center">
             <button
               type="button"
-              onClick={() => setShowAllRows(false)}
+              onClick={() => {
+                setShowAllRows(false)
+                try { localStorage.setItem('insights-show-all-rows', 'false') } catch {}
+              }}
               className="text-[11px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
             >
               Show fewer rows

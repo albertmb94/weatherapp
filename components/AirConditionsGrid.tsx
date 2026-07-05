@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
+
+type UvMode = 'auto' | 'current' | 'peak'
 
 interface AirConditionsGridProps {
   snapshot: CurrentSnapshot | null
@@ -93,13 +96,30 @@ function AirCard({ label, value, unit, icon, accent = 'sky' }: CardProps) {
  * Today's UV index, displayed alongside a small "UV peak" tag so the reading
  * stays meaningful at night and during the early morning when the raw current
  * UV is 0.
+ *
+ * `mode` controls what is shown:
+ * - 'auto' (default): current UV when > 0, otherwise peak
+ * - 'current': always the current hour's UV (or '–' if null)
+ * - 'peak': always the day's peak UV
  */
-function pickUvDisplay(snapshot: CurrentSnapshot | null): { value: string; unit: string } {
+function pickUvDisplay(snapshot: CurrentSnapshot | null, mode: UvMode): { value: string; unit: string } {
   if (snapshot === null) return { value: '–', unit: '' }
   const current = snapshot.uvIndex
   const peak = snapshot.uvIndexPeak
-  // Prefer the raw current UV when there is any daylight reading; otherwise
-  // show the day's peak so the card never reads 0.0 once the sun has been up.
+
+  if (mode === 'current') {
+    if (current === null) return { value: '–', unit: '' }
+    return { value: current.toFixed(1), unit: '' }
+  }
+
+  if (mode === 'peak') {
+    if (peak === null) return { value: '–', unit: '' }
+    return { value: peak.toFixed(1), unit: 'peak' }
+  }
+
+  // mode === 'auto': prefer current when there is any daylight reading;
+  // otherwise show the day's peak so the card never reads 0.0 once the sun
+  // has been up.
   const raw = current !== null && current > 0 ? current : peak
   if (raw === null) return { value: '–', unit: '' }
   return { value: raw.toFixed(1), unit: peak !== null && raw === peak && (current === null || current < peak) ? 'peak' : '' }
@@ -109,7 +129,14 @@ export default function AirConditionsGrid({ snapshot, title }: AirConditionsGrid
   const { locale } = useLocale()
   const s = STRINGS[locale]
   const heading = title ?? s.metricsTitle
-  const uv = pickUvDisplay(snapshot)
+  const [uvMode, setUvMode] = useState<UvMode>('auto')
+  const uv = pickUvDisplay(snapshot, uvMode)
+
+  const cycleUvMode = () => {
+    setUvMode(m => m === 'auto' ? 'current' : m === 'current' ? 'peak' : 'auto')
+  }
+
+  const uvModeLabel = uvMode === 'auto' ? s.uvModeAuto : uvMode === 'current' ? s.uvModeCurrent : s.uvModePeak
 
   return (
     <section aria-label={heading} className="rounded-2xl border border-border bg-surface-raised p-4 md:p-5">
@@ -138,13 +165,29 @@ export default function AirConditionsGrid({ snapshot, title }: AirConditionsGrid
           icon={<DropIcon />}
           accent="rose"
         />
-        <AirCard
-          label={s.uvIndex}
-          value={uv.value}
-          unit={uv.unit === 'peak' ? s.uvPeak : ''}
-          icon={<UvIcon />}
-          accent="emerald"
-        />
+        <button
+          type="button"
+          onClick={cycleUvMode}
+          className="rounded-2xl border border-border bg-surface-raised p-3 md:p-4 flex flex-col gap-1 min-w-0 text-left cursor-pointer transition-colors hover:border-border-strong"
+          title={`${s.uvIndex}: ${uvModeLabel}`}
+        >
+          <div className="flex items-center gap-1.5 text-text-tertiary">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-emerald-300 bg-emerald-500/10">
+              <UvIcon />
+            </span>
+            <span className="text-[11px] font-medium uppercase tracking-wide truncate">{s.uvIndex}</span>
+          </div>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-2xl md:text-3xl font-semibold text-text-primary tabular-nums leading-none">
+              {uv.value}
+            </span>
+            {uv.unit === 'peak' ? (
+              <span className="text-xs text-text-tertiary tabular-nums">{s.uvPeak}</span>
+            ) : (
+              <span className="text-[10px] text-text-muted tabular-nums">{uvModeLabel}</span>
+            )}
+          </div>
+        </button>
       </div>
     </section>
   )

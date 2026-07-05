@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback, useRef, memo } from 'react'
+import { useMemo, useState, useCallback, useRef, useEffect, memo } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import { getColor, SCALES } from '@/lib/colorScales'
 import type { ScaleMetric } from '@/lib/colorScales'
@@ -317,10 +317,7 @@ export default function InsightsTable({
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [compact, setCompact] = useState(false)
-  const [showAllRows, setShowAllRows] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem('insights-show-all-rows') === 'true'
-  })
+  const [showAllRows, setShowAllRows] = useState(false)
   const dragNodeRef = useRef<HTMLTableCellElement | null>(null)
 
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
@@ -363,6 +360,15 @@ export default function InsightsTable({
     setColumnOrder(DEFAULT_ORDER)
     saveColumnOrder(DEFAULT_ORDER)
   }, [])
+
+  // Reset showAllRows when bucket changes so the user has to click again
+  const prevBucketRef = useRef(bucket)
+  useEffect(() => {
+    if (prevBucketRef.current !== bucket) {
+      setShowAllRows(false)
+      prevBucketRef.current = bucket
+    }
+  }, [bucket])
 
   const isDefaultOrder = useMemo(
     () => columnOrder.every((id, i) => id === DEFAULT_ORDER[i]),
@@ -766,10 +772,7 @@ export default function InsightsTable({
           <div className="border-t border-border bg-surface-popover/30 px-3 py-2 text-center">
             <button
               type="button"
-              onClick={() => {
-                setShowAllRows(true)
-                try { localStorage.setItem('insights-show-all-rows', 'true') } catch {}
-              }}
+              onClick={() => setShowAllRows(true)}
               className="text-[11px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
             >
               {`+ Show ${rows.length - 50} more rows`}
@@ -779,10 +782,7 @@ export default function InsightsTable({
           <div className="border-t border-border bg-surface-popover/30 px-3 py-2 text-center">
             <button
               type="button"
-              onClick={() => {
-                setShowAllRows(false)
-                try { localStorage.setItem('insights-show-all-rows', 'false') } catch {}
-              }}
+              onClick={() => setShowAllRows(false)}
               className="text-[11px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
             >
               Show fewer rows

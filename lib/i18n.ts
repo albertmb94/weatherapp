@@ -106,10 +106,13 @@ export const STRINGS: Record<Locale, {
   chanceOfRain: string
   uvIndex: string
   uvPeak: string
-  uvModeAuto: string
-  uvModeCurrent: string
+  uvModeLive: string
   uvModePeak: string
   windSpeed: string
+  windGusts: string
+  dailyHigh: string
+  dailyLow: string
+  precipTotal: string
   hourlyTitle: string
   metricsTitle: string
   weekTitle: string
@@ -167,7 +170,7 @@ export const STRINGS: Record<Locale, {
     tableWindWavePeriod: 'Periodo vient s',
     tableSwellHeight: 'Swell m',
     tableSwellPeriod: 'Swell s',
-    dailyTitle: 'Resumen diario (ensemble)',
+    dailyTitle: 'Resumen diario',
     insightsTitle: 'Insights',
     loadingForecast: 'Cargando previsión…',
     errorForecast: 'Error al cargar la previsión. Inténtalo de nuevo.',
@@ -217,10 +220,13 @@ export const STRINGS: Record<Locale, {
     chanceOfRain: 'Prob. lluvia',
     uvIndex: 'Índice UV',
     uvPeak: 'Pico UV hoy',
-    uvModeAuto: 'Auto',
-    uvModeCurrent: 'Ahora',
+    uvModeLive: 'En vivo',
     uvModePeak: 'Pico',
     windSpeed: 'Viento',
+    windGusts: 'Rachas',
+    dailyHigh: 'Máx',
+    dailyLow: 'Mín',
+    precipTotal: 'Lluvia',
     hourlyTitle: 'Previsión de hoy',
     metricsTitle: 'Métricas',
     weekTitle: 'Próximos días',
@@ -278,7 +284,7 @@ export const STRINGS: Record<Locale, {
     tableWindWavePeriod: 'Wind wave s',
     tableSwellHeight: 'Swell m',
     tableSwellPeriod: 'Swell s',
-    dailyTitle: 'Daily summary (ensemble)',
+    dailyTitle: 'Daily summary',
     insightsTitle: 'Insights',
     loadingForecast: 'Loading forecast…',
     errorForecast: 'Error loading forecast. Please try again.',
@@ -328,10 +334,13 @@ export const STRINGS: Record<Locale, {
     chanceOfRain: 'Chance of rain',
     uvIndex: 'UV Index',
     uvPeak: 'UV peak',
-    uvModeAuto: 'Auto',
-    uvModeCurrent: 'Now',
+    uvModeLive: 'Live',
     uvModePeak: 'Peak',
     windSpeed: 'Wind',
+    windGusts: 'Gusts',
+    dailyHigh: 'High',
+    dailyLow: 'Low',
+    precipTotal: 'Rain',
     hourlyTitle: "Today’s forecast",
     metricsTitle: 'Metrics',
     weekTitle: 'Upcoming days',

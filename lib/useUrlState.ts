@@ -83,7 +83,8 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   if (!modelsEqual(state.models, defaults.models)) {
     params.set('models', state.models.length === 0 ? MODELS_NONE_TOKEN : state.models.join(','))
   }
-  if (state.hour !== defaults.hour) params.set('hour', String(state.hour))
+  // hour is intentionally NOT persisted to the URL so every fresh page load
+  // starts at hour 0 (today) in the daily summary.
   if (state.range !== defaults.range) params.set('range', String(state.range))
   if (state.showMap !== defaults.showMap) params.set('map', state.showMap ? '1' : '0')
   if (state.showRadar !== defaults.showRadar) params.set('radar', state.showRadar ? '1' : '0')

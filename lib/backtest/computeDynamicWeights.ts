@@ -85,34 +85,38 @@ export function computeDynamicWeights(
  * @param metricId - The metric to get weights for
  * @param accuracyRecords - Recent accuracy records from backtest (may be empty)
  * @param decayFactor - Recency decay factor for dynamic weights
+ * @param leadTimeBucket - The lead time bucket (e.g. '0-48h', '48-96h')
  */
 export function getMetricWeights(
   metricId: string,
   accuracyRecords: ModelAccuracyRow[],
-  decayFactor: number = 0.95
+  decayFactor: number = 0.95,
+  leadTimeBucket: string = '0-48h'
 ): Record<string, number> {
   // Get the ensemble preset for this metric
-  const preset = ENSEMBLE_PRESETS.find(p =>
-    p.id === (metricId === 'precipitation' ? 'precipitation'
-      : metricId === 'wind_speed' || metricId === 'wind_gusts' ? 'precipitation'
-      : 'temperature')
-  ) ?? ENSEMBLE_PRESETS[0]
+  const presetId = metricId === 'precipitation' || metricId === 'wind_speed' || metricId === 'wind_gusts'
+    ? 'precipitation'
+    : 'temperature'
+  const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
+
+  // Get the weights for this lead time bucket
+  const presetWeights = preset.weights[leadTimeBucket] ?? preset.weights['0-48h'] ?? {}
 
   // If no backtest data, return preset weights
-  if (accuracyRecords.length === 0) return { ...preset.weights }
+  if (accuracyRecords.length === 0) return { ...presetWeights }
 
   // Compute dynamic weights from backtest data
   const dynamicWeights = computeDynamicWeights(accuracyRecords, decayFactor)
 
   // If no dynamic weights could be computed, return preset
-  if (Object.keys(dynamicWeights).length === 0) return { ...preset.weights }
+  if (Object.keys(dynamicWeights).length === 0) return { ...presetWeights }
 
   // Merge: 70% preset + 30% dynamic (blended approach)
   const merged: Record<string, number> = {}
-  const allModelIds = new Set([...Object.keys(preset.weights), ...Object.keys(dynamicWeights)])
+  const allModelIds = new Set([...Object.keys(presetWeights), ...Object.keys(dynamicWeights)])
 
   for (const modelId of allModelIds) {
-    const presetW = preset.weights[modelId] ?? 0
+    const presetW = presetWeights[modelId] ?? 0
     const dynamicW = dynamicWeights[modelId] ?? 0
     merged[modelId] = presetW * 0.7 + dynamicW * 0.3
   }

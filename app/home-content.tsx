@@ -367,23 +367,15 @@ export default function HomeContent() {
     })
   }, [data, position, cityName])
 
-  // F-5: when we're offline and the query has errored, hydrate from
-  // IndexedDB so the app stays useful. We never *block* the UI on this;
-  // it just makes the offline state less empty.
+  // F-5: when the query has errored (offline, timeout, etc.), hydrate from
+  // IndexedDB so the app stays useful. Also load proactively on mount if
+  // the browser reports offline.
   const [offlineSnapshot, setOfflineSnapshot] = useState<Awaited<ReturnType<typeof loadLastForecast>>>(null)
   useEffect(() => {
     if (typeof navigator === 'undefined') return
-    const onChange = () => {
-      if (!navigator.onLine && error) {
-        void loadLastForecast().then(s => { if (s) setOfflineSnapshot(s) })
-      }
-    }
-    onChange()
-    window.addEventListener('online', onChange)
-    window.addEventListener('offline', onChange)
-    return () => {
-      window.removeEventListener('online', onChange)
-      window.removeEventListener('offline', onChange)
+    // Load offline data if query errored OR browser is offline
+    if (error || !navigator.onLine) {
+      void loadLastForecast().then(s => { if (s) setOfflineSnapshot(s) })
     }
   }, [error])
 
@@ -547,21 +539,25 @@ export default function HomeContent() {
   // Skip hourly entries before the current local hour (rounded down) in the
   // *location's* timezone, not the user's browser timezone.
   const startIndex = useMemo(() => {
-    if (!data?.time?.length) return 0
-    const nowFloor = floorHourLocation(getLocationNow(data.utcOffsetSeconds))
+    const effectiveData = data ?? offlineSnapshot?.data
+    if (!effectiveData?.time?.length) return 0
+    const nowFloor = floorHourLocation(getLocationNow(effectiveData.utcOffsetSeconds))
     const nowTs = nowFloor.getTime()
-    for (let i = 0; i < data.time.length; i++) {
-      const t = data.time[i]
+    for (let i = 0; i < effectiveData.time.length; i++) {
+      const t = effectiveData.time[i]
       if (t instanceof Date && t.getTime() >= nowTs) return i
     }
-    return data.time.length
-  }, [data])
+    return effectiveData.time.length
+  }, [data, offlineSnapshot])
+
+  // Use live data if available, otherwise fall back to offline snapshot
+  const effectiveData = data ?? offlineSnapshot?.data ?? null
 
   const viewData = useMemo(() => {
-    if (!data) return null
-    if (startIndex === 0) return data
-    return sliceForecast(data, startIndex)
-  }, [data, startIndex])
+    if (!effectiveData) return null
+    if (startIndex === 0) return effectiveData
+    return sliceForecast(effectiveData, startIndex)
+  }, [data, offlineSnapshot, startIndex])
 
   const hourLabel = useMemo(() => {
     const t = viewData?.time?.[selectedHour]
@@ -572,9 +568,9 @@ export default function HomeContent() {
   }, [viewData, selectedHour, locale])
 
   const utcOffsetLabel = useMemo(() => {
-    if (!data) return ''
-    return formatUtcOffset(data.utcOffsetSeconds)
-  }, [data])
+    if (!effectiveData) return ''
+    return formatUtcOffset(effectiveData.utcOffsetSeconds)
+  }, [effectiveData])
 
   const effectiveMaxHours = Math.min(selectedRange, maxModelHours, viewData?.time.length ?? 336)
 
@@ -806,10 +802,10 @@ export default function HomeContent() {
                   cityIsLoading={isLoading && !viewData}
                   models={displayModels}
                   activeIds={displayActiveModelIds}
-                  time={data?.time ?? []}
-                  series={data?.series ?? {}}
+                  time={effectiveData?.time ?? []}
+                  series={effectiveData?.series ?? {}}
                   nowIndex={startIndex + selectedHour}
-                  utcOffsetSeconds={data?.utcOffsetSeconds ?? 0}
+                  utcOffsetSeconds={effectiveData?.utcOffsetSeconds ?? 0}
                 />
               )}
 
@@ -1056,8 +1052,8 @@ export default function HomeContent() {
               <WeekForecastPanel
                 models={displayModels}
                 activeIds={displayActiveModelIds}
-                time={data?.time ?? []}
-                series={data?.series ?? {}}
+                time={effectiveData?.time ?? []}
+                series={effectiveData?.series ?? {}}
                 nowIndex={startIndex + selectedHour}
                 maxHours={Math.max(startIndex + selectedHour, 0) + weekDays * 24}
                 weekDays={weekDays}

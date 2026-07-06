@@ -4,6 +4,8 @@
 // payload. We use idb-free hand-rolled code so we don't pull a 5kB
 // dependency for two put/get calls.
 
+import type { ForecastResult } from './openMeteo'
+
 const DB_NAME = 'weather-offline'
 const STORE_NAME = 'lastForecast'
 const VERSION = 1
@@ -14,7 +16,7 @@ interface ForecastSnapshot {
   cityName: string
   utcOffsetSeconds: number
   fetchedAt: number
-  data: unknown
+  data: ForecastResult
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null

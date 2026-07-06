@@ -214,9 +214,12 @@ export default function HomeContent() {
     if ([...sp.keys()].length > 0) return // URL has params; user came from a share
     const saved = loadLastView()
     if (!saved) return
+    // Validate models from lastView: filter out any IDs that no longer exist
+    const validIds = new Set(MODELS.map(m => m.id))
+    const safeModels = saved.models.filter(id => validIds.has(id))
     updateUrl({
       metric: saved.metric,
-      models: saved.models,
+      models: safeModels.length > 0 ? safeModels : DEFAULT_MODELS,
       range: saved.range,
       showMap: saved.showMap,
       showRadar: saved.showRadar,
@@ -330,6 +333,20 @@ export default function HomeContent() {
   const showBasic = urlState.basic
   const selectedView: SidebarSection = urlState.view
   const weekDays: 7 | 14 = urlState.weekDays
+
+  // Validate selectedModels: if empty or all IDs are invalid, reset to defaults.
+  // This prevents "No models selected" when localStorage has stale data.
+  const validModelIds = useMemo(() => new Set(MODELS.map(m => m.id)), [])
+  useEffect(() => {
+    if (selectedModels.length === 0) {
+      updateUrl({ models: DEFAULT_MODELS })
+      return
+    }
+    const hasInvalid = selectedModels.some(id => !validModelIds.has(id))
+    if (hasInvalid) {
+      updateUrl({ models: DEFAULT_MODELS })
+    }
+  }, [selectedModels, validModelIds, updateUrl])
 
   // Keep `range` in sync with `weekDays` so the forecast fetch covers
   // enough hours for the Próximos días panel regardless of which URL

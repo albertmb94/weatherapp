@@ -146,6 +146,7 @@ function computeAccuracyFromRaw(
       sample_count: metrics.sampleCount,
       window_start: windowStart,
       window_end: windowEnd,
+      computed_at: new Date().toISOString(),
     })
   }
 

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
+import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { weightedAvg } from '@/lib/ensemble'
 import { useLocale } from '@/lib/LocaleContext'
@@ -86,7 +87,18 @@ export default function DailySummary({
 
   const days = useMemo<DayBucket[]>(() => {
     if (activeModels.length === 0 || times.length === 0) return []
-    const weights = activeModels.map(m => m.weight)
+    const modelIds = activeModels.map(m => m.id)
+
+    // Build per-metric, per-hour weight arrays using ensemble presets
+    const getWeightsForMetricAndHour = (metric: string, hourIndex: number): number[] => {
+      const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
+      const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
+      const leadTimeHours = hourIndex
+      const leadBucket = getLeadTimeBucket(leadTimeHours)
+      const bucketWeights = preset.weights[leadBucket] ?? preset.weights['0-48h']
+      return modelIds.map(id => bucketWeights[id] ?? 0.01)
+    }
+
     const limit = Math.min(times.length, maxHours)
     const buckets: DayBucket[] = []
     let current: DayBucket | null = null
@@ -128,20 +140,24 @@ export default function DailySummary({
       let waveSum = 0
       let waveCount = 0
       for (let i = bucket.startIndex; i <= bucket.endIndex; i++) {
+        const tWeights = getWeightsForMetricAndHour('temperature', i)
         const tVals = activeModels.map(m => getMetric(series, m.id, 'temperature', i))
-        const t = weightedAvg(tVals, weights)
+        const t = weightedAvg(tVals, tWeights)
         if (t !== null) {
           if (bucket.tMin === null || t < bucket.tMin) bucket.tMin = t
           if (bucket.tMax === null || t > bucket.tMax) bucket.tMax = t
         }
+        const pWeights = getWeightsForMetricAndHour('precipitation', i)
         const pVals = activeModels.map(m => getMetric(series, m.id, 'precipitation', i))
-        const p = weightedAvg(pVals, weights)
+        const p = weightedAvg(pVals, pWeights)
         if (p !== null) bucket.precipTotal = (bucket.precipTotal ?? 0) + p
+        const wWeights = getWeightsForMetricAndHour('wind_gusts', i)
         const wVals = activeModels.map(m => getMetric(series, m.id, 'wind_gusts', i))
-        const w = weightedAvg(wVals, weights)
+        const w = weightedAvg(wVals, wWeights)
         if (w !== null && (bucket.windMax === null || w > bucket.windMax)) bucket.windMax = w
+        const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
         const cVals = activeModels.map(m => getMetric(series, m.id, 'cloud_cover', i))
-        const c = weightedAvg(cVals, weights)
+        const c = weightedAvg(cVals, cWeights)
         if (c !== null) {
           cloudSum += c
           cloudCount += 1

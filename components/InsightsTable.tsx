@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect, memo } from 'react'
 import type { WeatherModel } from '@/lib/models'
+import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/models'
 import { getColor, SCALES } from '@/lib/colorScales'
 import type { ScaleMetric } from '@/lib/colorScales'
 import { weightedAvg } from '@/lib/ensemble'
@@ -377,9 +378,20 @@ export default function InsightsTable({
 
   const rows = useMemo<Row[]>(() => {
     if (activeModels.length === 0 || times.length === 0) return []
-    const weights = activeModels.map(m => m.weight)
     const effectiveMaxHours = (bucket === 1 || bucket === 2) ? Math.min(maxHours, 120) : maxHours
     const limit = Math.min(times.length, effectiveMaxHours)
+
+    // Build per-metric, per-hour weight arrays using ensemble presets
+    const modelIds = activeModels.map(m => m.id)
+    const getWeightsForMetricAndHour = (metric: string, hourIndex: number): number[] => {
+      const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
+      const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
+      const leadTimeHours = hourIndex * bucket
+      const leadBucket = getLeadTimeBucket(leadTimeHours)
+      const bucketWeights = preset.weights[leadBucket] ?? preset.weights['0-48h']
+      return modelIds.map(id => bucketWeights[id] ?? 0.01)
+    }
+
     const buckets: Row[] = []
     let cursor = 0
 
@@ -463,43 +475,54 @@ export default function InsightsTable({
       let wwpSum = 0, wwpCount = 0
       let swpSum = 0, swpCount = 0
       for (let i = b.startIdx; i <= b.endIdx; i++) {
+        // Use per-metric, per-hour weights for proper ensemble selection
+        const tWeights = getWeightsForMetricAndHour('temperature', i)
         const tVals = activeModels.map(m => series[m.id]?.['temperature']?.[i] ?? null)
-        const tEns = weightedAvg(tVals, weights)
+        const tEns = weightedAvg(tVals, tWeights)
         if (tEns !== null) {
           tSum += tEns
           tCount += 1
           if (b.tempMin === null || tEns < b.tempMin) b.tempMin = tEns
           if (b.tempMax === null || tEns > b.tempMax) b.tempMax = tEns
         }
+        const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
         const cVals = activeModels.map(m => series[m.id]?.['cloud_cover']?.[i] ?? null)
-        const cEns = weightedAvg(cVals, weights)
+        const cEns = weightedAvg(cVals, cWeights)
         if (cEns !== null) { cSum += cEns; cCount += 1 }
+        const wWeights = getWeightsForMetricAndHour('wind_speed', i)
         const wVals = activeModels.map(m => series[m.id]?.['wind_speed']?.[i] ?? null)
-        const wEns = weightedAvg(wVals, weights)
+        const wEns = weightedAvg(wVals, wWeights)
         if (wEns !== null) { wSum += wEns; wCount += 1 }
+        const gWeights = getWeightsForMetricAndHour('wind_gusts', i)
         const gVals = activeModels.map(m => series[m.id]?.['wind_gusts']?.[i] ?? null)
-        const gEns = weightedAvg(gVals, weights)
+        const gEns = weightedAvg(gVals, gWeights)
         if (gEns !== null && (b.gustsMax === null || gEns > b.gustsMax)) b.gustsMax = gEns
+        const pWeights = getWeightsForMetricAndHour('precipitation', i)
         const pVals = activeModels.map(m => series[m.id]?.['precipitation']?.[i] ?? null)
-        const pEns = weightedAvg(pVals, weights)
+        const pEns = weightedAvg(pVals, pWeights)
         if (pEns !== null) b.precipSum = (b.precipSum ?? 0) + pEns
+        const hWeights = getWeightsForMetricAndHour('humidity', i)
         const hVals = activeModels.map(m => series[m.id]?.['humidity']?.[i] ?? null)
-        const hEns = weightedAvg(hVals, weights)
+        const hEns = weightedAvg(hVals, hWeights)
         if (hEns !== null) { hSum += hEns; hCount += 1 }
+        const uWeights = getWeightsForMetricAndHour('uv_index', i)
         const uVals = activeModels.map(m => series[m.id]?.['uv_index']?.[i] ?? null)
-        const uEns = weightedAvg(uVals, weights)
+        const uEns = weightedAvg(uVals, uWeights)
         if (uEns !== null) { uSum += uEns; uCount += 1 }
+        const prWeights = getWeightsForMetricAndHour('pressure', i)
         const prVals = activeModels.map(m => series[m.id]?.['pressure']?.[i] ?? null)
-        const prEns = weightedAvg(prVals, weights)
+        const prEns = weightedAvg(prVals, prWeights)
         if (prEns !== null) { prSum += prEns; prCount += 1 }
+        const dpWeights = getWeightsForMetricAndHour('dewpoint', i)
         const dpVals = activeModels.map(m => series[m.id]?.['dewpoint']?.[i] ?? null)
-        const dpEns = weightedAvg(dpVals, weights)
+        const dpEns = weightedAvg(dpVals, dpWeights)
         if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
+        const visWeights = getWeightsForMetricAndHour('visibility', i)
         const visVals = activeModels.map(m => {
           const v = series[m.id]?.['visibility']?.[i]
           return v !== null && v !== undefined ? v / 1000 : null
         })
-        const visEns = weightedAvg(visVals, weights)
+        const visEns = weightedAvg(visVals, visWeights)
         if (visEns !== null) { visSum += visEns; visCount += 1 }
         let hCos = 0, hSin = 0, hW = 0
         for (let j = 0; j < activeModels.length; j++) {

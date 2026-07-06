@@ -6,7 +6,6 @@
  * @param weights - Array of static weights (same length as values)
  * @param dynamicWeights - Optional map of model_id -> dynamic weight.
  *   When provided, overrides static weights for matching models.
- *   Keys are model IDs; values are the dynamic weights to use.
  * @param modelIds - Optional array of model IDs corresponding to each value.
  *   Required when using dynamicWeights to look up per-model weights.
  */
@@ -42,11 +41,11 @@ export function weightedAvg(
 }
 
 /**
- * Compute ensemble weights for a given metric from ensemble preset definitions.
+ * Compute ensemble weights for a given metric and lead time from preset definitions.
  * Returns an array of weights in the same order as the input model IDs.
  *
  * @param modelIds - Array of model IDs to compute weights for
- * @param ensembleWeights - The ensemble preset's weight map (model_id -> weight)
+ * @param ensembleWeights - The ensemble preset's weight map for the relevant bucket
  * @returns Array of weights, normalized to sum to 1
  */
 export function getEnsembleWeights(

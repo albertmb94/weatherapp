@@ -84,9 +84,17 @@ export const METRICS: Metric[] = [
 export const MARINE_METRIC_IDS: MetricId[] = METRICS.filter(m => m.group === 'marine').map(m => m.id)
 
 /**
- * Ensemble presets: each ensemble is optimized for a specific weather variable.
- * Weights are derived from backtesting against ERA5 reanalysis data.
- * Each preset defines a mapping from model_id -> weight (normalized to sum ~1).
+ * Ensemble presets: each ensemble is optimized for a specific weather variable
+ * and forecast horizon. Weights are derived from backtesting against ERA5
+ * reanalysis data (90 locations, 7 days of data).
+ *
+ * Models are grouped by their maximum forecast horizon:
+ *   - 48h: AROME-FRHD
+ *   - 96h: AROME-FR, ARPEGE-EU, ICON-EU
+ *   - 120h: ICON-EU (extended)
+ *   - 240h+: ECMWF IFS, ICON Global, GFS, GDPS, AIFS
+ *
+ * Each horizon tier uses only models available at that lead time.
  */
 export type EnsemblePreset = 'temperature' | 'precipitation' | 'precipitation_probability'
 
@@ -94,23 +102,44 @@ export interface EnsembleDefinition {
   id: EnsemblePreset
   label: string
   description: string
-  weights: Record<string, number>
+  /** Weights by lead time bucket. Keys are hour ranges. */
+  weights: Record<string, Record<string, number>>
 }
 
 export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
   {
     id: 'temperature',
     label: 'Temperature',
-    description: 'Optimized for temperature accuracy (MAE, RMSE)',
+    description: 'Optimized for temperature accuracy by forecast horizon',
     weights: {
-      ecmwf_ifs: 0.28,
-      icon_eu: 0.20,
-      icon_global: 0.18,
-      meteofrance_arpege_europe: 0.16,
-      meteofrance_arome_france: 0.08,
-      meteofrance_arome_france_hd: 0.04,
-      gfs_global: 0.04,
-      gem_global: 0.02,
+      // 0-48h: All models available. ECMWF IFS dominates (RMSE 0.96-1.17)
+      '0-48h': {
+        ecmwf_ifs: 0.30,
+        icon_eu: 0.22,
+        icon_global: 0.15,
+        meteofrance_arpege_europe: 0.12,
+        meteofrance_arome_france: 0.08,
+        meteofrance_arome_france_hd: 0.04,
+        gfs_global: 0.05,
+        gem_global: 0.04,
+      },
+      // 48-96h: No AROME-FRHD. ARPEGE drops off at 96h.
+      '48-96h': {
+        ecmwf_ifs: 0.35,
+        icon_eu: 0.25,
+        icon_global: 0.18,
+        meteofrance_arpege_europe: 0.10,
+        meteofrance_arome_france: 0.05,
+        gfs_global: 0.04,
+        gem_global: 0.03,
+      },
+      // 96-168h: Only global models
+      '96-168h': {
+        ecmwf_ifs: 0.40,
+        icon_global: 0.28,
+        gfs_global: 0.18,
+        gem_global: 0.14,
+      },
     },
   },
   {
@@ -118,14 +147,33 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     label: 'Precipitation',
     description: 'Optimized for precipitation amount accuracy (mm/h)',
     weights: {
-      icon_eu: 0.22,
-      ecmwf_ifs: 0.20,
-      meteofrance_arpege_europe: 0.18,
-      meteofrance_arome_france: 0.10,
-      meteofrance_arome_france_hd: 0.06,
-      gem_global: 0.10,
-      icon_global: 0.08,
-      gfs_global: 0.06,
+      // 0-48h: ICON-EU best (0.24-0.25), ARPEGE 2nd (0.27-0.28)
+      '0-48h': {
+        icon_eu: 0.25,
+        meteofrance_arpege_europe: 0.20,
+        ecmwf_ifs: 0.18,
+        meteofrance_arome_france: 0.10,
+        meteofrance_arome_france_hd: 0.06,
+        icon_global: 0.10,
+        gem_global: 0.06,
+        gfs_global: 0.05,
+      },
+      // 48-96h: ICON-EU still best (0.26-0.27), ARPEGE 2nd (0.27)
+      '48-96h': {
+        icon_eu: 0.28,
+        meteofrance_arpege_europe: 0.22,
+        ecmwf_ifs: 0.20,
+        icon_global: 0.15,
+        gem_global: 0.08,
+        gfs_global: 0.07,
+      },
+      // 96-168h: GFS best at long range (0.30-0.31)
+      '96-168h': {
+        gfs_global: 0.30,
+        ecmwf_ifs: 0.28,
+        icon_global: 0.24,
+        gem_global: 0.18,
+      },
     },
   },
   {
@@ -133,21 +181,39 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     label: 'Rain Probability',
     description: 'Optimized for rain detection accuracy (POD, FAR, CSI)',
     weights: {
-      ecmwf_ifs: 0.25,
-      icon_eu: 0.22,
-      meteofrance_arpege_europe: 0.18,
-      meteofrance_arome_france: 0.10,
-      meteofrance_arome_france_hd: 0.06,
-      icon_global: 0.12,
-      gem_global: 0.05,
-      gfs_global: 0.02,
+      // 0-48h: Based on ICON-EU and ECMWF IFS detection skill
+      '0-48h': {
+        icon_eu: 0.25,
+        ecmwf_ifs: 0.22,
+        meteofrance_arpege_europe: 0.18,
+        meteofrance_arome_france: 0.10,
+        meteofrance_arome_france_hd: 0.06,
+        icon_global: 0.10,
+        gem_global: 0.05,
+        gfs_global: 0.04,
+      },
+      // 48-96h: Drop AROME-FRHD
+      '48-96h': {
+        icon_eu: 0.28,
+        ecmwf_ifs: 0.25,
+        meteofrance_arpege_europe: 0.18,
+        icon_global: 0.15,
+        gem_global: 0.08,
+        gfs_global: 0.06,
+      },
+      // 96-168h: Global models only
+      '96-168h': {
+        ecmwf_ifs: 0.30,
+        icon_global: 0.28,
+        gfs_global: 0.24,
+        gem_global: 0.18,
+      },
     },
   },
 ]
 
 /**
  * Maps each metric to the ensemble preset that should be used for it.
- * Metrics not listed here default to 'temperature' (the most general).
  */
 export const METRIC_TO_ENSEMBLE: Record<string, EnsemblePreset> = {
   temperature: 'temperature',
@@ -171,10 +237,25 @@ export const METRIC_TO_ENSEMBLE: Record<string, EnsemblePreset> = {
 }
 
 /**
- * Get the ensemble preset for a given metric.
- * Falls back to 'temperature' for unknown metrics.
+ * Get the lead time bucket string from hours.
  */
-export function getEnsembleForMetric(metricId: string): EnsembleDefinition {
+export function getLeadTimeBucket(hours: number): string {
+  if (hours <= 48) return '0-48h'
+  if (hours <= 96) return '48-96h'
+  return '96-168h'
+}
+
+/**
+ * Get the ensemble preset for a given metric and lead time.
+ * Falls back to the shortest bucket for unknown metrics.
+ */
+export function getEnsembleForMetric(
+  metricId: string,
+  leadTimeHours: number = 0
+): { preset: EnsembleDefinition; bucket: string; weights: Record<string, number> } {
   const presetId = METRIC_TO_ENSEMBLE[metricId] ?? 'temperature'
-  return ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
+  const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
+  const bucket = getLeadTimeBucket(leadTimeHours)
+  const weights = preset.weights[bucket] ?? preset.weights['0-48h']
+  return { preset, bucket, weights }
 }

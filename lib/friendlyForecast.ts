@@ -1,5 +1,5 @@
 import type { WeatherModel } from './models'
-import { ENSEMBLE_PRESETS } from './models'
+import { ENSEMBLE_PRESETS, getLeadTimeBucket, METRIC_TO_ENSEMBLE } from './models'
 import { weightedAvg } from './ensemble'
 import { pickWeatherIcon, type WeatherIconId } from './weatherIcon'
 
@@ -9,21 +9,25 @@ interface SeriesBag {
 }
 
 /**
- * Get the ensemble weight map for a given metric.
- * Returns the preset weights for the active models.
+ * Get the ensemble weight map for a given metric and lead time.
+ * Returns the preset weights for the active models, adjusted for the
+ * forecast horizon (short-range models get 0 weight at long lead times).
  */
 function getWeightsForMetric(
   metric: string,
-  activeModels: WeatherModel[]
+  activeModels: WeatherModel[],
+  leadTimeHours: number = 0
 ): number[] {
   // Map metric to ensemble preset
-  const presetId = metric === 'precipitation' || metric === 'wind_speed' || metric === 'wind_gusts'
-    ? 'precipitation'
-    : 'temperature'
+  const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
   const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
 
+  // Get the right bucket for this lead time
+  const bucket = getLeadTimeBucket(leadTimeHours)
+  const bucketWeights = preset.weights[bucket] ?? preset.weights['0-48h']
+
   // Build weight array matching activeModels order
-  return activeModels.map(m => preset.weights[m.id] ?? 0.01)
+  return activeModels.map(m => bucketWeights[m.id] ?? 0.01)
 }
 
 function meanAcrossModels(
@@ -31,12 +35,13 @@ function meanAcrossModels(
   metric: string,
   index: number,
   models: WeatherModel[],
-  activeIds: string[]
+  activeIds: string[],
+  leadTimeHours: number = 0
 ): number | null {
   const activeModels = models.filter(m => activeIds.includes(m.id))
   if (activeModels.length === 0) return null
   const vals = activeModels.map(m => bag.series[m.id]?.[metric]?.[index] ?? null)
-  const weights = getWeightsForMetric(metric, activeModels)
+  const weights = getWeightsForMetric(metric, activeModels, leadTimeHours)
   return weightedAvg(vals, weights, null, activeModels.map(m => m.id))
 }
 

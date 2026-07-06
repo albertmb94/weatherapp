@@ -233,33 +233,36 @@ ORDER BY temp_rmse;
 -- ============================================================
 -- 5. ENSEMBLE PRESETS (defined in code, documented here)
 -- ============================================================
--- Each metric maps to an ensemble preset that optimizes for that variable:
+-- Each metric maps to an ensemble preset with PER-HORIZON weights.
+-- Models are grouped by their maximum forecast horizon:
+--   48h:  AROME-FRHD
+--   96h:  AROME-FR, ARPEGE-EU, ICON-EU
+--   120h: ICON-EU (extended)
+--   240h+: ECMWF IFS, ICON Global, GFS, GDPS, AIFS
 --
--- TEMPERATURE ENSEMBLE (temperature, dewpoint, humidity, pressure, etc.):
---   ecmwf_ifs: 0.30  (best RMSE: 0.92°C at 0-24h)
---   icon_eu: 0.22    (RMSE: 1.32°C)
---   icon_global: 0.20 (RMSE: 1.45°C)
---   arpege_eu: 0.14  (RMSE: 1.66°C)
---   gfs_global: 0.08 (RMSE: 1.92°C)
---   gem_global: 0.06 (RMSE: 1.99°C)
+-- TEMPERATURE ENSEMBLE by horizon:
+--   0-48h:  ECMWF 30%, ICON-EU 22%, ICON 15%, ARPEGE 16%, AROME-FR 8%, AROME-FRHD 4%, GFS 4%, GDPS 2%
+--   48-96h: ECMWF 35%, ICON-EU 25%, ICON 18%, ARPEGE 10%, AROME-FR 5%, GFS 4%, GDPS 3%
+--   96-168h: ECMWF 40%, ICON 28%, GFS 18%, GDPS 14%
 --
--- PRECIPITATION ENSEMBLE (precipitation mm/h, wind speed, gusts, waves):
---   icon_eu: 0.24    (best RMSE: 0.25 mm/h)
---   ecmwf_ifs: 0.22  (RMSE: 0.27 mm/h)
---   arpege_eu: 0.19  (RMSE: 0.28 mm/h)
---   gem_global: 0.14 (RMSE: 0.30 mm/h)
---   icon_global: 0.13 (RMSE: 0.30 mm/h)
---   gfs_global: 0.08 (RMSE: 0.32 mm/h)
+-- PRECIPITATION ENSEMBLE by horizon:
+--   0-48h:  ICON-EU 25%, ARPEGE 20%, ECMWF 18%, AROME-FR 10%, AROME-FRHD 6%, ICON 10%, GDPS 6%, GFS 5%
+--   48-96h: ICON-EU 28%, ARPEGE 22%, ECMWF 20%, ICON 15%, GDPS 8%, GFS 7%
+--   96-168h: GFS 30%, ECMWF 28%, ICON 24%, GDPS 18%
 --
--- PRECIPITATION PROBABILITY ENSEMBLE (rain chance %, detection accuracy):
---   ecmwf_ifs: 0.28  (best POD/FAR balance)
---   icon_eu: 0.25    (best CSI for precipitation)
---   icon_global: 0.18
---   arpege_eu: 0.15
---   gem_global: 0.09
---   gfs_global: 0.05
+-- RAIN PROBABILITY ENSEMBLE by horizon:
+--   0-48h:  ICON-EU 25%, ECMWF 22%, ARPEGE 18%, AROME-FR 10%, AROME-FRHD 6%, ICON 10%, GDPS 5%, GFS 4%
+--   48-96h: ICON-EU 28%, ECMWF 25%, ARPEGE 18%, ICON 15%, GDPS 8%, GFS 6%
+--   96-168h: ECMWF 30%, ICON 28%, GFS 24%, GDPS 18%
 --
 -- METRIC → ENSEMBLE MAPPING:
 --   temperature, dewpoint, humidity, pressure, uv, visibility → temperature
 --   precipitation, wind_speed, wind_gusts, waves → precipitation
 --   All other metrics → temperature (fallback)
+--
+-- KEY FINDINGS (backtest 90 locations, 7 days):
+--   ECMWF IFS dominates temperature at ALL horizons (RMSE 0.96-2.08°C)
+--   ICON-EU dominates precipitation at short range (RMSE 0.24-0.27 mm/h)
+--   GFS best at long-range precipitation (96-168h, RMSE 0.30-0.31 mm/h)
+--   MeteoFrance ARPEGE 2nd best for precip 0-48h (RMSE 0.27-0.28 mm/h)
+--   MeteoFrance AROME has significant warm bias (+1.0 to +1.3°C)

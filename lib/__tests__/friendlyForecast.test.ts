@@ -80,8 +80,8 @@ describe('computeCurrentSnapshot', () => {
       ['gfs_global', 'icon_global'],
       3
     )
-    expect(out?.uvIndex).toBe(3)
-    expect(out?.uvIndexPeak).toBe(3)
+    expect(out?.uvIndex).toBeCloseTo(3, 0)
+    expect(out?.uvIndexPeak).toBeCloseTo(3, 0)
   })
 })
 

@@ -144,6 +144,21 @@ export const STRINGS: Record<Locale, {
   citiesSaveCurrent: string
   citiesSaved: string
   noUnits: string
+  confidenceHigh: string
+  confidenceMedium: string
+  confidenceLow: string
+  confidenceTooltip: string
+  modelAccuracyTitle: string
+  modelLabel: string
+  accuracyType: string
+  accuracyMAE: string
+  accuracyRMSE: string
+  accuracyBias: string
+  accuracySamples: string
+  accuracyNote: string
+  noAccuracyData: string
+  methodologyTitle: string
+  methodologyDescription: string
 }> = {
   es: {
     today: 'Hoy',
@@ -258,6 +273,21 @@ export const STRINGS: Record<Locale, {
     citiesSaveCurrent: 'Guardar ciudad',
     citiesSaved: 'Guardado',
     noUnits: 'N/A',
+    confidenceHigh: 'Alta',
+    confidenceMedium: 'Media',
+    confidenceLow: 'Baja',
+    confidenceTooltip: 'Confianza del ensemble basada en la concordancia entre modelos',
+    modelAccuracyTitle: 'Precisión por modelo',
+    modelLabel: 'Modelo',
+    accuracyType: 'Tipo',
+    accuracyMAE: 'MAE',
+    accuracyRMSE: 'RMSE',
+    accuracyBias: 'Bias',
+    accuracySamples: 'N',
+    accuracyNote: 'Métricas calculadas contra ERA5 reanalysis. Menor RMSE = mayor precisión.',
+    noAccuracyData: 'Sin datos de precisión disponibles. Los datos se actualizarán tras el primer backtest semanal.',
+    methodologyTitle: 'Metodología',
+    methodologyDescription: 'El ensemble pondera dinámicamente los modelos basándose en su precisión histórica para la ubicación y el tipo de terreno actual.',
   },
   en: {
     today: 'Today',
@@ -372,5 +402,20 @@ export const STRINGS: Record<Locale, {
     citiesSaveCurrent: 'Save city',
     citiesSaved: 'Saved',
     noUnits: 'N/A',
+    confidenceHigh: 'High',
+    confidenceMedium: 'Medium',
+    confidenceLow: 'Low',
+    confidenceTooltip: 'Ensemble confidence based on model agreement',
+    modelAccuracyTitle: 'Model accuracy',
+    modelLabel: 'Model',
+    accuracyType: 'Type',
+    accuracyMAE: 'MAE',
+    accuracyRMSE: 'RMSE',
+    accuracyBias: 'Bias',
+    accuracySamples: 'N',
+    accuracyNote: 'Metrics computed against ERA5 reanalysis. Lower RMSE = higher accuracy.',
+    noAccuracyData: 'No accuracy data available yet. Data updates after the first weekly backtest.',
+    methodologyTitle: 'Methodology',
+    methodologyDescription: 'The ensemble dynamically weights models based on their historical accuracy for the current location and terrain type.',
   },
 }

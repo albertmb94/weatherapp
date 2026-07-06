@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import type { WeatherModel, MetricId } from '@/lib/models'
-import { METRICS } from '@/lib/models'
+import { METRICS, ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/models'
 import {
   Line,
   XAxis,
@@ -26,6 +26,7 @@ interface ModelComparisonChartProps {
   onHourHover: (hour: number) => void
   hoveredHour: number
   maxHours: number
+  ensembleMode?: 'wedai' | 'models'
 }
 
 export default function ModelComparisonChart({
@@ -37,6 +38,7 @@ export default function ModelComparisonChart({
   onHourHover,
   hoveredHour,
   maxHours,
+  ensembleMode = 'models',
 }: ModelComparisonChartProps) {
   const [localHover, setLocalHover] = useState<number | null>(null)
   const [renderChart, setRenderChart] = useState(false)
@@ -73,12 +75,25 @@ export default function ModelComparisonChart({
   }, [models, activeModelIds])
 
   const chartData = useMemo(() => {
+    // Get ensemble weights for this metric
+    const presetId = METRIC_TO_ENSEMBLE[displayMetric] ?? 'temperature'
+    const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
+
     return displayTimes.map((t, i) => {
       const point: Record<string, unknown> = { time: t, hour: i }
       let minVal: number | null = null
       let maxVal: number | null = null
       let sum = 0
       let count = 0
+
+      // Compute ensemble weighted average for this time point
+      const leadTimeHours = i
+      const leadBucket = getLeadTimeBucket(leadTimeHours)
+      const bucketWeights = preset.weights[leadBucket] ?? preset.weights['0-48h'] ?? {}
+
+      let ensembleSum = 0
+      let ensembleWeightSum = 0
+
       for (const model of activeModels) {
         const vals = series[model.id]?.[displayMetric]
         const v = vals?.[i] ?? null
@@ -88,15 +103,18 @@ export default function ModelComparisonChart({
           if (maxVal === null || v > maxVal) maxVal = v
           sum += v
           count++
+
+          // Add to ensemble average
+          const w = bucketWeights[model.id] ?? 0.01
+          ensembleSum += v * w
+          ensembleWeightSum += w
         }
       }
       point.min = minVal
       point.max = maxVal
-      // B3: pre-compute the spread (max - min) so the stacked area shades
-      // from min..max instead of 0..max (which is what the previous
-      // same-stackId Area+Area pair produced).
       point.spread = minVal !== null && maxVal !== null ? Math.max(0, maxVal - minVal) : null
       point.mean = count > 0 ? sum / count : null
+      point.wedai = ensembleWeightSum > 0 ? ensembleSum / ensembleWeightSum : null
       return point
     })
   }, [displayTimes, activeModels, displayMetric, series])
@@ -160,7 +178,7 @@ export default function ModelComparisonChart({
     <div className="animate-fadeIn">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-gray-300">
-          Multi-model comparison — {METRICS.find(m => m.id === displayMetric)?.label}
+          {ensembleMode === 'wedai' ? 'WedAI' : 'Multi-model comparison'} — {METRICS.find(m => m.id === displayMetric)?.label}
         </h3>
         <button
           type="button"
@@ -208,13 +226,19 @@ export default function ModelComparisonChart({
               content={({ active, payload, label }) => {
                 if (!active || !payload || payload.length === 0) return null
                 const items = payload
-                  .filter(p => p.name !== 'min' && p.name !== 'max' && p.name !== 'mean' && p.name !== 'Spread')
+                  .filter(p => p.name !== 'min' && p.name !== 'max' && p.name !== 'mean' && p.name !== 'Spread' && p.name !== 'wedai')
                   .map(p => ({
                     name: p.name as string,
                     value: typeof p.value === 'number' ? p.value : null,
                     color: p.color as string,
                   }))
                   .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
+
+                // Add WedAI value if present
+                const wedaiPoint = payload.find(p => p.name === 'wedai')
+                if (wedaiPoint && typeof wedaiPoint.value === 'number') {
+                  items.unshift({ name: 'WedAI', value: wedaiPoint.value, color: '#F5811F' })
+                }
                 return (
                   <div className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 shadow-lg text-xs">
                     <div className="font-semibold mb-1 text-gray-300">+{label}h</div>
@@ -247,20 +271,34 @@ export default function ModelComparisonChart({
                 ifOverflow="extendDomain"
               />
             )}
-            {activeModels.map(model => (
+            {ensembleMode === 'wedai' ? (
               <Line
-                key={model.id}
                 type="monotone"
-                dataKey={model.id}
-                name={model.label}
-                stroke={model.color}
-                strokeWidth={1.5}
+                dataKey="wedai"
+                name="WedAI"
+                stroke="#F5811F"
+                strokeWidth={2.5}
                 dot={false}
                 connectNulls={false}
                 isAnimationActive={false}
-                activeDot={{ r: 4 }}
+                activeDot={{ r: 5 }}
               />
-            ))}
+            ) : (
+              activeModels.map(model => (
+                <Line
+                  key={model.id}
+                  type="monotone"
+                  dataKey={model.id}
+                  name={model.label}
+                  stroke={model.color}
+                  strokeWidth={1.5}
+                  dot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                  activeDot={{ r: 4 }}
+                />
+              ))
+            )}
           </ComposedChart>
         </ResponsiveContainer>}
       </div>

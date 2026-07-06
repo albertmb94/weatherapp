@@ -115,6 +115,7 @@ export default function HomeContent() {
     basic: true,
     view: 'weather' as const,
     weekDays: 7 as const,
+    ensembleMode: 'wedai' as const,
   }))
   const [urlState, updateUrl] = useUrlState(defaults)
 
@@ -319,6 +320,7 @@ export default function HomeContent() {
   const showBasic = urlState.basic
   const selectedView: SidebarSection = urlState.view
   const weekDays: 7 | 14 = urlState.weekDays
+  const ensembleMode = urlState.ensembleMode
 
   // Keep `range` in sync with `weekDays` so the forecast fetch covers
   // enough hours for the Próximos días panel regardless of which URL
@@ -434,6 +436,10 @@ export default function HomeContent() {
 
   const handleModelChange = useCallback((ids: string[]) => {
     updateUrl({ models: ids })
+  }, [updateUrl])
+
+  const handleEnsembleModeChange = useCallback((mode: 'wedai' | 'models') => {
+    updateUrl({ ensembleMode: mode })
   }, [updateUrl])
 
   const handleHourChange = useCallback((hour: number) => {
@@ -971,6 +977,8 @@ export default function HomeContent() {
                   onModelChange={handleModelChange}
                   onHourChange={handleHourChange}
                   onBucketChange={handleBucketChange}
+                  ensembleMode={ensembleMode}
+                  onEnsembleModeChange={handleEnsembleModeChange}
                 />
               )}
 
@@ -1245,6 +1253,8 @@ const AdvancedSection = memo(function AdvancedSection({
   onModelChange,
   onHourChange,
   onBucketChange,
+  ensembleMode,
+  onEnsembleModeChange,
 }: {
   expanded: boolean
   onToggle: () => void
@@ -1263,6 +1273,8 @@ const AdvancedSection = memo(function AdvancedSection({
   onModelChange: (ids: string[]) => void
   onHourChange: (hour: number) => void
   onBucketChange: (b: BucketHours) => void
+  ensembleMode: 'wedai' | 'models'
+  onEnsembleModeChange: (mode: 'wedai' | 'models') => void
 }) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -1373,6 +1385,8 @@ const AdvancedSection = memo(function AdvancedSection({
             models={displayModels}
             selected={selectedModels}
             onChange={onModelChange}
+            ensembleMode={ensembleMode}
+            onEnsembleModeChange={onEnsembleModeChange}
           />
           <InsightsTable
             models={displayModels}
@@ -1400,6 +1414,7 @@ const AdvancedSection = memo(function AdvancedSection({
             onHourHover={onHourChange}
             hoveredHour={selectedHour}
             maxHours={viewTimes.length || effectiveMaxHours}
+            ensembleMode={ensembleMode}
           />
           <EnsembleSection
             accuracyRecords={accuracyQuery.data ?? []}

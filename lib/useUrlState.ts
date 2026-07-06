@@ -16,6 +16,7 @@ interface UrlState {
   basic: boolean
   view: 'weather' | 'cities' | 'map' | 'stations' | 'settings'
   weekDays: 7 | 14
+  ensembleMode: 'wedai' | 'models'
 }
 
 const ALLOWED_BUCKETS = new Set([1, 2, 3, 4, 6, 12, 24])
@@ -23,6 +24,7 @@ const ALLOWED_METRICS = new Set<string>(METRICS.map(m => m.id))
 const ALLOWED_RANGES = new Set([24, 48, 72, 168, 336])
 const ALLOWED_VIEWS = new Set(['weather', 'cities', 'map', 'stations', 'settings'])
 const ALLOWED_WEEK_DAYS = new Set([7, 14])
+const ALLOWED_ENSEMBLE_MODES = new Set(['wedai', 'models'])
 
 const MODELS_NONE_TOKEN = 'none'
 
@@ -64,6 +66,10 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   if (weekDays && ALLOWED_WEEK_DAYS.has(Number(weekDays))) {
     result.weekDays = Number(weekDays) as UrlState['weekDays']
   }
+  const ensembleMode = params.get('emode')
+  if (ensembleMode && ALLOWED_ENSEMBLE_MODES.has(ensembleMode)) {
+    result.ensembleMode = ensembleMode as UrlState['ensembleMode']
+  }
   return result
 }
 
@@ -94,6 +100,7 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   if (state.basic !== defaults.basic) params.set('basic', state.basic ? '1' : '0')
   if (state.view !== defaults.view) params.set('view', state.view)
   if (state.weekDays !== defaults.weekDays) params.set('week', String(state.weekDays))
+  if (state.ensembleMode !== defaults.ensembleMode) params.set('emode', state.ensembleMode)
   return params.toString()
 }
 
@@ -122,6 +129,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       basic: parsed.basic ?? defaults.basic,
       view: parsed.view ?? defaults.view,
       weekDays: parsed.weekDays ?? defaults.weekDays,
+      ensembleMode: parsed.ensembleMode ?? defaults.ensembleMode,
     }
     return initial
   })

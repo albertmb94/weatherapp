@@ -30,6 +30,7 @@ interface InsightsTableProps {
   showBasic?: boolean
   onBasicToggle?: () => void
   confidence?: 'high' | 'medium' | 'low'
+  ensembleMode?: 'wedai' | 'models'
 }
 
 interface Row {
@@ -310,11 +311,21 @@ export default function InsightsTable({
   showBasic = true,
   onBasicToggle,
   confidence,
+  ensembleMode = 'models',
 }: InsightsTableProps) {
   const { locale } = useLocale()
+
+  // In WedAI mode, use ALL models for ensemble computation
+  // In Models mode, use only the user-selected models
+  const allModels = useMemo(
+    () => models.filter(m => m.id !== 'marine_global'),
+    [models]
+  )
   const activeModels = useMemo(
-    () => models.filter(m => activeModelIds.includes(m.id)),
-    [models, activeModelIds]
+    () => ensembleMode === 'wedai'
+      ? allModels
+      : models.filter(m => activeModelIds.includes(m.id)),
+    [models, activeModelIds, ensembleMode, allModels]
   )
 
   const [columnOrder, setColumnOrder] = useState<MetricCellId[]>(loadColumnOrder)

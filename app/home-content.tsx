@@ -1404,6 +1404,7 @@ const AdvancedSection = memo(function AdvancedSection({
             showBasic={showBasic}
             onBasicToggle={onBasicToggle}
             confidence={confidenceLevel}
+            ensembleMode={ensembleMode}
           />
           <ModelComparisonChart
             models={displayModels}

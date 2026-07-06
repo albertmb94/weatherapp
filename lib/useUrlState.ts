@@ -80,8 +80,8 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
     params.set('lon', state.lon.toFixed(4))
   }
   if (state.metric !== defaults.metric) params.set('metric', state.metric)
-  if (!modelsEqual(state.models, defaults.models)) {
-    params.set('models', state.models.length === 0 ? MODELS_NONE_TOKEN : state.models.join(','))
+  if (!modelsEqual(state.models, defaults.models) && state.models.length > 0) {
+    params.set('models', state.models.join(','))
   }
   // hour is intentionally NOT persisted to the URL so every fresh page load
   // starts at hour 0 (today) in the daily summary.
@@ -111,7 +111,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
       lat: parsed.lat ?? defaults.lat,
       lon: parsed.lon ?? defaults.lon,
       metric: parsed.metric ?? defaults.metric,
-      models: parsed.models ?? defaults.models,
+      models: (parsed.models && parsed.models.length > 0) ? parsed.models : defaults.models,
       hour: parsed.hour ?? defaults.hour,
       range: parsed.range ?? defaults.range,
       showMap: parsed.showMap ?? defaults.showMap,

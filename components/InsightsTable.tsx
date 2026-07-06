@@ -10,7 +10,6 @@ import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import WeatherConditionIcon from './WeatherConditionIcon'
-import ConfidenceBadge from './ConfidenceBadge'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
 
@@ -29,7 +28,6 @@ interface InsightsTableProps {
   onMarineToggle?: () => void
   showBasic?: boolean
   onBasicToggle?: () => void
-  confidence?: 'high' | 'medium' | 'low'
   ensembleMode?: 'wedai' | 'models'
 }
 
@@ -310,7 +308,6 @@ export default function InsightsTable({
   onMarineToggle,
   showBasic = true,
   onBasicToggle,
-  confidence,
   ensembleMode = 'models',
 }: InsightsTableProps) {
   const { locale } = useLocale()
@@ -685,7 +682,6 @@ export default function InsightsTable({
             </span>
           )}
         </h3>
-        {confidence && <ConfidenceBadge level={confidence} />}
       </div>
       <div className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
         <div className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">

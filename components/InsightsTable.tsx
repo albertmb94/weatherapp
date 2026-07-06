@@ -395,9 +395,14 @@ export default function InsightsTable({
     const effectiveMaxHours = (bucket === 1 || bucket === 2) ? Math.min(maxHours, 120) : maxHours
     const limit = Math.min(times.length, effectiveMaxHours)
 
-    // Build per-metric, per-hour weight arrays using ensemble presets
+    // Build per-metric, per-hour weight arrays.
+    // WedAI mode: use ensemble presets (per-metric, per-horizon weights)
+    // Models mode: use each model's static weight
     const modelIds = activeModels.map(m => m.id)
+    const staticWeights = activeModels.map(m => m.weight)
+
     const getWeightsForMetricAndHour = (metric: string, hourIndex: number): number[] => {
+      if (ensembleMode === 'models') return staticWeights
       const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
       const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
       const leadTimeHours = hourIndex * bucket

@@ -524,14 +524,15 @@ export default function InsightsTable({
         })
         const visEns = weightedAvg(visVals, visWeights)
         if (visEns !== null) { visSum += visEns; visCount += 1 }
+        const dirWeights = getWeightsForMetricAndHour('wind_direction', i)
         let hCos = 0, hSin = 0, hW = 0
         for (let j = 0; j < activeModels.length; j++) {
           const d = series[activeModels[j].id]?.['wind_direction']?.[i]
           if (d === null || d === undefined) continue
           const rad = (d * Math.PI) / 180
-          hCos += Math.cos(rad) * weights[j]
-          hSin += Math.sin(rad) * weights[j]
-          hW += weights[j]
+          hCos += Math.cos(rad) * dirWeights[j]
+          hSin += Math.sin(rad) * dirWeights[j]
+          hW += dirWeights[j]
         }
         if (hW > 0) {
           dirCos += hCos / hW

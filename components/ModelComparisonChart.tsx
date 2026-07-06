@@ -175,7 +175,8 @@ export default function ModelComparisonChart({
     setLocalHover(null)
   }, [])
 
-  if (activeModels.length === 0) {
+  // In WedAI mode, skip the "no models" check — we always show the WedAI line
+  if (ensembleMode !== 'wedai' && activeModels.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-40 text-gray-500">
         <svg className="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

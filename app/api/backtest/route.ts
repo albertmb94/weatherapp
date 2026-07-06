@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { handleBacktestRequest } from '@/lib/backtest/runWeeklyBacktest'
-import { ensureBacktestSchema } from '@/lib/backtest/db'
+import { ensureBacktestSchema, getModelAccuracy } from '@/lib/backtest/db'
 import { rateLimit } from '@/lib/rateLimit'
 
 export async function GET(request: Request) {
@@ -18,6 +18,27 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: true,
         message: 'Backtest tables created successfully',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return NextResponse.json({ success: false, error: message }, { status: 500 })
+    }
+  }
+
+  if (action === 'accuracy') {
+    const lat = Number(searchParams.get('lat') ?? '0')
+    const lon = Number(searchParams.get('lon') ?? '0')
+    const terrain = searchParams.get('terrain') ?? 'global'
+    const metric = searchParams.get('metric') ?? 'temperature'
+    const bucket = searchParams.get('bucket') ?? '0-24h'
+
+    try {
+      await ensureBacktestSchema()
+      const records = await getModelAccuracy(lat, lon, terrain, metric, bucket)
+      return NextResponse.json({
+        success: true,
+        records,
         timestamp: new Date().toISOString(),
       })
     } catch (err) {

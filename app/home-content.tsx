@@ -19,7 +19,9 @@ import FriendlyHome from '@/components/FriendlyHome'
 import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
 import SettingsPanel from '@/components/SettingsPanel'
-import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
+import ConfidenceBadge from '@/components/ConfidenceBadge'
+import ModelAccuracyPanel from '@/components/ModelAccuracyPanel'
+import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel, getEnsembleForMetric } from '@/lib/models'
 import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
@@ -1282,6 +1284,35 @@ const AdvancedSection = memo(function AdvancedSection({
   const viewTimes = viewData?.time ?? []
   const viewSeries = viewData?.series ?? {}
   const viewUtc = viewData?.utcOffsetSeconds ?? 0
+
+  // Fetch accuracy data for the current metric and location
+  const accuracyQuery = useQuery({
+    queryKey: ['accuracy', selectedMetric, bucket],
+    queryFn: async () => {
+      const res = await fetch(`/api/backtest?action=accuracy&lat=0&lon=0&terrain=global&metric=${selectedMetric}&bucket=${bucket === 24 ? '0-24h' : bucket <= 2 ? '0-48h' : bucket <= 12 ? '48-96h' : '96-168h'}`)
+      const body = await res.json()
+      return body.records ?? []
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour
+  })
+
+  // Compute ensemble confidence from model agreement
+  const confidenceLevel = useMemo(() => {
+    if (viewTimes.length === 0 || selectedHour >= viewTimes.length) return 'low'
+    const metricId = selectedMetric as string
+    const ensemble = getEnsembleForMetric(metricId, selectedHour * (bucket || 24))
+    const modelIds = Object.keys(ensemble.weights)
+    const values = modelIds.map(id => viewSeries[id]?.[metricId]?.[selectedHour] ?? null)
+    const validValues = values.filter(v => v !== null) as number[]
+    if (validValues.length < 2) return 'low'
+    const mean = validValues.reduce((a, b) => a + b, 0) / validValues.length
+    const variance = validValues.reduce((sum, v) => sum + (v - mean) ** 2, 0) / validValues.length
+    const stdDev = Math.sqrt(variance)
+    if (stdDev < 1.5) return 'high'
+    if (stdDev < 3) return 'medium'
+    return 'low'
+  }, [viewTimes, selectedHour, selectedMetric, bucket, viewSeries])
+
   return (
     <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
       {/* Mobile (< md): tap the header to toggle the Avanzado section. */}
@@ -1372,6 +1403,11 @@ const AdvancedSection = memo(function AdvancedSection({
             onMarineToggle={onMarineToggle}
             showBasic={showBasic}
             onBasicToggle={onBasicToggle}
+            confidence={confidenceLevel}
+          />
+          <ModelAccuracyPanel
+            accuracyRecords={accuracyQuery.data ?? []}
+            terrainType="global"
           />
           <ModelComparisonChart
             models={displayModels}

@@ -10,6 +10,7 @@ import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import WeatherConditionIcon from './WeatherConditionIcon'
+import ConfidenceBadge from './ConfidenceBadge'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
 
@@ -28,6 +29,7 @@ interface InsightsTableProps {
   onMarineToggle?: () => void
   showBasic?: boolean
   onBasicToggle?: () => void
+  confidence?: 'high' | 'medium' | 'low'
 }
 
 interface Row {
@@ -307,6 +309,7 @@ export default function InsightsTable({
   onMarineToggle,
   showBasic = true,
   onBasicToggle,
+  confidence,
 }: InsightsTableProps) {
   const { locale } = useLocale()
   const activeModels = useMemo(
@@ -657,14 +660,17 @@ export default function InsightsTable({
 
   return (
     <div className="mb-4 animate-fadeIn">
-      <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold mb-3">
-        {STRINGS[locale].insightsTitle}
-        {(bucket === 1 || bucket === 2) && (
-          <span className="ml-2 normal-case tracking-normal font-normal text-text-muted">
-            (Próximas 120h)
-          </span>
-        )}
-      </h3>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
+          {STRINGS[locale].insightsTitle}
+          {(bucket === 1 || bucket === 2) && (
+            <span className="ml-2 normal-case tracking-normal font-normal text-text-muted">
+              (Próximas 120h)
+            </span>
+          )}
+        </h3>
+        {confidence && <ConfidenceBadge level={confidence} />}
+      </div>
       <div className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
         <div className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">
           {BUCKET_OPTIONS.map(b => (

@@ -126,5 +126,7 @@ export const BACKTEST_MODEL_IDS = [
   'ecmwf_aifs025',
   'icon_eu',
   'meteofrance_arpege_europe',
+  'meteofrance_arome_france',
+  'meteofrance_arome_france_hd',
   'gem_global',
 ] as const

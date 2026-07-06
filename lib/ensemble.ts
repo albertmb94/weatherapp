@@ -7,21 +7,27 @@
  * @param dynamicWeights - Optional map of model_id -> dynamic weight.
  *   When provided, overrides static weights for matching models.
  *   Keys are model IDs; values are the dynamic weights to use.
+ * @param modelIds - Optional array of model IDs corresponding to each value.
+ *   Required when using dynamicWeights to look up per-model weights.
  */
 export function weightedAvg(
   values: (number | null)[],
   weights: number[],
-  dynamicWeights?: Record<string, number> | null
+  dynamicWeights?: Record<string, number> | null,
+  modelIds?: string[]
 ): number | null {
-  const effectiveWeights = dynamicWeights
+  const effectiveWeights = dynamicWeights && modelIds
     ? weights.map((w, i) => {
-        // We can't look up by model ID here since we only have values/weights.
-        // Dynamic weights must be pre-mapped to the same order as values.
-        // Use the dynamicWeights map if it has a matching entry.
-        const dynamicW = dynamicWeights[String(i)]
+        const modelId = modelIds[i]
+        const dynamicW = modelId ? dynamicWeights[modelId] : undefined
         return dynamicW !== undefined ? dynamicW : w
       })
-    : weights
+    : dynamicWeights
+      ? weights.map((w, i) => {
+          const dynamicW = dynamicWeights[String(i)]
+          return dynamicW !== undefined ? dynamicW : w
+        })
+      : weights
 
   let sum = 0
   let wSum = 0
@@ -33,6 +39,24 @@ export function weightedAvg(
     }
   }
   return wSum > 0 ? sum / wSum : null
+}
+
+/**
+ * Compute ensemble weights for a given metric from ensemble preset definitions.
+ * Returns an array of weights in the same order as the input model IDs.
+ *
+ * @param modelIds - Array of model IDs to compute weights for
+ * @param ensembleWeights - The ensemble preset's weight map (model_id -> weight)
+ * @returns Array of weights, normalized to sum to 1
+ */
+export function getEnsembleWeights(
+  modelIds: string[],
+  ensembleWeights: Record<string, number>
+): number[] {
+  const raw = modelIds.map(id => ensembleWeights[id] ?? 0)
+  const sum = raw.reduce((a, b) => a + b, 0)
+  if (sum === 0) return modelIds.map(() => 1 / modelIds.length)
+  return raw.map(w => w / sum)
 }
 
 export function contrastText(rgb: string): string {

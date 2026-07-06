@@ -5,6 +5,7 @@
  */
 
 import type { ModelAccuracyRow } from './db'
+import { ENSEMBLE_PRESETS, type EnsemblePreset } from '@/lib/models'
 
 /**
  * Compute dynamic weights for a set of models based on their accuracy records.
@@ -70,6 +71,61 @@ export function computeDynamicWeights(
   }
 
   return normalized
+}
+
+/**
+ * Get the final weights for a metric by combining:
+ * 1. Ensemble preset weights (baseline from backtesting)
+ * 2. Dynamic weights from recent accuracy data (if available)
+ *
+ * The ensemble preset provides a stable baseline; dynamic weights
+ * fine-tune based on recent performance. If no backtest data exists,
+ * the preset weights are used as-is.
+ *
+ * @param metricId - The metric to get weights for
+ * @param accuracyRecords - Recent accuracy records from backtest (may be empty)
+ * @param decayFactor - Recency decay factor for dynamic weights
+ */
+export function getMetricWeights(
+  metricId: string,
+  accuracyRecords: ModelAccuracyRow[],
+  decayFactor: number = 0.95
+): Record<string, number> {
+  // Get the ensemble preset for this metric
+  const preset = ENSEMBLE_PRESETS.find(p =>
+    p.id === (metricId === 'precipitation' ? 'precipitation'
+      : metricId === 'wind_speed' || metricId === 'wind_gusts' ? 'precipitation'
+      : 'temperature')
+  ) ?? ENSEMBLE_PRESETS[0]
+
+  // If no backtest data, return preset weights
+  if (accuracyRecords.length === 0) return { ...preset.weights }
+
+  // Compute dynamic weights from backtest data
+  const dynamicWeights = computeDynamicWeights(accuracyRecords, decayFactor)
+
+  // If no dynamic weights could be computed, return preset
+  if (Object.keys(dynamicWeights).length === 0) return { ...preset.weights }
+
+  // Merge: 70% preset + 30% dynamic (blended approach)
+  const merged: Record<string, number> = {}
+  const allModelIds = new Set([...Object.keys(preset.weights), ...Object.keys(dynamicWeights)])
+
+  for (const modelId of allModelIds) {
+    const presetW = preset.weights[modelId] ?? 0
+    const dynamicW = dynamicWeights[modelId] ?? 0
+    merged[modelId] = presetW * 0.7 + dynamicW * 0.3
+  }
+
+  // Normalize
+  const total = Object.values(merged).reduce((a, b) => a + b, 0)
+  if (total > 0) {
+    for (const modelId of Object.keys(merged)) {
+      merged[modelId] /= total
+    }
+  }
+
+  return merged
 }
 
 /**

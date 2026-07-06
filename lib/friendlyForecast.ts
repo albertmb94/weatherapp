@@ -1,10 +1,29 @@
 import type { WeatherModel } from './models'
+import { ENSEMBLE_PRESETS } from './models'
 import { weightedAvg } from './ensemble'
 import { pickWeatherIcon, type WeatherIconId } from './weatherIcon'
 
 interface SeriesBag {
   time: Date[]
   series: Record<string, Record<string, (number | null)[]>>
+}
+
+/**
+ * Get the ensemble weight map for a given metric.
+ * Returns the preset weights for the active models.
+ */
+function getWeightsForMetric(
+  metric: string,
+  activeModels: WeatherModel[]
+): number[] {
+  // Map metric to ensemble preset
+  const presetId = metric === 'precipitation' || metric === 'wind_speed' || metric === 'wind_gusts'
+    ? 'precipitation'
+    : 'temperature'
+  const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
+
+  // Build weight array matching activeModels order
+  return activeModels.map(m => preset.weights[m.id] ?? 0.01)
 }
 
 function meanAcrossModels(
@@ -17,7 +36,8 @@ function meanAcrossModels(
   const activeModels = models.filter(m => activeIds.includes(m.id))
   if (activeModels.length === 0) return null
   const vals = activeModels.map(m => bag.series[m.id]?.[metric]?.[index] ?? null)
-  return weightedAvg(vals, activeModels.map(m => m.weight))
+  const weights = getWeightsForMetric(metric, activeModels)
+  return weightedAvg(vals, weights, null, activeModels.map(m => m.id))
 }
 
 /**

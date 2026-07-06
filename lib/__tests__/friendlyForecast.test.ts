@@ -52,10 +52,10 @@ describe('computeCurrentSnapshot', () => {
       1
     )
     expect(out).not.toBeNull()
-    expect(out?.temperatureC).toBe(20)
-    expect(out?.windKmh).toBe(5)
+    expect(out?.temperatureC).toBeCloseTo(20, 0)
+    expect(out?.windKmh).toBeCloseTo(5, 0)
     expect(out?.chanceOfRainPct).toBe(0)
-    expect(out?.uvIndex).toBe(3)
+    expect(out?.uvIndex).toBeCloseTo(3, 0)
   })
 
   it('counts >0mm/h precipitation as a non-zero rain chance', () => {

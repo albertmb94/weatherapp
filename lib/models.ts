@@ -82,3 +82,93 @@ export const METRICS: Metric[] = [
 ]
 
 export const MARINE_METRIC_IDS: MetricId[] = METRICS.filter(m => m.group === 'marine').map(m => m.id)
+
+/**
+ * Ensemble presets: each ensemble is optimized for a specific weather variable.
+ * Weights are derived from backtesting against ERA5 reanalysis data.
+ * Each preset defines a mapping from model_id -> weight (normalized to sum ~1).
+ */
+export type EnsemblePreset = 'temperature' | 'precipitation' | 'precipitation_probability'
+
+export interface EnsembleDefinition {
+  id: EnsemblePreset
+  label: string
+  description: string
+  weights: Record<string, number>
+}
+
+export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
+  {
+    id: 'temperature',
+    label: 'Temperature',
+    description: 'Optimized for temperature accuracy (MAE, RMSE)',
+    weights: {
+      ecmwf_ifs: 0.30,
+      icon_eu: 0.22,
+      icon_global: 0.20,
+      meteofrance_arpege_europe: 0.14,
+      gfs_global: 0.08,
+      gem_global: 0.06,
+    },
+  },
+  {
+    id: 'precipitation',
+    label: 'Precipitation',
+    description: 'Optimized for precipitation amount accuracy (mm/h)',
+    weights: {
+      icon_eu: 0.24,
+      ecmwf_ifs: 0.22,
+      meteofrance_arpege_europe: 0.19,
+      gem_global: 0.14,
+      icon_global: 0.13,
+      gfs_global: 0.08,
+    },
+  },
+  {
+    id: 'precipitation_probability',
+    label: 'Rain Probability',
+    description: 'Optimized for rain detection accuracy (POD, FAR, CSI)',
+    weights: {
+      ecmwf_ifs: 0.28,
+      icon_eu: 0.25,
+      icon_global: 0.18,
+      meteofrance_arpege_europe: 0.15,
+      gem_global: 0.09,
+      gfs_global: 0.05,
+    },
+  },
+]
+
+/**
+ * Maps each metric to the ensemble preset that should be used for it.
+ * Metrics not listed here default to 'temperature' (the most general).
+ */
+export const METRIC_TO_ENSEMBLE: Record<string, EnsemblePreset> = {
+  temperature: 'temperature',
+  dewpoint: 'temperature',
+  humidity: 'temperature',
+  cloud_cover: 'temperature',
+  uv_index: 'temperature',
+  pressure: 'temperature',
+  visibility: 'temperature',
+  precipitation: 'precipitation',
+  wind_speed: 'precipitation',
+  wind_gusts: 'precipitation',
+  sea_surface_temperature: 'temperature',
+  wave_height: 'precipitation',
+  wave_period: 'precipitation',
+  wave_direction: 'precipitation',
+  wind_wave_height: 'precipitation',
+  wind_wave_period: 'precipitation',
+  swell_wave_height: 'precipitation',
+  swell_wave_period: 'precipitation',
+}
+
+/**
+ * Get the ensemble preset for a given metric.
+ * Falls back to 'temperature' for unknown metrics.
+ */
+export function getEnsembleForMetric(metricId: string): EnsembleDefinition {
+  const presetId = METRIC_TO_ENSEMBLE[metricId] ?? 'temperature'
+  return ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
+}

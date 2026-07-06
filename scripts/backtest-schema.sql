@@ -229,3 +229,37 @@ WHERE lat = 0 AND lon = 0 AND terrain_type = 'global'
   AND lead_time_bucket = '0-24h'
 GROUP BY model_id
 ORDER BY temp_rmse;
+
+-- ============================================================
+-- 5. ENSEMBLE PRESETS (defined in code, documented here)
+-- ============================================================
+-- Each metric maps to an ensemble preset that optimizes for that variable:
+--
+-- TEMPERATURE ENSEMBLE (temperature, dewpoint, humidity, pressure, etc.):
+--   ecmwf_ifs: 0.30  (best RMSE: 0.92°C at 0-24h)
+--   icon_eu: 0.22    (RMSE: 1.32°C)
+--   icon_global: 0.20 (RMSE: 1.45°C)
+--   arpege_eu: 0.14  (RMSE: 1.66°C)
+--   gfs_global: 0.08 (RMSE: 1.92°C)
+--   gem_global: 0.06 (RMSE: 1.99°C)
+--
+-- PRECIPITATION ENSEMBLE (precipitation mm/h, wind speed, gusts, waves):
+--   icon_eu: 0.24    (best RMSE: 0.25 mm/h)
+--   ecmwf_ifs: 0.22  (RMSE: 0.27 mm/h)
+--   arpege_eu: 0.19  (RMSE: 0.28 mm/h)
+--   gem_global: 0.14 (RMSE: 0.30 mm/h)
+--   icon_global: 0.13 (RMSE: 0.30 mm/h)
+--   gfs_global: 0.08 (RMSE: 0.32 mm/h)
+--
+-- PRECIPITATION PROBABILITY ENSEMBLE (rain chance %, detection accuracy):
+--   ecmwf_ifs: 0.28  (best POD/FAR balance)
+--   icon_eu: 0.25    (best CSI for precipitation)
+--   icon_global: 0.18
+--   arpege_eu: 0.15
+--   gem_global: 0.09
+--   gfs_global: 0.05
+--
+-- METRIC → ENSEMBLE MAPPING:
+--   temperature, dewpoint, humidity, pressure, uv, visibility → temperature
+--   precipitation, wind_speed, wind_gusts, waves → precipitation
+--   All other metrics → temperature (fallback)

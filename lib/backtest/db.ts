@@ -106,6 +106,7 @@ export interface ModelAccuracyRow {
   sample_count: number
   window_start: string
   window_end: string
+  computed_at: string
 }
 
 export interface DynamicWeightRow {

@@ -157,20 +157,6 @@ export default function HomeContent() {
     setPosition(prev => (prev[0] === urlState.lat && prev[1] === urlState.lon) ? prev : [urlState.lat, urlState.lon])
   }, [urlState.lat, urlState.lon])
 
-  // On fresh page load (not back/forward), always start at hour 0 (today).
-  // This runs once on mount and clears any stale `hour` that was left in the
-  // URL from a previous session. Back/forward navigation uses popstate which
-  // restores hour independently.
-  const hourResetRef = useRef(false)
-  useEffect(() => {
-    if (hourResetRef.current) return
-    hourResetRef.current = true
-    if (urlState.hour !== 0) {
-      updateUrl({ hour: 0 })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   // M-UI-6: persist the user's last view (metric, models, range, …)
   // so that returning later without a URL still restores their
   // preferences. Position is intentionally NOT persisted — it's tied
@@ -333,20 +319,6 @@ export default function HomeContent() {
   const showBasic = urlState.basic
   const selectedView: SidebarSection = urlState.view
   const weekDays: 7 | 14 = urlState.weekDays
-
-  // Validate selectedModels: if empty or all IDs are invalid, reset to defaults.
-  // This prevents "No models selected" when localStorage has stale data.
-  const validModelIds = useMemo(() => new Set(MODELS.map(m => m.id)), [])
-  useEffect(() => {
-    if (selectedModels.length === 0) {
-      updateUrl({ models: DEFAULT_MODELS })
-      return
-    }
-    const hasInvalid = selectedModels.some(id => !validModelIds.has(id))
-    if (hasInvalid) {
-      updateUrl({ models: DEFAULT_MODELS })
-    }
-  }, [selectedModels, validModelIds, updateUrl])
 
   // Keep `range` in sync with `weekDays` so the forecast fetch covers
   // enough hours for the Próximos días panel regardless of which URL

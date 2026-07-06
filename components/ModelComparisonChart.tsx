@@ -136,13 +136,22 @@ export default function ModelComparisonChart({
     setLocalHover(null)
   }, [])
 
-  if (activeModels.length === 0 || chartData.length === 0) {
+  if (activeModels.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-40 text-gray-500">
         <svg className="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
         </svg>
         <span className="text-sm">No models selected — click &quot;All&quot; or pick models above</span>
+      </div>
+    )
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+        <div className="animate-spin w-5 h-5 border-2 border-gray-600 border-t-white rounded-full mb-2" />
+        <span className="text-sm">Loading forecast data…</span>
       </div>
     )
   }

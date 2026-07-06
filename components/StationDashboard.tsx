@@ -67,10 +67,19 @@ export default function StationDashboard({ position = null, placeName }: Station
   const [search, setSearch] = useState('')
   const [includeMeteo, setIncludeMeteo] = useState(true)
 
+  // Build a coarse position key so the query refetches when the user moves
+  // significantly (1 km grid) without thrashing on tiny movements.
+  const posKey = position
+    ? `${Math.round(position[0] * 100) / 100},${Math.round(position[1] * 100) / 100}`
+    : null
+
   const aemetQ = useQuery<MeteoclimaticObservation[]>({
-    queryKey: ['aemet-stations'],
+    queryKey: posKey ? ['aemet-stations', posKey, radius] : ['aemet-stations'],
     queryFn: async () => {
-      const res = await fetch('/api/aemet')
+      const url = posKey
+        ? `/api/aemet?lat=${position![0]}&lon=${position![1]}&radius=${radius}`
+        : '/api/aemet'
+      const res = await fetch(url)
       const body = await res.json()
       if (!res.ok || body.error) throw new Error(body.detail || body.error || `HTTP ${res.status}`)
       const seen = new Map<string, MeteoclimaticObservation>()
@@ -122,13 +131,15 @@ export default function StationDashboard({ position = null, placeName }: Station
     retryDelay: STATION_RETRY_DELAY_MS,
   })
 
-  // Meteocat XEMA: official Catalan network. Location-independent (the route
-  // returns the whole network, cached server-side); we filter by radius
-  // client-side below. No-ops gracefully when the server has no API key.
+  // Meteocat XEMA: official Catalan network. Server-side filtered when a
+  // position is provided; otherwise returns the full network (cached).
   const meteocatQ = useQuery<MeteoclimaticObservation[]>({
-    queryKey: ['meteocat-stations'],
+    queryKey: posKey ? ['meteocat-stations', posKey, radius] : ['meteocat-stations'],
     queryFn: async () => {
-      const res = await fetch('/api/meteocat')
+      const url = posKey
+        ? `/api/meteocat?lat=${position![0]}&lon=${position![1]}&radius=${radius}`
+        : '/api/meteocat'
+      const res = await fetch(url)
       const body = await res.json()
       if (!res.ok || body.error) throw new Error(body.detail || body.error || `HTTP ${res.status}`)
       return body.stations as MeteoclimaticObservation[]
@@ -143,6 +154,9 @@ export default function StationDashboard({ position = null, placeName }: Station
     retryDelay: STATION_RETRY_DELAY_MS,
   })
 
+  // Merge and deduplicate across all three sources. Since AEMET and Meteocat
+  // are now server-filtered by radius when a position is provided, this
+  // operates on ~20-50 stations instead of ~1100.
   const allStations = useMemo(() => {
     const aemet = aemetQ.data ?? []
     const meteocat = meteocatQ.data ?? []
@@ -177,10 +191,9 @@ export default function StationDashboard({ position = null, placeName }: Station
     return [...seen.values()]
   }, [aemetQ.data, meteocatQ.data, meteoQ.data, includeMeteo])
 
-  // Filter: when a position is provided we filter AEMET by the
-  // user-selected radius; otherwise we keep the legacy region-bbox
-  // filter. Meteoclimatic is already server-filtered when a position
-  // is provided.
+  // Filter: server-side geo filtering is now applied for AEMET and Meteocat
+  // when a position is provided. This client-side filter serves as a secondary
+  // check and handles the region-bbox fallback when no position is set.
   const regionBounds = REGIONS.find(r => r.code === region) ?? REGIONS[0]
 
   const filtered = useMemo(() => {

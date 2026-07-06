@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { fetchMeteocatStations } from '@/lib/meteocat'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
+import { haversineKm } from '@/lib/geoDistance'
 import { rateLimit } from '@/lib/rateLimit'
 
 // Default Node runtime: full Intl (timezone) + access to the server-only
@@ -18,6 +19,19 @@ const CACHE_HEADERS = {
 let memo: { at: number; stations: MeteoclimaticObservation[] } | null = null
 const MEMO_TTL_MS = 25 * 60 * 1000
 
+function filterByRadius(stations: MeteoclimaticObservation[], lat: number, lon: number, radius: number): MeteoclimaticObservation[] {
+  const center: [number, number] = [lat, lon]
+  const margin = radius / 111
+  const latMin = lat - margin
+  const latMax = lat + margin
+  const lonMin = lon - margin
+  const lonMax = lon + margin
+  return stations.filter(s => {
+    if (s.lat < latMin || s.lat > latMax || s.lon < lonMin || s.lon > lonMax) return false
+    return haversineKm([s.lat, s.lon], center) <= radius
+  })
+}
+
 export async function GET(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (!rateLimit(`meteocat:${ip}`, 30)) {
@@ -34,16 +48,29 @@ export async function GET(request: Request) {
     )
   }
 
+  const { searchParams } = new URL(request.url)
+  const lat = searchParams.get('lat')
+  const lon = searchParams.get('lon')
+  const radius = Number(searchParams.get('radius') ?? '100')
+
   if (memo && Date.now() - memo.at < MEMO_TTL_MS) {
+    let stations = memo.stations
+    if (lat && lon) {
+      stations = filterByRadius(stations, Number(lat), Number(lon), radius)
+    }
     return NextResponse.json(
-      { stations: memo.stations, fetchedAt: new Date(memo.at).toISOString(), cached: true },
+      { stations, fetchedAt: new Date(memo.at).toISOString(), cached: true },
       { headers: CACHE_HEADERS }
     )
   }
 
   try {
-    const stations = await fetchMeteocatStations(apiKey)
-    memo = { at: Date.now(), stations }
+    const allStations = await fetchMeteocatStations(apiKey)
+    memo = { at: Date.now(), stations: allStations }
+    let stations = allStations
+    if (lat && lon) {
+      stations = filterByRadius(stations, Number(lat), Number(lon), radius)
+    }
     return NextResponse.json(
       { stations, fetchedAt: new Date().toISOString() },
       { headers: CACHE_HEADERS }
@@ -53,8 +80,12 @@ export async function GET(request: Request) {
     console.error(`[meteocat] ${message}`)
     // Serve the last good in-memory snapshot if we have one.
     if (memo) {
+      let stations = memo.stations
+      if (lat && lon) {
+        stations = filterByRadius(stations, Number(lat), Number(lon), radius)
+      }
       return NextResponse.json(
-        { stations: memo.stations, fetchedAt: new Date(memo.at).toISOString(), stale: true },
+        { stations, fetchedAt: new Date(memo.at).toISOString(), stale: true },
         { headers: CACHE_HEADERS }
       )
     }

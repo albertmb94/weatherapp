@@ -20,6 +20,7 @@ const MOCK_AEMET_STATIONS = [
 
 vi.mock('@/lib/aemet', () => ({
   fetchAemetStations: vi.fn(),
+  getStaleAemetStations: vi.fn().mockReturnValue(null),
 }))
 
 import { GET } from '../route'

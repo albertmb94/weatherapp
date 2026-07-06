@@ -34,6 +34,19 @@ async function aemetFetch<T>(path: string): Promise<T> {
   return dataRes.json()
 }
 
+// Server-side memo to avoid re-fetching from the upstream AEMET API on every
+// request. AEMET data refreshes ~every 10 min, so a 4-minute TTL keeps the
+// data reasonably fresh while eliminating redundant upstream calls.
+let memo: { at: number; stations: AemetRaw[] } | null = null
+const MEMO_TTL_MS = 4 * 60 * 1000
+
 export async function fetchAemetStations(): Promise<AemetRaw[]> {
-  return aemetFetch<AemetRaw[]>('/observacion/convencional/todas')
+  if (memo && Date.now() - memo.at < MEMO_TTL_MS) return memo.stations
+  const stations = await aemetFetch<AemetRaw[]>('/observacion/convencional/todas')
+  memo = { at: Date.now(), stations }
+  return stations
+}
+
+export function getStaleAemetStations(): AemetRaw[] | null {
+  return memo?.stations ?? null
 }

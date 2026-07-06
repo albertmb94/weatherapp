@@ -110,35 +110,19 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
   {
     id: 'temperature',
     label: 'Temperature',
-    description: 'Optimized for temperature accuracy by forecast horizon',
+    description: 'Optimized for temperature accuracy (MAE, RMSE)',
     weights: {
-      // 0-48h: All models available. ECMWF IFS dominates (RMSE 0.96-1.17)
       '0-48h': {
-        ecmwf_ifs: 0.30,
-        icon_eu: 0.22,
-        icon_global: 0.15,
-        meteofrance_arpege_europe: 0.12,
-        meteofrance_arome_france: 0.08,
-        meteofrance_arome_france_hd: 0.04,
-        gfs_global: 0.05,
-        gem_global: 0.04,
+        ecmwf_ifs: 0.30, icon_eu: 0.22, icon_global: 0.15,
+        meteofrance_arpege_europe: 0.12, gfs_global: 0.08, gem_global: 0.07,
+        meteofrance_arome_france: 0.04, meteofrance_arome_france_hd: 0.02,
       },
-      // 48-96h: No AROME-FRHD. ARPEGE drops off at 96h.
       '48-96h': {
-        ecmwf_ifs: 0.35,
-        icon_eu: 0.25,
-        icon_global: 0.18,
-        meteofrance_arpege_europe: 0.10,
-        meteofrance_arome_france: 0.05,
-        gfs_global: 0.04,
-        gem_global: 0.03,
+        ecmwf_ifs: 0.35, icon_eu: 0.25, icon_global: 0.18,
+        meteofrance_arpege_europe: 0.10, gfs_global: 0.07, gem_global: 0.05,
       },
-      // 96-168h: Only global models
       '96-168h': {
-        ecmwf_ifs: 0.40,
-        icon_global: 0.28,
-        gfs_global: 0.18,
-        gem_global: 0.14,
+        ecmwf_ifs: 0.40, icon_global: 0.28, gfs_global: 0.18, gem_global: 0.14,
       },
     },
   },
@@ -147,32 +131,17 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     label: 'Precipitation',
     description: 'Optimized for precipitation amount accuracy (mm/h)',
     weights: {
-      // 0-48h: ICON-EU best (0.24-0.25), ARPEGE 2nd (0.27-0.28)
       '0-48h': {
-        icon_eu: 0.25,
-        meteofrance_arpege_europe: 0.20,
-        ecmwf_ifs: 0.18,
-        meteofrance_arome_france: 0.10,
-        meteofrance_arome_france_hd: 0.06,
-        icon_global: 0.10,
-        gem_global: 0.06,
-        gfs_global: 0.05,
+        icon_eu: 0.25, meteofrance_arpege_europe: 0.20, ecmwf_ifs: 0.18,
+        icon_global: 0.12, gem_global: 0.10, gfs_global: 0.08,
+        meteofrance_arome_france: 0.05, meteofrance_arome_france_hd: 0.02,
       },
-      // 48-96h: ICON-EU still best (0.26-0.27), ARPEGE 2nd (0.27)
       '48-96h': {
-        icon_eu: 0.28,
-        meteofrance_arpege_europe: 0.22,
-        ecmwf_ifs: 0.20,
-        icon_global: 0.15,
-        gem_global: 0.08,
-        gfs_global: 0.07,
+        icon_eu: 0.28, meteofrance_arpege_europe: 0.22, ecmwf_ifs: 0.20,
+        icon_global: 0.15, gem_global: 0.08, gfs_global: 0.07,
       },
-      // 96-168h: GFS best at long range (0.30-0.31)
       '96-168h': {
-        gfs_global: 0.30,
-        ecmwf_ifs: 0.28,
-        icon_global: 0.24,
-        gem_global: 0.18,
+        gfs_global: 0.30, ecmwf_ifs: 0.28, icon_global: 0.24, gem_global: 0.18,
       },
     },
   },
@@ -181,32 +150,17 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     label: 'Rain Probability',
     description: 'Optimized for rain detection accuracy (POD, FAR, CSI)',
     weights: {
-      // 0-48h: Based on ICON-EU and ECMWF IFS detection skill
       '0-48h': {
-        icon_eu: 0.25,
-        ecmwf_ifs: 0.22,
-        meteofrance_arpege_europe: 0.18,
-        meteofrance_arome_france: 0.10,
-        meteofrance_arome_france_hd: 0.06,
-        icon_global: 0.10,
-        gem_global: 0.05,
-        gfs_global: 0.04,
+        icon_eu: 0.25, ecmwf_ifs: 0.22, meteofrance_arpege_europe: 0.18,
+        icon_global: 0.12, gem_global: 0.10, gfs_global: 0.06,
+        meteofrance_arome_france: 0.05, meteofrance_arome_france_hd: 0.02,
       },
-      // 48-96h: Drop AROME-FRHD
       '48-96h': {
-        icon_eu: 0.28,
-        ecmwf_ifs: 0.25,
-        meteofrance_arpege_europe: 0.18,
-        icon_global: 0.15,
-        gem_global: 0.08,
-        gfs_global: 0.06,
+        icon_eu: 0.28, ecmwf_ifs: 0.25, meteofrance_arpege_europe: 0.18,
+        icon_global: 0.15, gem_global: 0.08, gfs_global: 0.06,
       },
-      // 96-168h: Global models only
       '96-168h': {
-        ecmwf_ifs: 0.30,
-        icon_global: 0.28,
-        gfs_global: 0.24,
-        gem_global: 0.18,
+        ecmwf_ifs: 0.30, icon_global: 0.28, gfs_global: 0.24, gem_global: 0.18,
       },
     },
   },

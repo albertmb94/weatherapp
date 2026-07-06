@@ -21,6 +21,7 @@ import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar
 import SettingsPanel from '@/components/SettingsPanel'
 import ConfidenceBadge from '@/components/ConfidenceBadge'
 import ModelAccuracyPanel from '@/components/ModelAccuracyPanel'
+import EnsembleSection from '@/components/EnsembleSection'
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel, getEnsembleForMetric } from '@/lib/models'
 import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
@@ -1405,10 +1406,6 @@ const AdvancedSection = memo(function AdvancedSection({
             onBasicToggle={onBasicToggle}
             confidence={confidenceLevel}
           />
-          <ModelAccuracyPanel
-            accuracyRecords={accuracyQuery.data ?? []}
-            terrainType="global"
-          />
           <ModelComparisonChart
             models={displayModels}
             activeModelIds={displayActiveModelIds}
@@ -1418,6 +1415,11 @@ const AdvancedSection = memo(function AdvancedSection({
             onHourHover={onHourChange}
             hoveredHour={selectedHour}
             maxHours={viewTimes.length || effectiveMaxHours}
+          />
+          <EnsembleSection
+            accuracyRecords={accuracyQuery.data ?? []}
+            selectedMetric={selectedMetric}
+            bucket={bucket}
           />
         </div>
       ) : null}

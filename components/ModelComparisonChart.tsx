@@ -69,10 +69,16 @@ export default function ModelComparisonChart({
 
   const displayTimes = times.filter(t => t instanceof Date).slice(0, maxHours)
 
+  // In WedAI mode, use ALL models for ensemble computation (ignore activeModelIds)
+  // In Models mode, use only the user-selected models
   const activeModels = useMemo(() => {
+    if (ensembleMode === 'wedai') return []  // No individual model lines in WedAI mode
     if (activeModelIds.length === 0) return []
     return models.filter(m => activeModelIds.includes(m.id))
-  }, [models, activeModelIds])
+  }, [models, activeModelIds, ensembleMode])
+
+  // All available models (used for ensemble computation in WedAI mode)
+  const allModels = useMemo(() => models.filter(m => m.id !== 'marine_global'), [models])
 
   const chartData = useMemo(() => {
     // Get ensemble weights for this metric
@@ -94,10 +100,16 @@ export default function ModelComparisonChart({
       let ensembleSum = 0
       let ensembleWeightSum = 0
 
-      for (const model of activeModels) {
+      // In WedAI mode, compute ensemble from ALL models
+      // In Models mode, compute ensemble from active models
+      const modelsForEnsemble = ensembleMode === 'wedai' ? allModels : activeModels
+
+      for (const model of modelsForEnsemble) {
         const vals = series[model.id]?.[displayMetric]
         const v = vals?.[i] ?? null
-        point[model.id] = v
+        if (ensembleMode === 'models') {
+          point[model.id] = v  // Only store individual data in Models mode
+        }
         if (v !== null) {
           if (minVal === null || v < minVal) minVal = v
           if (maxVal === null || v > maxVal) maxVal = v
@@ -117,18 +129,27 @@ export default function ModelComparisonChart({
       point.wedai = ensembleWeightSum > 0 ? ensembleSum / ensembleWeightSum : null
       return point
     })
-  }, [displayTimes, activeModels, displayMetric, series])
+  }, [displayTimes, activeModels, allModels, displayMetric, series, ensembleMode])
 
   const yDomain = useMemo<[number, number]>(() => {
     if (displayMetric === 'cloud_cover') return [0, 100]
     let minVal: number | null = null
     let maxVal: number | null = null
     for (const point of chartData) {
-      for (const model of activeModels) {
-        const v = point[model.id] as number | null
+      // Use WedAI value for domain in WedAI mode
+      if (ensembleMode === 'wedai') {
+        const v = point.wedai as number | null
         if (v !== null && v !== undefined) {
           if (minVal === null || v < minVal) minVal = v
           if (maxVal === null || v > maxVal) maxVal = v
+        }
+      } else {
+        for (const model of activeModels) {
+          const v = point[model.id] as number | null
+          if (v !== null && v !== undefined) {
+            if (minVal === null || v < minVal) minVal = v
+            if (maxVal === null || v > maxVal) maxVal = v
+          }
         }
       }
     }
@@ -139,7 +160,7 @@ export default function ModelComparisonChart({
     const yMax = maxVal + margin
     const round = displayMetric === 'temperature' ? 5 : 10
     return [Math.floor(yMin / round) * round, Math.ceil(yMax / round) * round]
-  }, [chartData, activeModels, displayMetric])
+  }, [chartData, activeModels, displayMetric, ensembleMode])
 
   const handleChartHover = useCallback((data: unknown) => {
     const d = data as { activePayload?: unknown[]; activeLabel?: number }
@@ -225,6 +246,24 @@ export default function ModelComparisonChart({
               labelFormatter={v => `+${v}h`}
               content={({ active, payload, label }) => {
                 if (!active || !payload || payload.length === 0) return null
+
+                if (ensembleMode === 'wedai') {
+                  // WedAI mode: only show WedAI value
+                  const wedaiPoint = payload.find(p => p.name === 'wedai')
+                  if (!wedaiPoint || typeof wedaiPoint.value !== 'number') return null
+                  return (
+                    <div className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 shadow-lg text-xs">
+                      <div className="font-semibold mb-1 text-gray-300">+{label}h</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ backgroundColor: '#F5811F' }} />
+                        <span className="text-gray-400">WedAI:</span>
+                        <span className="font-mono text-white">{`${wedaiPoint.value.toFixed(1)}${unit}`}</span>
+                      </div>
+                    </div>
+                  )
+                }
+
+                // Models mode: show all model values
                 const items = payload
                   .filter(p => p.name !== 'min' && p.name !== 'max' && p.name !== 'mean' && p.name !== 'Spread' && p.name !== 'wedai')
                   .map(p => ({
@@ -233,12 +272,6 @@ export default function ModelComparisonChart({
                     color: p.color as string,
                   }))
                   .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
-
-                // Add WedAI value if present
-                const wedaiPoint = payload.find(p => p.name === 'wedai')
-                if (wedaiPoint && typeof wedaiPoint.value === 'number') {
-                  items.unshift({ name: 'WedAI', value: wedaiPoint.value, color: '#F5811F' })
-                }
                 return (
                   <div className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 shadow-lg text-xs">
                     <div className="font-semibold mb-1 text-gray-300">+{label}h</div>

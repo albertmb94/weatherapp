@@ -118,14 +118,12 @@ export const BACKTEST_METRICS = ['temperature', 'wind_speed', 'precipitation'] a
 /** Lead time buckets for verification */
 export const LEAD_TIME_BUCKETS = ['0-24h', '24-48h', '48-72h', '72-96h', '96-120h', '120-168h'] as const
 
-/** Models to evaluate (subset of all models — only those with good coverage) */
+/** Models to evaluate (only those supported by Previous Runs API) */
 export const BACKTEST_MODEL_IDS = [
   'ecmwf_ifs',
   'icon_global',
   'gfs_global',
   'ecmwf_aifs025',
-  'gfs_graphcast',
-  'ncep_aigfs',
   'icon_eu',
   'meteofrance_arpege_europe',
   'gem_global',

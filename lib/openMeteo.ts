@@ -4,8 +4,9 @@ import { fetchWithTimeout } from './fetchWithTimeout'
 import { fetchMarine, computeMarineDays } from './marine'
 import { parseOpenMeteoTimes } from './dateUtils'
 import { HEATMAP_MAX_MODELS } from './heatmapConfig'
+import { selectModelsForLocation } from './regionDetection'
 
-const MAX_FORECAST_MODELS = 6
+const MAX_FORECAST_MODELS = 10
 const MAX_HEATMAP_MODELS = HEATMAP_MAX_MODELS
 
 // Open-Meteo only returns hourly `uv_index` data when the forecast horizon
@@ -60,7 +61,10 @@ export async function fetchForecast(
   includeMarine = false
 ): Promise<ForecastResult> {
   const landModels = models.filter(m => m.id !== 'marine_global')
-  const capped = capModels(landModels, MAX_FORECAST_MODELS, forecastDays)
+  // Use region-aware selection: prioritize high-res regional models for the
+  // user's location, then cap at MAX_FORECAST_MODELS.
+  const regionSelected = selectModelsForLocation(landModels, lat, lon, forecastDays)
+  const capped = regionSelected.slice(0, MAX_FORECAST_MODELS)
   const modelIds = capped.map(m => m.id).join(',')
   const hourlyList = metrics.map(m => m.hourlyParam)
   // Always fetch wind direction so insights can render a direction arrow.

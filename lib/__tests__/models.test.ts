@@ -15,6 +15,8 @@ describe('MODELS', () => {
       expect(m.maxHours).toBeGreaterThanOrEqual(0)
       // weight may be 0 for the virtual single-source 'marine_global' model.
       expect(m.weight).toBeGreaterThanOrEqual(0)
+      expect(['deterministic', 'ai', 'ensemble']).toContain(m.type)
+      expect(['global', 'europe', 'namerica', 'asia', 'oceania']).toContain(m.region)
     }
   })
 
@@ -26,6 +28,18 @@ describe('MODELS', () => {
   it('has models covering at least 240 hours (10 days)', () => {
     const maxMaxHours = Math.max(...MODELS.map(m => m.maxHours))
     expect(maxMaxHours).toBeGreaterThanOrEqual(240)
+  })
+
+  it('has at least one AI model', () => {
+    const aiModels = MODELS.filter(m => m.type === 'ai')
+    expect(aiModels.length).toBeGreaterThan(0)
+  })
+
+  it('has at least one model per region (europe, namerica, global)', () => {
+    const regions = new Set(MODELS.filter(m => m.id !== 'marine_global').map(m => m.region))
+    expect(regions).toContain('europe')
+    expect(regions).toContain('namerica')
+    expect(regions).toContain('global')
   })
 })
 

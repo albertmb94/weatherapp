@@ -31,6 +31,8 @@ interface DailySummaryProps {
   /** B-NEW-2: location's UTC offset so the "noon" card lands on the
    *  correct local hour. Required; pass 0 to fall back to UTC noon. */
   utcOffsetSeconds: number
+  /** Index in `times` of the current hour — used to skip past days. */
+  startIndex?: number
 }
 
 interface DayBucket {
@@ -77,6 +79,7 @@ export default function DailySummary({
   showMarine = false,
   showBasic = true,
   utcOffsetSeconds = 0,
+  startIndex = 0,
 }: DailySummaryProps) {
   const { locale } = useLocale()
 
@@ -107,7 +110,7 @@ export default function DailySummary({
     // = 17:00 UTC. The shift wraps around midnight cleanly.
     const localNoonUtcHour = ((12 - Math.round(utcOffsetSeconds / 3600)) % 24 + 24) % 24
 
-    for (let i = 0; i < limit; i++) {
+    for (let i = startIndex; i < limit; i++) {
       const t = times[i]
       if (!(t instanceof Date)) continue
       const dayKey = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`

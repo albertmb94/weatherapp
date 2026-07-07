@@ -1361,11 +1361,12 @@ const AdvancedSection = memo(function AdvancedSection({
             times={fullTimes}
             series={fullSeries}
             selectedHour={startIndex + selectedHour}
-            onSelectHour={onHourChange}
+            onSelectHour={(hour) => onHourChange(hour - startIndex)}
             maxHours={fullTimes.length || effectiveMaxHours}
             showMarine={marine}
             showBasic={showBasic}
             utcOffsetSeconds={fullUtc}
+            startIndex={startIndex}
           />
           <ModelSelector
             models={displayModels}

@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import type { WeatherModel, MetricId } from '@/lib/models'
-import { METRICS, ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/models'
+import { METRICS, ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket, MARINE_METRIC_IDS } from '@/lib/models'
 import {
   Line,
   XAxis,
@@ -80,8 +80,27 @@ export default function ModelComparisonChart({
   // All available models (used for ensemble computation in WedAI mode)
   const allModels = useMemo(() => models.filter(m => m.id !== 'marine_global'), [models])
 
+  const isMarineMetric = MARINE_METRIC_IDS.includes(displayMetric)
+
   const chartData = useMemo(() => {
-    // Get ensemble weights for this metric
+    // Marine metrics: show marine_global data directly (single source, no ensemble)
+    if (isMarineMetric) {
+      const marineModel = models.find(m => m.id === 'marine_global')
+      return displayTimes.map((t, i) => {
+        const point: Record<string, unknown> = { time: t, hour: i }
+        const vals = series['marine_global']?.[displayMetric]
+        const v = vals?.[i] ?? null
+        point.marine_global = v
+        point.min = v
+        point.max = v
+        point.spread = null
+        point.mean = v
+        point.wedai = v
+        return point
+      })
+    }
+
+    // Land metrics: compute ensemble weighted average for this time point
     const presetId = METRIC_TO_ENSEMBLE[displayMetric] ?? 'temperature'
     const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
 
@@ -129,15 +148,21 @@ export default function ModelComparisonChart({
       point.wedai = ensembleWeightSum > 0 ? ensembleSum / ensembleWeightSum : null
       return point
     })
-  }, [displayTimes, activeModels, allModels, displayMetric, series, ensembleMode])
+  }, [displayTimes, activeModels, allModels, displayMetric, series, ensembleMode, isMarineMetric, models])
 
   const yDomain = useMemo<[number, number]>(() => {
     if (displayMetric === 'cloud_cover') return [0, 100]
     let minVal: number | null = null
     let maxVal: number | null = null
     for (const point of chartData) {
-      // Use WedAI value for domain in WedAI mode
-      if (ensembleMode === 'wedai') {
+      if (isMarineMetric) {
+        // Marine: single source, use marine_global directly
+        const v = point.marine_global as number | null
+        if (v !== null && v !== undefined) {
+          if (minVal === null || v < minVal) minVal = v
+          if (maxVal === null || v > maxVal) maxVal = v
+        }
+      } else if (ensembleMode === 'wedai') {
         const v = point.wedai as number | null
         if (v !== null && v !== undefined) {
           if (minVal === null || v < minVal) minVal = v
@@ -160,7 +185,7 @@ export default function ModelComparisonChart({
     const yMax = maxVal + margin
     const round = displayMetric === 'temperature' ? 5 : 10
     return [Math.floor(yMin / round) * round, Math.ceil(yMax / round) * round]
-  }, [chartData, activeModels, displayMetric, ensembleMode])
+  }, [chartData, activeModels, displayMetric, ensembleMode, isMarineMetric])
 
   const handleChartHover = useCallback((data: unknown) => {
     const d = data as { activePayload?: unknown[]; activeLabel?: number }
@@ -175,8 +200,8 @@ export default function ModelComparisonChart({
     setLocalHover(null)
   }, [])
 
-  // In WedAI mode, skip the "no models" check — we always show the WedAI line
-  if (ensembleMode !== 'wedai' && activeModels.length === 0) {
+  // In WedAI mode or marine metrics, skip the "no models" check — we always show the data line
+  if (!isMarineMetric && ensembleMode !== 'wedai' && activeModels.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-40 text-gray-500">
         <svg className="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -200,7 +225,7 @@ export default function ModelComparisonChart({
     <div className="animate-fadeIn">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-gray-300">
-          {ensembleMode === 'wedai' ? 'WedAI' : 'Multi-model comparison'} — {METRICS.find(m => m.id === displayMetric)?.label}
+          {isMarineMetric ? 'Marine' : ensembleMode === 'wedai' ? 'WedAI' : 'Multi-model comparison'} — {METRICS.find(m => m.id === displayMetric)?.label}
         </h3>
         <button
           type="button"
@@ -264,6 +289,22 @@ export default function ModelComparisonChart({
                   )
                 }
 
+                if (isMarineMetric) {
+                  // Marine mode: show marine value
+                  const marinePoint = payload.find(p => p.name === 'marine_global' || p.name === 'Marine')
+                  if (!marinePoint || typeof marinePoint.value !== 'number') return null
+                  return (
+                    <div className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 shadow-lg text-xs">
+                      <div className="font-semibold mb-1 text-gray-300">+{label}h</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ backgroundColor: '#06b6d4' }} />
+                        <span className="text-gray-400">Marine:</span>
+                        <span className="font-mono text-white">{`${marinePoint.value.toFixed(1)}${unit}`}</span>
+                      </div>
+                    </div>
+                  )
+                }
+
                 // Models mode: show all model values
                 const items = payload
                   .filter(p => p.name !== 'min' && p.name !== 'max' && p.name !== 'mean' && p.name !== 'Spread' && p.name !== 'wedai')
@@ -311,6 +352,18 @@ export default function ModelComparisonChart({
                 dataKey="wedai"
                 name="WedAI"
                 stroke="#F5811F"
+                strokeWidth={2.5}
+                dot={false}
+                connectNulls={false}
+                isAnimationActive={false}
+                activeDot={{ r: 5 }}
+              />
+            ) : isMarineMetric ? (
+              <Line
+                type="monotone"
+                dataKey="marine_global"
+                name="Marine"
+                stroke="#06b6d4"
                 strokeWidth={2.5}
                 dot={false}
                 connectNulls={false}

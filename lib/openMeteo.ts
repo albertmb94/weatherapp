@@ -60,6 +60,7 @@ export async function fetchForecast(
   signal?: AbortSignal,
   includeMarine = false
 ): Promise<ForecastResult> {
+  console.log('[fetchForecast] includeMarine:', includeMarine, 'lat:', lat, 'lon:', lon, 'forecastDays:', forecastDays)
   const landModels = models.filter(m => m.id !== 'marine_global')
   // Use region-aware selection: prioritize high-res regional models for the
   // user's location, then cap at MAX_FORECAST_MODELS.

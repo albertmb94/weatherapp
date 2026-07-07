@@ -100,8 +100,10 @@ export async function fetchForecast(
   if (includeMarine) {
     const marineDays = computeMarineDays(forecastDays * 24)
     try {
+      console.log('[Marine] Fetching marine data:', { lat, lon, marineDays, forecastDays })
       const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)
       const marineLen = marine.timeStrings.length
+      console.log('[Marine] Got marine data:', { marineLen, metricsCount: Object.keys(marine.series.marine_global).length, firstTime: marine.timeStrings[0], lastTime: marine.timeStrings[marineLen - 1] })
       if (marineLen > 0) {
         series.marine_global = series.marine_global ?? {}
         // Build a lookup from land timestamp → index so we can align
@@ -110,17 +112,20 @@ export async function fetchForecast(
         for (let i = 0; i < time.length; i++) {
           landTimeIndex.set(time[i].getTime(), i)
         }
+        console.log('[Marine] Land time index size:', landTimeIndex.size, 'first land time:', time[0]?.getTime(), 'first marine time:', marine.time[0]?.getTime())
         for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
           const aligned = new Array(timeStrings.length).fill(null) as (number | null)[]
+          let matched = 0
           for (let j = 0; j < marineLen; j++) {
             const idx = landTimeIndex.get(marine.time[j].getTime())
-            if (idx !== undefined) aligned[idx] = values[j]
+            if (idx !== undefined) { aligned[idx] = values[j]; matched++ }
           }
           series.marine_global[metricId] = aligned
+          console.log('[Marine] Aligned metric:', metricId, 'matched:', matched, '/', marineLen, 'non-null in aligned:', aligned.filter(v => v !== null).length)
         }
       }
     } catch (err) {
-      console.warn('marine fetch failed', err)
+      console.warn('[Marine] fetch failed', err)
     }
   }
 

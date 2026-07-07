@@ -95,6 +95,8 @@ export async function fetchMarine(
   const wantsSst = marineMetrics.some(m => m.id === SST_METRIC_ID)
   const hourlyList = waveMetrics.map(m => m.hourlyParam)
 
+  console.log('[fetchMarine] Called with:', { lat, lon, forecastDays, marineMetricsCount: marineMetrics.length, waveMetricsCount: waveMetrics.length, wantsSst, hourlyList })
+
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lon.toString(),
@@ -108,6 +110,8 @@ export async function fetchMarine(
   if (!res.ok) throw new Error(`Marine API error: ${res.status}`)
   const data: MarineRaw = await res.json()
 
+  console.log('[fetchMarine] Response:', { status: res.status, timeCount: data.hourly?.time?.length, keys: Object.keys(data.hourly || {}).slice(0, 10) })
+
   const timeStrings = data.hourly.time
   const time = parseOpenMeteoTimes(timeStrings)
   const series: Record<string, Record<string, (number | null)[]>> = {
@@ -115,7 +119,9 @@ export async function fetchMarine(
   }
 
   for (const metric of waveMetrics) {
-    series.marine_global[metric.id] = numberArray(data.hourly[metric.hourlyParam], time.length)
+    const values = numberArray(data.hourly[metric.hourlyParam], time.length)
+    series.marine_global[metric.id] = values
+    console.log('[fetchMarine] Metric:', metric.id, 'param:', metric.hourlyParam, 'non-null:', values.filter(v => v !== null).length, '/', values.length)
   }
 
   // SST lives on a separate model; fetch it on its own and merge. A failure

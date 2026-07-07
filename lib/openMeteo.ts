@@ -102,18 +102,21 @@ export async function fetchForecast(
     try {
       const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)
       const marineLen = marine.timeStrings.length
-      if (marineLen <= timeStrings.length && marineLen > 0) {
-        // Compare the raw strings from Open-Meteo; both APIs use the same
-        // timezone when timezone=auto, so the strings should be identical.
-        const match = marine.timeStrings[0] === timeStrings[0]
-        if (match) {
-          series.marine_global = series.marine_global ?? {}
-          for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
-            const padded = marineLen === timeStrings.length
-              ? values
-              : [...values, ...new Array(timeStrings.length - marineLen).fill(null)]
-            series.marine_global[metricId] = padded
+      if (marineLen > 0) {
+        series.marine_global = series.marine_global ?? {}
+        // Build a lookup from land time string → index so we can align
+        // marine data even when the marine API starts at a different hour.
+        const landTimeIndex = new Map<string, number>()
+        for (let i = 0; i < timeStrings.length; i++) {
+          landTimeIndex.set(timeStrings[i], i)
+        }
+        for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
+          const aligned = new Array(timeStrings.length).fill(null) as (number | null)[]
+          for (let j = 0; j < marineLen; j++) {
+            const idx = landTimeIndex.get(marine.timeStrings[j])
+            if (idx !== undefined) aligned[idx] = values[j]
           }
+          series.marine_global[metricId] = aligned
         }
       }
     } catch (err) {

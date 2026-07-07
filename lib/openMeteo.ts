@@ -104,16 +104,16 @@ export async function fetchForecast(
       const marineLen = marine.timeStrings.length
       if (marineLen > 0) {
         series.marine_global = series.marine_global ?? {}
-        // Build a lookup from land time string → index so we can align
-        // marine data even when the marine API starts at a different hour.
-        const landTimeIndex = new Map<string, number>()
-        for (let i = 0; i < timeStrings.length; i++) {
-          landTimeIndex.set(timeStrings[i], i)
+        // Build a lookup from land timestamp → index so we can align
+        // marine data even when time string formats differ between APIs.
+        const landTimeIndex = new Map<number, number>()
+        for (let i = 0; i < time.length; i++) {
+          landTimeIndex.set(time[i].getTime(), i)
         }
         for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
           const aligned = new Array(timeStrings.length).fill(null) as (number | null)[]
           for (let j = 0; j < marineLen; j++) {
-            const idx = landTimeIndex.get(marine.timeStrings[j])
+            const idx = landTimeIndex.get(marine.time[j].getTime())
             if (idx !== undefined) aligned[idx] = values[j]
           }
           series.marine_global[metricId] = aligned

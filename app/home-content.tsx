@@ -331,7 +331,7 @@ export default function HomeContent() {
     }
   }, [weekDays, urlState.range, updateUrl])
 
-  const forecastDays = computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS)
+  const forecastDays = Math.min(computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS) + 2, OPEN_METEO_MAX_DAYS)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['forecast', position[0], position[1], forecastDays, marine],
@@ -976,7 +976,6 @@ export default function HomeContent() {
                   onBucketChange={handleBucketChange}
                   ensembleMode={ensembleMode}
                   onEnsembleModeChange={handleEnsembleModeChange}
-                  weekDays={weekDays}
                 />
               )}
 
@@ -1253,7 +1252,6 @@ const AdvancedSection = memo(function AdvancedSection({
   onBucketChange,
   ensembleMode,
   onEnsembleModeChange,
-  weekDays,
 }: {
   expanded: boolean
   onToggle: () => void
@@ -1274,7 +1272,6 @@ const AdvancedSection = memo(function AdvancedSection({
   onBucketChange: (b: BucketHours) => void
   ensembleMode: 'wedai' | 'models'
   onEnsembleModeChange: (mode: 'wedai' | 'models') => void
-  weekDays: 7 | 14
 }) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -1348,7 +1345,7 @@ const AdvancedSection = memo(function AdvancedSection({
             series={viewSeries}
             selectedHour={selectedHour}
             onSelectHour={onHourChange}
-            maxHours={Math.min(viewTimes.length, weekDays * 24)}
+            maxHours={viewTimes.length || effectiveMaxHours}
             showMarine={marine}
             showBasic={showBasic}
             utcOffsetSeconds={viewUtc}

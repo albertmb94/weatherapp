@@ -772,19 +772,22 @@ export default function HomeContent() {
                 the main column. The metric pills are NOT rendered here — they
                 live next to the Map view (which is what they drive). */}
             <div className="hidden md:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border px-4 lg:px-6 py-3">
-              <div className="relative">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-                </svg>
-                <CitySearch onSelect={handleCitySelect} />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+                  </svg>
+                  <CitySearch onSelect={handleCitySelect} />
+                </div>
+                <RefreshButton />
               </div>
             </div>
 
@@ -967,6 +970,8 @@ export default function HomeContent() {
                   selectedModels={selectedModels}
                   selectedHour={selectedHour}
                   viewData={viewData}
+                  fullData={effectiveData}
+                  startIndex={startIndex}
                   effectiveMaxHours={effectiveMaxHours}
                   bucket={bucket}
                   marine={marine}
@@ -1243,6 +1248,8 @@ const AdvancedSection = memo(function AdvancedSection({
   selectedModels,
   selectedHour,
   viewData,
+  fullData,
+  startIndex,
   effectiveMaxHours,
   bucket,
   marine,
@@ -1263,6 +1270,8 @@ const AdvancedSection = memo(function AdvancedSection({
   selectedModels: string[]
   selectedHour: number
   viewData: ReturnType<typeof sliceForecast> | NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
+  fullData: NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
+  startIndex: number
   effectiveMaxHours: number
   bucket: BucketHours
   marine: boolean
@@ -1282,6 +1291,11 @@ const AdvancedSection = memo(function AdvancedSection({
   const viewTimes = viewData?.time ?? []
   const viewSeries = viewData?.series ?? {}
   const viewUtc = viewData?.utcOffsetSeconds ?? 0
+  // Use full (untrimmed) data for DailySummary so it can show all 14 days
+  // from the start of the forecast, not just from the current hour.
+  const fullTimes = fullData?.time ?? []
+  const fullSeries = fullData?.series ?? {}
+  const fullUtc = fullData?.utcOffsetSeconds ?? 0
 
   return (
     <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
@@ -1344,14 +1358,14 @@ const AdvancedSection = memo(function AdvancedSection({
           <DailySummary
             models={displayModels}
             activeModelIds={displayActiveModelIds}
-            times={viewTimes}
-            series={viewSeries}
-            selectedHour={selectedHour}
+            times={fullTimes}
+            series={fullSeries}
+            selectedHour={startIndex + selectedHour}
             onSelectHour={onHourChange}
-            maxHours={viewTimes.length || effectiveMaxHours}
+            maxHours={fullTimes.length || effectiveMaxHours}
             showMarine={marine}
             showBasic={showBasic}
-            utcOffsetSeconds={viewUtc}
+            utcOffsetSeconds={fullUtc}
           />
           <ModelSelector
             models={displayModels}

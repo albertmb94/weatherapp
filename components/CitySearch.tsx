@@ -25,6 +25,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   const [isOpen, setIsOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const justSelectedRef = useRef(false)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -68,9 +69,10 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
 
   // B6: open the dropdown as a side-effect of `results` changing (not of
   // the queryFn running). This way cached results also open the
-  // dropdown when the user focuses the input.
+  // dropdown when the user focuses the input. Skip if the user just
+  // selected a city to prevent the dropdown from reopening immediately.
   useEffect(() => {
-    if (results.length > 0) {
+    if (results.length > 0 && !justSelectedRef.current) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsOpen(true)
     }
@@ -85,9 +87,13 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   }
 
   function handleSelect(r: GeocodeResult) {
+    justSelectedRef.current = true
     setQuery(r.name)
+    setDebouncedQuery('')
     setIsOpen(false)
     onSelect(r.name, r.latitude, r.longitude)
+    // Reset the flag after a short delay so subsequent typing re-enables the dropdown
+    setTimeout(() => { justSelectedRef.current = false }, 500)
   }
 
   return (

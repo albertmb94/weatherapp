@@ -51,7 +51,7 @@ async function fetchSeaSurfaceTemperature(
     longitude: lon.toString(),
     hourly: SST_METRIC_ID,
     cell_selection: 'sea',
-    past_days: '1',
+    past_days: '3',
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
   })
@@ -101,7 +101,7 @@ export async function fetchMarine(
     latitude: lat.toString(),
     longitude: lon.toString(),
     hourly: hourlyList.join(','),
-    past_days: '1',
+    past_days: '3',
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
   })

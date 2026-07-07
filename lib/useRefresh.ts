@@ -53,6 +53,7 @@ export function useRefresh(): UseRefreshResult {
       queryClient.invalidateQueries({ queryKey: ['meteocat-stations'] })
       queryClient.invalidateQueries({ queryKey: ['meteoclimatic'] })
       queryClient.invalidateQueries({ queryKey: ['meteoclimatic-coord'] })
+      queryClient.invalidateQueries({ queryKey: ['geocode'] })
 
       // onSuccess is invoked from the mutation runtime, not from a render
       // or effect, so the `react-hooks/set-state-in-effect` lint rule does

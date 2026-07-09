@@ -331,13 +331,9 @@ export default function HomeContent() {
     }
   }, [weekDays, urlState.range, updateUrl])
 
-  // Ensure the fetch covers at least `weekDays` days so DailySummary has
-  // enough data even when the user switches from 7 to 14 days before the
-  // range slider catches up.
-  const forecastDays = Math.min(
-    Math.max(weekDays, computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS)) + 2,
-    OPEN_METEO_MAX_DAYS
-  )
+  // Always fetch the maximum days so DailySummary always has enough data
+  // for 14 days regardless of range / weekDays state or past_days offset.
+  const forecastDays = OPEN_METEO_MAX_DAYS
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['forecast', position[0], position[1], forecastDays, marine],

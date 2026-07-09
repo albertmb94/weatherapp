@@ -101,6 +101,7 @@ export async function fetchMarine(
     latitude: lat.toString(),
     longitude: lon.toString(),
     hourly: hourlyList.join(','),
+    cell_selection: 'sea',
     past_days: '3',
     forecast_days: forecastDays.toString(),
     timezone: 'auto',

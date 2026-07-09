@@ -1393,6 +1393,7 @@ const AdvancedSection = memo(function AdvancedSection({
             fullTimes={fullTimes}
             fullSeries={fullSeries}
             startIndex={startIndex}
+            weekDays={weekDays}
             bucket={bucket}
             onBucketChange={onBucketChange}
             selectedHour={selectedHour}

@@ -29,6 +29,8 @@ interface InsightsTableProps {
   fullSeries?: Record<string, Record<string, (number | null)[]>>
   /** Index in fullTimes of the current hour (used as iteration start for bucket=24). */
   startIndex?: number
+  /** Number of days to show for bucket=24 (default 14). */
+  weekDays?: 7 | 14
   showMarine?: boolean
   onMarineToggle?: () => void
   showBasic?: boolean
@@ -317,6 +319,7 @@ export default function InsightsTable({
   fullTimes,
   fullSeries,
   startIndex = 0,
+  weekDays = 14,
 }: InsightsTableProps) {
   const { locale } = useLocale()
 
@@ -441,7 +444,8 @@ export default function InsightsTable({
       let currentKey = ''
       // Start from the current hour (startIndex) so we show today onward,
       // but the per-bucket scan (dayStart) can still go back to 00:00.
-      const dayLimit = Math.min(effectiveTimes.length, startIndex + maxHours)
+      // Cap at weekDays * 24 so the table shows exactly 14 (or 7) days.
+      const dayLimit = Math.min(effectiveTimes.length, startIndex + maxHours, startIndex + weekDays * 24)
       for (let i = startIndex; i < dayLimit; i++) {
         const t = effectiveTimes[i]
         if (!(t instanceof Date)) continue
@@ -650,7 +654,7 @@ export default function InsightsTable({
     }
 
     return buckets
-  }, [activeModels, effectiveTimes, effectiveSeries, bucket, maxHours, locale, utcOffsetSeconds])
+  }, [activeModels, effectiveTimes, effectiveSeries, bucket, maxHours, locale, utcOffsetSeconds, startIndex, weekDays])
 
   const marineColIds = useMemo(
     () => new Set<MetricCellId>([

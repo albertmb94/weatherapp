@@ -398,15 +398,13 @@ export default function InsightsTable({
     [columnOrder]
   )
 
-  // For bucket=24 use the full (untrimmed) arrays so min/max scans from 00:00.
-  const effectiveTimes = bucket === 24 && fullTimes?.length ? fullTimes : times
-  const effectiveSeries = bucket === 24 && fullSeries ? fullSeries : series
-
   const rows = useMemo<Row[]>(() => {
-    if (activeModels.length === 0 || effectiveTimes.length === 0) return []
-    const localSeries = effectiveSeries
+    // For bucket=24 use the full (untrimmed) arrays so min/max scans from 00:00.
+    const tt = bucket === 24 && fullTimes?.length ? fullTimes : times
+    const s = bucket === 24 && fullSeries ? fullSeries : series
+    if (activeModels.length === 0 || tt.length === 0) return []
     const effectiveMaxHours = (bucket === 1 || bucket === 2) ? Math.min(maxHours, 120) : maxHours
-    const limit = Math.min(effectiveTimes.length, effectiveMaxHours)
+    const limit = Math.min(tt.length, effectiveMaxHours)
 
     // Build per-metric, per-hour weight arrays.
     // WedAI mode: use ensemble presets (per-metric, per-horizon weights)
@@ -444,14 +442,14 @@ export default function InsightsTable({
       let currentKey = ''
       // Iterate from startIndex until we have weekDays buckets or run out of data.
       // Each bucket's startIdx scans back to 00:00 for correct min/max.
-      for (let i = startIndex; i < effectiveTimes.length && buckets.length < weekDays; i++) {
-        const t = effectiveTimes[i]
+      for (let i = startIndex; i < tt.length && buckets.length < weekDays; i++) {
+        const t = tt[i]
         if (!(t instanceof Date)) continue
         const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
         if (!current || key !== currentKey) {
           let dayStart = i
           while (dayStart > 0) {
-            const prev = effectiveTimes[dayStart - 1]
+            const prev = tt[dayStart - 1]
             if (!(prev instanceof Date)) break
             const prevKey = `${prev.getUTCFullYear()}-${prev.getUTCMonth()}-${prev.getUTCDate()}`
             if (prevKey !== key) break
@@ -519,7 +517,7 @@ export default function InsightsTable({
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         // Use per-metric, per-hour weights for proper ensemble selection
         const tWeights = getWeightsForMetricAndHour('temperature', i)
-        const tVals = activeModels.map(m => effectiveSeries[m.id]?.['temperature']?.[i] ?? null)
+        const tVals = activeModels.map(m => s[m.id]?.['temperature']?.[i] ?? null)
         const tEns = weightedAvg(tVals, tWeights)
         if (tEns !== null) {
           tSum += tEns
@@ -561,7 +559,7 @@ export default function InsightsTable({
         if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
         const visWeights = getWeightsForMetricAndHour('visibility', i)
         const visVals = activeModels.map(m => {
-          const v = localSeries[m.id]?.['visibility']?.[i]
+          const v = s[m.id]?.['visibility']?.[i]
           return v !== null && v !== undefined ? v / 1000 : null
         })
         const visEns = weightedAvg(visVals, visWeights)
@@ -569,7 +567,7 @@ export default function InsightsTable({
         const dirWeights = getWeightsForMetricAndHour('wind_direction', i)
         let hCos = 0, hSin = 0, hW = 0
         for (let j = 0; j < activeModels.length; j++) {
-          const d = localSeries[activeModels[j].id]?.['wind_direction']?.[i]
+          const d = s[activeModels[j].id]?.['wind_direction']?.[i]
           if (d === null || d === undefined) continue
           const rad = (d * Math.PI) / 180
           hCos += Math.cos(rad) * dirWeights[j]
@@ -583,7 +581,7 @@ export default function InsightsTable({
         }
 
         // Marine aggregates (single-source from marine_global, no ensemble).
-        const mSeries = localSeries['marine_global']
+        const mSeries = s['marine_global']
         if (mSeries) {
           const sst = mSeries['sea_surface_temperature']?.[i] ?? null
           const wh = mSeries['wave_height']?.[i] ?? null
@@ -650,7 +648,7 @@ export default function InsightsTable({
     }
 
     return buckets
-  }, [activeModels, effectiveTimes, effectiveSeries, bucket, maxHours, locale, utcOffsetSeconds, startIndex, weekDays])
+  }, [activeModels, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, weekDays])
 
   const marineColIds = useMemo(
     () => new Set<MetricCellId>([

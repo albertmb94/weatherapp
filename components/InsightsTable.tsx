@@ -513,6 +513,12 @@ export default function InsightsTable({
     // Truncate buckets to weekDays so we don't exceed 14 (or 7) days.
     if (buckets.length > weekDays) buckets.splice(weekDays)
 
+    // Remove the last bucket if it has no hours (endIdx < startIdx) — this
+    // happens when dayLimit falls exactly on midnight of the last day.
+    while (buckets.length > 0 && buckets[buckets.length - 1].endIdx < buckets[buckets.length - 1].startIdx) {
+      buckets.pop()
+    }
+
     for (const b of buckets) {
       let tSum = 0, tCount = 0
       let cSum = 0, cCount = 0

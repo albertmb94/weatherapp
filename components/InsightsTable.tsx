@@ -445,7 +445,9 @@ export default function InsightsTable({
       // horizon). The first date is the day of startIndex.
       const startDate = tt[startIndex]
       // Iterate from startIndex until we have weekDays buckets or run out of data.
-      for (let i = startIndex; i < tt.length && buckets.length < weekDays; i++) {
+      const rem = startIndex % 24
+      const toMidnight = rem === 0 ? 24 : 24 - rem
+      for (let i = startIndex; i < Math.min(tt.length, startIndex + toMidnight + (weekDays - 1) * 24) && buckets.length < weekDays; i++) {
         // Detect day boundary by offset: each 24 indices = one day forward.
         const offset = i - startIndex
         const dayKey = startDate instanceof Date

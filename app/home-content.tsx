@@ -810,10 +810,10 @@ export default function HomeContent() {
                   cityIsLoading={isLoading && !viewData}
                   models={displayModels}
                   activeIds={displayActiveModelIds}
-                  time={viewData?.time ?? []}
-                  series={viewData?.series ?? {}}
-                  nowIndex={selectedHour}
-                  utcOffsetSeconds={viewData?.utcOffsetSeconds ?? 0}
+                  time={effectiveData?.time ?? []}
+                  series={effectiveData?.series ?? {}}
+                  nowIndex={startIndex + selectedHour}
+                  utcOffsetSeconds={effectiveData?.utcOffsetSeconds ?? 0}
                 />
               )}
 

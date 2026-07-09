@@ -331,7 +331,13 @@ export default function HomeContent() {
     }
   }, [weekDays, urlState.range, updateUrl])
 
-  const forecastDays = Math.min(computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS) + 2, OPEN_METEO_MAX_DAYS)
+  // Ensure the fetch covers at least `weekDays` days so DailySummary has
+  // enough data even when the user switches from 7 to 14 days before the
+  // range slider catches up.
+  const forecastDays = Math.min(
+    Math.max(weekDays, computeForecastDays(selectedRange, OPEN_METEO_MAX_DAYS)) + 2,
+    OPEN_METEO_MAX_DAYS
+  )
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['forecast', position[0], position[1], forecastDays, marine],
@@ -1365,7 +1371,15 @@ const AdvancedSection = memo(function AdvancedSection({
             series={fullSeries}
             selectedHour={startIndex + selectedHour}
             onSelectHour={(hour) => onHourChange(hour - startIndex)}
-            maxHours={Math.min(fullTimes.length, startIndex + weekDays * 24)}
+            // Show exactly `weekDays` calendar days: remainder of the
+            // current day + (weekDays - 1) full days. When startIndex falls
+            // on midnight we count the full current day (24 h). Any indices
+            // past the array are naturally dropped by DailySummary.
+            maxHours={(() => {
+              const rem = startIndex % 24
+              const toMidnight = rem === 0 ? 24 : 24 - rem
+              return Math.min(fullTimes.length, startIndex + toMidnight + (weekDays - 1) * 24)
+            })()}
             showMarine={marine}
             showBasic={showBasic}
             utcOffsetSeconds={fullUtc}

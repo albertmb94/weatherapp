@@ -30,7 +30,6 @@ export const MODELS: WeatherModel[] = [
   { id: 'meteofrance_arome_france', label: 'AROME-FR2 2.5km', color: '#42d4f4', maxHours: 96, weight: 8, type: 'deterministic', region: 'europe', resolution: 2 },
   { id: 'meteofrance_arpege_europe', label: 'ARPEGE-EU 10km', color: '#bfef45', maxHours: 96, weight: 14, type: 'deterministic', region: 'europe', resolution: 10 },
   { id: 'dwd_icon_d2', label: 'ICON-D2 2km', color: '#FABED4', maxHours: 48, weight: 14, type: 'deterministic', region: 'europe', resolution: 2 },
-  { id: 'met_nordic', label: 'MET Nordic 1km', color: '#DCBEFF', maxHours: 60, weight: 10, type: 'deterministic', region: 'europe', resolution: 1 },
 
   // === N. America regional ===
   { id: 'ncep_hrrr_conus', label: 'HRRR 3km', color: '#9A6324', maxHours: 48, weight: 16, type: 'deterministic', region: 'namerica', resolution: 3 },

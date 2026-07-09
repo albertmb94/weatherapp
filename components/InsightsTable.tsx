@@ -440,23 +440,33 @@ export default function InsightsTable({
     if (bucket === 24) {
       let current: Row | null = null
       let currentKey = ''
+      // Derive the day key from startIndex's offset so we can detect day
+      // boundaries even when tt[i] is null/undefined (past the forecast
+      // horizon). The first date is the day of startIndex.
+      const startDate = tt[startIndex]
       // Iterate from startIndex until we have weekDays buckets or run out of data.
-      // Each bucket's startIdx scans back to 00:00 for correct min/max.
       for (let i = startIndex; i < tt.length && buckets.length < weekDays; i++) {
-        const t = tt[i]
-        if (!(t instanceof Date)) continue
-        const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
-        if (!current || key !== currentKey) {
+        // Detect day boundary by offset: each 24 indices = one day forward.
+        const offset = i - startIndex
+        const dayKey = startDate instanceof Date
+          ? `${startDate.getUTCFullYear()}-${startDate.getUTCMonth()}-${startDate.getUTCDate() + Math.floor(offset / 24)}`
+          : ''
+        if (!current || dayKey !== currentKey) {
+          // Scan backwards to 00:00 of this day so min/max captures
+          // morning temperatures. Only scan if the back-index exists.
           let dayStart = i
-          while (dayStart > 0) {
+          while (dayStart > startIndex) {
             const prev = tt[dayStart - 1]
             if (!(prev instanceof Date)) break
             const prevKey = `${prev.getUTCFullYear()}-${prev.getUTCMonth()}-${prev.getUTCDate()}`
-            if (prevKey !== key) break
+            if (prevKey !== dayKey) break
             dayStart--
           }
+          const labelT = tt[i] ?? tt[dayStart] ?? tt[startIndex]
           current = {
-            label: bucketLabel(t, t, bucket, locale, utcOffsetSeconds),
+            label: labelT instanceof Date
+              ? bucketLabel(labelT, labelT, bucket, locale, utcOffsetSeconds)
+              : dayKey,
             startIdx: dayStart,
             endIdx: i,
             centerIdx: i,
@@ -467,11 +477,13 @@ export default function InsightsTable({
             ...emptyMarine,
             icon: 'sunny',
           }
-          currentKey = key
+          currentKey = dayKey
           buckets.push(current)
         }
-        current.endIdx = i
-        if (t.getUTCHours() === 12) current.centerIdx = i
+        if (tt[i] instanceof Date) {
+          current.endIdx = i
+          if ((tt[i] as Date).getUTCHours() === 12) current.centerIdx = i
+        }
       }
     } else {
       while (cursor < limit) {

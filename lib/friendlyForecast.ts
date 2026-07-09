@@ -348,7 +348,17 @@ export function computeWeekSummaries(
     if (!(t instanceof Date)) continue
     const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
     if (!current || current.key !== key) {
-      current = { key, dayIdx: t.getUTCDay(), start: i, end: i }
+      // Scan backwards to 00:00 of this day so high/low captures
+      // morning temperatures for the first day.
+      let dayStart = i
+      while (dayStart > 0) {
+        const prev = bag.time[dayStart - 1]
+        if (!(prev instanceof Date)) break
+        const prevKey = `${prev.getUTCFullYear()}-${prev.getUTCMonth()}-${prev.getUTCDate()}`
+        if (prevKey !== key) break
+        dayStart--
+      }
+      current = { key, dayIdx: t.getUTCDay(), start: dayStart, end: i }
       buckets.push(current)
     } else {
       current.end = i

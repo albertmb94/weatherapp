@@ -442,21 +442,13 @@ export default function InsightsTable({
     if (bucket === 24) {
       let current: Row | null = null
       let currentKey = ''
-      // Start from the current hour (startIndex) so we show today onward,
-      // but the per-bucket scan (dayStart) can still go back to 00:00.
-      // Cap at weekDays * 24 so the table shows exactly 14 (or 7) days.
-      // Same logic as DailySummary: show remainder of today + (weekDays-1) full days.
-      const rem = startIndex % 24
-      const toMidnight = rem === 0 ? 24 : 24 - rem
-      const dayLimit = Math.min(effectiveTimes.length, startIndex + toMidnight + (weekDays - 1) * 24)
-      if (dayLimit <= startIndex) return []
-      for (let i = startIndex; i < dayLimit; i++) {
+      // Iterate from startIndex until we have weekDays buckets or run out of data.
+      // Each bucket's startIdx scans back to 00:00 for correct min/max.
+      for (let i = startIndex; i < effectiveTimes.length && buckets.length < weekDays; i++) {
         const t = effectiveTimes[i]
         if (!(t instanceof Date)) continue
         const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
         if (!current || key !== currentKey) {
-          // Scan backwards to 00:00 of this day so min/max captures
-          // morning temperatures, not just from the current hour.
           let dayStart = i
           while (dayStart > 0) {
             const prev = effectiveTimes[dayStart - 1]
@@ -508,15 +500,6 @@ export default function InsightsTable({
         })
         cursor = end + 1
       }
-    }
-
-    // Truncate buckets to weekDays so we don't exceed 14 (or 7) days.
-    if (buckets.length > weekDays) buckets.splice(weekDays)
-
-    // Remove the last bucket if it has no hours (endIdx < startIdx) — this
-    // happens when dayLimit falls exactly on midnight of the last day.
-    while (buckets.length > 0 && buckets[buckets.length - 1].endIdx < buckets[buckets.length - 1].startIdx) {
-      buckets.pop()
     }
 
     for (const b of buckets) {

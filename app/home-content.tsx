@@ -337,10 +337,7 @@ export default function HomeContent() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['forecast', position[0], position[1], forecastDays, marine],
-    queryFn: ({ signal }) => {
-      console.log('[Query] fetchForecast called with marine=', marine, 'forecastDays=', forecastDays)
-      return fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine)
-    },
+    queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine),
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     // F-5: keep the previous forecast on screen while a new fetch is in

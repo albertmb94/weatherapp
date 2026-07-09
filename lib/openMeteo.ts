@@ -60,7 +60,6 @@ export async function fetchForecast(
   signal?: AbortSignal,
   includeMarine = false
 ): Promise<ForecastResult> {
-  console.log('[fetchForecast] includeMarine:', includeMarine, 'lat:', lat, 'lon:', lon, 'forecastDays:', forecastDays)
   const landModels = models.filter(m => m.id !== 'marine_global')
   // Use region-aware selection: prioritize high-res regional models for the
   // user's location, then cap at MAX_FORECAST_MODELS.
@@ -104,10 +103,8 @@ export async function fetchForecast(
   {
     const marineDays = computeMarineDays(forecastDays * 24)
     try {
-      console.log('[Marine] Fetching marine data:', { lat, lon, marineDays, forecastDays })
       const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)
       const marineLen = marine.timeStrings.length
-      console.log('[Marine] Got marine data:', { marineLen, metricsCount: Object.keys(marine.series.marine_global).length, firstTime: marine.timeStrings[0], lastTime: marine.timeStrings[marineLen - 1] })
       if (marineLen > 0) {
         series.marine_global = series.marine_global ?? {}
         // Align marine data by canonical hour key so it works even when

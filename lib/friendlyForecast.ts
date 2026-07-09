@@ -155,7 +155,16 @@ export function computeCurrentSnapshot(
   const t = bag.time[hourIndex]
   if (t instanceof Date) {
     const dayKey = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
-    for (let i = hourIndex; i < bag.time.length; i++) {
+    // Scan the full day from start (00:00) to end (23:59) so the daily
+    // high/low reflects morning temperatures too, not just from hourIndex.
+    let dayStart = hourIndex
+    while (dayStart > 0) {
+      const prev = bag.time[dayStart - 1]
+      if (!(prev instanceof Date)) break
+      if (`${prev.getUTCFullYear()}-${prev.getUTCMonth()}-${prev.getUTCDate()}` !== dayKey) break
+      dayStart--
+    }
+    for (let i = dayStart; i < bag.time.length; i++) {
       const ti = bag.time[i]
       if (!(ti instanceof Date)) continue
       if (`${ti.getUTCFullYear()}-${ti.getUTCMonth()}-${ti.getUTCDate()}` !== dayKey) break

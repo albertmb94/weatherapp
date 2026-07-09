@@ -115,10 +115,20 @@ export default function DailySummary({
       if (!(t instanceof Date)) continue
       const dayKey = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
       if (!current || current.fullDate !== dayKey) {
+        // Scan backwards to find 00:00 of this day so the first bucket
+        // captures temperatures from midnight, not just from startIndex.
+        let dayStart = i
+        while (dayStart > 0) {
+          const prev = times[dayStart - 1]
+          if (!(prev instanceof Date)) break
+          const prevKey = `${prev.getUTCFullYear()}-${prev.getUTCMonth()}-${prev.getUTCDate()}`
+          if (prevKey !== dayKey) break
+          dayStart--
+        }
         current = {
           label: `${DAY_NAMES[locale][t.getUTCDay()]} ${t.getUTCDate()}`,
           fullDate: dayKey,
-          startIndex: i,
+          startIndex: dayStart,
           endIndex: i,
           noonIndex: i,
           tMin: null,

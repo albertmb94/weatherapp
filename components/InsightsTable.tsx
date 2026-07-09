@@ -27,6 +27,8 @@ interface InsightsTableProps {
   /** Full (untrimmed) time/series for bucket=24 to scan back to 00:00. */
   fullTimes?: Date[]
   fullSeries?: Record<string, Record<string, (number | null)[]>>
+  /** Index in fullTimes of the current hour (used as iteration start for bucket=24). */
+  startIndex?: number
   showMarine?: boolean
   onMarineToggle?: () => void
   showBasic?: boolean
@@ -314,6 +316,7 @@ export default function InsightsTable({
   ensembleMode = 'models',
   fullTimes,
   fullSeries,
+  startIndex = 0,
 }: InsightsTableProps) {
   const { locale } = useLocale()
 
@@ -436,7 +439,10 @@ export default function InsightsTable({
     if (bucket === 24) {
       let current: Row | null = null
       let currentKey = ''
-      for (let i = 0; i < limit; i++) {
+      // Start from the current hour (startIndex) so we show today onward,
+      // but the per-bucket scan (dayStart) can still go back to 00:00.
+      const dayLimit = Math.min(effectiveTimes.length, startIndex + maxHours)
+      for (let i = startIndex; i < dayLimit; i++) {
         const t = effectiveTimes[i]
         if (!(t instanceof Date)) continue
         const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`

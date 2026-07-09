@@ -275,7 +275,23 @@ export function computeHourlySlots(
   }
   if (startIdx === -1) return out
 
-  for (let i = 0; i < count; i++) {
+  // Slot 0: "Ahora" uses the exact current temperature at nowIndex.
+  const nowTdata = bag.time[nowIndex]
+  const nowTemp = meanAcrossModels(bag, 'temperature', nowIndex, models, activeIds)
+  const nowPrecip = meanAcrossModels(bag, 'precipitation', nowIndex, models, activeIds)
+  const nowCloud = meanAcrossModels(bag, 'cloud_cover', nowIndex, models, activeIds)
+  const nowGusts = meanAcrossModels(bag, 'wind_gusts', nowIndex, models, activeIds)
+  const nowIcon = pickWeatherIcon({
+    cloudCoverPct: nowCloud, precipitationMmDay: nowPrecip,
+    windGustsKmh: nowGusts, minTempC: nowTemp,
+  })
+  out.push({
+    index: nowIndex, hourLabel: isViewingToday ? (locale === 'en' ? 'Now' : 'Ahora') : formatBlockLabel(nowT instanceof Date ? nowT.getUTCHours() : 0, locale),
+    icon: nowIcon, tempC: nowTemp, precipMm: nowPrecip, isPast: false,
+  })
+
+  // Slots 1…count-1: 4-hour blocks anchored at blockStartHour.
+  for (let i = 1; i < count; i++) {
     const idx = startIdx + i * intervalHours
     if (idx >= bag.time.length) break
     const t = bag.time[idx]
@@ -287,21 +303,12 @@ export function computeHourlySlots(
     const gusts = meanAcrossModels(bag, 'wind_gusts', idx, models, activeIds)
 
     const icon = pickWeatherIcon({
-      cloudCoverPct: cloud,
-      precipitationMmDay: precip,
-      windGustsKmh: gusts,
-      minTempC: temp,
+      cloudCoverPct: cloud, precipitationMmDay: precip,
+      windGustsKmh: gusts, minTempC: temp,
     })
 
-    let hourLabel: string
-    if (i === 0 && isViewingToday) {
-      hourLabel = locale === 'en' ? 'Now' : 'Ahora'
-    } else {
-      hourLabel = formatBlockLabel(t.getUTCHours(), locale)
-    }
-
     const isPast = isViewingToday && idx < nowIndex
-    out.push({ index: idx, hourLabel, icon, tempC: temp, precipMm: precip, isPast })
+    out.push({ index: idx, hourLabel: formatBlockLabel(t.getUTCHours(), locale), icon, tempC: temp, precipMm: precip, isPast })
   }
 
   return out

@@ -67,7 +67,9 @@ export async function fetchForecast(
   const regionSelected = selectModelsForLocation(landModels, lat, lon, forecastDays)
   const capped = regionSelected.slice(0, MAX_FORECAST_MODELS)
   const modelIds = capped.map(m => m.id).join(',')
-  const hourlyList = metrics.map(m => m.hourlyParam)
+  // Only send land metrics to the forecast API. Marine metrics are
+  // fetched separately via fetchMarine and merged in later.
+  const hourlyList = metrics.filter(m => m.group === 'land').map(m => m.hourlyParam)
   // Always fetch wind direction so insights can render a direction arrow.
   if (!hourlyList.includes('wind_direction_10m')) hourlyList.push('wind_direction_10m')
 

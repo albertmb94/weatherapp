@@ -507,6 +507,9 @@ export default function InsightsTable({
       }
     }
 
+    // Truncate buckets to weekDays so we don't exceed 14 (or 7) days.
+    if (buckets.length > weekDays) buckets.splice(weekDays)
+
     for (const b of buckets) {
       let tSum = 0, tCount = 0
       let cSum = 0, cCount = 0

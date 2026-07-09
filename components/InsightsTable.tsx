@@ -445,7 +445,8 @@ export default function InsightsTable({
       // Start from the current hour (startIndex) so we show today onward,
       // but the per-bucket scan (dayStart) can still go back to 00:00.
       // Cap at weekDays * 24 so the table shows exactly 14 (or 7) days.
-      const dayLimit = Math.min(effectiveTimes.length, startIndex + maxHours, startIndex + weekDays * 24)
+      const dayLimit = Math.min(effectiveTimes.length, startIndex + weekDays * 24)
+      if (dayLimit <= startIndex) return []
       for (let i = startIndex; i < dayLimit; i++) {
         const t = effectiveTimes[i]
         if (!(t instanceof Date)) continue

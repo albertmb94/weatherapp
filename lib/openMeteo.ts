@@ -108,22 +108,20 @@ export async function fetchForecast(
       console.log('[Marine] Got marine data:', { marineLen, metricsCount: Object.keys(marine.series.marine_global).length, firstTime: marine.timeStrings[0], lastTime: marine.timeStrings[marineLen - 1] })
       if (marineLen > 0) {
         series.marine_global = series.marine_global ?? {}
-        // Build a lookup from land timestamp → index so we can align
-        // marine data even when time string formats differ between APIs.
-        const landTimeIndex = new Map<number, number>()
-        for (let i = 0; i < time.length; i++) {
-          landTimeIndex.set(time[i].getTime(), i)
+        // Build a lookup from land time string → index so we can align
+        // marine data by ISO string — more robust than comparing numeric
+        // timestamps, which can differ by milliseconds between APIs.
+        const landTimeIndex = new Map<string, number>()
+        for (let i = 0; i < timeStrings.length; i++) {
+          landTimeIndex.set(timeStrings[i], i)
         }
-        console.log('[Marine] Land time index size:', landTimeIndex.size, 'first land time:', time[0]?.getTime(), 'first marine time:', marine.time[0]?.getTime())
         for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
           const aligned = new Array(timeStrings.length).fill(null) as (number | null)[]
-          let matched = 0
           for (let j = 0; j < marineLen; j++) {
-            const idx = landTimeIndex.get(marine.time[j].getTime())
-            if (idx !== undefined) { aligned[idx] = values[j]; matched++ }
+            const idx = landTimeIndex.get(marine.timeStrings[j])
+            if (idx !== undefined) aligned[idx] = values[j]
           }
           series.marine_global[metricId] = aligned
-          console.log('[Marine] Aligned metric:', metricId, 'matched:', matched, '/', marineLen, 'non-null in aligned:', aligned.filter(v => v !== null).length)
         }
       }
     } catch (err) {

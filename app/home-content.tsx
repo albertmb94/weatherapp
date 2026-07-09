@@ -984,6 +984,7 @@ export default function HomeContent() {
                   onBucketChange={handleBucketChange}
                   ensembleMode={ensembleMode}
                   onEnsembleModeChange={handleEnsembleModeChange}
+                  weekDays={weekDays}
                 />
               )}
 
@@ -1262,6 +1263,7 @@ const AdvancedSection = memo(function AdvancedSection({
   onBucketChange,
   ensembleMode,
   onEnsembleModeChange,
+  weekDays,
 }: {
   expanded: boolean
   onToggle: () => void
@@ -1284,6 +1286,7 @@ const AdvancedSection = memo(function AdvancedSection({
   onBucketChange: (b: BucketHours) => void
   ensembleMode: 'wedai' | 'models'
   onEnsembleModeChange: (mode: 'wedai' | 'models') => void
+  weekDays: 7 | 14
 }) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -1362,7 +1365,7 @@ const AdvancedSection = memo(function AdvancedSection({
             series={fullSeries}
             selectedHour={startIndex + selectedHour}
             onSelectHour={(hour) => onHourChange(hour - startIndex)}
-            maxHours={fullTimes.length || effectiveMaxHours}
+            maxHours={Math.min(fullTimes.length, startIndex + weekDays * 24)}
             showMarine={marine}
             showBasic={showBasic}
             utcOffsetSeconds={fullUtc}

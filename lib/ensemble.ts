@@ -6,7 +6,7 @@
  * @param weights - Array of static weights (same length as values)
  * @param dynamicWeights - Optional map of model_id -> dynamic weight.
  *   When provided, overrides static weights for matching models.
- * @param modelIds - Optional array of model IDs corresponding to each value.
+ * @param modelIds - Array of model IDs corresponding to each value.
  *   Required when using dynamicWeights to look up per-model weights.
  */
 export function weightedAvg(
@@ -21,12 +21,7 @@ export function weightedAvg(
         const dynamicW = modelId ? dynamicWeights[modelId] : undefined
         return dynamicW !== undefined ? dynamicW : w
       })
-    : dynamicWeights
-      ? weights.map((w, i) => {
-          const dynamicW = dynamicWeights[String(i)]
-          return dynamicW !== undefined ? dynamicW : w
-        })
-      : weights
+    : weights
 
   let sum = 0
   let wSum = 0

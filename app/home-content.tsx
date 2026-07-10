@@ -630,13 +630,30 @@ export default function HomeContent() {
     })
   }, [showMap])
 
-  // When the mobile tab bar switches to stations, scroll the section into view.
+  // When the mobile tab bar switches to stations, scroll the section into view
+  // only after it has rendered content and has measurable height.
   useEffect(() => {
     if (selectedView !== 'stations' || !scrollToStationsRef.current) return
     scrollToStationsRef.current = false
-    requestAnimationFrame(() => {
-      stationsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const el = stationsSectionRef.current
+    if (!el) return
+    if (el.offsetHeight > 50) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.height > 50) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        ro.disconnect()
+      }
     })
+    ro.observe(el)
+    // Safety timeout: scroll anyway after 3s even if still loading.
+    const timer = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      ro.disconnect()
+    }, 3000)
+    return () => { ro.disconnect(); clearTimeout(timer) }
   }, [selectedView])
 
   const mobileTabFromView = selectedView === 'map' ? 'map' : selectedView === 'stations' ? 'stations' : (selectedView === 'weather' || selectedView === 'cities' ? 'models' : 'models')

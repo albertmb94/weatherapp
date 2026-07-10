@@ -25,7 +25,15 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   const [isOpen, setIsOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const justSelectedRef = useRef(false)
+  const suppressAutoOpenRef = useRef(false)
+
+  function cancelAutoOpen() {
+    suppressAutoOpenRef.current = true
+  }
+
+  function enableAutoOpen() {
+    suppressAutoOpenRef.current = false
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -43,6 +51,8 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
       debounceRef.current = setTimeout(() => setDebouncedQuery(''), 150)
       return
     }
+    // User changed the query manually → re-enable auto-open.
+    enableAutoOpen()
     debounceRef.current = setTimeout(() => setDebouncedQuery(query), 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query])
@@ -67,13 +77,9 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
     refetchOnWindowFocus: false,
   })
 
-  // B6: open the dropdown as a side-effect of `results` changing (not of
-  // the queryFn running). This way cached results also open the
-  // dropdown when the user focuses the input. Skip if the user just
-  // selected a city to prevent the dropdown from reopening immediately.
+  // Open the dropdown when results arrive, unless suppressed after selection.
   useEffect(() => {
-    if (results.length > 0 && !justSelectedRef.current) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (results.length > 0 && !suppressAutoOpenRef.current) {
       setIsOpen(true)
     }
   }, [results])
@@ -87,13 +93,11 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   }
 
   function handleSelect(r: GeocodeResult) {
-    justSelectedRef.current = true
+    cancelAutoOpen()
     setQuery(r.name)
     setDebouncedQuery('')
     setIsOpen(false)
     onSelect(r.name, r.latitude, r.longitude)
-    // Reset the flag after a short delay so subsequent typing re-enables the dropdown
-    setTimeout(() => { justSelectedRef.current = false }, 500)
   }
 
   return (

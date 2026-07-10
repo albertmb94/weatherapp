@@ -34,7 +34,7 @@ export function selectModelsForLocation(
 
   // Split into tiers
   const regional = landModels.filter(m => m.region === region)
-  const global = landModels.filter(m => m.region === 'global')
+  const global = landModels.filter(m => m.region === 'global' && m.type !== 'ai')
   const ai = landModels.filter(m => m.type === 'ai')
 
   // Ensure at least one global model covers the requested horizon

@@ -631,29 +631,19 @@ export default function HomeContent() {
   }, [showMap])
 
   // When the mobile tab bar switches to stations, scroll the section into view
-  // only after it has rendered content and has measurable height.
+  // after a short delay so StationDashboard has time to render content and
+  // the section has its final height.
   useEffect(() => {
     if (selectedView !== 'stations' || !scrollToStationsRef.current) return
     scrollToStationsRef.current = false
     const el = stationsSectionRef.current
     if (!el) return
-    if (el.offsetHeight > 50) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      return
-    }
-    const ro = new ResizeObserver(([entry]) => {
-      if (entry.contentRect.height > 50) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        ro.disconnect()
-      }
-    })
-    ro.observe(el)
-    // Safety timeout: scroll anyway after 3s even if still loading.
-    const timer = setTimeout(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      ro.disconnect()
-    }, 3000)
-    return () => { ro.disconnect(); clearTimeout(timer) }
+    // Use start instead of center so the section aligns to the top of the
+    // viewport, preventing content drift on subsequent visits.
+    const doScroll = () => el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Give content time to render before scrolling.
+    const timer = setTimeout(doScroll, 600)
+    return () => clearTimeout(timer)
   }, [selectedView])
 
   const mobileTabFromView = selectedView === 'map' ? 'map' : selectedView === 'stations' ? 'stations' : (selectedView === 'weather' || selectedView === 'cities' ? 'models' : 'models')

@@ -99,8 +99,7 @@ export async function fetchForecast(
     series[model.id]['wind_direction'] = data.hourly[`wind_direction_10m_${model.id}`] ?? null
   }
 
-  // Always fetch marine data - it's a tiny API call and eliminates state/caching issues
-  {
+  if (includeMarine) {
     const marineDays = computeMarineDays(forecastDays * 24)
     try {
       const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)

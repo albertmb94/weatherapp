@@ -19,7 +19,7 @@ import FriendlyHome from '@/components/FriendlyHome'
 import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
 import SettingsPanel from '@/components/SettingsPanel'
-import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel, getEnsembleForMetric } from '@/lib/models'
+import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
 import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
@@ -562,7 +562,7 @@ export default function HomeContent() {
     if (!effectiveData) return null
     if (startIndex === 0) return effectiveData
     return sliceForecast(effectiveData, startIndex)
-  }, [data, offlineSnapshot, startIndex])
+  }, [effectiveData, startIndex])
 
   const hourLabel = useMemo(() => {
     const t = viewData?.time?.[selectedHour]

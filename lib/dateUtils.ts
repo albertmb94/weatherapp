@@ -91,9 +91,4 @@ export function floorHourLocation(date: Date): Date {
   return d
 }
 
-/**
- * Compare two UTC-fake-local dates by timestamp.
- */
-export function locationTimeGreaterOrEqual(a: Date, b: Date): boolean {
-  return a.getTime() >= b.getTime()
-}
+

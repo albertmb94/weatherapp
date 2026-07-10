@@ -6,8 +6,6 @@ const store = createCacheStore({
   purgeOlderThanMs: 6 * 60 * 60 * 1000,
 })
 
-export const MARINE_CACHE_TTL_MS = store.ttlMs
-
 export async function getCachedMarine(cacheKey: string, now?: number): Promise<CachedEntry | null> {
   return store.get(cacheKey, now)
 }

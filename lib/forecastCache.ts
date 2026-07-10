@@ -6,8 +6,6 @@ const store = createCacheStore({
   purgeOlderThanMs: 6 * 60 * 60 * 1000,
 })
 
-export const FORECAST_CACHE_TTL_MS = store.ttlMs
-
 export async function getCachedForecast(cacheKey: string, now?: number): Promise<CachedEntry | null> {
   return store.get(cacheKey, now)
 }

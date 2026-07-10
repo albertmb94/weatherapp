@@ -46,34 +46,21 @@ function meanAcrossModels(
 }
 
 /**
- * Like meanAcrossModels but falls back to ANY model in bag.series that has
- * data for the given metric, ignoring activeIds. Used for UV which may only
- * be available on global models (GFS, ECMWF) that aren't in the active set.
+ * Read a metric from every model in bag.series that has it and return the
+ * simple average (equal weight). Used for UV which may only be available
+ * on global models (GFS, ECMWF) that aren't in the active set.
  */
-function meanAcrossModelsFallback(
-  bag: SeriesBag,
-  metric: string,
-  index: number,
-  models: WeatherModel[],
-  activeIds: string[],
-  leadTimeHours: number = 0
-): number | null {
-  // First try active models
-  const activeModels = models.filter(m => activeIds.includes(m.id))
-  if (activeModels.length > 0) {
-    const vals = activeModels.map(m => bag.series[m.id]?.[metric]?.[index] ?? null)
-    const weights = getWeightsForMetric(metric, activeModels, leadTimeHours)
-    const result = weightedAvg(vals, weights, null, activeModels.map(m => m.id))
-    if (result !== null) return result
+function allModelAverage(bag: SeriesBag, metric: string, index: number): number | null {
+  const ids = Object.keys(bag.series)
+  let sum = 0, count = 0
+  for (const id of ids) {
+    const v = bag.series[id]?.[metric]?.[index]
+    if (v !== null && v !== undefined) {
+      sum += v
+      count++
+    }
   }
-  // Fallback: try every model in bag.series that has this metric
-  const fallbackIds = Object.keys(bag.series).filter(id => bag.series[id]?.[metric] !== undefined && bag.series[id]?.[metric] !== null)
-  if (fallbackIds.length === 0) return null
-  const fallbackModels = models.filter(m => fallbackIds.includes(m.id))
-  if (fallbackModels.length === 0) return null
-  const vals = fallbackModels.map(m => bag.series[m.id]?.[metric]?.[index] ?? null)
-  const weights = getWeightsForMetric(metric, fallbackModels, leadTimeHours)
-  return weightedAvg(vals, weights, null, fallbackModels.map(m => m.id))
+  return count > 0 ? sum / count : null
 }
 
 /**
@@ -158,7 +145,7 @@ function dailyUvPeak(bag: SeriesBag, models: WeatherModel[], activeIds: string[]
     const ti = bag.time[i]
     if (!(ti instanceof Date)) continue
     if (`${ti.getUTCFullYear()}-${ti.getUTCMonth()}-${ti.getUTCDate()}` !== dayKey) continue
-    const v = meanAcrossModelsFallback(bag, 'uv_index', i, models, activeIds)
+    const v = allModelAverage(bag, 'uv_index', i)
     if (v === null) continue
     if (peak === null || v > peak) peak = v
   }
@@ -176,7 +163,7 @@ export function computeCurrentSnapshot(
   const wind = meanAcrossModels(bag, 'wind_speed', hourIndex, models, activeIds)
   const gusts = meanAcrossModels(bag, 'wind_gusts', hourIndex, models, activeIds)
   const precip = meanAcrossModels(bag, 'precipitation', hourIndex, models, activeIds)
-  const uv = meanAcrossModelsFallback(bag, 'uv_index', hourIndex, models, activeIds)
+  const uv = allModelAverage(bag, 'uv_index', hourIndex)
   const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds)
   const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds)
   const peak = dailyUvPeak(bag, models, activeIds, hourIndex)

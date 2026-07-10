@@ -447,7 +447,7 @@ export default function InsightsTable({
       // Iterate from startIndex until we have weekDays buckets or run out of data.
       const rem = startIndex % 24
       const toMidnight = rem === 0 ? 24 : 24 - rem
-      for (let i = startIndex; i < Math.min(tt.length, startIndex + toMidnight + (weekDays - 1) * 24) && buckets.length < weekDays; i++) {
+      for (let i = startIndex; i < Math.min(tt.length, startIndex + toMidnight + (weekDays - 1) * 24); i++) {
         // Detect day boundary by offset: each 24 indices = one day forward.
         const offset = i - startIndex
         const dayKey = startDate instanceof Date
@@ -457,7 +457,7 @@ export default function InsightsTable({
           // Scan backwards to 00:00 of this day so min/max captures
           // morning temperatures. Only scan if the back-index exists.
           let dayStart = i
-          while (dayStart > startIndex) {
+          while (dayStart > 0) {
             const prev = tt[dayStart - 1]
             if (!(prev instanceof Date)) break
             const prevKey = `${prev.getUTCFullYear()}-${prev.getUTCMonth()}-${prev.getUTCDate()}`
@@ -487,6 +487,8 @@ export default function InsightsTable({
           if ((tt[i] as Date).getUTCHours() === 12) current.centerIdx = i
         }
       }
+    // Truncate to weekDays so we never show more than requested.
+    if (buckets.length > weekDays) buckets.splice(weekDays)
     } else {
       while (cursor < limit) {
         const startT = times[cursor]

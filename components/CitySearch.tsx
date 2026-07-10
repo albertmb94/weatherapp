@@ -27,14 +27,6 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const suppressAutoOpenRef = useRef(false)
 
-  function cancelAutoOpen() {
-    suppressAutoOpenRef.current = true
-  }
-
-  function enableAutoOpen() {
-    suppressAutoOpenRef.current = false
-  }
-
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -51,8 +43,6 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
       debounceRef.current = setTimeout(() => setDebouncedQuery(''), 150)
       return
     }
-    // User changed the query manually → re-enable auto-open.
-    enableAutoOpen()
     debounceRef.current = setTimeout(() => setDebouncedQuery(query), 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query])
@@ -87,13 +77,15 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     setQuery(val)
+    // User typed something new → re-enable auto-open.
+    suppressAutoOpenRef.current = false
     if (val.length < 2) {
       setIsOpen(false)
     }
   }
 
   function handleSelect(r: GeocodeResult) {
-    cancelAutoOpen()
+    suppressAutoOpenRef.current = true
     setQuery(r.name)
     setDebouncedQuery('')
     setIsOpen(false)

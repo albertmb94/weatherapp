@@ -45,18 +45,14 @@ export default function ModelComparisonChart({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [exporting, setExporting] = useState(false)
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    // Wait until the container has measurable width before rendering
-    // Recharts, so ResponsiveContainer doesn't see 0×0 dimensions.
-    const ro = new ResizeObserver(([entry]) => {
-      if (entry.contentRect.width > 0) {
+    const id = requestAnimationFrame(() => {
+      // Only render Recharts once the container has measurable width to
+      // avoid the "width(-1) and height(-1)" warning from ResponsiveContainer.
+      if (containerRef.current?.clientWidth) {
         setRenderChart(true)
-        ro.disconnect()
       }
     })
-    ro.observe(el)
-    return () => ro.disconnect()
+    return () => cancelAnimationFrame(id)
   }, [])
   const activeHour = localHover ?? hoveredHour
 

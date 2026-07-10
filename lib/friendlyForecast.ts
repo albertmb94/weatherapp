@@ -136,7 +136,7 @@ function precipChance(precipMm: number | null): number | null {
  * in the metrics card so the value stays meaningful at night and during the
  * early morning when the raw current UV is 0.
  */
-function dailyUvPeak(bag: SeriesBag, models: WeatherModel[], activeIds: string[], nowIndex: number): number | null {
+function dailyUvPeak(bag: SeriesBag, nowIndex: number): number | null {
   const t = bag.time[nowIndex]
   if (!(t instanceof Date)) return null
   const dayKey = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
@@ -166,7 +166,7 @@ export function computeCurrentSnapshot(
   const uv = allModelAverage(bag, 'uv_index', hourIndex)
   const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds)
   const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds)
-  const peak = dailyUvPeak(bag, models, activeIds, hourIndex)
+  const peak = dailyUvPeak(bag, hourIndex)
 
   let dailyHigh: number | null = null
   let dailyLow: number | null = null

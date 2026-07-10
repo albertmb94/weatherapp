@@ -440,18 +440,14 @@ export default function InsightsTable({
     if (bucket === 24) {
       let current: Row | null = null
       let currentKey = ''
-      // Derive the day key from startIndex's offset so we can detect day
-      // boundaries even when tt[i] is null/undefined (past the forecast
-      // horizon). The first date is the day of startIndex.
-      const startDate = tt[startIndex]
       // Iterate from startIndex until we have weekDays buckets or run out of data.
       const rem = startIndex % 24
       const toMidnight = rem === 0 ? 24 : 24 - rem
       for (let i = startIndex; i < Math.min(tt.length, startIndex + toMidnight + (weekDays - 1) * 24); i++) {
-        // Detect day boundary by offset: each 24 indices = one day forward.
-        const offset = i - startIndex
-        const dayKey = startDate instanceof Date
-          ? `${startDate.getUTCFullYear()}-${startDate.getUTCMonth()}-${startDate.getUTCDate() + Math.floor(offset / 24)}`
+        // Detect day boundary from the actual Date at position i.
+        const ti = tt[i]
+        const dayKey = ti instanceof Date
+          ? `${ti.getUTCFullYear()}-${ti.getUTCMonth()}-${ti.getUTCDate()}`
           : ''
         if (!current || dayKey !== currentKey) {
           // Scan backwards to 00:00 of this day so min/max captures
@@ -542,35 +538,35 @@ export default function InsightsTable({
           if (b.tempMax === null || tEns > b.tempMax) b.tempMax = tEns
         }
         const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
-        const cVals = activeModels.map(m => series[m.id]?.['cloud_cover']?.[i] ?? null)
+        const cVals = activeModels.map(m => s[m.id]?.['cloud_cover']?.[i] ?? null)
         const cEns = weightedAvg(cVals, cWeights)
         if (cEns !== null) { cSum += cEns; cCount += 1 }
         const wWeights = getWeightsForMetricAndHour('wind_speed', i)
-        const wVals = activeModels.map(m => series[m.id]?.['wind_speed']?.[i] ?? null)
+        const wVals = activeModels.map(m => s[m.id]?.['wind_speed']?.[i] ?? null)
         const wEns = weightedAvg(wVals, wWeights)
         if (wEns !== null) { wSum += wEns; wCount += 1 }
         const gWeights = getWeightsForMetricAndHour('wind_gusts', i)
-        const gVals = activeModels.map(m => series[m.id]?.['wind_gusts']?.[i] ?? null)
+        const gVals = activeModels.map(m => s[m.id]?.['wind_gusts']?.[i] ?? null)
         const gEns = weightedAvg(gVals, gWeights)
         if (gEns !== null && (b.gustsMax === null || gEns > b.gustsMax)) b.gustsMax = gEns
         const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const pVals = activeModels.map(m => series[m.id]?.['precipitation']?.[i] ?? null)
+        const pVals = activeModels.map(m => s[m.id]?.['precipitation']?.[i] ?? null)
         const pEns = weightedAvg(pVals, pWeights)
         if (pEns !== null) b.precipSum = (b.precipSum ?? 0) + pEns
         const hWeights = getWeightsForMetricAndHour('humidity', i)
-        const hVals = activeModels.map(m => series[m.id]?.['humidity']?.[i] ?? null)
+        const hVals = activeModels.map(m => s[m.id]?.['humidity']?.[i] ?? null)
         const hEns = weightedAvg(hVals, hWeights)
         if (hEns !== null) { hSum += hEns; hCount += 1 }
         const uWeights = getWeightsForMetricAndHour('uv_index', i)
-        const uVals = activeModels.map(m => series[m.id]?.['uv_index']?.[i] ?? null)
+        const uVals = activeModels.map(m => s[m.id]?.['uv_index']?.[i] ?? null)
         const uEns = weightedAvg(uVals, uWeights)
         if (uEns !== null) { uSum += uEns; uCount += 1 }
         const prWeights = getWeightsForMetricAndHour('pressure', i)
-        const prVals = activeModels.map(m => series[m.id]?.['pressure']?.[i] ?? null)
+        const prVals = activeModels.map(m => s[m.id]?.['pressure']?.[i] ?? null)
         const prEns = weightedAvg(prVals, prWeights)
         if (prEns !== null) { prSum += prEns; prCount += 1 }
         const dpWeights = getWeightsForMetricAndHour('dewpoint', i)
-        const dpVals = activeModels.map(m => series[m.id]?.['dewpoint']?.[i] ?? null)
+        const dpVals = activeModels.map(m => s[m.id]?.['dewpoint']?.[i] ?? null)
         const dpEns = weightedAvg(dpVals, dpWeights)
         if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
         const visWeights = getWeightsForMetricAndHour('visibility', i)

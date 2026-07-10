@@ -111,7 +111,7 @@ export default function HomeContent() {
     marine: false,
     basic: true,
     view: 'weather' as const,
-    weekDays: 7 as const,
+    weekDays: 14 as const,
     ensembleMode: 'wedai' as const,
   }))
   const [urlState, updateUrl] = useUrlState(defaults)

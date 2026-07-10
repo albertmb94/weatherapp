@@ -403,7 +403,7 @@ export default function InsightsTable({
     const tt = bucket === 24 && fullTimes?.length ? fullTimes : times
     const s = bucket === 24 && fullSeries ? fullSeries : series
     if (activeModels.length === 0 || tt.length === 0) return []
-    const effectiveMaxHours = (bucket === 1 || bucket === 2) ? Math.min(maxHours, 120) : maxHours
+    const effectiveMaxHours = (bucket === 1) ? Math.min(maxHours, 96) : maxHours
     const limit = Math.min(tt.length, effectiveMaxHours)
 
     // Build per-metric, per-hour weight arrays.

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { computeCurrentSnapshot, computeHourlySlots, computeWeekSummaries } from '../friendlyForecast'
 
 const MODELS = [
-  { id: 'gfs_global', label: 'GFS', color: '#fff', maxHours: 384, weight: 50 },
-  { id: 'icon_global', label: 'ICON', color: '#fff', maxHours: 240, weight: 50 },
-]
+  { id: 'gfs_global', label: 'GFS', color: '#fff', maxHours: 384, weight: 50, type: 'deterministic' as const, region: 'global' as const },
+  { id: 'icon_global', label: 'ICON', color: '#fff', maxHours: 240, weight: 50, type: 'deterministic' as const, region: 'global' as const },
+] 
 
 function flatSeries(value: number, count: number) {
   return {

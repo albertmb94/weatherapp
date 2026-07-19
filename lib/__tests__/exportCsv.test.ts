@@ -3,10 +3,10 @@ import { exportForecastCsv } from '../exportCsv'
 import type { WeatherModel } from '../models'
 
 describe('exportForecastCsv', () => {
-  const testModels: WeatherModel[] = [
-    { id: 'gfs_global', label: 'GFS 13km', color: '#f032e6', maxHours: 384, weight: 3 },
-    { id: 'icon_global', label: 'ICON 13km', color: '#911eb4', maxHours: 240, weight: 4 },
-  ]
+const testModels: WeatherModel[] = [
+  { id: 'gfs_global', label: 'GFS 13km', color: '#f032e6', maxHours: 384, weight: 3, type: 'deterministic' as const, region: 'global' as const },
+  { id: 'icon_global', label: 'ICON 13km', color: '#911eb4', maxHours: 240, weight: 4, type: 'deterministic' as const, region: 'global' as const },
+] 
 
   const times = [
     new Date('2025-01-01T00:00:00Z'),

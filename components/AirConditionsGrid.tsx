@@ -1,13 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
+import { formatAge } from '@/lib/formatAge'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
 
 interface AirConditionsGridProps {
   snapshot: CurrentSnapshot | null
   title?: string
+  /** When true, the UV card shows the dedicated live label, otherwise it
+   *  renders as a forecast-for-the-selected-hour. */
+  isLiveNow?: boolean
+  /** Value of the provider's `current=uv_index`. */
+  liveUv?: number | null
+  /** Timestamp for the live UV reading (ISO string from provider). */
+  liveUvValidAt?: Date | null
+  /** Forecast fetched-at timestamp (ms) for the auto-refresh banner. */
+  fetchedAt?: number | null
+  /** Forecast age (ms) — shown next to the metrics header. */
+  forecastAgeMs?: number | null
 }
 
 function fmtTemp(value: number | null): string {
@@ -70,6 +82,7 @@ function ToggleCard({
   icon,
   accent,
   onClick,
+  extraTitle,
 }: {
   label: string
   value: string
@@ -78,6 +91,7 @@ function ToggleCard({
   icon: React.ReactNode
   accent: 'amber' | 'sky' | 'rose' | 'emerald'
   onClick: () => void
+  extraTitle?: string
 }) {
   const accentMap: Record<string, string> = {
     amber: 'text-amber-300 bg-amber-500/10',
@@ -89,7 +103,8 @@ function ToggleCard({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-2xl border border-border bg-surface-raised p-3 md:p-4 flex flex-col gap-1 min-w-0 text-left cursor-pointer transition-colors hover:border-border-strong"
+      title={extraTitle}
+      className="rounded-2xl border border-border bg-surface-raised p-3 md:p-4 flex flex-col gap-1 min-w-0 text-left cursor-pointer transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
     >
       <div className="flex items-center gap-1.5 text-text-tertiary">
         <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${accentMap[accent]}`}>{icon}</span>
@@ -110,7 +125,15 @@ function ToggleCard({
   )
 }
 
-export default function AirConditionsGrid({ snapshot, title }: AirConditionsGridProps) {
+export default function AirConditionsGrid({
+  snapshot,
+  title,
+  isLiveNow = true,
+  liveUv = null,
+  liveUvValidAt = null,
+  fetchedAt = null,
+  forecastAgeMs = null,
+}: AirConditionsGridProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
   const heading = title ?? s.metricsTitle
@@ -120,13 +143,34 @@ export default function AirConditionsGrid({ snapshot, title }: AirConditionsGrid
   const [windMode, setWindMode] = useState<'wind' | 'gusts'>('wind')
   const [rainMode, setRainMode] = useState<'chance' | 'total'>('chance')
 
-  // UV
+  // UV: in live mode prefer the provider's current=uv_index reading if we
+  // still have it cached AND the user is on the actual current hour.
+  // Outside of "live now" we fall back to the ensemble value because the
+  // provider's current field is by definition "the present".
   const uvVal = uvMode === 'live'
-    ? (snapshot?.uvIndex ?? null)
+    ? (isLiveNow ? (liveUv ?? snapshot?.uvIndex ?? null) : (snapshot?.uvIndex ?? null))
     : (snapshot?.uvIndexPeak ?? null)
   const uvDisplay = uvVal !== null ? uvVal.toFixed(1) : '–'
   const uvLabel = uvMode === 'live' ? s.uvModeLive : s.uvModePeak
   const uvUnit = uvMode === 'peak' ? s.uvPeak : ''
+  const uvBadge = uvMode === 'live' && isLiveNow && liveUv !== null && liveUv !== undefined
+    ? (locale === 'en' ? 'live' : 'en vivo')
+    : null
+  // Age of the live UV reading. Open-Meteo reports ~15 min intervals.
+  // `Date.now()` is impure so we track it through a state tick instead of
+  // calling it during render.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const uvAgeMs = liveUvValidAt instanceof Date && !Number.isNaN(liveUvValidAt.getTime())
+    ? nowMs - liveUvValidAt.getTime()
+    : null
+  const uvTitle = uvAgeMs !== null
+    ? `${locale === 'en' ? 'Live UV, updated ' : 'UV en vivo, actualizado hace '}${formatAge(uvAgeMs, locale)}`
+    : undefined
+  const isStale = forecastAgeMs !== null && forecastAgeMs > 4 * 3600_000
 
   // Sensación / Máx
   const feelVal = feelMode === 'feel'
@@ -152,10 +196,22 @@ export default function AirConditionsGrid({ snapshot, title }: AirConditionsGrid
 
   return (
     <section aria-label={heading} className="rounded-2xl border border-border bg-surface-raised p-4 md:p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2">
         <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
           {heading}
         </h3>
+        {forecastAgeMs !== null ? (
+          <span
+            className={`text-[10px] tabular-nums ${isStale ? 'text-amber-400' : 'text-text-tertiary'}`}
+            title={fetchedAt ? new Date(fetchedAt).toLocaleString() : ''}
+            role={isStale ? 'status' : undefined}
+            aria-live={isStale ? 'polite' : undefined}
+          >
+            {isStale
+              ? (locale === 'en' ? `Refresh due · ${formatAge(forecastAgeMs, locale)}` : `Recarga pendiente · ${formatAge(forecastAgeMs, locale)}`)
+              : (locale === 'en' ? `Updated ${formatAge(forecastAgeMs, locale)} ago` : `Actualizado hace ${formatAge(forecastAgeMs, locale)}`)}
+          </span>
+        ) : null}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
         <ToggleCard
@@ -182,12 +238,13 @@ export default function AirConditionsGrid({ snapshot, title }: AirConditionsGrid
           onClick={() => setRainMode(m => m === 'chance' ? 'total' : 'chance')}
         />
         <ToggleCard
-          label={`${s.uvIndex} · ${uvLabel}`}
+          label={`${s.uvIndex} · ${uvLabel}${uvBadge ? ` · ${uvBadge}` : ''}`}
           value={uvDisplay}
           unit={uvUnit}
           icon={<UvIcon />}
           accent="emerald"
           onClick={() => setUvMode(m => m === 'live' ? 'peak' : 'live')}
+          extraTitle={uvTitle}
         />
       </div>
     </section>

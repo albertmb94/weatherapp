@@ -63,11 +63,6 @@ function allModelAverage(bag: SeriesBag, metric: string, index: number): number 
   return count > 0 ? sum / count : null
 }
 
-/**
- * Aggregate current-hour "now" snapshot from the ensemble. Powers the hero
- * card. All values are weighted average across the active models at the
- * supplied index.
- */
 export interface CurrentSnapshot {
   temperatureC: number | null
   feelsLikeC: number | null
@@ -83,6 +78,21 @@ export interface CurrentSnapshot {
   conditionLabel: string
   dailyHighC: number | null
   dailyLowC: number | null
+}
+
+/**
+ * Map a raw precipitation value (mm/h) into a 0-100 "rain intensity" indicator.
+ * This used to be labelled in the UI as "probabilidad de lluvia" and was a
+ * pure heuristic that could produce values >100 % for >1.25 mm/h. We now
+ * clamp + cap and render it as an intensity indicator (with fallback name
+ * "chanceOfRainPct" preserved for backwards compatibility with i18n/UI).
+ */
+function precipChance(precipMm: number | null): number | null {
+  if (precipMm === null) return null
+  if (precipMm <= 0) return 0
+  if (precipMm >= 2) return 100
+  const pct = Math.round(precipMm * 80)
+  return Math.max(0, Math.min(100, pct))
 }
 
 const CONDITION_KEY: Record<WeatherIconId, 'conditionSunny' | 'conditionPartly' | 'conditionCloudy' | 'conditionRainy' | 'conditionStormy' | 'conditionSnowy'> = {
@@ -119,18 +129,6 @@ function feelsLike(tempC: number | null, windKmh: number | null, humidityPct: nu
 }
 
 /**
- * Map a raw precipitation value (mm/h) into a "chance of rain" percentage.
- * Calibrated empirically: 1 mm/h ≈ 80 %, 2 mm/h ≈ 95 %, anything below
- * 0.2 mm/h rounds to 0 %.
- */
-function precipChance(precipMm: number | null): number | null {
-  if (precipMm === null) return null
-  if (precipMm <= 0) return 0
-  if (precipMm >= 2) return 100
-  return Math.round(precipMm * 80)
-}
-
-/**
  * Maximum UV index across the entire UTC-fake-local *current calendar day*
  * (00:00 → 23:00). Powers the "UV peak" reading shown next to the current UV
  * in the metrics card so the value stays meaningful at night and during the
@@ -156,14 +154,19 @@ export function computeCurrentSnapshot(
   bag: SeriesBag,
   models: WeatherModel[],
   activeIds: string[],
-  hourIndex: number
+  hourIndex: number,
+  /** When non-null, used in place of the hourly-ensemble average for the
+   *  "live" UV card. The provider's `current=uv_index` is updated at ~15 min
+   *  cadence; the ensemble hourly floored value can lag by up to one hour. */
+  liveUvOverride: number | null = null
 ): CurrentSnapshot | null {
   if (!bag.time[hourIndex]) return null
   const temp = meanAcrossModels(bag, 'temperature', hourIndex, models, activeIds)
   const wind = meanAcrossModels(bag, 'wind_speed', hourIndex, models, activeIds)
   const gusts = meanAcrossModels(bag, 'wind_gusts', hourIndex, models, activeIds)
   const precip = meanAcrossModels(bag, 'precipitation', hourIndex, models, activeIds)
-  const uv = allModelAverage(bag, 'uv_index', hourIndex)
+  const uvHourly = allModelAverage(bag, 'uv_index', hourIndex)
+  const uv = liveUvOverride ?? uvHourly
   const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds)
   const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds)
   const peak = dailyUvPeak(bag, hourIndex)
@@ -304,7 +307,15 @@ export function computeHourlySlots(
     windGustsKmh: nowGusts, minTempC: nowTemp,
   })
   out.push({
-    index: nowIndex, hourLabel: isViewingToday ? (locale === 'en' ? 'Now' : 'Ahora') : formatBlockLabel(nowT instanceof Date ? nowT.getUTCHours() : 0, locale),
+    index: nowIndex,
+    // The slot covers the entire 4h block, so its label is the block
+    // start hour (e.g. 12h for a 12:00–16:00 block). Labelling it by
+    // the exact selected hour mismatched the visual block size in the
+    // UI when isViewingToday was false — which is exactly the test the
+    // suite was catching.
+    hourLabel: isViewingToday
+      ? (locale === 'en' ? 'Now' : 'Ahora')
+      : formatBlockLabel(blockStartHour, locale),
     icon: nowIcon, tempC: nowTemp, precipMm: nowPrecip, isPast: false,
   })
 
@@ -339,6 +350,10 @@ export interface DaySummary {
   lowC: number | null
   icon: WeatherIconId
   precipMm: number | null
+  /** Absolute index in `bag.time` of the 12:00 slot for this day, if it
+   *  exists inside the requested window. The caller subtracts `nowIndex`
+   *  to convert this into a view-relative hour offset for the slider. */
+  noonIndex: number
 }
 
 /**
@@ -361,7 +376,7 @@ export function computeWeekSummaries(
   const limit = Math.min(bag.time.length, maxHours)
   const activeModels = models.filter(m => activeIds.includes(m.id))
   if (activeModels.length === 0) return []
-  for (let i = nowIndex; i < limit; i++) {
+    for (let i = nowIndex; i < limit; i++) {
     const t = bag.time[i]
     if (!(t instanceof Date)) continue
     const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
@@ -381,7 +396,25 @@ export function computeWeekSummaries(
     } else {
       current.end = i
     }
-    if (buckets.length === count) break
+    if (buckets.length === count) {
+      // Drain the rest of the current (last) day before exiting so that
+      // the last bucket's max/min include the late-evening hours. Without
+      // this we'd break on the day boundary and the 7th/14th day
+      // would aggregate only its first hour.
+      let endReached = false
+      let j = i + 1
+      for (; j < limit; j++) {
+        const tj = bag.time[j]
+        if (!(tj instanceof Date)) break
+        const kj = `${tj.getUTCFullYear()}-${tj.getUTCMonth()}-${tj.getUTCDate()}`
+        if (kj !== key) {
+          endReached = true
+          break
+        }
+        current.end = j
+      }
+      if (endReached || j >= limit) break
+    }
   }
 
   return buckets.map(b => {
@@ -391,6 +424,7 @@ export function computeWeekSummaries(
     let cloudSum = 0
     let cloudCount = 0
     let gustsMax: number | null = null
+    let noonIndex = b.start
     for (let i = b.start; i <= b.end; i++) {
       const t = meanAcrossModels(bag, 'temperature', i, models, activeIds)
       if (t !== null) {
@@ -403,6 +437,8 @@ export function computeWeekSummaries(
       if (c !== null) { cloudSum += c; cloudCount++ }
       const g = meanAcrossModels(bag, 'wind_gusts', i, models, activeIds)
       if (g !== null && (gustsMax === null || g > gustsMax)) gustsMax = g
+      const ti = bag.time[i]
+      if (ti instanceof Date && ti.getUTCHours() === 12) noonIndex = i
     }
     const cloudAvg = cloudCount > 0 ? cloudSum / cloudCount : null
     const icon = pickWeatherIcon({
@@ -420,6 +456,7 @@ export function computeWeekSummaries(
       lowC: low,
       icon,
       precipMm: precip,
+      noonIndex,
     }
   })
 }

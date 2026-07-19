@@ -74,7 +74,10 @@ describe('METRICS', () => {
   })
 
   it('B-NEW-3: does not expose a dead "all" metric', () => {
-    expect(METRICS.some(m => m.id === 'all')).toBe(false)
+    // Cast through string to keep TypeScript from complaining that
+    // MetricId and the literal "all" can never overlap; the assertion
+    // is exactly about that overlap being impossible today.
+    expect(METRICS.some(m => (m.id as string) === 'all')).toBe(false)
   })
 })
 

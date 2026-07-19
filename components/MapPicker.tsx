@@ -32,8 +32,13 @@ interface MapPickerProps {
   showHeatmap: boolean
   metric: MetricId
   selectedModels: string[]
+  /** Index into the heatmap-grid series to render (0-based hour slot). */
   hourIndex: number
-  nowOffset: number
+  /** Latest available timestamp in the grid series (Unix ms). The heatmap
+   *  series is 7 days long and shares no past_days with the main forecast
+   *  series, so we can no longer reuse the absolute `startIndex` from the
+   *  main response — alignment must happen by timestamp. */
+  mapTimes?: Date[]
   showRadar: boolean
 }
 
@@ -151,7 +156,7 @@ export default function MapPicker({
   metric,
   selectedModels,
   hourIndex,
-  nowOffset,
+  mapTimes,
   showRadar,
 }: MapPickerProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
@@ -292,7 +297,27 @@ export default function MapPicker({
 
     ctx.clearRect(0, 0, cw, ch)
 
-    const realIdx = hourIndex + nowOffset
+    // The grid series has its own time axis (typically 7 days forward from
+    // "today at 00:00 local" without the 3-day past_days of the main
+    // forecast). Indexing it by `hourIndex + nowOffset` previously caused
+    // a ~3-day drift (startIndex was 72+h). Align by timestamp instead.
+    let realIdx = hourIndex
+    if (mapTimes && mapTimes.length > 0 && mapTimes[0] instanceof Date) {
+      const base = mapTimes[0].getTime()
+      const targetMs = base + hourIndex * 3_600_000
+      let bestIdx = 0
+      let bestDelta = Infinity
+      for (let i = 0; i < mapTimes.length; i++) {
+        const t = mapTimes[i]
+        if (!(t instanceof Date)) continue
+        const delta = Math.abs(t.getTime() - targetMs)
+        if (delta < bestDelta) {
+          bestDelta = delta
+          bestIdx = i
+        }
+      }
+      realIdx = bestIdx
+    }
     const values = gridSeries.map(series => series?.[realIdx] ?? null)
     const allNull = values.every(v => v === null)
     if (allNull) return
@@ -324,7 +349,7 @@ export default function MapPicker({
     }
 
     ctx.putImageData(imageData, 0, 0)
-  }, [mapInstance, gridCells, gridSeries, hourIndex, nowOffset, effectiveMetric])
+  }, [mapInstance, gridCells, gridSeries, hourIndex, mapTimes, effectiveMetric])
 
   useEffect(() => {
     if (!showHeatmap || !mapInstance) return

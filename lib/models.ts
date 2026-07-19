@@ -18,9 +18,12 @@ export const MODELS: WeatherModel[] = [
   { id: 'ukmo_global_deterministic_10km', label: 'UKMO 10km', color: '#4363d8', maxHours: 168, weight: 6, type: 'deterministic', region: 'global', resolution: 10 },
 
   // === AI models ===
+  // Provider contract verified 2026-07-19: Open-Meteo rejects the bare
+  // IDs `gfs_graphcast` and `ncep_aigfs` with HTTP 400. Use the suffixed
+  // `*025` IDs which are the actual catalogue entries.
   { id: 'ecmwf_aifs025', label: 'AIFS 28km', color: '#F5811F', maxHours: 360, weight: 22, type: 'ai', region: 'global', resolution: 28 },
-  { id: 'gfs_graphcast', label: 'GraphCast 25km', color: '#E6194B', maxHours: 384, weight: 12, type: 'ai', region: 'global', resolution: 25 },
-  { id: 'ncep_aigfs', label: 'AIGFS 25km', color: '#3CB44B', maxHours: 384, weight: 10, type: 'ai', region: 'global', resolution: 25 },
+  { id: 'gfs_graphcast025', label: 'GraphCast 25km', color: '#E6194B', maxHours: 384, weight: 12, type: 'ai', region: 'global', resolution: 25 },
+  { id: 'ncep_aigfs025', label: 'AIGFS 25km', color: '#3CB44B', maxHours: 384, weight: 10, type: 'ai', region: 'global', resolution: 25 },
 
   // === Europe regional (high-res) ===
   { id: 'meteofrance_arome_france_hd', label: 'AROME-FR 1.3km', color: '#e6194B', maxHours: 48, weight: 20, type: 'deterministic', region: 'europe', resolution: 1 },
@@ -196,19 +199,4 @@ export function getLeadTimeBucket(hours: number): string {
   if (hours <= 48) return '0-48h'
   if (hours <= 96) return '48-96h'
   return '96-168h'
-}
-
-/**
- * Get the ensemble preset for a given metric and lead time.
- * Falls back to the shortest bucket for unknown metrics.
- */
-export function getEnsembleForMetric(
-  metricId: string,
-  leadTimeHours: number = 0
-): { preset: EnsembleDefinition; bucket: string; weights: Record<string, number> } {
-  const presetId = METRIC_TO_ENSEMBLE[metricId] ?? 'temperature'
-  const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
-  const bucket = getLeadTimeBucket(leadTimeHours)
-  const weights = preset.weights[bucket] ?? preset.weights['0-48h']
-  return { preset, bucket, weights }
 }

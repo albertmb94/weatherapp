@@ -2,7 +2,22 @@ import { NextResponse } from 'next/server'
 import { buildForecastCacheKey } from '@/lib/cacheKey'
 import { getCachedForecast, getCachedForecastStale, setCachedForecast } from '@/lib/forecastCache'
 import { rateLimit } from '@/lib/rateLimit'
-import { fetchWithRetry, parseOpenMeteoResponse, CACHE_HEADERS } from '@/lib/api/openMeteoProxy'
+import {
+  fetchOpenMeteoWithModelFallback,
+  parseOpenMeteoResponse,
+} from '@/lib/api/openMeteoProxy'
+
+// Cacheable responses get a generous TTL; stale fallbacks must NOT be
+// cacheable in any shared layer (the staleness window is per-instance
+// and the global CDN could otherwise keep an out-of-window response for
+// up to s-maxage/24h).
+const FRESH_CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=14400, stale-while-revalidate=3600',
+} as const
+const STALE_CACHE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+  'X-Forecast-Cache': 'stale',
+} as const
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -24,10 +39,11 @@ export async function GET(request: Request) {
       return new NextResponse(cached.body, {
         status: 200,
         headers: {
-          ...CACHE_HEADERS,
+          ...FRESH_CACHE_HEADERS,
           'Content-Type': 'application/json',
           'X-Forecast-Cache': 'hit',
           'X-Forecast-Cache-Age-Ms': String(cached.ageMs),
+          'X-Forecast-Fetched-At': String(cached.fetchedAt),
         },
       })
     }
@@ -35,9 +51,9 @@ export async function GET(request: Request) {
     console.warn('forecast_cache lookup failed', err)
   }
 
-  const url = `https://api.open-meteo.com/v1/forecast?${searchParams.toString()}`
+  const upstream = `https://api.open-meteo.com/v1/forecast?${searchParams.toString()}`
   try {
-    const res = await fetchWithRetry(url)
+    const { res, modelsRejected } = await fetchOpenMeteoWithModelFallback(upstream, searchParams)
     const text = await res.text()
     if (!res.ok) {
       const stale = await getCachedForecastStale(cacheKey).catch(() => null)
@@ -45,33 +61,43 @@ export async function GET(request: Request) {
         return new NextResponse(stale.body, {
           status: 200,
           headers: {
-            ...CACHE_HEADERS,
+            ...STALE_CACHE_HEADERS,
             'Content-Type': 'application/json',
-            'X-Forecast-Cache': 'stale',
             'X-Forecast-Cache-Age-Ms': String(stale.ageMs),
+            'X-Forecast-Fetched-At': String(stale.fetchedAt),
           },
         })
       }
       return NextResponse.json(
-        { error: `Open-Meteo ${res.status}`, detail: text },
+        { error: `Open-Meteo ${res.status}`, detail: text.slice(0, 500) },
         { status: res.status }
       )
     }
+    const fetchedAt = Date.now()
     const { parsed, bodyText } = parseOpenMeteoResponse(text)
-    setCachedForecast(cacheKey, bodyText).catch(err => {
+    setCachedForecast(cacheKey, bodyText, fetchedAt).catch(err => {
       console.warn('forecast_cache write failed', err)
     })
-    return NextResponse.json(parsed, { headers: { ...CACHE_HEADERS, 'X-Forecast-Cache': 'miss' } })
+    const headers: Record<string, string> = {
+      ...FRESH_CACHE_HEADERS,
+      'X-Forecast-Cache': 'miss',
+      'X-Forecast-Fetched-At': String(fetchedAt),
+    }
+    if (modelsRejected.length > 0) {
+      headers['X-Forecast-Models-Rejected'] = modelsRejected.join(',')
+      console.warn(`forecast: Open-Meteo rejected models=${modelsRejected.join(',')}; served remainder`)
+    }
+    return NextResponse.json(parsed, { headers })
   } catch {
     const stale = await getCachedForecastStale(cacheKey).catch(() => null)
     if (stale) {
       return new NextResponse(stale.body, {
         status: 200,
         headers: {
-          ...CACHE_HEADERS,
+          ...STALE_CACHE_HEADERS,
           'Content-Type': 'application/json',
-          'X-Forecast-Cache': 'stale',
           'X-Forecast-Cache-Age-Ms': String(stale.ageMs),
+          'X-Forecast-Fetched-At': String(stale.fetchedAt),
         },
       })
     }

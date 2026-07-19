@@ -29,11 +29,6 @@ export interface MeteoclimaticObservation {
   precipitation: number | null
 }
 
-export interface MeteoclimaticResponse {
-  stations: MeteoclimaticObservation[]
-  fetchedAt: string
-}
-
 export interface RegionOption {
   code: string
   label: string

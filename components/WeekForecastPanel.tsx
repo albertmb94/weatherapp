@@ -88,34 +88,44 @@ export default function WeekForecastPanel({
         </div>
       </div>
       <ol className="space-y-2.5">
-        {days.map((d, i) => (
-          <li key={d.fullDate}>
-            <button
-              type="button"
-              onClick={onSelectHour ? () => onSelectHour(nowIndex + i * 12) : undefined}
-              className="w-full grid grid-cols-[42px_24px_1fr_auto] items-center gap-3 py-1.5 px-1 rounded-md hover:bg-surface-popover/60 transition-colors text-left"
-            >
-              <span className="text-sm font-medium text-text-primary capitalize">{d.label}</span>
-              <span className="flex h-6 w-6 items-center justify-center">
-                <WeatherConditionIcon icon={d.icon} size="sm" />
-              </span>
-              <span className="text-xs text-text-secondary truncate">
-                {CONDITION_LABEL[locale][d.icon]}
-              </span>
-              <span className="flex items-baseline gap-1 tabular-nums whitespace-nowrap">
-                <span className="text-sm font-semibold text-text-primary">
-                  {fmtTemp(d.highC)}
+        {days.map((d, i) => {
+          // The panel now receives full-day noon indices from
+          // computeWeekSummaries. The caller still expects a view-relative
+          // hour offset, so subtract `nowIndex` (which itself is the absolute
+          // "current hour" in `time`, not the noon anchor).
+          const absoluteTarget = (d as unknown as { noonIndex?: number }).noonIndex
+          const target = typeof absoluteTarget === 'number'
+            ? absoluteTarget - nowIndex
+            : i
+          return (
+            <li key={d.fullDate}>
+              <button
+                type="button"
+                onClick={onSelectHour ? () => onSelectHour(Math.max(0, target)) : undefined}
+                className="w-full grid grid-cols-[42px_24px_1fr_auto] items-center gap-3 py-1.5 px-1 rounded-md hover:bg-surface-popover/60 transition-colors text-left focus-visible:bg-surface-popover/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              >
+                <span className="text-sm font-medium text-text-primary capitalize">{d.label}</span>
+                <span className="flex h-6 w-6 items-center justify-center">
+                  <WeatherConditionIcon icon={d.icon} size="sm" />
                 </span>
-                <span className="text-xs text-text-tertiary">
-                  {fmtTemp(d.lowC)}
+                <span className="text-xs text-text-secondary truncate">
+                  {CONDITION_LABEL[locale][d.icon]}
                 </span>
-              </span>
-            </button>
-            {i < days.length - 1 ? (
-              <div className="border-b border-border/50 ml-[42px]" />
-            ) : null}
-          </li>
-        ))}
+                <span className="flex items-baseline gap-1 tabular-nums whitespace-nowrap">
+                  <span className="text-sm font-semibold text-text-primary">
+                    {fmtTemp(d.highC)}
+                  </span>
+                  <span className="text-xs text-text-tertiary">
+                    {fmtTemp(d.lowC)}
+                  </span>
+                </span>
+              </button>
+              {i < days.length - 1 ? (
+                <div className="border-b border-border/50 ml-[42px]" />
+              ) : null}
+            </li>
+          )
+        })}
       </ol>
     </aside>
   )

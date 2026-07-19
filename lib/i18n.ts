@@ -7,11 +7,6 @@ export const DAY_NAMES: Record<Locale, string[]> = {
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
 }
 
-export const DAY_FULL: Record<Locale, string[]> = {
-  es: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
-  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-}
-
 export const CONDITION_LABEL: Record<Locale, Record<string, string>> = {
   es: {
     sunny: 'Soleado',

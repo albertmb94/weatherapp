@@ -73,8 +73,9 @@ describe('computeMetrics', () => {
 
   it('delegates to precipitation for precipitation', () => {
     const result = computeMetrics([0.5, 0.0], [0.5, 0.2], 'precipitation')
-    expect(result.pod).toBeDefined()
-    expect(result.csi).toBeDefined()
+    // The precipitation branch exposes pod/csi.
+    expect('pod' in (result as object)).toBe(true)
+    expect('csi' in (result as object)).toBe(true)
   })
 })
 

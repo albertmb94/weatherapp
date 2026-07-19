@@ -1,11 +1,12 @@
 const MAX_RETRIES = 3
 const BASE_DELAY_MS = 1000
 const MAX_RETRY_AFTER_MS = 8000
+const REQUEST_TIMEOUT_MS = 20_000
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504])
-
-export const CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=14400, stale-while-revalidate=3600',
-}
+// Open-Meteo replies with this status when a `models=` ID is no longer in
+// the catalogue. We degrade the request by retrying without the
+// offending model.
+const MODEL_NOT_FOUND_STATUS = 400
 
 export function sanitizeOpenMeteoJson(raw: string): string {
   return raw
@@ -23,16 +24,73 @@ function parseRetryAfterMs(header: string | null): number | null {
   return null
 }
 
+/** Try to extract an offending model id from an Open-Meteo 400 body. */
+function extractRejectedModel(body: string, requestedModels: string[]): string | null {
+  // The provider returns messages like
+  //   "unknown model: gfs_graphcast" or
+  //   "Bad request: Model gfs_graphcast is not supported".
+  const match = body.match(/[Mm]odel\s+([a-z0-9_]+)/) || body.match(/unknown model:\s*([a-z0-9_]+)/)
+  if (match && requestedModels.includes(match[1])) return match[1]
+  // Fallback: drop the first model that the provider doesn't know about.
+  for (const m of requestedModels) {
+    if (!new RegExp(`\\b${m}\\b`).test(body) && body.toLowerCase().includes('model')) return null
+  }
+  return null
+}
+
 export async function fetchWithRetry(url: string): Promise<Response> {
-  let res = await fetch(url)
+  // Outer loop: retries for transient failures (429, 5xx).
+  let res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (res.ok || !RETRYABLE_STATUSES.has(res.status)) return res
     const retryAfterMs = parseRetryAfterMs(res.headers.get('retry-after'))
     const delay = retryAfterMs ?? BASE_DELAY_MS * Math.pow(2, attempt)
     await new Promise(r => setTimeout(r, delay))
-    res = await fetch(url)
+    res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
   }
   return res
+}
+
+/** Variant used by the forecast route: if Open-Meteo rejects the request
+ *  because one of the model IDs is no longer in their catalogue, try
+ *  once more without it. Caps at one degradation per request to avoid
+ *  pathological loops. */
+export async function fetchOpenMeteoWithModelFallback(
+  requestUrl: string,
+  requestParams: URLSearchParams
+): Promise<{ res: Response; modelsUsed: string[]; modelsRejected: string[] }> {
+  const requested = (requestParams.get('models') ?? '').split(',').filter(Boolean)
+  let url = requestUrl
+  const modelsRejected: string[] = []
+  let res = await fetchWithRetry(url)
+  if (res.status !== MODEL_NOT_FOUND_STATUS || requested.length === 0) {
+    return { res, modelsUsed: requested, modelsRejected }
+  }
+  const text = await res.text().catch(() => '')
+  const rejected = extractRejectedModel(text, requested)
+  if (!rejected) {
+    // We couldn't pinpoint which model. Try with no models at all — the
+    // provider will pick its own default ensemble.
+    const params = new URLSearchParams(requestParams)
+    params.delete('models')
+    url = `${new URL(requestUrl).origin}${new URL(requestUrl).pathname}?${params.toString()}`
+    res = await fetchWithRetry(url)
+    modelsRejected.push(...requested)
+    return { res, modelsUsed: [], modelsRejected }
+  }
+  modelsRejected.push(rejected)
+  const remaining = requested.filter(m => m !== rejected)
+  // Retry with the remaining models. Don't recurse: one rejection is the
+  // realistic case (provider catalogue churn on a single ID).
+  const params = new URLSearchParams(requestParams)
+  if (remaining.length > 0) {
+    params.set('models', remaining.join(','))
+  } else {
+    params.delete('models')
+  }
+  url = `${new URL(requestUrl).origin}${new URL(requestUrl).pathname}?${params.toString()}`
+  res = await fetchWithRetry(url)
+  return { res, modelsUsed: params.get('models')?.split(',').filter(Boolean) ?? [], modelsRejected }
 }
 
 export function parseOpenMeteoResponse(text: string): { parsed: unknown; bodyText: string } {

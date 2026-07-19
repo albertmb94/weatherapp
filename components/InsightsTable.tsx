@@ -812,7 +812,13 @@ export default function InsightsTable({
           </thead>
           <tbody>
             {(showAllRows ? rows : rows.slice(0, 50)).map((r, i) => {
-              const isActive = selectedHour >= r.startIdx && selectedHour <= r.endIdx
+              // selectedHour is view-relative; rows are built over the
+              // trimmed `times` series (i.e. view-relative too) except in
+              // the bucket=24 branch where they were originally computed
+              // using fullTimes. Shift by startIndex to align.
+              const shiftedStart = bucket === 24 ? r.startIdx - startIndex : r.startIdx
+              const shiftedEnd = bucket === 24 ? r.endIdx - startIndex : r.endIdx
+              const isActive = selectedHour >= shiftedStart && selectedHour <= shiftedEnd
               const zebra = i % 2 === 1
               const whenBg = isActive
                 ? 'bg-accent-soft/70 ring-1 ring-inset ring-accent/40'
@@ -823,8 +829,17 @@ export default function InsightsTable({
               return (
                 <tr
                   key={i}
-                  onClick={() => onSelectHour(r.centerIdx)}
-                  className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10 contain-[layout_style_paint]"
+                  onClick={() => onSelectHour(r.centerIdx - startIndex)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onSelectHour(r.centerIdx - startIndex)
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={r.label}
+                  className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10 contain-[layout_style_paint] focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 >
                   <td
                     style={{ background: 'var(--surface)' }}

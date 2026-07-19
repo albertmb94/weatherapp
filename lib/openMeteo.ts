@@ -9,10 +9,10 @@ import { selectModelsForLocation } from './regionDetection'
 const MAX_FORECAST_MODELS = 10
 const MAX_HEATMAP_MODELS = HEATMAP_MAX_MODELS
 
-// Open-Meteo only returns hourly `uv_index` data when the forecast horizon
-// is at least 7 days. For shorter ranges the key is missing from the
-// response, so we always request at least this many days — the caller still
-// slices down to the user's selected range for display.
+// Open-Meteo historically returned hourly `uv_index` only for horizons of
+// at least 7 days. The current provider catalogue answers `uv_index` for
+// even one-day requests, but we keep the floor as a safety net so that a
+// future contract regression cannot silently drop the UV column.
 export const UV_MIN_FORECAST_DAYS = 7
 
 // Models effectively cover long horizons globally — we treat these as the
@@ -49,6 +49,23 @@ export interface ForecastResult {
   timeStrings: string[]
   series: Record<string, Record<string, (number | null)[]>>
   utcOffsetSeconds: number
+  /** Fetched-at timestamp (ms since epoch). Used to drive the 4h
+   *  auto-refresh and surface data freshness in the UI. */
+  fetchedAt: number
+}
+
+/** "Live" UV reading sourced from Open-Meteo `current=uv_index`. Comes
+ *  separately because the hourly ensemble value lags ~15 min behind the
+ *  hourly point containing the previous hour (floor), which is what the
+ *  old "UV en vivo" label was silently displaying. */
+export interface CurrentConditions {
+  uvIndex: number | null
+  uvIndexValidAt: Date | null
+  /** Provider-reported update interval for `current_*` fields (seconds). */
+  uvIndexIntervalSec: number | null
+  /** True when the request returned a `current` block at all — false on
+   *  models/locations the provider does not cover with current UV. */
+  hasCurrent: boolean
 }
 
 export async function fetchForecast(
@@ -86,6 +103,15 @@ export async function fetchForecast(
   if (!res.ok) throw new Error(`Forecast API error: ${res.status}`)
   const data = await res.json()
 
+  // The /api/forecast route sets X-Forecast-Fetched-At so we can surface
+  // data freshness to the UI and drive the >4h auto-refresh. We fall back
+  // to "now" when the header is absent (SSR or older caches, or older
+  // unit-test mocks that only stub `json()` without a Headers object).
+  const headers = typeof res.headers?.get === 'function' ? res.headers : null
+  const headerFetchedAt = headers?.get('X-Forecast-Fetched-At') ?? null
+  const headerFetchedAtMs = headerFetchedAt !== null ? Number(headerFetchedAt) : NaN
+  const fetchedAt = Number.isFinite(headerFetchedAtMs) ? headerFetchedAtMs : Date.now()
+
   const timeStrings = data.hourly.time as string[]
   const time = parseOpenMeteoTimes(timeStrings)
   const series: Record<string, Record<string, (number | null)[]>> = {}
@@ -94,7 +120,18 @@ export async function fetchForecast(
     series[model.id] = {}
     for (const metric of metrics) {
       const key = `${metric.hourlyParam}_${model.id}`
-      series[model.id][metric.id] = data.hourly[key] ?? null
+      const arr = data.hourly[key]
+      // Visibility comes back in metres from Open-Meteo; normalize once
+      // here to km so every consumer (table, chart, CSV, map) reads the
+      // same unit. Previously the model was advertised as `km` but the
+      // raw value flowed through unmodified, so 10 000 m rendered/exported
+      // as 10 000 km.
+      if (metric.id === 'visibility' && Array.isArray(arr)) {
+        series[model.id][metric.id] = arr.map((v: number | null) =>
+          v === null || v === undefined ? null : v / 1000)
+      } else {
+        series[model.id][metric.id] = arr ?? null
+      }
     }
     series[model.id]['wind_direction'] = data.hourly[`wind_direction_10m_${model.id}`] ?? null
   }
@@ -105,22 +142,31 @@ export async function fetchForecast(
       const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)
       const marineLen = marine.timeStrings.length
       if (marineLen > 0) {
-        series.marine_global = series.marine_global ?? {}
-        // Align marine data by canonical hour key so it works even when
-        // the marine API uses a different timezone than the land API
-        // (e.g. marine may return UTC while land returns local time).
         const landHourIndex = new Map<number, number>()
         for (let i = 0; i < time.length; i++) {
           landHourIndex.set(Math.floor(time[i].getTime() / 3600000), i)
         }
+        // Align marine data by canonical hour key so it works even when
+        // the marine API uses a different timezone than the land API
+        // (e.g. marine may return UTC while land returns local time).
+        // If no marine timestamp aligns with the land series (e.g. the
+        // two APIs were queried across a DST / instant boundary), skip
+        // merging for that metric so we don't silently broadcast nulls.
         for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
           const aligned = new Array(timeStrings.length).fill(null) as (number | null)[]
+          let matched = 0
           for (let j = 0; j < marineLen; j++) {
             const hourKey = Math.floor(marine.time[j].getTime() / 3600000)
             const idx = landHourIndex.get(hourKey)
-            if (idx !== undefined) aligned[idx] = values[j]
+            if (idx !== undefined) {
+              aligned[idx] = values[j]
+              matched++
+            }
           }
-          series.marine_global[metricId] = aligned
+          if (matched > 0) {
+            series.marine_global = series.marine_global ?? {}
+            series.marine_global[metricId] = aligned
+          }
         }
       }
     } catch (err) {
@@ -128,7 +174,49 @@ export async function fetchForecast(
     }
   }
 
-  return { time, timeStrings, series, utcOffsetSeconds: data.utc_offset_seconds ?? 0 }
+  return {
+    time,
+    timeStrings,
+    series,
+    utcOffsetSeconds: data.utc_offset_seconds ?? 0,
+    fetchedAt,
+  }
+}
+
+/**
+ * Dedicated "live UV" fetch. Single lightweight request (`current=uv_index`).
+ * Kept separate from the ensemble forecast so the live card reflects the
+ * actual provider reading (15-min interval) instead of the floored hourly
+ * ensemble value.
+ */
+export async function fetchCurrentUv(
+  lat: number,
+  lon: number,
+  signal?: AbortSignal
+): Promise<CurrentConditions> {
+  const params = new URLSearchParams({
+    latitude: lat.toString(),
+    longitude: lon.toString(),
+    current: 'uv_index',
+    timezone: 'auto',
+  })
+  const res = await fetchWithTimeout(`/api/forecast?${params}`, { signal, timeoutMs: 10_000 })
+  if (!res.ok) {
+    return { uvIndex: null, uvIndexValidAt: null, uvIndexIntervalSec: null, hasCurrent: false }
+  }
+  const data = await res.json()
+  const current = data?.current
+  if (!current || current.uv_index == null) {
+    return { uvIndex: null, uvIndexValidAt: null, uvIndexIntervalSec: null, hasCurrent: false }
+  }
+  const validAt = typeof current.time === 'string' ? new Date(current.time) : null
+  const intervalSec = Number.isFinite(current.interval) ? Number(current.interval) : null
+  return {
+    uvIndex: Number(current.uv_index),
+    uvIndexValidAt: validAt instanceof Date && !Number.isNaN(validAt.getTime()) ? validAt : null,
+    uvIndexIntervalSec: intervalSec,
+    hasCurrent: true,
+  }
 }
 
 /**

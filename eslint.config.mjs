@@ -5,13 +5,17 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
+  // Override default ignores of eslint-config-next, and additionally
+  // skip the agent bundles that ship with the project (they have their
+  // own lint configuration and would otherwise drown the report in
+  // unrelated errors).
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".opencode/**",
+    ".agents/**",
   ]),
 ]);
 

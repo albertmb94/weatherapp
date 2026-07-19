@@ -6,7 +6,15 @@ import { LocaleProvider } from '@/lib/LocaleContext'
 
 // Minimal weather model so we can render the component with one model.
 const MODELS = [
-  { id: 'gfs_global', label: 'GFS', color: '#fff', maxHours: 384, weight: 100 },
+  {
+    id: 'gfs_global',
+    label: 'GFS',
+    color: '#fff',
+    maxHours: 384,
+    weight: 100,
+    type: 'deterministic' as const,
+    region: 'global' as const,
+  },
 ]
 
 // Build an array of "UTC-fake-local" Date objects (see lib/dateUtils.ts):
@@ -37,8 +45,11 @@ function wrap(node: React.ReactNode) {
   return <LocaleProvider>{node}</LocaleProvider>
 }
 
-describe('DailySummary — noonIndex (B-NEW-2)', () => {
-  it('UTC location (offset=0) selects 12:00 UTC', async () => {
+describe('DailySummary — noonIndex (single offset applied)', () => {
+  // Times are UTC-fake-local (see lib/dateUtils.ts): getUTCHours() === 12
+  // already means 12:00 at the LOCATION, so DailySummary must not apply
+  // `utcOffsetSeconds` a second time.
+  it('selects getUTCHours()===12 regardless of the offset (UTC)', async () => {
     const onSelectHour = vi.fn()
     const user = userEvent.setup()
     const count = 30
@@ -54,14 +65,11 @@ describe('DailySummary — noonIndex (B-NEW-2)', () => {
         utcOffsetSeconds={0}
       />
     ))
-
-    // The first card represents the day starting at hour 0, and the
-    // noonIndex must point to the entry with getUTCHours() === 12.
     await user.click(screen.getAllByRole('button')[0])
     expect(onSelectHour).toHaveBeenCalledWith(12)
   })
 
-  it('CEST location (offset=+2h) selects 10:00 UTC as local noon', async () => {
+  it('selects 12:00 in CEST (offset=+2) — not 10:00', async () => {
     const onSelectHour = vi.fn()
     const user = userEvent.setup()
     const count = 30
@@ -77,13 +85,11 @@ describe('DailySummary — noonIndex (B-NEW-2)', () => {
         utcOffsetSeconds={2 * 3600}
       />
     ))
-
     await user.click(screen.getAllByRole('button')[0])
-    // 12 - 2 = 10 UTC
-    expect(onSelectHour).toHaveBeenCalledWith(10)
+    expect(onSelectHour).toHaveBeenCalledWith(12)
   })
 
-  it('UTC-5 location selects 17:00 UTC as local noon', async () => {
+  it('selects 12:00 in UTC-5 (offset=-18000) — not 17:00', async () => {
     const onSelectHour = vi.fn()
     const user = userEvent.setup()
     const count = 30
@@ -99,18 +105,14 @@ describe('DailySummary — noonIndex (B-NEW-2)', () => {
         utcOffsetSeconds={-5 * 3600}
       />
     ))
-
     await user.click(screen.getAllByRole('button')[0])
-    // (12 - (-5)) mod 24 = 17 UTC
-    expect(onSelectHour).toHaveBeenCalledWith(17)
+    expect(onSelectHour).toHaveBeenCalledWith(12)
   })
 
-  it('falls back to startIndex when no hour matches (e.g. 48h forecast over one day)', async () => {
+  it('always selects the 12:00 slot of the day regardless of offset', async () => {
     const onSelectHour = vi.fn()
     const user = userEvent.setup()
-    // 24 hours starting at midnight UTC, location is UTC+12: local noon
-    // would be 00:00 UTC, which only matches index 0. We assert it picks 0.
-    const count = 24
+    const count = 30
     render(wrap(
       <DailySummary
         models={MODELS}
@@ -123,9 +125,7 @@ describe('DailySummary — noonIndex (B-NEW-2)', () => {
         utcOffsetSeconds={12 * 3600}
       />
     ))
-
     await user.click(screen.getAllByRole('button')[0])
-    // localNoonUtcHour = (12 - 12) mod 24 = 0
-    expect(onSelectHour).toHaveBeenCalledWith(0)
+    expect(onSelectHour).toHaveBeenCalledWith(12)
   })
 })

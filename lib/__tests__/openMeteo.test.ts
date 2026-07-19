@@ -126,6 +126,7 @@ describe('fetchForecast with marine', () => {
     } as Response)
     vi.mocked(fetchMarine).mockResolvedValue({
       time: [new Date(2027, 0, 1, 0)],
+      timeStrings: ['2027-01-01T00:00'],
       series: { marine_global: { wave_height: [0.5] } },
       utcOffsetSeconds: 0,
     })

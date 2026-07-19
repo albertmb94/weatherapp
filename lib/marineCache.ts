@@ -4,6 +4,7 @@ const store = createCacheStore({
   tableName: 'marine_cache',
   ttlMs: 4 * 60 * 60 * 1000,
   purgeOlderThanMs: 6 * 60 * 60 * 1000,
+  maxStaleMs: 24 * 60 * 60 * 1000,
 })
 
 export async function getCachedMarine(cacheKey: string, now?: number): Promise<CachedEntry | null> {

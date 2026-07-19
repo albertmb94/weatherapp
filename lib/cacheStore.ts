@@ -10,9 +10,13 @@ interface CacheStoreOptions {
   tableName: string
   ttlMs: number
   purgeOlderThanMs: number
+  /** Hard ceiling for how old a *stale* fallback may be. Outside this
+   *  window `getStale()` returns null and callers must treat the request
+   *  as a hard failure rather than serving an arbitrary-old forecast. */
+  maxStaleMs: number
 }
 
-export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs }: CacheStoreOptions) {
+export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleMs }: CacheStoreOptions) {
   let initPromise: Promise<void> | null = null
 
   function ensureSchema(): Promise<void> {
@@ -56,7 +60,15 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs }: CacheSt
     })
     const row = result.rows[0] as unknown as { body: string; fetched_at: number } | undefined
     if (!row) return null
-    return { body: row.body, fetchedAt: Number(row.fetched_at), ageMs: now - Number(row.fetched_at) }
+    const fetchedAt = Number(row.fetched_at)
+    const ageMs = now - fetchedAt
+    // We don't return anything older than `maxStaleMs` so the caller can't
+    // present an arbitrary-old forecast as fresh. Previously `getStale`
+    // returned every row regardless of age and the route served it as
+    // `Cache-Control: public, s-maxage=14400`, which made a 30-day-old
+    // response live another 4h in any shared cache.
+    if (ageMs > maxStaleMs) return null
+    return { body: row.body, fetchedAt, ageMs }
   }
 
   async function set(cacheKey: string, body: string, now: number = Date.now()): Promise<void> {
@@ -71,8 +83,10 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs }: CacheSt
         sql: `DELETE FROM ${tableName} WHERE fetched_at < ?`,
         args: [now - purgeOlderThanMs],
       })
-    } catch {
-      // Ignore prune failures.
+    } catch (err) {
+      // Surface prune failures to the server log so silent table growth
+      // doesn't go unnoticed.
+      console.warn(`[cacheStore:${tableName}] prune failed`, err)
     }
   }
 
@@ -81,5 +95,5 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs }: CacheSt
     await getDb().execute(`DELETE FROM ${tableName}`)
   }
 
-  return { get, getStale, set, purgeAll, ttlMs }
+  return { get, getStale, set, purgeAll, ttlMs, maxStaleMs }
 }

@@ -7,6 +7,7 @@ const MOCK_AEMET_STATIONS = [
     lat: 41.39,
     lon: 2.17,
     fint: '2026-06-04T10:00:00+0000',
+    alt: 12,
     ta: 21.5,
     tamax: 24.0,
     tamin: 19.0,

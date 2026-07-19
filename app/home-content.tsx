@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo, useRef, memo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 
@@ -20,7 +20,7 @@ import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
 import SettingsPanel from '@/components/SettingsPanel'
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
-import { fetchForecast, computeForecastDays, type ForecastResult } from '@/lib/openMeteo'
+import { fetchForecast, fetchCurrentUv, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
@@ -28,11 +28,16 @@ import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
 import { getLocationNow, floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
-import { saveLocalLocation } from '@/lib/localStorageLocations'
+import { saveLocalLocation, getLocalSavedLocations, deleteLocalLocation } from '@/lib/localStorageLocations'
 import { useRefresh } from '@/lib/useRefresh'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { saveLastView, loadLastView } from '@/lib/lastView'
 import { saveLastForecast, loadLastForecast } from '@/lib/forecastIndexedDB'
+
+// Maximum age (ms) before we silently re-fetch the location's weather
+// in the background. The user asked for this to kick in at 4h for
+// the same location; we surface it through the refresh badge too.
+const AUTO_REFRESH_AGE_MS = 4 * 60 * 60 * 1000
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -47,7 +52,13 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
     }
     series[modelId] = out
   }
-  return { time, timeStrings, series, utcOffsetSeconds: data.utcOffsetSeconds }
+  return {
+    time,
+    timeStrings,
+    series,
+    utcOffsetSeconds: data.utcOffsetSeconds,
+    fetchedAt: data.fetchedAt,
+  }
 }
 
 // A new deploy changes the hashed chunk filenames. A browser tab that was
@@ -118,8 +129,20 @@ export default function HomeContent() {
 
   const [position, setPosition] = useState<[number, number]>([urlState.lat, urlState.lon])
   const [recenterToken, setRecenterToken] = useState(0)
-  const [cityName, setCityName] = useState(DEFAULT_CITY)
+  // If the user lands on a deep link (`?lat=..&lon=..`) the city name
+  // used to default to "Badalona" (the Spanish fallback), so the header
+  // showed the wrong name until the user manually searched. We now seed
+  // the name with the supplied coordinates and let reverseGeocode (in the
+  // URL-sync effect below) overwrite it as soon as the geocoder replies.
+  const [cityName, setCityName] = useState(() => {
+    const isDefaultUrl = urlState.lat === DEFAULT_POS[0] && urlState.lon === DEFAULT_POS[1]
+    return isDefaultUrl ? DEFAULT_CITY : `${urlState.lat.toFixed(2)}, ${urlState.lon.toFixed(2)}`
+  })
   const [geoLoading, setGeoLoading] = useState(false)
+  // Geocode request counter so an out-of-order reply cannot overwrite a
+  // newer city name. Each call increments it; the reply only applies if
+  // its counter matches the current one.
+  const geocodeSeqRef = useRef(0)
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   // Avanzado default is open on both desktop and mobile per product spec.
@@ -146,14 +169,35 @@ export default function HomeContent() {
 
   // B10: sync local position / cityName from urlState. This makes back/
   // forward navigation, and any external URL change, actually drive the
-  // map and forecast. Only sync when the URL position differs from
-  // current to avoid clobbering a user-initiated change that hasn't been
-  // written to the URL yet (the debounce in useUrlState means there's
-  // a brief window where position is ahead of urlState).
+  // map and forecast. The position is derived from the URL during render
+  // so we don't need a state-update-in-effect for the common case; the
+  // reverseGeocode effect below fills in the city name asynchronously.
+  if (position[0] !== urlState.lat || position[1] !== urlState.lon) {
+    // Update lazily on the next render — React lets us call a state setter
+    // during render to derive state from a prop, which is the documented
+    // pattern for "props into state".
+    setPosition([urlState.lat, urlState.lon])
+  }
+
+  // When the URL points at coords other than the default we also reverse-
+  // geocode so the header shows the actual city instead of the stale
+  // default. This used to silently display "Badalona" on deep links.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPosition(prev => (prev[0] === urlState.lat && prev[1] === urlState.lon) ? prev : [urlState.lat, urlState.lon])
-  }, [urlState.lat, urlState.lon])
+    const isDefault = urlState.lat === DEFAULT_POS[0] && urlState.lon === DEFAULT_POS[1]
+    if (!isDefault) {
+      const seq = ++geocodeSeqRef.current
+      void reverseGeocode(urlState.lat, urlState.lon, locale).then(name => {
+        if (seq !== geocodeSeqRef.current) return
+        if (name) setCityName(name)
+      })
+    } else if (cityName !== DEFAULT_CITY) {
+      // Falling back to the default city name when the URL is on the
+      // default coords is the documented "props into state" pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCityName(DEFAULT_CITY)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlState.lat, urlState.lon, locale])
 
   // M-UI-6: persist the user's last view (metric, models, range, …)
   // so that returning later without a URL still restores their
@@ -339,7 +383,7 @@ export default function HomeContent() {
     queryKey: ['forecast', position[0], position[1], forecastDays, marine],
     queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine),
     staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     // F-5: keep the previous forecast on screen while a new fetch is in
     // flight, so the city-search / range slider don't briefly flash
     // dashes. We only keep the placeholder if the position hasn't
@@ -352,6 +396,46 @@ export default function HomeContent() {
       }
       return prev
     },
+  })
+
+  // Auto-refresh: after the forecast for *this* location is older than
+  // 4h, kick off a silent background refresh. The user requested this
+  // explicitly ("si hace más de 4h para esa ubicación debe hacerse la
+  // recarga de forma automática y su visualización en la interfaz"), so
+  // we surface it through the refresh badge too — see useQuery refetch().
+  // React Query's `staleTime` only marks stale; the actual fire happens
+  // via refetchOnWindowFocus and the explicit invalidation here.
+  const lastFetchedAt = data?.fetchedAt
+  // `forecastAgeMs` and the auto-refresh trigger rely on `Date.now()`,
+  // which is impure. We compute it once on mount + every refresh, then
+  // tick it forward via `currentTickMs` (updated 1× per minute by an
+  // effect below) so the "Refresh due" badge actually ticks.
+  const [currentTickMs, setCurrentTickMs] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTickMs(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const forecastAgeMs = lastFetchedAt ? currentTickMs - lastFetchedAt : null
+  const needsAutoRefresh = forecastAgeMs !== null && forecastAgeMs >= AUTO_REFRESH_AGE_MS
+  useEffect(() => {
+    if (!needsAutoRefresh) return
+    // Invalidate just the forecast for the current position; React Query
+    // will refetch because we're not actively focused on another city.
+    queryClient.invalidateQueries({ queryKey: ['forecast', position[0], position[1], forecastDays, marine] })
+  }, [needsAutoRefresh, queryClient, position, forecastDays, marine])
+
+  // Live UV (provider `current=uv_index`, ~15 min cadence). Separate
+  // query so its lifecycle is independent of the ensemble forecast and
+  // so we can show its valid-at timestamp in the UI.
+  const { data: liveUv } = useQuery<CurrentConditions>({
+    queryKey: ['currentUv', position[0], position[1]],
+    queryFn: ({ signal }) => fetchCurrentUv(position[0], position[1], signal),
+    // Refresh once an hour or when the user comes back to the tab. The
+    // provider's `current` block is ~15 min, so 15 min would be enough,
+    // but a more relaxed cadence keeps cost low while still keeping the
+    // card visibly fresh.
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: true,
   })
 
   // F-5: persist every successful forecast to IndexedDB so the user
@@ -369,50 +453,62 @@ export default function HomeContent() {
   }, [data, position, cityName])
 
   // F-5: when the query has errored (offline, timeout, etc.), hydrate from
-  // IndexedDB so the app stays useful. Also load proactively on mount if
-  // the browser reports offline.
+  // IndexedDB so the app stays useful. We now load by exact location so
+  // a snapshot for a different city can no longer be presented under the
+  // current city's name.
   const [offlineSnapshot, setOfflineSnapshot] = useState<Awaited<ReturnType<typeof loadLastForecast>>>(null)
   useEffect(() => {
     if (typeof navigator === 'undefined') return
-    // Load offline data if query errored OR browser is offline
     if (error || !navigator.onLine) {
-      void loadLastForecast().then(s => { if (s) setOfflineSnapshot(s) })
+      // Async hydrate; the cleanup effect below clears it on next success.
+      void loadLastForecast([position[0], position[1]]).then(s => {
+        if (s) setOfflineSnapshot(s)
+      })
+    }
+  }, [error, position])
+  // Clear the offline snapshot when we successfully come back online.
+  const offlineCleanupRef = useRef(false)
+  useEffect(() => {
+    if (error) {
+      offlineCleanupRef.current = true
+      return
+    }
+    if (offlineCleanupRef.current) {
+      offlineCleanupRef.current = false
+      setOfflineSnapshot(null)
     }
   }, [error])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/locations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: cityName, latitude: position[0], longitude: position[1] }),
-      })
-      if (!res.ok) throw new Error('Failed to save')
-      return res.json()
+      // Cities are private to this device: stored in localStorage only.
+      // The old /api/locations endpoint was a public, anonymous list shared
+      // across every visitor — a privacy bug for what should be personal
+      // bookmarks. We write locally and announce success on failure only
+      // when the local storage write actually succeeded.
+      try {
+        saveLocalLocation(cityName, position[0], position[1])
+        return { ok: true, local: true }
+      } catch (err) {
+        throw err
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
       setToast(locale === 'en' ? `Saved ${cityName}` : `Guardado ${cityName}`)
     },
     onError: () => {
-      saveLocalLocation(cityName, position[0], position[1])
-      queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
-      setToast(locale === 'en' ? `Saved ${cityName}` : `Guardado ${cityName}`)
+      setToast(locale === 'en' ? 'Could not save city' : 'No se pudo guardar la ciudad')
     },
   })
 
   // Mirrors the Cities panel's lookup so we can highlight when the current
-  // location is already bookmarked. React Query dedupes by key, so this
-  // shares a cache with CitiesList / SavedLocations.
+  // location is already bookmarked. Cities live entirely in localStorage now.
   const { data: savedLocations } = useQuery<{ id: number; name: string; latitude: number; longitude: number }[]>({
     queryKey: ['saved-locations'],
-    queryFn: async () => {
-      const res = await fetch('/api/locations')
-      if (!res.ok) throw new Error('API failed')
-      return res.json()
-    },
+    queryFn: async () => getLocalSavedLocations(),
     staleTime: 5 * 60 * 1000,
-    retry: false,
+    initialData: getLocalSavedLocations,
   })
 
   const handleCitySelect = useCallback((name: string, lat: number, lon: number) => {
@@ -423,9 +519,16 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handlePositionChange = useCallback(async (pos: [number, number]) => {
+    const seq = ++geocodeSeqRef.current
     setPosition(pos)
+    // Mark the move in progress so users with a slow reverse-geocoder
+    // still get immediate, correct coordinate display. The geocode reply
+    // is allowed to overwrite the placeholder only if no newer query
+    // started meanwhile.
+    setCityName(`${pos[0].toFixed(2)}, ${pos[1].toFixed(2)}`)
     const name = await reverseGeocode(pos[0], pos[1], locale)
-    setCityName(name || `${pos[0].toFixed(2)}, ${pos[1].toFixed(2)}`)
+    if (seq !== geocodeSeqRef.current) return
+    if (name) setCityName(name)
     updateUrl({ lat: pos[0], lon: pos[1] })
   }, [updateUrl, locale])
 
@@ -442,7 +545,13 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handleHourChange = useCallback((hour: number) => {
-    updateUrl({ hour })
+    // Clamp to a valid hour range for the current dataset so the slider
+    // and downstream consumers never read an out-of-range index. Effective
+    // max is computed below (effectiveMaxHours). Older code stored any
+    // URL-driven value, which could be > maxModelHours after switching
+    // to a 48h regional model and produce `max=-1` for the slider.
+    const safe = Number.isFinite(hour) ? Math.max(0, Math.floor(hour)) : 0
+    updateUrl({ hour: safe })
   }, [updateUrl])
 
   const handleMapToggle = useCallback(() => {
@@ -498,8 +607,10 @@ export default function HomeContent() {
       async pos => {
         const lat = pos.coords.latitude
         const lon = pos.coords.longitude
+        const seq = ++geocodeSeqRef.current
         setPosition([lat, lon])
         const name = await reverseGeocode(lat, lon, locale)
+        if (seq !== geocodeSeqRef.current) return
         setCityName(name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`)
         setRecenterToken(t => t + 1)
         updateUrl({ lat, lon })
@@ -577,7 +688,13 @@ export default function HomeContent() {
     return formatUtcOffset(effectiveData.utcOffsetSeconds)
   }, [effectiveData])
 
-  const effectiveMaxHours = Math.min(selectedRange, maxModelHours, viewData?.time.length ?? 336)
+  // Keep `selectedHour` inside the valid window for the current dataset
+  // and model selection. Without this, switching to a 48-hour regional
+  // model could leave the slider pointing past the new max and produce
+  // `max=-1` in the UI.
+  const timeLen = viewData?.time.length ?? 336
+  const effectiveMaxHours = Math.max(1, Math.min(selectedRange, maxModelHours, timeLen))
+  const safeSelectedHour = Math.max(0, Math.min(selectedHour, effectiveMaxHours - 1))
 
   // After trimming, hour index 0 IS the current hour by construction.
   const jumpToNow = useCallback(() => {
@@ -820,7 +937,12 @@ export default function HomeContent() {
                   time={effectiveData?.time ?? []}
                   series={effectiveData?.series ?? {}}
                   nowIndex={startIndex + selectedHour}
+                  selectedHourOffset={selectedHour}
                   utcOffsetSeconds={effectiveData?.utcOffsetSeconds ?? 0}
+                  liveUvIndex={liveUv?.uvIndex ?? null}
+                  liveUvValidAt={liveUv?.uvIndexValidAt ?? null}
+                  fetchedAt={data?.fetchedAt ?? null}
+                  forecastAgeMs={forecastAgeMs}
                 />
               )}
 
@@ -907,8 +1029,8 @@ export default function HomeContent() {
                       showHeatmap={showMap}
                       metric={selectedMetric}
                       selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
-                      hourIndex={selectedHour}
-                      nowOffset={startIndex}
+                      hourIndex={safeSelectedHour}
+                      mapTimes={effectiveData?.time ?? []}
                       showRadar={showRadar}
                     />
                     <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-surface-raised/90 p-2 rounded-lg shadow-lg pointer-events-none">
@@ -941,8 +1063,8 @@ export default function HomeContent() {
                     <input
                       type="range"
                       min={0}
-                      max={effectiveMaxHours - 1}
-                      value={selectedHour}
+                      max={Math.max(0, effectiveMaxHours - 1)}
+                      value={safeSelectedHour}
                       onChange={e => handleHourChange(Number(e.target.value))}
                       className="flex-1 min-w-0"
                       aria-label="Forecast hour"
@@ -974,7 +1096,7 @@ export default function HomeContent() {
                   displayModels={displayModels}
                   displayActiveModelIds={displayActiveModelIds}
                   selectedModels={selectedModels}
-                  selectedHour={selectedHour}
+                  selectedHour={safeSelectedHour}
                   viewData={viewData}
                   fullData={effectiveData}
                   startIndex={startIndex}
@@ -1074,8 +1196,8 @@ export default function HomeContent() {
                 activeIds={displayActiveModelIds}
                 time={effectiveData?.time ?? []}
                 series={effectiveData?.series ?? {}}
-                nowIndex={startIndex + selectedHour}
-                maxHours={Math.max(startIndex + selectedHour, 0) + weekDays * 24}
+                nowIndex={startIndex + safeSelectedHour}
+                maxHours={Math.max(startIndex + safeSelectedHour, 0) + weekDays * 24}
                 weekDays={weekDays}
                 onWeekDaysChange={(d) => {
                   // WeekForecastPanel needs `range` to cover `weekDays * 24`
@@ -1144,24 +1266,20 @@ function CitiesList({
 }) {
   // Saved-cities panel for the Ciudades sidebar entry. Renders the user's
   // bookmarked locations with a "Save city" CTA so the current weather view
-  // can be bookmarked without leaving the friendly layout.
+  // can be bookmarked without leaving the friendly layout. Data lives in
+  // localStorage only — see comment in `saveMutation` above.
   const { locale } = useLocale()
   const s = STRINGS[locale]
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['saved-locations'],
-    queryFn: async () => {
-      const res = await fetch('/api/locations')
-      if (!res.ok) throw new Error('API failed')
-      return res.json() as Promise<{ id: number; name: string; latitude: number; longitude: number }[]>
-    },
+    queryFn: async () => getLocalSavedLocations(),
     staleTime: 5 * 60 * 1000,
-    retry: false,
+    initialData: getLocalSavedLocations,
   })
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/locations?id=${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('API failed')
+      deleteLocalLocation(id)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-locations'] }),
   })

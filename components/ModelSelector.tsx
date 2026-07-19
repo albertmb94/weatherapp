@@ -20,7 +20,7 @@ export default function ModelSelector({ models, selected, onChange, ensembleMode
     ? models.find(m => m.id === selected[0])
     : null
 
-  const dropdownLabel = allSelected ? 'ALL' : singleModel ? singleModel.label.split(' ')[0] : `${selected.length} models`
+  const dropdownLabel = allSelected ? 'All' : singleModel ? singleModel.label.split(' ')[0] : `${selected.length} models`
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -75,6 +75,7 @@ export default function ModelSelector({ models, selected, onChange, ensembleMode
           Models
         </button>
 
+
         {/* Model dropdown (only visible in 'models' mode) */}
         {ensembleMode === 'models' && (
           <div className="relative" ref={dropdownRef}>
@@ -100,7 +101,7 @@ export default function ModelSelector({ models, selected, onChange, ensembleMode
                       : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
                   }`}
                 >
-                  ALL
+                  All
                 </button>
                 <div className="border-t border-border my-0.5" />
                 {models.map(m => {

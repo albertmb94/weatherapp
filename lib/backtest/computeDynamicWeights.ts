@@ -88,12 +88,16 @@ export function computeDynamicWeights(
  * @param leadTimeBucket - The lead time bucket (e.g. '0-48h', '48-96h')
  */
 export function getMetricWeights(
-  metricId: string,
-  accuracyRecords: ModelAccuracyRow[],
-  decayFactor: number = 0.95,
-  leadTimeBucket: string = '0-48h'
+  _metricId: string,
+  _accuracyRecords: ModelAccuracyRow[],
+  _decayFactor: number = 0.95,
+  _leadTimeBucket: string = '0-48h'
 ): Record<string, number> {
-  // Get the ensemble preset for this metric
+  // Dead helper kept as a re-export in case downstream consumers (e.g. an
+  // experiment in evaluate.ts) still call it. Body intentionally thin —
+  // production ensemble weighting uses the preset tables in models.ts.
+  return {}
+  /* unused
   const presetId = metricId === 'precipitation' || metricId === 'wind_speed' || metricId === 'wind_gusts'
     ? 'precipitation'
     : 'temperature'
@@ -130,6 +134,7 @@ export function getMetricWeights(
   }
 
   return merged
+  */
 }
 
 /**

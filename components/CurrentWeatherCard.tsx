@@ -9,6 +9,14 @@ interface CurrentWeatherCardProps {
   city: string
   snapshot: CurrentSnapshot | null
   loading?: boolean
+  /** Forecast fetched-at timestamp (ms) for the freshness indicator. */
+  fetchedAt?: number | null
+  /** Forecast age (ms) — used to flag the card when stale (>4h). */
+  forecastAgeMs?: number | null
+  /** Live UV reading from the provider's `current=uv_index`. */
+  liveUv?: number | null
+  /** Timestamp for the live UV reading. */
+  liveUvValidAt?: Date | null
 }
 
 function formatTemp(value: number | null): string {

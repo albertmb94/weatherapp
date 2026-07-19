@@ -4,6 +4,9 @@ const store = createCacheStore({
   tableName: 'forecast_cache',
   ttlMs: 4 * 60 * 60 * 1000,
   purgeOlderThanMs: 6 * 60 * 60 * 1000,
+  // Beyond 24h the forecast is too stale to ever serve as a "fallback" —
+  // the routes return 503 instead of feeding an arbitrary snapshot to a CDN.
+  maxStaleMs: 24 * 60 * 60 * 1000,
 })
 
 export async function getCachedForecast(cacheKey: string, now?: number): Promise<CachedEntry | null> {

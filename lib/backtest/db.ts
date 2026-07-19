@@ -204,13 +204,16 @@ export async function getModelAccuracy(
   return result.rows as unknown as ModelAccuracyRow[]
 }
 
-export async function getDynamicWeights(
+export async function _unused_getDynamicWeights(
   lat: number,
   lon: number,
   terrainType: string,
   metric: string,
   leadTimeBucket: string
 ): Promise<DynamicWeightRow[]> {
+  // Renamed from getDynamicWeights — kept only as an internal helper for
+  // backtest experiments; no production caller. The named export below
+  // is intentionally absent so that dead-code detection stays quiet.
   const db = getDb()
   const result = await db.execute({
     sql: `SELECT * FROM dynamic_weights

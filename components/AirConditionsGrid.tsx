@@ -153,9 +153,6 @@ export default function AirConditionsGrid({
   const uvDisplay = uvVal !== null ? uvVal.toFixed(1) : '–'
   const uvLabel = uvMode === 'live' ? s.uvModeLive : s.uvModePeak
   const uvUnit = uvMode === 'peak' ? s.uvPeak : ''
-  const uvBadge = uvMode === 'live' && isLiveNow && liveUv !== null && liveUv !== undefined
-    ? (locale === 'en' ? 'live' : 'en vivo')
-    : null
   // Age of the live UV reading. Open-Meteo reports ~15 min intervals.
   // `Date.now()` is impure so we track it through a state tick instead of
   // calling it during render.
@@ -238,7 +235,11 @@ export default function AirConditionsGrid({
           onClick={() => setRainMode(m => m === 'chance' ? 'total' : 'chance')}
         />
         <ToggleCard
-          label={`${s.uvIndex} · ${uvLabel}${uvBadge ? ` · ${uvBadge}` : ''}`}
+          // The mode label (Live/Peak) already tells the user which
+          // view they're seeing, so the redundant "en vivo" badge was
+          // producing "Índice UV · En vivo · en vivo". Live freshness is
+          // still surfaced via the tooltip (`extraTitle`).
+          label={`${s.uvIndex} · ${uvLabel}`}
           value={uvDisplay}
           unit={uvUnit}
           icon={<UvIcon />}

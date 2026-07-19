@@ -8,6 +8,7 @@ import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
 import { formatAge } from '@/lib/formatAge'
 import { useRefresh } from '@/lib/useRefresh'
+import { saveLocalLocation } from '@/lib/localStorageLocations'
 import type { WeatherModel, MetricId } from '@/lib/models'
 
 interface SettingsPanelProps {
@@ -78,18 +79,25 @@ export default function SettingsPanel(props: SettingsPanelProps) {
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const saveMutation = useMutation({
+    // Saved cities are per-device (localStorage). The old implementation
+    // posted to /api/locations, which now returns 410 Gone and so
+    // surface-stored no result. Write directly and let the React Query
+    // invalidation refresh the list component.
     mutationFn: async () => {
-      const res = await fetch('/api/locations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: props.cityName, latitude: props.positionLat, longitude: props.positionLon }),
-      })
-      if (!res.ok) throw new Error('Failed to save')
-      return res.json()
+      try {
+        saveLocalLocation(props.cityName, props.positionLat, props.positionLon)
+        return { ok: true }
+      } catch (err) {
+        throw err
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
       setFeedback(locale === 'en' ? `Saved ${props.cityName}` : `Guardado ${props.cityName}`)
+      setTimeout(() => setFeedback(null), 2200)
+    },
+    onError: () => {
+      setFeedback(locale === 'en' ? 'Could not save city' : 'No se pudo guardar la ciudad')
       setTimeout(() => setFeedback(null), 2200)
     },
   })

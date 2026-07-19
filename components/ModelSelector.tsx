@@ -75,7 +75,6 @@ export default function ModelSelector({ models, selected, onChange, ensembleMode
           Models
         </button>
 
-
         {/* Model dropdown (only visible in 'models' mode) */}
         {ensembleMode === 'models' && (
           <div className="relative" ref={dropdownRef}>
@@ -130,13 +129,6 @@ export default function ModelSelector({ models, selected, onChange, ensembleMode
           </div>
         )}
       </div>
-
-      {/* WedAI info (only visible in 'wedai' mode) */}
-      {ensembleMode === 'wedai' && (
-        <div className="text-[10px] text-text-muted px-1">
-          Ensemble optimizado: Temperatura + Precipitación + Detección lluvia
-        </div>
-      )}
     </div>
   )
 }

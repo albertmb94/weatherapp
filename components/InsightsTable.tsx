@@ -6,6 +6,7 @@ import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/m
 import { getColor, SCALES } from '@/lib/colorScales'
 import type { ScaleMetric } from '@/lib/colorScales'
 import { weightedAvg } from '@/lib/ensemble'
+import { resolveActiveModels, weightsFor } from '@/lib/ensemble/central'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
@@ -36,6 +37,12 @@ interface InsightsTableProps {
   showBasic?: boolean
   onBasicToggle?: () => void
   ensembleMode?: 'wedai' | 'models'
+  /** Sprint 10 / B-10-1: which ensemble mode to use for the *current
+   *  hour* (the row the user has selected). Defaults to `'wedai'` so the
+   *  active row's temperature matches the big "Tiempo actual" card and
+   *  the "AHORA" slot of the hourly strip regardless of the user's
+   *  `ensembleMode` toggle. Other rows still respect `ensembleMode`. */
+  currentHourMode?: 'wedai' | 'models'
 }
 
 interface Row {
@@ -320,6 +327,12 @@ export default function InsightsTable({
   fullSeries,
   startIndex = 0,
   weekDays = 14,
+  /** Sprint 10 / B-10-1: which ensemble mode to use for the *current
+   *  hour* (the row the user has selected). Defaults to `'wedai'` so the
+   *  active row's temperature matches the big "Tiempo actual" card and
+   *  the "AHORA" slot of the hourly strip regardless of the user's
+   *  `ensembleMode` toggle. Other rows still respect `ensembleMode`. */
+  currentHourMode = 'wedai',
 }: InsightsTableProps) {
   const { locale } = useLocale()
 
@@ -659,8 +672,57 @@ export default function InsightsTable({
       })
     }
 
+    // Sprint 10 / B-10-1: the active row (the one covering the
+    // currently selected hour) must show the same temperature the
+    // big "Tiempo actual" card and the "AHORA" slot of the hourly
+    // strip use. Those callers force `currentHourMode='wedai'`
+    // regardless of the user's `ensembleMode` toggle, so the active
+    // row's `tempMean` is recomputed here with the same model set
+    // and weights. Other metrics (cloud, wind, min, max, ...) keep
+    // their existing ensembleMode-based values so the row still
+    // reads as a coherent daily summary.
+    if (currentHourMode === 'wedai') {
+      const wedaiModels = resolveActiveModels(models, activeModelIds, 'wedai')
+      if (wedaiModels.length > 0) {
+        // Use the same backing array the rest of the aggregation
+        // loop used so index spaces match.
+        const activeSeries = s as Record<string, Record<string, (number | null)[]>>
+        // Compute the series length per-model (they're aligned) for
+        // a defensive bounds check.
+        const seriesLen = activeSeries[wedaiModels[0].id]?.['temperature']?.length ?? 0
+        for (const b of buckets) {
+          // selectedHour is in view-relative space; rows are built
+          // over either `times` (trimmed) or `fullTimes` depending on
+          // the bucket. We shift by startIndex for bucket=24 to align.
+          const shiftedStart = bucket === 24 ? b.startIdx - startIndex : b.startIdx
+          const shiftedEnd = bucket === 24 ? b.endIdx - startIndex : b.endIdx
+          if (selectedHour < shiftedStart || selectedHour > shiftedEnd) continue
+          const absIdx = bucket === 24 ? startIndex + selectedHour : selectedHour
+          if (absIdx < 0 || absIdx >= seriesLen) continue
+          // Use the central module so the formula matches
+          // friendlyForecast.computeCurrentSnapshot byte-for-byte.
+          const tWeights = weightsFor('temperature', absIdx, bucket, wedaiModels)
+          const tVals = wedaiModels.map(
+            m => activeSeries[m.id]?.['temperature']?.[absIdx] ?? null
+          )
+          const tEns = weightedAvg(tVals, tWeights)
+          if (tEns !== null) {
+            b.tempMean = tEns
+            // For bucket=1 the row covers exactly one hour so
+            // tempMin/tempMax must agree with the mean to avoid
+            // contradicting the cell display.
+            if (bucket === 1) {
+              b.tempMin = tEns
+              b.tempMax = tEns
+            }
+          }
+          break // only one row is active
+        }
+      }
+    }
+
     return buckets
-  }, [activeModels, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, weekDays])
+  }, [activeModels, models, activeModelIds, currentHourMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, weekDays, selectedHour])
 
   const marineColIds = useMemo(
     () => new Set<MetricCellId>([

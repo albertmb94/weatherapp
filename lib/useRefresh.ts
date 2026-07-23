@@ -45,15 +45,14 @@ export function useRefresh(): UseRefreshResult {
       return data
     },
     onSuccess: (result) => {
-      // S6.4: invalidate every data query so the user sees fresh data
-      // regardless of whether the server actually purged (cooldown).
+      // Sprint 10 / B-10-5 (E8): the manual refresh only invalidates
+      // the ensemble forecast (the thing the user actually pressed
+      // "refresh" to update) plus the refresh-status metadata.
+      // Stations and geocode results are independent of the forecast
+      // and have their own cadence, so invalidating them on every
+      // refresh click is wasted upstream calls.
       queryClient.invalidateQueries({ queryKey: ['forecast'] })
       queryClient.invalidateQueries({ queryKey: ['refresh-status'] })
-      queryClient.invalidateQueries({ queryKey: ['aemet-stations'] })
-      queryClient.invalidateQueries({ queryKey: ['meteocat-stations'] })
-      queryClient.invalidateQueries({ queryKey: ['meteoclimatic'] })
-      queryClient.invalidateQueries({ queryKey: ['meteoclimatic-coord'] })
-      queryClient.invalidateQueries({ queryKey: ['geocode'] })
 
       // onSuccess is invoked from the mutation runtime, not from a render
       // or effect, so the `react-hooks/set-state-in-effect` lint rule does

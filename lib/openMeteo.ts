@@ -89,12 +89,19 @@ export async function fetchForecast(
   // Always fetch wind direction so insights can render a direction arrow.
   if (!hourlyList.includes('wind_direction_10m')) hourlyList.push('wind_direction_10m')
 
+  // Sprint 10 / B-10-5 (E3): the request payload carries 3 past days
+  // even though the consumer slices the array to start at the current
+  // local hour. For short forecasts (≤ 7 days) we already have today's
+  // 00:00 in the future forecast, so 1 past day is enough to bridge
+  // the overnight gap. For longer forecasts we keep the 3-day tail.
+  const pastDays = forecastDays <= 7 ? '1' : '3'
+
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lon.toString(),
     hourly: hourlyList.join(','),
     models: modelIds,
-    past_days: '3',
+    past_days: pastDays,
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
   })

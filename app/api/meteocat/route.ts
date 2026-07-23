@@ -3,6 +3,12 @@ import { fetchMeteocatStations } from '@/lib/meteocat'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
 import { haversineKm } from '@/lib/geoDistance'
 import { rateLimit } from '@/lib/rateLimit'
+import {
+  getFreshCachedStations,
+  getStaleCachedStations,
+  setCachedStations,
+  parseStationsPayload,
+} from '@/lib/externalStationsCache'
 
 // Default Node runtime: full Intl (timezone) + access to the server-only
 // METEOCAT_API_KEY secret.
@@ -15,7 +21,9 @@ const CACHE_HEADERS = {
 }
 
 // Second layer on top of the CDN: a per-instance memo so warm invocations
-// don't re-hit the upstream within the cache window.
+// don't re-hit the upstream within the cache window. The shared Turso
+// cache (lib/externalStationsCache) sits in front so cold lambdas in
+// serverless deployments still avoid re-hitting Meteocat.
 let memo: { at: number; stations: MeteoclimaticObservation[] } | null = null
 const MEMO_TTL_MS = 25 * 60 * 1000
 
@@ -53,13 +61,32 @@ export async function GET(request: Request) {
   const lon = searchParams.get('lon')
   const radius = Number(searchParams.get('radius') ?? '100')
 
-  if (memo && Date.now() - memo.at < MEMO_TTL_MS) {
-    let stations = memo.stations
-    if (lat && lon) {
-      stations = filterByRadius(stations, Number(lat), Number(lon), radius)
-    }
+  // Sprint 10 / B-10-5 (E5): consult the shared Turso cache first so a
+  // cold lambda in serverless deployments doesn't burn the monthly
+  // quota just to warm up. The in-process memo remains as the
+  // innermost, fastest layer.
+  const fresh = await getFreshCachedStations('meteocat')
+  let stations = fresh
+    ? parseStationsPayload<MeteoclimaticObservation[]>(fresh)
+    : null
+  let fetchedAt = fresh?.fetchedAt ?? null
+
+  if (!stations && memo && Date.now() - memo.at < MEMO_TTL_MS) {
+    stations = memo.stations
+    fetchedAt = memo.at
+  }
+
+  if (stations) {
+    const filtered =
+      lat && lon
+        ? filterByRadius(stations, Number(lat), Number(lon), radius)
+        : stations
     return NextResponse.json(
-      { stations, fetchedAt: new Date(memo.at).toISOString(), cached: true },
+      {
+        stations: filtered,
+        fetchedAt: fetchedAt ? new Date(fetchedAt).toISOString() : new Date().toISOString(),
+        cached: true,
+      },
       { headers: CACHE_HEADERS }
     )
   }
@@ -67,25 +94,46 @@ export async function GET(request: Request) {
   try {
     const allStations = await fetchMeteocatStations(apiKey)
     memo = { at: Date.now(), stations: allStations }
-    let stations = allStations
+    void setCachedStations('meteocat', JSON.stringify(allStations), Date.now()).catch(err => {
+      console.warn('[meteocat] cache write failed', err)
+    })
+    let filtered = allStations
     if (lat && lon) {
-      stations = filterByRadius(stations, Number(lat), Number(lon), radius)
+      filtered = filterByRadius(filtered, Number(lat), Number(lon), radius)
     }
     return NextResponse.json(
-      { stations, fetchedAt: new Date().toISOString() },
+      { stations: filtered, fetchedAt: new Date().toISOString() },
       { headers: CACHE_HEADERS }
     )
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[meteocat] ${message}`)
-    // Serve the last good in-memory snapshot if we have one.
+    // Sprint 10: serve the last good shared snapshot if we have one.
+    const stale = await getStaleCachedStations('meteocat')
+    if (stale) {
+      const staleStations = parseStationsPayload<MeteoclimaticObservation[]>(stale)
+      if (staleStations) {
+        const filtered =
+          lat && lon
+            ? filterByRadius(staleStations, Number(lat), Number(lon), radius)
+            : staleStations
+        return NextResponse.json(
+          {
+            stations: filtered,
+            fetchedAt: new Date(stale.fetchedAt).toISOString(),
+            stale: true,
+          },
+          { headers: CACHE_HEADERS }
+        )
+      }
+    }
     if (memo) {
-      let stations = memo.stations
+      let filtered = memo.stations
       if (lat && lon) {
-        stations = filterByRadius(stations, Number(lat), Number(lon), radius)
+        filtered = filterByRadius(filtered, Number(lat), Number(lon), radius)
       }
       return NextResponse.json(
-        { stations, fetchedAt: new Date(memo.at).toISOString(), stale: true },
+        { stations: filtered, fetchedAt: new Date(memo.at).toISOString(), stale: true },
         { headers: CACHE_HEADERS }
       )
     }

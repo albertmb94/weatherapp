@@ -907,6 +907,24 @@ export default function InsightsTable({
                     style={{ background: 'var(--surface)' }}
                     className={`sticky left-0 isolate z-30 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
                   >
+                    {/* Sprint 10 / B-10-2: when bucket=24 and the user is
+                       on the actual current hour (selectedHour === 0),
+                       the active row's tempMean is the CURRENT hour's
+                       temperature (B-10-1 forced WedAI for the current
+                       hour). The chip clarifies that so the user
+                       doesn't read it as a daily average. For any
+                       other selectedHour (e.g. tomorrow) we do not
+                       show "Ahora" — the value is a forecast for that
+                       future hour. */}
+                    {isActive && bucket === 24 && selectedHour === 0 && r.tempMean !== null ? (
+                      <div
+                        className="text-[9px] uppercase tracking-wider font-semibold text-accent mb-0.5 leading-tight"
+                        aria-label="Hora actual"
+                        data-testid="ahora-chip"
+                      >
+                        ↳ Ahora · {Math.round(r.tempMean)}°
+                      </div>
+                    ) : null}
                     {r.label}
                   </td>
                   {colDefs.map((col, j) => (

@@ -33,6 +33,7 @@ import { useRefresh } from '@/lib/useRefresh'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { saveLastView, loadLastView } from '@/lib/lastView'
 import { saveLastForecast, loadLastForecast } from '@/lib/forecastIndexedDB'
+import { useHourSlider } from '@/lib/hooks/useHourSlider'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
 // in the background. The user asked for this to kick in at 4h for
@@ -641,17 +642,6 @@ export default function HomeContent() {
     [marine, selectedModels]
   )
 
-  const maxModelHours = useMemo(() => {
-    if (selectedModels.length === 0) return 336
-    // M12: exclude marine_global from the maxModelHours calculation.
-    // marine_global.maxHours is 0 (a placeholder), so if it's the only
-    // model the slider would clamp to 0 and the UI breaks. Marine data
-    // uses its own forecast_days anyway.
-    const land = selectedModels.filter(id => id !== 'marine_global')
-    if (land.length === 0) return 336
-    return Math.max(...land.map(id => MODELS.find(m => m.id === id)?.maxHours ?? 168))
-  }, [selectedModels])
-
   // Skip hourly entries before the current local hour (rounded down) in the
   // *location's* timezone, not the user's browser timezone.
   const startIndex = useMemo(() => {
@@ -691,10 +681,16 @@ export default function HomeContent() {
   // Keep `selectedHour` inside the valid window for the current dataset
   // and model selection. Without this, switching to a 48-hour regional
   // model could leave the slider pointing past the new max and produce
-  // `max=-1` in the UI.
-  const timeLen = viewData?.time.length ?? 336
-  const effectiveMaxHours = Math.max(1, Math.min(selectedRange, maxModelHours, timeLen))
-  const safeSelectedHour = Math.max(0, Math.min(selectedHour, effectiveMaxHours - 1))
+  // `max=-1` in the UI. (Sprint 10: extracted to `useHourSlider`.)
+  const {
+    effectiveMaxHours,
+    safeSelectedHour,
+  } = useHourSlider({
+    selectedHour,
+    selectedRange,
+    selectedModels,
+    viewTimesLength: viewData?.time.length ?? 0,
+  })
 
   // After trimming, hour index 0 IS the current hour by construction.
   const jumpToNow = useCallback(() => {

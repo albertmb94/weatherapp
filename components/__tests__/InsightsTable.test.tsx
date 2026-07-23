@@ -160,3 +160,118 @@ describe('InsightsTable — "↳ Ahora" annotation on active row', () => {
     expect(screen.queryByText(/Ahora/)).toBeNull()
   })
 })
+
+/**
+ * Sprint 10 / B-10-6 — full-horizon rendering for bucket=1.
+ *
+ * The previous implementation capped bucket=1 at 96 h (4 days) because
+ * rendering 336 cells was expensive on mobile. With `content-visibility:
+ * auto` + `contain-intrinsic-size` the browser skips off-screen rows
+ * natively, so we expose the full horizon the user requested.
+ */
+describe('InsightsTable — full-horizon rendering (Sprint 10)', () => {
+  const HOURS = 24 * 14 // 14 days
+  const series: SeriesLike = {
+    ...rampSeries('gfs_global', HOURS, 10, 0),
+    ...rampSeries('ecmwf_ifs', HOURS, 20, 0),
+  }
+
+  it('bucket=1 generates one row per hour across the full 14-day horizon', () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    // The full horizon is now rendered (no pagination); off-screen
+    // rows are skipped by the browser via content-visibility.
+    const tbody = document.querySelector('tbody')!
+    const rows = tbody.querySelectorAll('tr').length
+    expect(rows).toBe(HOURS) // 336 = 14 days × 24 h
+  })
+
+  it('bucket=2 generates one row per 2 hours across the full 14-day horizon', () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        bucket={2}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    const tbody = document.querySelector('tbody')!
+    const rows = tbody.querySelectorAll('tr').length
+    // 336 / 2 = 168 rows.
+    expect(rows).toBe(168)
+  })
+
+  it('rows use content-visibility: auto so off-screen rendering is skipped', () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    const firstRow = document.querySelector('tbody tr') as HTMLElement | null
+    expect(firstRow).not.toBeNull()
+    // jsdom doesn't actually skip rendering, but it must propagate
+    // the inline style to the DOM node so the browser picks it up
+    // in production.
+    const style = firstRow!.getAttribute('style') ?? ''
+    expect(style).toMatch(/content-visibility:\s*auto/i)
+    expect(style).toMatch(/contain-intrinsic-size:\s*auto\s+28px/i)
+  })
+
+  it('cells use contain:layout_style_paint for paint isolation', () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    // Pick any non-Cuando cell and assert the containment class is
+    // present (we don't assert exact wording so future Tailwind
+    // upgrades don't break the test).
+    const cell = document.querySelector('tbody tr td:nth-child(2)') as HTMLElement | null
+    expect(cell).not.toBeNull()
+    expect(cell!.className).toMatch(/contain.*layout_style_paint|contain:\s*layout\s+style\s+paint/i)
+  })
+})

@@ -200,11 +200,21 @@ function intensityFor(metric: ScaleMetric, value: number | null): number | null 
  * the colour diffuses before reaching the cell border, but the gradient
  * is intentionally simple (2 stops) so it remains cheap to paint at the
  * 14 rows × 14 columns size the table reaches on mobile.
+ *
+ * Sprint 10 / B-10-6: the result is memoised per `(metric, value)`
+ * tuple so a 336-row render produces at most one CSSProperties object
+ * per unique (metric, value) pair instead of one per cell. For the
+ * typical forecast this collapses ~4700 cell-instances to a few
+ * dozen unique styles.
  */
+const HEAT_STYLE_CACHE = new Map<string, React.CSSProperties>()
 function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperties {
   if (value === null || value === undefined) {
-    return { background: 'transparent' }
+    return TRANSPARENT_STYLE
   }
+  const key = `${metric}|${value}`
+  const cached = HEAT_STYLE_CACHE.get(key)
+  if (cached) return cached
   const color = getColor(metric, value)
   const triple = rgbTriple(color)
   const intensity = intensityFor(metric, value) ?? 0.5
@@ -212,11 +222,15 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   // mobile GPUs while still showing the "soft glow" character.
   const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
   const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
-  return {
+  const style: React.CSSProperties = {
     ['--heat-rgb-triple' as string]: triple,
     background: `radial-gradient(ellipse 32% 60% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
   } as React.CSSProperties
+  HEAT_STYLE_CACHE.set(key, style)
+  return style
 }
+
+const TRANSPARENT_STYLE: React.CSSProperties = { background: 'transparent' }
 
 function WindArrow({ degrees }: { degrees: number | null }) {
   if (degrees === null) return null
@@ -353,7 +367,15 @@ export default function InsightsTable({
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [compact, setCompact] = useState(false)
-  const [showAllRows, setShowAllRows] = useState(false)
+  // Sprint 10 / B-10-6: the previous "show first 50 rows + expand"
+  // pagination was a workaround for the mobile paint cost. Now that
+  // every row has `content-visibility: auto`, the browser skips
+  // off-screen rendering natively, so we render every row up front
+  // and let CSS handle the rendering cost. The state is kept (as a
+  // no-op for now) so the existing reset-on-bucket-change logic stays
+  // trivially correct; if we ever need pagination back, the wiring is
+  // already in place.
+  const [showAllRows] = useState(true)
   const dragNodeRef = useRef<HTMLTableCellElement | null>(null)
 
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
@@ -397,11 +419,11 @@ export default function InsightsTable({
     saveColumnOrder(DEFAULT_ORDER)
   }, [])
 
-  // Reset showAllRows when bucket changes so the user has to click again
+  // Reset showAllRows when bucket changes so the user has to click again.
+  // No-op since showAllRows is now pinned to `true` (see Hito F2).
   const prevBucketRef = useRef(bucket)
   useEffect(() => {
     if (prevBucketRef.current !== bucket) {
-      setShowAllRows(false)
       prevBucketRef.current = bucket
     }
   }, [bucket])
@@ -416,8 +438,14 @@ export default function InsightsTable({
     const tt = bucket === 24 && fullTimes?.length ? fullTimes : times
     const s = bucket === 24 && fullSeries ? fullSeries : series
     if (activeModels.length === 0 || tt.length === 0) return []
-    const effectiveMaxHours = (bucket === 1) ? Math.min(maxHours, 96) : maxHours
-    const limit = Math.min(tt.length, effectiveMaxHours)
+    // Sprint 10 / B-10-6: the previous 96 h cap on bucket=1 (4 days)
+    // was a workaround for mobile paint cost. With `content-visibility:
+    // auto` on each row (see <tr> below) the browser skips off-screen
+    // rendering, so we can now expose the full forecast horizon the
+    // user actually requested. The "show first 50 rows" pagination
+    // is retained for fast first paint — the user expands it to see
+    // every hour.
+    const limit = Math.min(tt.length, maxHours)
 
     // Build per-metric, per-hour weight arrays.
     // WedAI mode: use ensemble presets (per-metric, per-horizon weights)
@@ -772,14 +800,18 @@ export default function InsightsTable({
   return (
     <div className="mb-4 animate-fadeIn">
       <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
-          {STRINGS[locale].insightsTitle}
-          {(bucket === 1 || bucket === 2) && (
-            <span className="ml-2 normal-case tracking-normal font-normal text-text-muted">
-              (Próximas 120h)
-            </span>
-          )}
-        </h3>
+          <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
+            {STRINGS[locale].insightsTitle}
+            {(bucket === 1 || bucket === 2) && (
+              // Sprint 10 / B-10-6: with content-visibility the table now
+              // renders the full horizon (up to 14 days). The label
+              // reflects the actual ceiling so the user knows how far
+              // they can scroll.
+              <span className="ml-2 normal-case tracking-normal font-normal text-text-muted">
+                ({bucket === 1 ? 'Próximas 336h' : 'Próximas 168h'})
+              </span>
+            )}
+          </h3>
       </div>
       <div className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
         <div className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">
@@ -901,6 +933,15 @@ export default function InsightsTable({
                   tabIndex={0}
                   role="button"
                   aria-label={r.label}
+                  // Sprint 10 / B-10-6: `content-visibility: auto` +
+                  // `contain-intrinsic-size: auto 28px` lets the
+                  // browser skip painting rows that are off-screen.
+                  // That collapses the cost of a 336-row (14 days
+                  // × 24 h) bucket=1 render to roughly the cost of
+                  // the rows actually visible in the viewport — the
+                  // intrinsic-size keeps scrollbar height honest
+                  // without forcing layout of the contents.
+                  style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 28px' }}
                   className="cursor-pointer transition-colors hover:[&>td]:bg-accent/10 contain-[layout_style_paint] focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 >
                   <td
@@ -941,27 +982,6 @@ export default function InsightsTable({
             })}
           </tbody>
         </table>
-        {rows.length > 50 && !showAllRows ? (
-          <div className="border-t border-border bg-surface-popover/30 px-3 py-2 text-center">
-            <button
-              type="button"
-              onClick={() => setShowAllRows(true)}
-              className="text-[11px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-            >
-              {`+ Show ${rows.length - 50} more rows`}
-            </button>
-          </div>
-        ) : showAllRows && rows.length > 50 ? (
-          <div className="border-t border-border bg-surface-popover/30 px-3 py-2 text-center">
-            <button
-              type="button"
-              onClick={() => setShowAllRows(false)}
-              className="text-[11px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-            >
-              Show fewer rows
-            </button>
-          </div>
-        ) : null}
         </div>
       </div>
     </div>
@@ -1017,7 +1037,13 @@ const HeatCell = memo(function HeatCell({
       // Heat-cell text uses a CSS variable that flips between dark and
       // light text based on the html.light class. This makes it track the
       // theme toggle regardless of the OS `prefers-color-scheme` setting.
-      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black sm:text-[color:var(--heat-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''}`}
+      //
+      // Sprint 10 / B-10-6: `contain: layout style paint` makes each
+      // cell an independent paint island so a change to one cell
+      // (e.g. the active-row ring) cannot trigger a repaint of any
+      // sibling. Combined with content-visibility on the row, this
+      // lets the browser aggressively skip work for off-screen rows.
+      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black sm:text-[color:var(--heat-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
       style={style}
     >
       {node}

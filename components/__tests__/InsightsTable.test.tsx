@@ -9,11 +9,13 @@
  *     chip would be redundant)
  *   - the row is not active (only the active row has tempMean = Ahora)
  */
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import InsightsTable from '@/components/InsightsTable'
 import { LocaleProvider } from '@/lib/LocaleContext'
 import type { WeatherModel } from '@/lib/models'
+
+type SeriesLike = Record<string, Record<string, (number | null)[]>>
 
 const MODELS: WeatherModel[] = [
   {
@@ -80,7 +82,7 @@ function wrap(node: React.ReactNode) {
 
 describe('InsightsTable — "↳ Ahora" annotation on active row', () => {
   const HOURS = 24 * 14 // 14 days
-  const series = {
+  const series: SeriesLike = {
     ...rampSeries('gfs_global', HOURS, 10, 0.5),  // 10°C at h0, ramps up
     ...rampSeries('ecmwf_ifs', HOURS, 14, 0.5),  // 14°C at h0, ramps up
   }
@@ -91,9 +93,9 @@ describe('InsightsTable — "↳ Ahora" annotation on active row', () => {
         models={MODELS}
         activeModelIds={['gfs_global', 'ecmwf_ifs']}
         times={fakeTimes(0, HOURS)}
-        series={series as any}
+        series={series}
         fullTimes={fakeTimes(0, HOURS)}
-        fullSeries={series as any}
+        fullSeries={series}
         startIndex={0}
         bucket={24}
         onBucketChange={() => {}}
@@ -118,7 +120,7 @@ describe('InsightsTable — "↳ Ahora" annotation on active row', () => {
         models={MODELS}
         activeModelIds={['gfs_global', 'ecmwf_ifs']}
         times={fakeTimes(0, HOURS)}
-        series={series as any}
+        series={series}
         bucket={1}
         onBucketChange={() => {}}
         selectedHour={0}
@@ -141,9 +143,9 @@ describe('InsightsTable — "↳ Ahora" annotation on active row', () => {
         models={MODELS}
         activeModelIds={['gfs_global', 'ecmwf_ifs']}
         times={fakeTimes(0, HOURS)}
-        series={series as any}
+        series={series}
         fullTimes={fakeTimes(0, HOURS)}
-        fullSeries={series as any}
+        fullSeries={series}
         startIndex={0}
         bucket={24}
         onBucketChange={() => {}}

@@ -62,3 +62,6 @@ dev.err.log
 
 # opencode
 .opencode/
+
+# Qdrant indexer cache (vocab + transient artifacts)
+.qdrant-cache/

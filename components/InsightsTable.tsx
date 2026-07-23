@@ -367,15 +367,20 @@ export default function InsightsTable({
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [compact, setCompact] = useState(false)
-  // Sprint 10 / B-10-6: the previous "show first 50 rows + expand"
-  // pagination was a workaround for the mobile paint cost. Now that
-  // every row has `content-visibility: auto`, the browser skips
-  // off-screen rendering natively, so we render every row up front
-  // and let CSS handle the rendering cost. The state is kept (as a
-  // no-op for now) so the existing reset-on-bucket-change logic stays
-  // trivially correct; if we ever need pagination back, the wiring is
-  // already in place.
-  const [showAllRows] = useState(true)
+  // Sprint 10 / B-10-7: paginated rendering, 48 rows per page. The
+  // user reported that bucket=1 (336 rows) still caused noticeable
+  // slowdowns on mobile even with `content-visibility: auto`. The
+  // remaining cost is the React reconciliation per row + the inline
+  // radial-gradient per cell, both of which still run for rows that
+  // haven't yet been scrolled into view. Pagination at 48 rows keeps
+  // the DOM bounded to ~672 cells per page (vs the previous ~4704),
+  // which is fast on every device. The "next 48h" button at the
+  // bottom of the table advances `currentPage` so the user can step
+  // through the full horizon without ever mounting all 336 rows at
+  // once. Bucket changes reset to page 0.
+  const PAGE_SIZE = 48
+  const [currentPage, setCurrentPage] = useState(0)
+  const tableContainerRef = useRef<HTMLDivElement | null>(null)
   const dragNodeRef = useRef<HTMLTableCellElement | null>(null)
 
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
@@ -419,11 +424,12 @@ export default function InsightsTable({
     saveColumnOrder(DEFAULT_ORDER)
   }, [])
 
-  // Reset showAllRows when bucket changes so the user has to click again.
-  // No-op since showAllRows is now pinned to `true` (see Hito F2).
+  // Reset currentPage to 0 whenever the bucket changes so the user
+  // always starts at the top of the new window.
   const prevBucketRef = useRef(bucket)
   useEffect(() => {
     if (prevBucketRef.current !== bucket) {
+      setCurrentPage(0)
       prevBucketRef.current = bucket
     }
   }, [bucket])
@@ -795,6 +801,19 @@ export default function InsightsTable({
     return result
   }, [rows, colDefs])
 
+  // Sprint 10 / B-10-7: paginated rendering at 48 rows per page.
+  // Clamp currentPage defensively so a stale state can never render
+  // an out-of-bounds slice (e.g. after a bucket change that shrunk
+  // the row count).
+  const safePage = Math.min(currentPage, Math.max(0, Math.floor((rows.length - 1) / PAGE_SIZE)))
+  const pageStart = safePage * PAGE_SIZE
+  const pageEnd = Math.min(rows.length, pageStart + PAGE_SIZE)
+  const visibleRows = rows.slice(pageStart, pageEnd)
+  const visibleCellsByRow = cellsByRow.slice(pageStart, pageEnd)
+  const hasNext = pageEnd < rows.length
+  const hasPrev = safePage > 0
+  const remaining = rows.length - pageEnd
+
   if (activeModels.length === 0) return null
 
   return (
@@ -812,6 +831,16 @@ export default function InsightsTable({
               </span>
             )}
           </h3>
+          {/* Sprint 10 / B-10-7: page indicator for paginated buckets
+              (1/2/6 h). Helps the user understand how many 48h
+              "pages" remain without scrolling to the bottom CTA. */}
+          {rows.length > PAGE_SIZE ? (
+            <span className="ml-auto text-[10px] tabular-nums text-text-muted">
+              {locale === 'en'
+                ? `Page ${safePage + 1} / ${Math.ceil(rows.length / PAGE_SIZE)} · hours ${pageStart + 1}–${pageEnd}`
+                : `Pág. ${safePage + 1} / ${Math.ceil(rows.length / PAGE_SIZE)} · horas ${pageStart + 1}–${pageEnd}`}
+            </span>
+          ) : null}
       </div>
       <div className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
         <div className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">
@@ -875,9 +904,26 @@ export default function InsightsTable({
             ≡
           </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className={`w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${showMarine ? 'table-auto' : 'table-fixed'}`}>
-          <thead>
+        <div
+          // Sprint 10 / B-10-7: vertical + horizontal scroll happen INSIDE
+          // this container, so the sticky thead can actually do its job.
+          // If we kept overflow-x-only on a tall table, sticky `top-0`
+          // would never trigger (the scrolling context would be the
+          // page, but the table extends past the viewport on a long
+          // bucket=1 view). max-h keeps the headers within reach
+          // without forcing a huge surface on devices that don't need
+          // it.
+          ref={tableContainerRef}
+          className="overflow-auto max-h-[70vh] contain-[layout_style_paint]"
+        >
+          <table
+            // Sprint 10 / B-10-7: `border-separate` (not `border-collapse:
+            // collapse`) is required for sticky table headers in WebKit
+            // and older Chromium. The visual difference is invisible
+            // thanks to `border-spacing: 0` + per-cell `border-b`.
+            className={`w-full border-separate border-spacing-0 text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${showMarine ? 'table-auto' : 'table-fixed'}`}
+          >
+          <thead className="bg-surface sticky top-0 z-30">
             <tr className="bg-surface text-text-secondary">
               <th
                 style={{ background: 'var(--surface)' }}
@@ -905,7 +951,46 @@ export default function InsightsTable({
             </tr>
           </thead>
           <tbody>
-            {(showAllRows ? rows : rows.slice(0, 50)).map((r, i) => {
+            {hasPrev ? (
+              <tr
+                // Sprint 10 / B-10-7: navigation back to the previous
+                // page. Sits at the TOP of the visible rows so the user
+                // doesn't have to scroll up through the previous page
+                // first. The container scrolls to top so the new page
+                // starts under the sticky headers.
+                key="__prev-page-cta__"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setCurrentPage(p => Math.max(0, p - 1))
+                  requestAnimationFrame(() => {
+                    tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                  })
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setCurrentPage(p => Math.max(0, p - 1))
+                    requestAnimationFrame(() => {
+                      tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                    })
+                  }
+                }}
+                aria-label="Previous 48 hours"
+                className="cursor-pointer bg-surface-popover/40 hover:bg-accent/10 transition-colors focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                data-testid="prev-page-cta"
+              >
+                <td
+                  colSpan={colDefs.length + 1}
+                  className="text-center px-2 py-2 text-[11px] text-text-secondary tabular-nums border-b border-border"
+                >
+                  <span className="font-semibold text-accent">
+                    {locale === 'en' ? '← Previous 48 h' : '← 48 h anteriores'}
+                  </span>
+                </td>
+              </tr>
+            ) : null}
+            {visibleRows.map((r, i) => {
               // selectedHour is view-relative; rows are built over the
               // trimmed `times` series (i.e. view-relative too) except in
               // the bucket=24 branch where they were originally computed
@@ -913,13 +998,13 @@ export default function InsightsTable({
               const shiftedStart = bucket === 24 ? r.startIdx - startIndex : r.startIdx
               const shiftedEnd = bucket === 24 ? r.endIdx - startIndex : r.endIdx
               const isActive = selectedHour >= shiftedStart && selectedHour <= shiftedEnd
-              const zebra = i % 2 === 1
+              const zebra = (pageStart + i) % 2 === 1
               const whenBg = isActive
                 ? 'bg-accent-soft/70 ring-1 ring-inset ring-accent/40'
                 : zebra
                   ? 'bg-surface-raised/30'
                   : 'bg-transparent'
-              const rowCells = cellsByRow[i] ?? []
+              const rowCells = visibleCellsByRow[i] ?? []
               return (
                 <tr
                   key={i}
@@ -980,6 +1065,54 @@ export default function InsightsTable({
                 </tr>
               )
             })}
+            {hasNext ? (
+              <tr
+                // Sprint 10 / B-10-7: the last row IS the pagination
+                // control. Clicking advances currentPage so the next
+                // PAGE_SIZE rows mount; the container scrolls back to
+                // the top so the headers stay in view.
+                key="__next-page-cta__"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setCurrentPage(p => p + 1)
+                  // Bring the user back to the top of the table
+                  // container so the new page starts under the
+                  // sticky headers instead of mid-scroll.
+                  requestAnimationFrame(() => {
+                    tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                  })
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setCurrentPage(p => p + 1)
+                    requestAnimationFrame(() => {
+                      tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                    })
+                  }
+                }}
+                aria-label={
+                  locale === 'en'
+                    ? `Show next ${Math.min(PAGE_SIZE, remaining)} hours`
+                    : `Mostrar siguientes ${Math.min(PAGE_SIZE, remaining)} horas`
+                }
+                className="cursor-pointer bg-surface-popover/40 hover:bg-accent/10 transition-colors focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                data-testid="next-page-cta"
+              >
+                <td
+                  colSpan={colDefs.length + 1}
+                  className="text-center px-2 py-3 text-[11px] text-text-secondary tabular-nums border-t border-border"
+                >
+                  <span className="font-semibold text-accent">
+                    {STRINGS[locale].insightsShowNext.replace('{n}', String(Math.min(PAGE_SIZE, remaining)))}
+                  </span>
+                  <span className="ml-2 text-text-muted">
+                    {STRINGS[locale].insightsRowsRemaining.replace('{n}', String(remaining))}
+                  </span>
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
         </div>

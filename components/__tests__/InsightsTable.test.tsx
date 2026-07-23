@@ -11,6 +11,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import InsightsTable from '@/components/InsightsTable'
 import { LocaleProvider } from '@/lib/LocaleContext'
 import type { WeatherModel } from '@/lib/models'
@@ -162,21 +163,26 @@ describe('InsightsTable — "↳ Ahora" annotation on active row', () => {
 })
 
 /**
- * Sprint 10 / B-10-6 — full-horizon rendering for bucket=1.
+ * Sprint 10 / B-10-7 — pagination (48 h pages) + sticky headers.
  *
- * The previous implementation capped bucket=1 at 96 h (4 days) because
- * rendering 336 cells was expensive on mobile. With `content-visibility:
- * auto` + `contain-intrinsic-size` the browser skips off-screen rows
- * natively, so we expose the full horizon the user requested.
+ * The previous "render every row up front" approach (B-10-6) still
+ * triggered noticeable slowdowns on bucket=1 (336 rows) because the
+ * React reconciliation + the inline radial-gradient per cell run
+ * for every row regardless of viewport. We now mount 48 rows at a
+ * time (PAGE_SIZE) and add a CTA row at the bottom to load the next
+ * page; only bucket=24 / bucket=12 short pages render without the
+ * CTA. The container is scrollable internally so sticky thead can
+ * do its job.
  */
-describe('InsightsTable — full-horizon rendering (Sprint 10)', () => {
+describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
   const HOURS = 24 * 14 // 14 days
   const series: SeriesLike = {
     ...rampSeries('gfs_global', HOURS, 10, 0),
     ...rampSeries('ecmwf_ifs', HOURS, 20, 0),
   }
+  const PAGE_SIZE = 48
 
-  it('bucket=1 generates one row per hour across the full 14-day horizon', () => {
+  it('bucket=1 mounts PAGE_SIZE rows + a next-CTA on page 0', () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -193,14 +199,19 @@ describe('InsightsTable — full-horizon rendering (Sprint 10)', () => {
         weekDays={14}
       />
     ))
-    // The full horizon is now rendered (no pagination); off-screen
-    // rows are skipped by the browser via content-visibility.
     const tbody = document.querySelector('tbody')!
-    const rows = tbody.querySelectorAll('tr').length
-    expect(rows).toBe(HOURS) // 336 = 14 days × 24 h
+    const rows = tbody.querySelectorAll('tr')
+    // 48 data rows + 1 CTA row = 49.
+    expect(rows.length).toBe(PAGE_SIZE + 1)
+    // The CTA is the LAST row.
+    const cta = tbody.querySelector('[data-testid="next-page-cta"]')
+    expect(cta).not.toBeNull()
+    expect(cta!.getAttribute('role')).toBe('button')
+    expect(cta!.textContent).toMatch(/Mostrar siguientes 48 h|Show next 48 h/i)
+    expect(cta!.textContent).toMatch(/288 filas restantes|288 rows remaining/i)
   })
 
-  it('bucket=2 generates one row per 2 hours across the full 14-day horizon', () => {
+  it('bucket=2 mounts PAGE_SIZE rows + a next-CTA (168 total)', () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -218,12 +229,41 @@ describe('InsightsTable — full-horizon rendering (Sprint 10)', () => {
       />
     ))
     const tbody = document.querySelector('tbody')!
-    const rows = tbody.querySelectorAll('tr').length
-    // 336 / 2 = 168 rows.
-    expect(rows).toBe(168)
+    const rows = tbody.querySelectorAll('tr')
+    expect(rows.length).toBe(PAGE_SIZE + 1)
+    // Total = 336 / 2 = 168 → 168 - 48 = 120 rows remaining after page 0.
+    const cta = tbody.querySelector('[data-testid="next-page-cta"]')!
+    expect(cta.textContent).toMatch(/120 filas restantes|120 rows remaining/i)
   })
 
-  it('rows use content-visibility: auto so off-screen rendering is skipped', () => {
+  it('bucket=6 needs only 2 pages; page 1 shows the last 8 rows with no CTA', () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        bucket={6}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    const tbody = document.querySelector('tbody')!
+    const rows = tbody.querySelectorAll('tr')
+    // 56 total / 48 per page = 48 on page 0 + 1 CTA = 49.
+    expect(rows.length).toBe(PAGE_SIZE + 1)
+    const ctaText = tbody.querySelector('[data-testid="next-page-cta"]')!.textContent
+    // Remaining = 56 - 48 = 8.
+    expect(ctaText).toMatch(/8 filas restantes|8 rows remaining/i)
+  })
+
+  it('clicking the next-CTA replaces the rows with the next page', async () => {
+    const user = userEvent.setup()
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -240,14 +280,84 @@ describe('InsightsTable — full-horizon rendering (Sprint 10)', () => {
         weekDays={14}
       />
     ))
-    const firstRow = document.querySelector('tbody tr') as HTMLElement | null
-    expect(firstRow).not.toBeNull()
-    // jsdom doesn't actually skip rendering, but it must propagate
-    // the inline style to the DOM node so the browser picks it up
-    // in production.
-    const style = firstRow!.getAttribute('style') ?? ''
-    expect(style).toMatch(/content-visibility:\s*auto/i)
-    expect(style).toMatch(/contain-intrinsic-size:\s*auto\s+28px/i)
+    // Page 0: hours 0..47 (labels Hoy 00:00, Hoy 01:00, …). The
+    // first <td> per <tr> is the "Cuándo" column with the label.
+    const tbody0 = document.querySelector('tbody')!
+    const firstLabelPage0 = tbody0.querySelector('tr td:nth-child(1)')?.textContent ?? ''
+    expect(firstLabelPage0).toMatch(/00:00|01:00|02:00|03:00/i)
+
+    // Advance to page 1.
+    const cta = tbody0.querySelector<HTMLElement>('[data-testid="next-page-cta"]')!
+    await user.click(cta)
+
+    // Page 1 should now show the next batch.
+    const tbody1 = document.querySelector('tbody')!
+    const rows1 = tbody1.querySelectorAll('tr')
+    // 48 data + 1 next CTA + 1 previous CTA = 50.
+    expect(rows1.length).toBe(PAGE_SIZE + 2)
+    // The previous-CTA is now present (page 1 of 7).
+    expect(tbody1.querySelector('[data-testid="prev-page-cta"]')).not.toBeNull()
+    // Remaining after page 1 = 336 - 96 = 240.
+    const ctaText1 = tbody1.querySelector('[data-testid="next-page-cta"]')!.textContent
+    expect(ctaText1).toMatch(/240 filas restantes|240 rows remaining/i)
+  })
+
+  it('bucket=24 (≤14 rows) renders with no CTA', () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        fullTimes={fakeTimes(0, HOURS)}
+        fullSeries={series}
+        startIndex={0}
+        bucket={24}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    const tbody = document.querySelector('tbody')!
+    expect(tbody.querySelectorAll('tr').length).toBe(14)
+    expect(tbody.querySelector('[data-testid="next-page-cta"]')).toBeNull()
+  })
+
+  it('thead is sticky inside an internal scroll container', () => {
+    const { container } = render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    // The wrapper around the <table> has max-height + overflow:auto so
+    // sticky headers have a scrolling context. jsdom doesn't paint, but
+    // we can still verify the container class.
+    const scrollContainer = container.querySelector('.max-h-\\[70vh\\]') as HTMLElement | null
+    expect(scrollContainer).not.toBeNull()
+    expect(scrollContainer!.className).toMatch(/overflow-auto/i)
+    // Table is border-separate so sticky works cross-browser.
+    const table = scrollContainer!.querySelector('table')!
+    expect(table.className).toMatch(/border-separate/i)
+    expect(table.className).toMatch(/border-spacing-0/i)
+    // The thead itself carries the sticky top-0 utility.
+    const thead = table.querySelector('thead')!
+    expect(thead.className).toMatch(/sticky/i)
+    expect(thead.className).toMatch(/top-0/i)
   })
 
   it('cells use contain:layout_style_paint for paint isolation', () => {
@@ -267,9 +377,6 @@ describe('InsightsTable — full-horizon rendering (Sprint 10)', () => {
         weekDays={14}
       />
     ))
-    // Pick any non-Cuando cell and assert the containment class is
-    // present (we don't assert exact wording so future Tailwind
-    // upgrades don't break the test).
     const cell = document.querySelector('tbody tr td:nth-child(2)') as HTMLElement | null
     expect(cell).not.toBeNull()
     expect(cell!.className).toMatch(/contain.*layout_style_paint|contain:\s*layout\s+style\s+paint/i)

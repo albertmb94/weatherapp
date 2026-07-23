@@ -53,6 +53,8 @@ export const STRINGS: Record<Locale, {
   tableSwellPeriod: string
   dailyTitle: string
   insightsTitle: string
+  insightsShowNext: string
+  insightsRowsRemaining: string
   loadingForecast: string
   errorForecast: string
   heatmapLoading: string
@@ -182,6 +184,8 @@ export const STRINGS: Record<Locale, {
     tableSwellPeriod: 'Swell s',
     dailyTitle: 'Resumen diario',
     insightsTitle: 'Insights',
+    insightsShowNext: '+ Mostrar siguientes {n} h',
+    insightsRowsRemaining: '({n} filas restantes)',
     loadingForecast: 'Cargando previsión…',
     errorForecast: 'Error al cargar la previsión. Inténtalo de nuevo.',
     heatmapLoading: 'Cargando mapa de calor…',
@@ -311,6 +315,8 @@ export const STRINGS: Record<Locale, {
     tableSwellPeriod: 'Swell s',
     dailyTitle: 'Daily summary',
     insightsTitle: 'Insights',
+    insightsShowNext: '+ Show next {n} h',
+    insightsRowsRemaining: '({n} rows remaining)',
     loadingForecast: 'Loading forecast…',
     errorForecast: 'Error loading forecast. Please try again.',
     heatmapLoading: 'Loading heatmap…',

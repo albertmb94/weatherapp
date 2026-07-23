@@ -24,6 +24,16 @@ vi.mock('@/lib/aemet', () => ({
   getStaleAemetStations: vi.fn().mockReturnValue(null),
 }))
 
+// Sprint 10 / B-10-5 (E6): the route now consults the shared Turso
+// cache first. The test stubs those helpers to return null so the
+// fallback path is exercised without hitting the real database.
+vi.mock('@/lib/externalStationsCache', () => ({
+  getFreshCachedStations: vi.fn().mockResolvedValue(null),
+  getStaleCachedStations: vi.fn().mockResolvedValue(null),
+  setCachedStations: vi.fn().mockResolvedValue(undefined),
+  parseStationsPayload: vi.fn().mockReturnValue(null),
+}))
+
 import { GET } from '../route'
 import { fetchAemetStations } from '@/lib/aemet'
 

@@ -211,22 +211,33 @@ export default function SettingsPanel(props: SettingsPanelProps) {
           ) : null}
           <button
             onClick={async () => {
+              // Sprint 10 / B-10-5 (E10): pass an AbortController so
+              // navigating away mid-request doesn't keep the network
+              // call alive (which used to waste bandwidth on every
+              // quick SettingsPanel open/close).
+              const controller = new AbortController()
               try {
                 const query = new URLSearchParams(window.location.search).toString()
                 const res = await fetch('/api/shorten', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ params: query }),
+                  signal: controller.signal,
                 })
                 if (!res.ok) throw new Error('shorten failed')
                 const data = await res.json()
                 const shortUrl = `${window.location.origin}/s/${data.id}`
                 await navigator.clipboard?.writeText(shortUrl)
                 setFeedback(locale === 'en' ? `Link copied: ${shortUrl}` : `Link copiado: ${shortUrl}`)
-              } catch {
+              } catch (err) {
+                // AbortError is expected on navigation; don't pollute
+                // the feedback UI with a "link copied" message that
+                // wasn't actually copied.
+                if (err instanceof DOMException && err.name === 'AbortError') return
                 await navigator.clipboard?.writeText(window.location.href)
                 setFeedback(locale === 'en' ? 'Link copied' : 'Link copiado')
               } finally {
+                controller.abort()
                 setTimeout(() => setFeedback(null), 2200)
               }
             }}

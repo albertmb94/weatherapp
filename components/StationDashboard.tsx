@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import StationCard from './StationCard'
 import StationMap from './StationMap'
@@ -67,6 +67,21 @@ export default function StationDashboard({ position = null, placeName }: Station
   const [search, setSearch] = useState('')
   const [includeMeteo, setIncludeMeteo] = useState(true)
 
+  // Sprint 10 / B-10-5 (E9): debounce the radius so dragging the
+  // slider doesn't fire 3 upstream calls per second. We expose the
+  // immediate value to the UI (so the chip updates instantly) and the
+  // debounced value to the query keys (so the network only fires when
+  // the user stops moving).
+  const [debouncedRadius, setDebouncedRadius] = useState(radius)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedRadius(radius), 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [radius])
+
   // Build a coarse position key so the query refetches when the user moves
   // significantly (1 km grid) without thrashing on tiny movements.
   const posKey = position
@@ -74,10 +89,10 @@ export default function StationDashboard({ position = null, placeName }: Station
     : null
 
   const aemetQ = useQuery<MeteoclimaticObservation[]>({
-    queryKey: posKey ? ['aemet-stations', posKey, radius] : ['aemet-stations'],
+    queryKey: posKey ? ['aemet-stations', posKey, debouncedRadius] : ['aemet-stations'],
     queryFn: async () => {
       const url = posKey
-        ? `/api/aemet?lat=${position![0]}&lon=${position![1]}&radius=${radius}`
+        ? `/api/aemet?lat=${position![0]}&lon=${position![1]}&radius=${debouncedRadius}`
         : '/api/aemet'
       const res = await fetch(url)
       const body = await res.json()
@@ -101,7 +116,7 @@ export default function StationDashboard({ position = null, placeName }: Station
   // Meteoclimatic: two modes. When a position is provided we ask the
   // server to fetch by coordinates and filter by radius (S5). Otherwise
   // we fall back to the per-region feed.
-  const meteoCoordKey = position ? [Math.round(position[0] * 10) / 10, Math.round(position[1] * 10) / 10, radius] : null
+  const meteoCoordKey = position ? [Math.round(position[0] * 10) / 10, Math.round(position[1] * 10) / 10, debouncedRadius] : null
   const meteoRegionCode = METEOCLIMATIC_MAP[region] ?? 'ESCAT08'
 
   const meteoQ = useQuery<MeteoclimaticObservation[]>({
@@ -134,10 +149,10 @@ export default function StationDashboard({ position = null, placeName }: Station
   // Meteocat XEMA: official Catalan network. Server-side filtered when a
   // position is provided; otherwise returns the full network (cached).
   const meteocatQ = useQuery<MeteoclimaticObservation[]>({
-    queryKey: posKey ? ['meteocat-stations', posKey, radius] : ['meteocat-stations'],
+    queryKey: posKey ? ['meteocat-stations', posKey, debouncedRadius] : ['meteocat-stations'],
     queryFn: async () => {
       const url = posKey
-        ? `/api/meteocat?lat=${position![0]}&lon=${position![1]}&radius=${radius}`
+        ? `/api/meteocat?lat=${position![0]}&lon=${position![1]}&radius=${debouncedRadius}`
         : '/api/meteocat'
       const res = await fetch(url)
       const body = await res.json()

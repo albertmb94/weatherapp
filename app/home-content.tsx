@@ -420,6 +420,11 @@ export default function HomeContent() {
   const needsAutoRefresh = forecastAgeMs !== null && forecastAgeMs >= AUTO_REFRESH_AGE_MS
   useEffect(() => {
     if (!needsAutoRefresh) return
+    // Sprint 10 / B-10-5 (E7): only refresh when the tab is visible.
+    // A hidden tab re-fetching wastes upstream calls and Vercel
+    // function invocations; the user won't see the result until they
+    // come back, at which point refetchOnWindowFocus handles it.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
     // Invalidate just the forecast for the current position; React Query
     // will refetch because we're not actively focused on another city.
     queryClient.invalidateQueries({ queryKey: ['forecast', position[0], position[1], forecastDays, marine] })

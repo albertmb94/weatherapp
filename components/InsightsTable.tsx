@@ -220,26 +220,19 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   const intensity = intensityFor(metric, value) ?? 0.5
   // Capped alpha stops so a 14x14 cell grid paints quickly on slow
   // mobile GPUs while still showing the "soft glow" character.
-  //
-  // B-NEW-6 (2026-07-24): widened the ellipse from 32%×60% to
-  // 95%×95% and dropped the outer 92% stop (so the gradient now
-  // reaches the cell border) plus layered a low-alpha solid tint
-  // underneath. The previous narrow ellipse left a 5–7 px
-  // transparent margin on each side of the cell, which was
-  // visible against the cell's lighter stripe background and
-  // read as the cell "splitting the data in two halves" — most
-  // obvious on the UV column where the gradient is the only
-  // thing colouring the cell. With the new full-bleed gradient
-  // the colour covers the entire cell so the text always sits
-  // on a tinted background; the radial falloff still creates
-  // the "soft glow" character but no longer produces a visible
-  // gap at the edges.
+  // B-NEW-7 (2026-07-24): reverted to the original 32%×60% narrow
+  // ellipse after the user reported the wider 95% gradient was
+  // making rows feel heavier / "wider" on desktop. The narrow
+  // glow leaves a transparent margin around the cell border
+  // which keeps the row visually light and the zebra striping
+  // visible. The mobile "UV column splits the data" bug is
+  // fixed at the cell-content level via `whitespace-nowrap` on
+  // the HeatCell, not by widening the gradient.
   const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
   const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
-  const base = Math.round(intensity * 6)    // 0..6% at the cell border (no full transparent edge)
   const style: React.CSSProperties = {
     ['--heat-rgb-triple' as string]: triple,
-    background: `radial-gradient(ellipse 95% 95% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 60%, rgba(${triple},${base}%) 100%)`,
+    background: `radial-gradient(ellipse 32% 60% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
   } as React.CSSProperties
   HEAT_STYLE_CACHE.set(key, style)
   return style
@@ -1398,30 +1391,29 @@ const HeatCell = memo(function HeatCell({
       // a 360-px phone with no visible hint that scrolling was
       // possible.
       //
-      // B-NEW-5 (mobile width floor): `min-w-[40px] sm:min-w-[44px]`
-      // is the floor for each non-marine data cell. Without it, a
-      // row that happens to contain a very short value (e.g. a
-      // 1-character "0" in the precipitation column) would let
-      // `table-auto` collapse that column to a few pixels, making
-      // every other row's longer value ("0.3", "12.4") wrap onto
-      // two lines. The floor of 40 px on mobile / 44 px on tablet
-      // is enough for the widest value we render today ("11.3°"
-      // for dewpoint, "0.0km" for visibility) at 11 px with the
-      // 1.5-unit horizontal padding. Marine columns keep their
-      // narrower 40 px width via the <col> element.
+      // B-NEW-7 (2026-07-24): reverted the `min-w-[40px] sm:min-w-[44px]`
+      // floor that B-NEW-5 added. The user reported the cells
+      // were now "wider" / heavier on desktop, which broke the
+      // original "soft glow + tight columns" character. The
+      // mobile UV-column wrap issue is fixed by the new
+      // `whitespace-nowrap` instead — a value that overflows the
+      // cell now extends past the cell border horizontally
+      // (under the next column or off the right edge of the
+      // table, both of which scroll / fade) instead of wrapping
+      // onto a second line and overlapping the gradient's
+      // narrow central band.
       //
-      // B-NEW-6 (2026-07-24): `whitespace-nowrap` was added to
-      // the cell so a value that would otherwise exceed the
-      // min-width (e.g. an 11-px "11.3°" dewpoint rendered at
-      // 30 px in a 40-px cell after padding) cannot wrap onto
-      // two lines — the user reported the UV column visually
-      // "splitting the data in two halves" because the value
-      // wrapped and the row's two halves landed on top of the
-      // gradient's narrow central band. With `whitespace-nowrap`
-      // the cell now overflows horizontally instead of wrapping,
-      // and the wider 95% gradient (see heatStyle) gives the
-      // overflow a coloured background to read against.
-      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums whitespace-nowrap min-w-[40px] sm:min-w-[44px] [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
+      // B-NEW-6 (2026-07-24): `whitespace-nowrap` added to fix
+      // the UV column "splits the data in two halves" visual
+      // bug. The previous code let a value like "5.8" (3 chars
+      // at 11 px ≈ 21 px) wrap onto two lines inside a 40-px
+      // cell, which combined with the narrow radial gradient
+      // to render the value with one half on the colored
+      // center and the other half on the transparent edges.
+      // With nowrap the value is forced to a single line and
+      // the cell overflows horizontally (still readable thanks
+      // to the gradient on the colored center).
+      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums whitespace-nowrap [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
       style={style}
     >
       {node}

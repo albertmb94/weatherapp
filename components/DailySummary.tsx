@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
-import { weightedAvg } from '@/lib/ensemble'
+import { ensembleWithFallback } from '@/lib/ensemble/central'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import WeatherConditionIcon from './WeatherConditionIcon'
@@ -152,6 +152,20 @@ export default function DailySummary({
       if (t.getUTCHours() === 12) current.noonIndex = i
     }
 
+    // B-NEW-7 (2026-07-24): `wedaiModels` is the full land-model
+    // set (all non-marine) used as the WedAI fallback when the
+    // user's selection returns null for a given hour. After the
+    // long-range model filter (B-NEW-3) the production API only
+    // returns 5 long-range models, so a user who has selected
+    // only a short-range model like `meteofrance_arome_france_hd`
+    // would otherwise see every DailySummary chip render "–°"
+    // for the 14-day summary because the selected model has no
+    // entry in the series. The fallback re-runs the mean against
+    // `wedaiModels` so the user always sees a value when at least
+    // one model has data. This is the same fallback the
+    // InsightsTable now uses via `ensembleWithFallback`.
+    const wedaiModels = models.filter(m => m.id !== 'marine_global')
+
     for (const bucket of buckets) {
       let cloudSum = 0
       let cloudCount = 0
@@ -159,23 +173,19 @@ export default function DailySummary({
       let waveCount = 0
       for (let i = bucket.startIndex; i <= bucket.endIndex; i++) {
         const tWeights = getWeightsForMetricAndHour('temperature', i)
-        const tVals = activeModels.map(m => getMetric(series, m.id, 'temperature', i))
-        const t = weightedAvg(tVals, tWeights)
+        const t = ensembleWithFallback(series, 'temperature', i, activeModels, wedaiModels, tWeights)
         if (t !== null) {
           if (bucket.tMin === null || t < bucket.tMin) bucket.tMin = t
           if (bucket.tMax === null || t > bucket.tMax) bucket.tMax = t
         }
         const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const pVals = activeModels.map(m => getMetric(series, m.id, 'precipitation', i))
-        const p = weightedAvg(pVals, pWeights)
+        const p = ensembleWithFallback(series, 'precipitation', i, activeModels, wedaiModels, pWeights)
         if (p !== null) bucket.precipTotal = (bucket.precipTotal ?? 0) + p
         const wWeights = getWeightsForMetricAndHour('wind_gusts', i)
-        const wVals = activeModels.map(m => getMetric(series, m.id, 'wind_gusts', i))
-        const w = weightedAvg(wVals, wWeights)
+        const w = ensembleWithFallback(series, 'wind_gusts', i, activeModels, wedaiModels, wWeights)
         if (w !== null && (bucket.windMax === null || w > bucket.windMax)) bucket.windMax = w
         const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
-        const cVals = activeModels.map(m => getMetric(series, m.id, 'cloud_cover', i))
-        const c = weightedAvg(cVals, cWeights)
+        const c = ensembleWithFallback(series, 'cloud_cover', i, activeModels, wedaiModels, cWeights)
         if (c !== null) {
           cloudSum += c
           cloudCount += 1

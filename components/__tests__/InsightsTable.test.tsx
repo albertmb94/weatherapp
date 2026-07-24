@@ -350,10 +350,20 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     const scrollContainer = container.querySelector('.max-h-\\[70vh\\]') as HTMLElement | null
     expect(scrollContainer).not.toBeNull()
     expect(scrollContainer!.className).toMatch(/overflow-auto/i)
-    // Table is border-separate so sticky works cross-browser.
+    // Sprint 10 / B-10-8: switched back to `border-collapse: collapse`
+    // because the previous `border-separate + border-spacing: 0` combo
+    // caused column-width drift when the first column was sticky on
+    // mobile. Modern browsers (Chrome 91+, Safari 14+) support sticky
+    // headers with `border-collapse: collapse` natively.
     const table = scrollContainer!.querySelector('table')!
-    expect(table.className).toMatch(/border-separate/i)
-    expect(table.className).toMatch(/border-spacing-0/i)
+    expect(table.className).toMatch(/border-collapse/i)
+    expect(table.className).toMatch(/table-fixed/i)
+    // The table now declares an explicit <colgroup> with the first
+    // column pinned to 64 px so the sticky column has a stable width.
+    const colgroup = table.querySelector('colgroup')!
+    expect(colgroup).not.toBeNull()
+    const firstCol = colgroup.querySelector('col')!
+    expect(firstCol.getAttribute('style')).toMatch(/width:\s*64px/i)
     // The thead itself carries the sticky top-0 utility.
     const thead = table.querySelector('thead')!
     expect(thead.className).toMatch(/sticky/i)

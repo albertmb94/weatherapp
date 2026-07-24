@@ -23,7 +23,7 @@ export const UV_MIN_FORECAST_DAYS = 7
 // whichever has data.
 const LONG_RANGE_MIN_HOURS = 168
 
-function capModels(models: WeatherModel[], max: number, forecastDays?: number): WeatherModel[] {
+export function capModels(models: WeatherModel[], max: number, forecastDays?: number): WeatherModel[] {
   if (models.length <= max) return models
   const sorted = [...models].sort((a, b) => b.weight - a.weight)
   const picked = sorted.slice(0, max)
@@ -79,9 +79,13 @@ export async function fetchForecast(
 ): Promise<ForecastResult> {
   const landModels = models.filter(m => m.id !== 'marine_global')
   // Use region-aware selection: prioritize high-res regional models for the
-  // user's location, then cap at MAX_FORECAST_MODELS.
+  // user's location, then cap at MAX_FORECAST_MODELS. The cap keeps the
+  // long-range fallback (see capModels) so a model that covers the full
+  // requested horizon is always part of the request — without it, the
+  // DailySummary panels go blank past ~7 days for any future whose
+  // regional-tier models all expire earlier than the horizon.
   const regionSelected = selectModelsForLocation(landModels, lat, lon, forecastDays)
-  const capped = regionSelected.slice(0, MAX_FORECAST_MODELS)
+  const capped = capModels(regionSelected, MAX_FORECAST_MODELS, forecastDays)
   const modelIds = capped.map(m => m.id).join(',')
   // Only send land metrics to the forecast API. Marine metrics are
   // fetched separately via fetchMarine and merged in later.

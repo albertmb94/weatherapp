@@ -917,17 +917,41 @@ export default function InsightsTable({
           className="overflow-auto max-h-[70vh] contain-[layout_style_paint]"
         >
           <table
-            // Sprint 10 / B-10-7: `border-separate` (not `border-collapse:
-            // collapse`) is required for sticky table headers in WebKit
-            // and older Chromium. The visual difference is invisible
-            // thanks to `border-spacing: 0` + per-cell `border-b`.
-            className={`w-full border-separate border-spacing-0 text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${showMarine ? 'table-auto' : 'table-fixed'}`}
+            // Sprint 10 / B-10-8: switched from `border-separate` +
+            // `border-spacing: 0` back to `border-collapse: collapse`.
+            // The previous combo caused column-width drift when the
+            // first column was sticky (its `w-[64px]` + the others'
+            // auto-width broke the table layout on mobile landscape).
+            // Modern browsers (Chrome 91+, Safari 14+) DO support
+            // `position: sticky` on <th> with `border-collapse:
+            // collapse`, so we get a stable layout AND sticky headers.
+            // A <colgroup> pins the first column to 64 px so every
+            // other column auto-sizes to the remaining width.
+            className="w-full border-collapse table-fixed text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
+            <colgroup>
+              <col style={{ width: '64px' }} />
+              {colDefs.map((col, idx) => (
+                <col
+                  key={col.id}
+                  // Marine columns are wider because they display
+                  // units (m, s, °); the rest auto-size to 1fr.
+                  style={{ width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '64px' : undefined }}
+                />
+              ))}
+            </colgroup>
           <thead className="bg-surface sticky top-0 z-30">
             <tr className="bg-surface text-text-secondary">
               <th
                 style={{ background: 'var(--surface)' }}
-                className="sticky left-0 top-0 isolate z-40 text-center px-1.5 py-1.5 font-medium border-b border-border w-[64px] shadow-[2px_0_4px_rgba(0,0,0,0.5)]"
+                // Sprint 10 / B-10-8: the first column header is now
+                // BOTH sticky on the left AND on the top, with a
+                // higher z-index than the rest of the header so it
+                // sits above the thead when the user scrolls either
+                // direction. The `shadow-[2px_0_4px_rgba(0,0,0,0.5)]`
+                // renders a vertical divider on the right edge so the
+                // user can tell the column is sticky.
+                className="sticky left-0 top-0 z-40 text-center px-1.5 py-1.5 font-medium border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)]"
               >
                 {STRINGS[locale].tableWhen}
               </th>
@@ -964,7 +988,14 @@ export default function InsightsTable({
                 onClick={() => {
                   setCurrentPage(p => Math.max(0, p - 1))
                   requestAnimationFrame(() => {
-                    tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                    // Guard against jsdom / browsers that don't
+                    // implement scrollTo on a generic element (the
+                    // feature was added later than the underlying
+                    // scroll behaviour). Real browsers always have it.
+                    const el = tableContainerRef.current
+                    if (el && typeof el.scrollTo === 'function') {
+                      el.scrollTo({ top: 0, behavior: 'smooth' })
+                    }
                   })
                 }}
                 onKeyDown={(e) => {
@@ -972,7 +1003,10 @@ export default function InsightsTable({
                     e.preventDefault()
                     setCurrentPage(p => Math.max(0, p - 1))
                     requestAnimationFrame(() => {
-                      tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                      const el = tableContainerRef.current
+                      if (el && typeof el.scrollTo === 'function') {
+                        el.scrollTo({ top: 0, behavior: 'smooth' })
+                      }
                     })
                   }
                 }}
@@ -1031,7 +1065,12 @@ export default function InsightsTable({
                 >
                   <td
                     style={{ background: 'var(--surface)' }}
-                    className={`sticky left-0 isolate z-30 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
+                    // Sprint 10 / B-10-8: `sticky left-0 z-40` (raised
+                    // from z-30) so the first-column data cell stays
+                    // above the other cells AND above the thead when
+                    // both axes scroll. Matches the first-column <th>
+                    // z-index.
+                    className={`sticky left-0 z-40 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
                   >
                     {/* Sprint 10 / B-10-2: when bucket=24 and the user is
                        on the actual current hour (selectedHour === 0),
@@ -1080,7 +1119,10 @@ export default function InsightsTable({
                   // container so the new page starts under the
                   // sticky headers instead of mid-scroll.
                   requestAnimationFrame(() => {
-                    tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                    const el = tableContainerRef.current
+                    if (el && typeof el.scrollTo === 'function') {
+                      el.scrollTo({ top: 0, behavior: 'smooth' })
+                    }
                   })
                 }}
                 onKeyDown={(e) => {
@@ -1088,7 +1130,10 @@ export default function InsightsTable({
                     e.preventDefault()
                     setCurrentPage(p => p + 1)
                     requestAnimationFrame(() => {
-                      tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                      const el = tableContainerRef.current
+                      if (el && typeof el.scrollTo === 'function') {
+                        el.scrollTo({ top: 0, behavior: 'smooth' })
+                      }
                     })
                   }
                 }}
@@ -1176,7 +1221,12 @@ const HeatCell = memo(function HeatCell({
       // (e.g. the active-row ring) cannot trigger a repaint of any
       // sibling. Combined with content-visibility on the row, this
       // lets the browser aggressively skip work for off-screen rows.
-      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black sm:text-[color:var(--heat-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
+      // Sprint 10 / B-10-8: removed `sm:text-[color:var(--heat-text)]`
+      // because it triggered white text in landscape mobile (width ≥
+      // 640 px → sm: breakpoint) on dark mode. The user expects black
+      // text consistently; `text-black` is unconditional so the cell
+      // text reads the same on every viewport size.
+      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
       style={style}
     >
       {node}

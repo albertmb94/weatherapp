@@ -92,11 +92,16 @@ export default function DailySummary({
     if (activeModels.length === 0 || times.length === 0) return []
     const modelIds = activeModels.map(m => m.id)
 
-    // Build per-metric, per-hour weight arrays using ensemble presets
+    // Build per-metric, per-hour weight arrays using ensemble presets.
+    // `hourIndex` is the absolute index in `times`; the lead time relative
+    // to "now" is `hourIndex - startIndex`. Using the absolute value here
+    // would skew the bucket for any future whose startIndex is not 0 (e.g.
+    // a typical mid-day render with startIndex=86 otherwise asks for a
+    // '48-96h' bucket at hour 0 from now).
     const getWeightsForMetricAndHour = (metric: string, hourIndex: number): number[] => {
       const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
       const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
-      const leadTimeHours = hourIndex
+      const leadTimeHours = Math.max(0, hourIndex - startIndex)
       const leadBucket = getLeadTimeBucket(leadTimeHours)
       const bucketWeights = preset.weights[leadBucket] ?? preset.weights['0-48h']
       return modelIds.map(id => bucketWeights[id] ?? 0.01)
@@ -197,7 +202,7 @@ export default function DailySummary({
     }
 
     return buckets
-  }, [activeModels, times, series, maxHours, locale, utcOffsetSeconds])
+  }, [activeModels, times, series, maxHours, startIndex, locale, utcOffsetSeconds])
 
   if (days.length === 0) return null
 

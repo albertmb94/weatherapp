@@ -647,12 +647,32 @@ export default function HomeContent() {
     [marine, selectedModels]
   )
 
-  // Skip hourly entries before the current local hour (rounded down) in the
-  // *location's* timezone, not the user's browser timezone.
+  // B-NEW-8 (2026-07-24): anchor the "current hour" on the forecast's
+  // `fetchedAt` timestamp instead of `Date.now()`. Without this, the
+  // same city shows different values on mobile vs desktop because each
+  // device's `Date.now()` is different (a phone refreshed at 12:30
+  // would land on a different row than a laptop refreshed at 13:00,
+  // even though they're looking at the *same* forecast). The fix
+  // uses the timestamp the server stamped on the response
+  // (`X-Forecast-Fetched-At` → `data.fetchedAt`), so the same
+  // cached response always resolves to the same `startIndex`
+  // regardless of which device reads it. The trade-off is that
+  // "ahora" is now "the hour the forecast was issued" rather than
+  // the actual wall-clock hour — within the 4-hour auto-refresh
+  // window this is at most a few hours stale, and the URL state's
+  // `hour` param still lets the user navigate to the actual
+  // current hour if they want a specific future time.
   const startIndex = useMemo(() => {
     const effectiveData = data ?? offlineSnapshot?.data
     if (!effectiveData?.time?.length) return 0
-    const nowFloor = floorHourLocation(getLocationNow(effectiveData.utcOffsetSeconds))
+    const referenceMs = effectiveData.fetchedAt ?? Date.now()
+    // Convert the UTC reference timestamp into the location's
+    // UTC-fake-local representation (same shape as the time[]
+    // entries), then floor to the hour. `getLocationNow` does the
+    // same offset arithmetic; we just feed it the fetchedAt ms
+    // instead of `Date.now()`.
+    const referenceLocal = new Date(referenceMs + effectiveData.utcOffsetSeconds * 1000)
+    const nowFloor = floorHourLocation(referenceLocal)
     const nowTs = nowFloor.getTime()
     for (let i = 0; i < effectiveData.time.length; i++) {
       const t = effectiveData.time[i]

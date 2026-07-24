@@ -365,17 +365,26 @@ export default function InsightsTable({
 }: InsightsTableProps) {
   const { locale } = useLocale()
 
-  // In WedAI mode, use ALL models for ensemble computation
-  // In Models mode, use only the user-selected models
+  // B-NEW-8 (2026-07-24): the selector now works in BOTH modes.
+  // Previously WedAI mode hard-coded `activeModels = allModels`,
+  // so clicking a model in the dropdown updated `activeModelIds`
+  // but had no effect on the table value (the ensemble was always
+  // the 19-model mean). The user reported "muchos modelos
+  // individualmente devuelven exactamente lo mismo" because their
+  // clicks were silently ignored. The fix filters the ensemble
+  // by `activeModelIds` in both modes; the only difference between
+  // the two is the WEIGHTING (WedAI uses preset weights from
+  // ENSEMBLE_PRESETS, Models uses each model's static weight),
+  // which is applied downstream in `getWeightsForMetricAndHour`.
+  // The default `activeModelIds` is the full 20-model list, so the
+  // "all models" result is preserved as the WedAI default.
   const allModels = useMemo(
     () => models.filter(m => m.id !== 'marine_global'),
     [models]
   )
   const activeModels = useMemo(
-    () => ensembleMode === 'wedai'
-      ? allModels
-      : models.filter(m => activeModelIds.includes(m.id)),
-    [models, activeModelIds, ensembleMode, allModels]
+    () => models.filter(m => activeModelIds.includes(m.id)),
+    [models, activeModelIds]
   )
 
   const [columnOrder, setColumnOrder] = useState<MetricCellId[]>(loadColumnOrder)

@@ -79,13 +79,15 @@ export async function fetchForecast(
 ): Promise<ForecastResult> {
   const landModels = models.filter(m => m.id !== 'marine_global')
   // Use region-aware selection: prioritize high-res regional models for the
-  // user's location, then cap at MAX_FORECAST_MODELS. The cap keeps the
-  // long-range fallback (see capModels) so a model that covers the full
-  // requested horizon is always part of the request — without it, the
-  // DailySummary panels go blank past ~7 days for any future whose
-  // regional-tier models all expire earlier than the horizon.
+  // user's location, then cap at MAX_FORECAST_MODELS. The tier-ordered
+  // slice is intentional — `capModels` re-sorts globally by weight and
+  // would pull in AI models (aifs025, graphcast025) and drop the
+  // region-specific models (e.g. ARPEGE, AROME) that the actual data
+  // covers better for Europe. The DailySummary math already falls back
+  // to the long-range globals (ecmwf_ifs, icon_global, gfs_global) for
+  // the day buckets beyond the regional horizons.
   const regionSelected = selectModelsForLocation(landModels, lat, lon, forecastDays)
-  const capped = capModels(regionSelected, MAX_FORECAST_MODELS, forecastDays)
+  const capped = regionSelected.slice(0, MAX_FORECAST_MODELS)
   const modelIds = capped.map(m => m.id).join(',')
   // Only send land metrics to the forecast API. Marine metrics are
   // fetched separately via fetchMarine and merged in later.

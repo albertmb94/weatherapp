@@ -6,7 +6,7 @@ import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/m
 import { getColor, SCALES } from '@/lib/colorScales'
 import type { ScaleMetric } from '@/lib/colorScales'
 import { weightedAvg } from '@/lib/ensemble'
-import { resolveActiveModels, weightsFor } from '@/lib/ensemble/central'
+import { resolveActiveModels, weightsFor, ensembleWithFallback } from '@/lib/ensemble/central'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
@@ -220,11 +220,26 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   const intensity = intensityFor(metric, value) ?? 0.5
   // Capped alpha stops so a 14x14 cell grid paints quickly on slow
   // mobile GPUs while still showing the "soft glow" character.
+  //
+  // B-NEW-6 (2026-07-24): widened the ellipse from 32%×60% to
+  // 95%×95% and dropped the outer 92% stop (so the gradient now
+  // reaches the cell border) plus layered a low-alpha solid tint
+  // underneath. The previous narrow ellipse left a 5–7 px
+  // transparent margin on each side of the cell, which was
+  // visible against the cell's lighter stripe background and
+  // read as the cell "splitting the data in two halves" — most
+  // obvious on the UV column where the gradient is the only
+  // thing colouring the cell. With the new full-bleed gradient
+  // the colour covers the entire cell so the text always sits
+  // on a tinted background; the radial falloff still creates
+  // the "soft glow" character but no longer produces a visible
+  // gap at the edges.
   const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
   const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
+  const base = Math.round(intensity * 6)    // 0..6% at the cell border (no full transparent edge)
   const style: React.CSSProperties = {
     ['--heat-rgb-triple' as string]: triple,
-    background: `radial-gradient(ellipse 32% 60% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
+    background: `radial-gradient(ellipse 95% 95% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 60%, rgba(${triple},${base}%) 100%)`,
   } as React.CSSProperties
   HEAT_STYLE_CACHE.set(key, style)
   return style
@@ -578,11 +593,20 @@ export default function InsightsTable({
       let wpSum = 0, wpCount = 0
       let wwpSum = 0, wwpCount = 0
       let swpSum = 0, swpCount = 0
+      // B-NEW-6: pre-compute the WedAI fallback set once per bucket.
+      // When the user has selected a short-range model that the
+      // production API doesn't include (see B-NEW-3 in
+      // lib/openMeteo.ts), every per-hour ensemble returns null
+      // and the user sees a table full of em-dashes. The fallback
+      // re-runs the same mean against the full land-model set so
+      // the user always sees a value when at least one model has
+      // data. The WedAI models exclude `marine_global` (which is
+      // a virtual model with no land data).
+      const wedaiModels = allModels
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         // Use per-metric, per-hour weights for proper ensemble selection
         const tWeights = getWeightsForMetricAndHour('temperature', i)
-        const tVals = activeModels.map(m => s[m.id]?.['temperature']?.[i] ?? null)
-        const tEns = weightedAvg(tVals, tWeights)
+        const tEns = ensembleWithFallback(s, 'temperature', i, activeModels, wedaiModels, tWeights)
         if (tEns !== null) {
           tSum += tEns
           tCount += 1
@@ -590,43 +614,37 @@ export default function InsightsTable({
           if (b.tempMax === null || tEns > b.tempMax) b.tempMax = tEns
         }
         const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
-        const cVals = activeModels.map(m => s[m.id]?.['cloud_cover']?.[i] ?? null)
-        const cEns = weightedAvg(cVals, cWeights)
+        const cEns = ensembleWithFallback(s, 'cloud_cover', i, activeModels, wedaiModels, cWeights)
         if (cEns !== null) { cSum += cEns; cCount += 1 }
         const wWeights = getWeightsForMetricAndHour('wind_speed', i)
-        const wVals = activeModels.map(m => s[m.id]?.['wind_speed']?.[i] ?? null)
-        const wEns = weightedAvg(wVals, wWeights)
+        const wEns = ensembleWithFallback(s, 'wind_speed', i, activeModels, wedaiModels, wWeights)
         if (wEns !== null) { wSum += wEns; wCount += 1 }
         const gWeights = getWeightsForMetricAndHour('wind_gusts', i)
-        const gVals = activeModels.map(m => s[m.id]?.['wind_gusts']?.[i] ?? null)
-        const gEns = weightedAvg(gVals, gWeights)
+        const gEns = ensembleWithFallback(s, 'wind_gusts', i, activeModels, wedaiModels, gWeights)
         if (gEns !== null && (b.gustsMax === null || gEns > b.gustsMax)) b.gustsMax = gEns
         const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const pVals = activeModels.map(m => s[m.id]?.['precipitation']?.[i] ?? null)
-        const pEns = weightedAvg(pVals, pWeights)
+        const pEns = ensembleWithFallback(s, 'precipitation', i, activeModels, wedaiModels, pWeights)
         if (pEns !== null) b.precipSum = (b.precipSum ?? 0) + pEns
         const hWeights = getWeightsForMetricAndHour('humidity', i)
-        const hVals = activeModels.map(m => s[m.id]?.['humidity']?.[i] ?? null)
-        const hEns = weightedAvg(hVals, hWeights)
+        const hEns = ensembleWithFallback(s, 'humidity', i, activeModels, wedaiModels, hWeights)
         if (hEns !== null) { hSum += hEns; hCount += 1 }
         const uWeights = getWeightsForMetricAndHour('uv_index', i)
-        const uVals = activeModels.map(m => s[m.id]?.['uv_index']?.[i] ?? null)
-        const uEns = weightedAvg(uVals, uWeights)
+        const uEns = ensembleWithFallback(s, 'uv_index', i, activeModels, wedaiModels, uWeights)
         if (uEns !== null) { uSum += uEns; uCount += 1 }
         const prWeights = getWeightsForMetricAndHour('pressure', i)
-        const prVals = activeModels.map(m => s[m.id]?.['pressure']?.[i] ?? null)
-        const prEns = weightedAvg(prVals, prWeights)
+        const prEns = ensembleWithFallback(s, 'pressure', i, activeModels, wedaiModels, prWeights)
         if (prEns !== null) { prSum += prEns; prCount += 1 }
         const dpWeights = getWeightsForMetricAndHour('dewpoint', i)
-        const dpVals = activeModels.map(m => s[m.id]?.['dewpoint']?.[i] ?? null)
-        const dpEns = weightedAvg(dpVals, dpWeights)
+        const dpEns = ensembleWithFallback(s, 'dewpoint', i, activeModels, wedaiModels, dpWeights)
         if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
         const visWeights = getWeightsForMetricAndHour('visibility', i)
-        const visVals = activeModels.map(m => {
+        // Visibility is reported in metres; convert to km once here so
+        // every consumer (table, CSV, map) reads the same unit.
+        const visValsForFallback = activeModels.map(m => {
           const v = s[m.id]?.['visibility']?.[i]
           return v !== null && v !== undefined ? v / 1000 : null
         })
-        const visEns = weightedAvg(visVals, visWeights)
+        const visEns = weightedAvg(visValsForFallback, visWeights)
         if (visEns !== null) { visSum += visEns; visCount += 1 }
         const dirWeights = getWeightsForMetricAndHour('wind_direction', i)
         let hCos = 0, hSin = 0, hW = 0
@@ -1391,7 +1409,19 @@ const HeatCell = memo(function HeatCell({
       // for dewpoint, "0.0km" for visibility) at 11 px with the
       // 1.5-unit horizontal padding. Marine columns keep their
       // narrower 40 px width via the <col> element.
-      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums min-w-[40px] sm:min-w-[44px] [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
+      //
+      // B-NEW-6 (2026-07-24): `whitespace-nowrap` was added to
+      // the cell so a value that would otherwise exceed the
+      // min-width (e.g. an 11-px "11.3°" dewpoint rendered at
+      // 30 px in a 40-px cell after padding) cannot wrap onto
+      // two lines — the user reported the UV column visually
+      // "splitting the data in two halves" because the value
+      // wrapped and the row's two halves landed on top of the
+      // gradient's narrow central band. With `whitespace-nowrap`
+      // the cell now overflows horizontally instead of wrapping,
+      // and the wider 95% gradient (see heatStyle) gives the
+      // overflow a coloured background to read against.
+      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums whitespace-nowrap min-w-[40px] sm:min-w-[44px] [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
       style={style}
     >
       {node}

@@ -163,3 +163,73 @@ export function meanOverBucket(
 export function constantWeights(weights: number[]): (hourIndex: number) => number[] {
   return () => weights
 }
+
+/**
+ * B-NEW-6 (2026-07-24): compute a per-hour ensemble mean that falls
+ * back to the full WedAI ensemble when the user's selection returns
+ * no data for that hour.
+ *
+ * The previous InsightsTable loop called `weightedAvg` directly with
+ * the user's `activeModels`. After the long-range model filter in
+ * `lib/openMeteo.ts` (B-NEW-3) the production API only returns 5
+ * long-range models, so a user who has selected only a short-range
+ * model like `meteofrance_arome_france_hd` sees every cell go to
+ * null even though the underlying data is in the series. The
+ * friendly cards (`computeHourlySlots`, `computeWeekSummaries`)
+ * already had this fallback via `meanAcrossModels`; this helper
+ * exposes the same logic for the InsightsTable's inline loops
+ * without duplicating the per-metric weight construction.
+ *
+ * The fallback is intentionally narrow: it only fires when the
+ * user's selection is non-empty but every selected model returns
+ * null at this hour. When the selection is genuinely empty we
+ * return null (no models = no data, and the caller should decide
+ * what to render — usually the loading skeleton or a "no model
+ * selected" message).
+ *
+ * Note: this helper takes the raw `series` (modelId → metric →
+ * values), not a `SeriesBag` with a `series` field, because the
+ * InsightsTable passes the series map directly (the `time` array
+ * isn't needed for a single-hour mean). The friendly cards, which
+ * also use `meanAcrossModels`, build a `SeriesBag` wrapper before
+ * calling the central helpers.
+ */
+export function ensembleWithFallback(
+  series: Record<string, Record<string, (number | null)[]>>,
+  metric: string,
+  index: number,
+  activeModels: WeatherModel[],
+  allLandModels: WeatherModel[],
+  weights: number[]
+): number | null {
+  if (activeModels.length === 0) return null
+  const v = meanAtHourFromSeries(series, metric as MetricId, index, activeModels, weights)
+  if (v !== null) return v
+  // The user's selection returned null — fall back to WedAI so the
+  // user always sees data when at least one model has a value. The
+  // WedAI weights are recomputed for the new active set; the helper
+  // is cheap (≤ 19 vals × 1 metric) so the per-row cost is
+  // negligible compared to the surrounding JSX.
+  if (allLandModels.length === 0) return null
+  const fallbackWeights = allLandModels.map((_, i) => weights[i] ?? 0.01)
+  return meanAtHourFromSeries(series, metric as MetricId, index, allLandModels, fallbackWeights)
+}
+
+/**
+ * Like `meanAtHour` but takes the series map directly instead of a
+ * `SeriesBag`. Lets the InsightsTable pass its `series` prop without
+ * wrapping it in `{ series }`.
+ */
+function meanAtHourFromSeries(
+  series: Record<string, Record<string, (number | null)[]>>,
+  metric: MetricId,
+  hourIndex: number,
+  activeModels: WeatherModel[],
+  weights: number[]
+): number | null {
+  if (activeModels.length === 0) return null
+  const vals = activeModels.map(
+    m => series[m.id]?.[metric]?.[hourIndex] ?? null
+  )
+  return weightedAvg(vals, weights)
+}

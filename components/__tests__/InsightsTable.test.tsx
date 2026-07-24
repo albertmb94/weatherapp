@@ -364,6 +364,19 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     expect(colgroup).not.toBeNull()
     const firstCol = colgroup.querySelector('col')!
     expect(firstCol.getAttribute('style')).toMatch(/width:\s*64px/i)
+    // Sprint 10 / B-NEW-2: every <col> must carry the same `hideClass`
+    // as its <th>/<td> so `display: none` collapses the column under
+    // `table-fixed`. Without it, hidden columns still claim a slice of
+    // the container width and the visible columns cluster on the left.
+    const allCols = Array.from(colgroup.querySelectorAll('col'))
+    for (const col of allCols) {
+      const id = col.getAttribute('data-col-id')
+      if (!id) continue
+      const th = table.querySelector(`th[data-col-id="${id}"]`)
+      if (th && th.className.includes('hidden')) {
+        expect(col.className).toMatch(/hidden/)
+      }
+    }
     // The thead itself carries the sticky top-0 utility.
     const thead = table.querySelector('thead')!
     expect(thead.className).toMatch(/sticky/i)
@@ -390,5 +403,85 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     const cell = document.querySelector('tbody tr td:nth-child(2)') as HTMLElement | null
     expect(cell).not.toBeNull()
     expect(cell!.className).toMatch(/contain.*layout_style_paint|contain:\s*layout\s+style\s+paint/i)
+  })
+})
+
+/**
+ * Sprint 10 / B-NEW-2 — mobile collapsed-table bug.
+ *
+ * On mobile portrait the table was rendered with `table-fixed` and
+ * `<col>` elements that didn't carry the same `hideClass` as the
+ * `<th>`/`<td>`. Because `table-fixed` derives column widths from the
+ * `<colgroup>`, columns hidden on mobile (min, max, clouds, gusts,
+ * pressure, dewpoint, visibility) still claimed a slice of the
+ * container width, leaving the visible columns clustered on the left
+ * with empty space on the right. The fix is to apply `hideClass` to
+ * the `<col>` so `display: none` collapses the column entirely.
+ */
+describe('InsightsTable — B-NEW-2 hideClass on <col> prevents left-collapse', () => {
+  const HOURS = 24 * 14
+  const series: SeriesLike = {
+    ...rampSeries('gfs_global', HOURS, 10, 0),
+    ...rampSeries('ecmwf_ifs', HOURS, 20, 0),
+  }
+
+  it('every <col> carries the same hideClass as its <th>', () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    const table = document.querySelector('table')!
+    const cols = Array.from(table.querySelectorAll('colgroup col'))
+    const ths = Array.from(table.querySelectorAll('thead th[data-col-id]'))
+    // Every <th data-col-id> must have a matching <col data-col-id>.
+    for (const th of ths) {
+      const id = th.getAttribute('data-col-id')
+      expect(id).not.toBeNull()
+      const col = cols.find(c => c.getAttribute('data-col-id') === id)
+      expect(col, `col for ${id}`).toBeTruthy()
+      // If the <th> declares `hidden`, the <col> must too — otherwise
+      // the hidden column still allocates width under `table-fixed`.
+      const thHidden = th.className.includes('hidden')
+      const colHidden = (col as Element).className.includes('hidden')
+      expect(colHidden, `col for ${id} should mirror <th> hidden state`).toBe(thHidden)
+    }
+  })
+
+  it('hidden columns (min, max, clouds, gusts, pressure, dewpoint, visibility) are collapsed via <col>', () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={series}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+      />
+    ))
+    const hiddenIds = ['min', 'max', 'clouds', 'gusts', 'pressure', 'dewpoint', 'visibility']
+    const table = document.querySelector('table')!
+    for (const id of hiddenIds) {
+      const col = table.querySelector(`colgroup col[data-col-id="${id}"]`)
+      expect(col, `col[${id}] should exist`).toBeTruthy()
+      expect((col as Element).className).toMatch(/hidden/)
+    }
   })
 })

@@ -930,12 +930,25 @@ export default function InsightsTable({
             className="w-full border-collapse table-fixed text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
             <colgroup>
-              <col style={{ width: '64px' }} />
+              <col style={{ width: '64px' }} data-col-id="__when__" />
               {colDefs.map((col, idx) => (
                 <col
                   key={col.id}
+                  data-col-id={col.id}
                   // Marine columns are wider because they display
                   // units (m, s, °); the rest auto-size to 1fr.
+                  //
+                  // B-NEW-2: applying `hideClass` to the <col> element
+                  // too is critical — `table-fixed` lays out columns
+                  // from the <colgroup>, so a hidden column with no
+                  // explicit width otherwise still claims a slice of the
+                  // container width. That left the visible columns
+                  // clustered to the left of the screen with empty
+                  // space on the right (the user reported the table
+                  // looked "collapsed to the left"). `display: none`
+                  // on the <col> collapses the column, so the visible
+                  // columns redistribute over the full container width.
+                  className={col.hideClass}
                   style={{ width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '64px' : undefined }}
                 />
               ))}
@@ -960,6 +973,7 @@ export default function InsightsTable({
                 return (
                   <th
                     key={col.id}
+                    data-col-id={col.id}
                     draggable
                     onDragStart={e => handleDragStart(e, idx)}
                     onDragOver={e => handleDragOver(e, idx)}

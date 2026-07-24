@@ -31,7 +31,13 @@ export async function GET(request: Request) {
     searchParams.set('timezone', 'auto')
   }
 
+  // B-NEW-4: build the cache key BEFORE stripping internal-only params
+  // like `v` (the cache-bust stamp from lib/openMeteo.ts) so the
+  // version is part of the hashed key. Then remove it before
+  // forwarding to Open-Meteo so the upstream URL stays clean and
+  // doesn't confuse the provider's own cache.
   const cacheKey = buildForecastCacheKey(searchParams)
+  searchParams.delete('v')
 
   try {
     const cached = await getCachedForecast(cacheKey)

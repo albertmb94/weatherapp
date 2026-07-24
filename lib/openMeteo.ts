@@ -104,6 +104,16 @@ export async function fetchForecast(
   // ensemble still receives any short-range models the user selected
   // (via `displayActiveModelIds`); they just contribute null for the
   // hours the API didn't return, which `weightedAvg` already skips.
+  //
+  // B-NEW-4: bump `CACHE_KEY_VERSION` whenever the model-selection
+  // logic or any other request-shaping parameter changes. The server
+  // route hashes the URL into a cache key, so a stale entry from
+  // before this fix would keep serving the truncated response for up
+  // to the 4-hour TTL. The version stamp is included in the URL so
+  // every prior entry is automatically invalidated and the user sees
+  // the long-range payload on the next refresh. The route strips `v`
+  // before forwarding to Open-Meteo so the upstream URL stays clean.
+  const CACHE_KEY_VERSION = 'v3-long-range-2026-07-24'
   const MIN_HOURS_FOR_FORECAST = 336
   const longRange = regionSelected.filter(m => m.maxHours >= MIN_HOURS_FOR_FORECAST)
   const capped = longRange.slice(0, MAX_FORECAST_MODELS)
@@ -129,6 +139,14 @@ export async function fetchForecast(
     past_days: pastDays,
     forecast_days: forecastDays.toString(),
     timezone: 'auto',
+    // B-NEW-4: the `v` param is included in the cache key (via
+    // buildForecastCacheKey) but stripped by the route before
+    // forwarding to Open-Meteo. Bumping the value invalidates every
+    // pre-existing entry in one shot, which is what we needed on
+    // 2026-07-24 when the long-range model filter was added — the
+    // serverless Turso cache kept serving the 48-h-truncated payload
+    // for up to 4 hours otherwise.
+    v: CACHE_KEY_VERSION,
   })
 
   const res = await fetchWithTimeout(`/api/forecast?${params}`, { signal, timeoutMs: 20_000 })

@@ -113,7 +113,7 @@ body {
 }
 
 /* S7.4: enforce min text size for inline / paragraph content.
-   We don't enforce inside icons (text length 0) or badges (intentional). */
+    We don't enforce inside icons (text length 0) or badges (intentional). */
 .text-min, p, span, li, td, th, button, label, input, select, textarea {
   font-size: max(var(--min-text), 0.875rem);
 }
@@ -123,6 +123,23 @@ body {
   .touch-target, button, [role="button"], .pill, .tab {
     min-height: var(--min-touch);
     min-width: var(--min-touch);
+  }
+}
+
+/* B-NEW-4: Insights table first-column width.
+   <col> elements don't reliably honour Tailwind responsive variants
+   (the `width` HTML attribute and the CSS `width` property collide
+   in some browsers), so we expose a custom property and set it via
+   a media query. On < sm (phones in portrait) we shrink the
+   sticky "Cuándo" column from 64 px to 52 px so the basic
+   6-column view fits inside ~360 px without forcing the user to
+   scroll. */
+:root {
+  --when-col-w: 64px;
+}
+@media (max-width: 639px) {
+  :root {
+    --when-col-w: 52px;
   }
 }
 

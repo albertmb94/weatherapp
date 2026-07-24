@@ -87,4 +87,28 @@ describe('/api/forecast GET', () => {
     await GET(req)
     expect(setCachedForecast).toHaveBeenCalled()
   })
+
+  // B-NEW-4: the route must strip the `v` cache-bust stamp before
+  // forwarding to Open-Meteo so the upstream URL stays clean. We
+  // also verify the stamp IS part of the cache key (i.e. it
+  // participates in `buildForecastCacheKey` and therefore
+  // invalidates stale entries automatically when bumped).
+  it('strips the `v` cache-bust param before forwarding upstream (B-NEW-4)', async () => {
+    vi.mocked(getCachedForecast).mockResolvedValue(null)
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve('{"hourly":{"time":["2025-01-01"],"temperature_2m":[10]}}'),
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&v=v3-long-range-2026-07-24')
+    await GET(req)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const calledUrl = fetchSpy.mock.calls[0]?.[0] as string
+    expect(calledUrl).toBeDefined()
+    // The upstream URL must NOT include the `v` stamp so the provider
+    // sees the same query string the rest of the app emits.
+    expect(calledUrl).not.toMatch(/[?&]v=/)
+  })
 })

@@ -967,7 +967,30 @@ export default function InsightsTable({
             className="w-full border-collapse table-fixed text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
             <colgroup>
-              <col style={{ width: '64px' }} data-col-id="__when__" />
+              {/* B-NEW-4 (mobile): the "Cuándo" column drops to
+                  52 px below the sm breakpoint so the basic
+                  6-column view fits inside ~360 px without forcing
+                  the user to scroll on a 360-px phone. The label
+                  "Mañ 00:00" / "Hoy 11:00" still fits at 11 px in
+                  52 px (the longest label "Dom 26 00:00" is
+                  ~52 px wide with `tabular-nums` and
+                  `whitespace-nowrap` on the data cell). On >=sm
+                  we keep the 64 px so the weekday + day + hour
+                  combination reads comfortably.
+
+                  We use a CSS custom property + a media query
+                  rather than a Tailwind responsive class because
+                  `<col>` elements have inconsistent support for
+                  arbitrary `sm:` / `md:` variants across browsers
+                  (the width attribute and the CSS property
+                  collide). The custom property approach is
+                  well-defined. */}
+              <col
+                data-col-id="__when__"
+                style={{
+                  width: 'var(--when-col-w, 64px)',
+                }}
+              />
               {colDefs.map((col, idx) => (
                 <col
                   key={col.id}
@@ -986,17 +1009,22 @@ export default function InsightsTable({
                   // on the <col> collapses the column, so the visible
                   // columns redistribute over the full container width.
                   //
-                  // B-NEW-3 (mobile): on a 360-px phone viewport 8
-                  // explicit-width 64-px marine columns blow past
-                  // 512 px before any other column is even drawn, and
-                  // the user can't see the rightmost values without
-                  // scrolling. We drop marine columns to 48 px (still
-                  // enough for "0.3m" / "3s" / "73°" at 11 px) so a
-                  // typical marine view fits in ~448 px and the
-                  // right-edge mask has room to fade in.
+                  // B-NEW-3 / B-NEW-4 (mobile): the marine columns
+                  // used to be a fixed 64 px which alone exceeded a
+                  // 360-px phone viewport (8 marine cols × 64 = 512
+                  // px before the first column or any other data
+                  // column is drawn). We dropped to 40 px (still
+                  // enough for "0.3m" / "73°" at 11 px with the
+                  // cell's `px-1` padding) and the right-edge
+                  // scroll-fade mask gives a hint that more content
+                  // is to the right. On desktop the 40 px is
+                  // visually tighter than the 64 px it replaces
+                  // but the units ("m", "s", "°") still read
+                  // clearly because the basic 6-column view has
+                  // more horizontal room to spare.
                   className={col.hideClass}
                   style={{
-                    width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '48px' : undefined,
+                    width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '40px' : undefined,
                   }}
                 />
               ))}
@@ -1289,30 +1317,31 @@ const HeatCell = memo(function HeatCell({
 }) {
   return (
     <td
-      // Heat-cell text uses a CSS variable that flips between dark and
-      // light text based on the html.light class. This makes it track the
-      // theme toggle regardless of the OS `prefers-color-scheme` setting.
-      //
       // Sprint 10 / B-10-6: `contain: layout style paint` makes each
       // cell an independent paint island so a change to one cell
       // (e.g. the active-row ring) cannot trigger a repaint of any
       // sibling. Combined with content-visibility on the row, this
       // lets the browser aggressively skip work for off-screen rows.
-      // Sprint 10 / B-10-8: removed `sm:text-[color:var(--heat-text)]`
-      // because it triggered white text in landscape mobile (width ≥
-      // 640 px → sm: breakpoint) on dark mode. The user expects black
-      // text consistently; `text-black` is unconditional so the cell
-      // text reads the same on every viewport size.
+      //
+      // B-NEW-4 (text color): the user originally wanted black text
+      // everywhere (Sprint 10 / B-10-8 removed the landscape white-text
+      // override). On 2026-07-24 they reversed that decision:
+      // landscape + dark mode now needs white text so the small cell
+      // labels stay legible against the dark heatmap gradient. We
+      // re-introduce the conditional via `dark:landscape:text-white`
+      // — the variant is only active when BOTH `dark` mode AND
+      // `landscape` orientation are true, so portrait and light-mode
+      // both keep `text-black` as before.
       //
       // B-NEW-3 (mobile): `px-1.5 sm:px-1` trims horizontal padding
       // on phone-width viewports so the basic 6-column view (cond /
-      // temp / wind / precip / humidity / uv + sticky 64-px "Cuándo")
+      // temp / wind / precip / humidity / uv + sticky "Cuándo")
       // fits inside ~390 px before the user has to scroll. The
       // original `px-1` (4 px each side) added up to 8 px per cell,
       // which was enough to push the rightmost column off-screen on
       // a 360-px phone with no visible hint that scrolling was
       // possible.
-      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums text-black ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
+      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums text-black dark:landscape:text-white ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
       style={style}
     >
       {node}

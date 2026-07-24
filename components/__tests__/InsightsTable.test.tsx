@@ -363,7 +363,13 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     const colgroup = table.querySelector('colgroup')!
     expect(colgroup).not.toBeNull()
     const firstCol = colgroup.querySelector('col')!
-    expect(firstCol.getAttribute('style')).toMatch(/width:\s*64px/i)
+    // B-NEW-4: the first-column width is now a CSS custom property
+    // (--when-col-w) so the same `<col>` works on both phone and
+    // desktop without relying on Tailwind responsive variants inside
+    // a `<col>` element (which has inconsistent support). The CSS
+    // variable is defined in app/globals.css with a media query.
+    expect(firstCol.getAttribute('style')).toMatch(/var\(--when-col-w/i)
+    expect(firstCol.getAttribute('style')).toMatch(/64px/i)
     // Sprint 10 / B-NEW-2: every <col> must carry the same `hideClass`
     // as its <th>/<td> so `display: none` collapses the column under
     // `table-fixed`. Without it, hidden columns still claim a slice of

@@ -962,9 +962,27 @@ export default function InsightsTable({
             // Modern browsers (Chrome 91+, Safari 14+) DO support
             // `position: sticky` on <th> with `border-collapse:
             // collapse`, so we get a stable layout AND sticky headers.
-            // A <colgroup> pins the first column to 64 px so every
-            // other column auto-sizes to the remaining width.
-            className="w-full border-collapse table-fixed text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
+            //
+            // B-NEW-5 (2026-07-24): removed `table-fixed` because it
+            // forced every `width: auto` <col> to share the REMAINING
+            // width equally, which made the 1h/2h/6h columns too
+            // narrow on a 360-px phone (the basic 6-column view
+            // squeezed to ~51 px per column) and made the landscape
+            // view look "collapsed to the right" (the table was
+            // wider than the viewport but every column was the same
+            // width, so the user could only see the right half
+            // after scrolling). With the default `table-auto` each
+            // column now sizes to the widest CELL in that column —
+            // short numeric columns like temp/wind/precip end up
+            // narrower (more room for the wider ones), the table is
+            // its natural width, and the container's
+            // `overflow-x-auto` (set on the parent <div>) takes over
+            // when the natural width exceeds the viewport. The
+            // first column stays at 52 / 64 px via the CSS variable
+            // on its <col>, and the `min-w-[36px]` sm:min-w-[44px] on
+            // the data cells (below) prevents any single column from
+            // collapsing to nothing.
+            className="w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
             <colgroup>
               {/* B-NEW-4 (mobile): the "Cuándo" column drops to
@@ -1175,7 +1193,23 @@ export default function InsightsTable({
                     // and because the <td> comes later in the DOM it
                     // painted on top of the header — the day/hour text
                     // overlapped the "Cuándo" label on mobile.
-                    className={`sticky left-0 z-30 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
+                    //
+                    // B-NEW-5 (2026-07-24): dropped z-30 to z-20 so
+                    // the body cell is strictly BELOW the thead
+                    // (z-30) in the table stacking context. With
+                    // z-30 on both the thead and the first-col td,
+                    // DOM order was breaking the tie (the <td> comes
+                    // after the <thead>) and the "Hoy 12:00" /
+                    // "Mañ 00:00" text painted on top of the
+                    // "Cuándo" header — most visible in landscape
+                    // with marine on, where the first column was
+                    // wider and the body text visibly overpainted
+                    // the header. With z-20 the body cell stays
+                    // visible above the OTHER body cells (which are
+                    // z-auto) but never rises into the header's
+                    // z-30 band, so the "Cuándo" label reads
+                    // cleanly even when scrolled.
+                    className={`sticky left-0 z-20 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
                   >
                     {/* Sprint 10 / B-10-2: when bucket=24 and the user is
                        on the actual current hour (selectedHour === 0),
@@ -1323,15 +1357,19 @@ const HeatCell = memo(function HeatCell({
       // sibling. Combined with content-visibility on the row, this
       // lets the browser aggressively skip work for off-screen rows.
       //
-      // B-NEW-4 (text color): the user originally wanted black text
-      // everywhere (Sprint 10 / B-10-8 removed the landscape white-text
-      // override). On 2026-07-24 they reversed that decision:
-      // landscape + dark mode now needs white text so the small cell
-      // labels stay legible against the dark heatmap gradient. We
-      // re-introduce the conditional via `dark:landscape:text-white`
-      // — the variant is only active when BOTH `dark` mode AND
-      // `landscape` orientation are true, so portrait and light-mode
-      // both keep `text-black` as before.
+      // B-NEW-5 (text color): the colour now comes from the
+      // `--heat-cell-text` CSS custom property defined in
+      // `app/globals.css`. The resolution is unambiguous:
+      //   - light theme (html.light)        → black
+      //   - dark theme, portrait            → black
+      //   - dark theme, landscape           → white
+      // We avoid Tailwind's `dark:` variant entirely because this
+      // app uses `html.light` for light mode and never sets a
+      // `.dark` class, so the variant fires inconsistently across
+      // browser versions. The CSS variable is a single source of
+      // truth and works in every browser that supports custom
+      // properties (which is the same set that supports the rest
+      // of our design-token system).
       //
       // B-NEW-3 (mobile): `px-1.5 sm:px-1` trims horizontal padding
       // on phone-width viewports so the basic 6-column view (cond /
@@ -1341,7 +1379,19 @@ const HeatCell = memo(function HeatCell({
       // which was enough to push the rightmost column off-screen on
       // a 360-px phone with no visible hint that scrolling was
       // possible.
-      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums text-black dark:landscape:text-white ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
+      //
+      // B-NEW-5 (mobile width floor): `min-w-[40px] sm:min-w-[44px]`
+      // is the floor for each non-marine data cell. Without it, a
+      // row that happens to contain a very short value (e.g. a
+      // 1-character "0" in the precipitation column) would let
+      // `table-auto` collapse that column to a few pixels, making
+      // every other row's longer value ("0.3", "12.4") wrap onto
+      // two lines. The floor of 40 px on mobile / 44 px on tablet
+      // is enough for the widest value we render today ("11.3°"
+      // for dewpoint, "0.0km" for visibility) at 11 px with the
+      // 1.5-unit horizontal padding. Marine columns keep their
+      // narrower 40 px width via the <col> element.
+      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums min-w-[40px] sm:min-w-[44px] [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
       style={style}
     >
       {node}

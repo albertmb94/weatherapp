@@ -357,7 +357,18 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     // headers with `border-collapse: collapse` natively.
     const table = scrollContainer!.querySelector('table')!
     expect(table.className).toMatch(/border-collapse/i)
-    expect(table.className).toMatch(/table-fixed/i)
+    // B-NEW-5 (2026-07-24): the table is now in `table-auto` mode
+    // (i.e. no `table-fixed` class). With `table-fixed` every
+    // `width: auto` column shared the remaining width equally, which
+    // squeezed the 1h/2h/6h columns below readable size on a 360-px
+    // phone. Without `table-fixed` each column sizes to the widest
+    // CELL in that column, the table is its natural width, and the
+    // container's `overflow-x-auto` (set on the parent) takes over
+    // when the natural width exceeds the viewport. The first column
+    // is still pinned via the CSS-variable width on its <col>, and
+    // every data cell has a `min-w-[40px] sm:min-w-[44px]` floor so
+    // no column can collapse to nothing.
+    expect(table.className).not.toMatch(/table-fixed/i)
     // The table now declares an explicit <colgroup> with the first
     // column pinned to 64 px so the sticky column has a stable width.
     const colgroup = table.querySelector('colgroup')!
@@ -371,9 +382,11 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     expect(firstCol.getAttribute('style')).toMatch(/var\(--when-col-w/i)
     expect(firstCol.getAttribute('style')).toMatch(/64px/i)
     // Sprint 10 / B-NEW-2: every <col> must carry the same `hideClass`
-    // as its <th>/<td> so `display: none` collapses the column under
-    // `table-fixed`. Without it, hidden columns still claim a slice of
-    // the container width and the visible columns cluster on the left.
+    // as its <th>/<td> so `display: none` collapses the column.
+    // Under `table-auto` the hideClass still matters: without it,
+    // a hidden <th>/<td> would leave a gap in the table because the
+    // <col> itself still claims a slot. We keep the same DOM rule
+    // (col matches thead) and just verify it here.
     const allCols = Array.from(colgroup.querySelectorAll('col'))
     for (const col of allCols) {
       const id = col.getAttribute('data-col-id')

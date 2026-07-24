@@ -143,6 +143,37 @@ body {
   }
 }
 
+/* B-NEW-5 (2026-07-24): heat-cell text colour.
+
+   The app uses `html.light` for light mode and the absence of any
+   class for dark mode (the default). The Insights table wants:
+     - light theme (html.light)                → black text always
+     - dark theme, portrait                    → black text
+     - dark theme, landscape                   → white text
+       (the dark heatmap gradient is too dark to read black on)
+
+   We previously encoded this as Tailwind's `dark:landscape:text-white`
+   but Tailwind v4's `dark:` variant only matches when an ancestor
+   carries a `.dark` class — which this app never sets (it sets
+   `.light` instead). The Tailwind variant also has no
+   `prefers-color-scheme` fallback, so it should be a no-op in this
+   project, but on the deployed build we observed the rule firing in
+   light mode anyway (likely a class collision from another rule
+   higher in the cascade). To be unambiguous we resolve the colour
+   with a single CSS rule that reads from `html` directly, so there
+   is no Tailwind class involved at all. */
+:root {
+  --heat-cell-text: #0a0a0a; /* default = dark theme, portrait */
+}
+html.light {
+  --heat-cell-text: #0a0a0a; /* light theme: always black */
+}
+@media (orientation: landscape) {
+  :root:not(.light) {
+    --heat-cell-text: #f5f5f5; /* dark + landscape: white */
+  }
+}
+
 .leaflet-container {
   background: #1a1a2e;
   z-index: 1;

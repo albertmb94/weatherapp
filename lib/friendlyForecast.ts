@@ -22,6 +22,18 @@ interface SeriesBag {
  *
  * The function is a thin wrapper over the central module so all
  * call sites converge on one code path.
+ *
+ * B-NEW-5 (2026-07-24): when the user has selected a model set that
+ * returns null for a given hour (typically because they deselected
+ * the long-range models that the production API now requests, so
+ * the only models with data at that lead time are not in their
+ * `selectedIds`), fall back to the full WedAI ensemble. The friendly
+ * cards (Previsión de hoy, Resumen diario, Próximos días) should
+ * never show em-dashes when at least one model has a value for the
+ * hour — those cards are a "best estimate" overview, not the
+ * comparison surface where the user's manual pick matters. The
+ * comparison surface (Insights table, Model chart) still respects
+ * the selection literally.
  */
 function meanAcrossModels(
   bag: SeriesBag,
@@ -33,9 +45,35 @@ function meanAcrossModels(
   leadTimeHours: number = 0
 ): number | null {
   const active = resolveActiveModels(models, selectedIds, mode)
-  if (active.length === 0) return null
+  if (active.length === 0) {
+    return fallbackToWedai(bag, metric, index, models, leadTimeHours)
+  }
   const weights = weightsFor(metric, leadTimeHours, 1, active)
-  return meanAtHour(bag, metric, index, active, weights)
+  const v = meanAtHour(bag, metric, index, active, weights)
+  if (v !== null) return v
+  // B-NEW-5: user's selection returned no data for this hour —
+  // surface the WedAI value instead of an em-dash. We only do this
+  // for the friendly helper layer; the chart / InsightsTable call
+  // site uses `meanAtHour` directly and respects the literal
+  // selection (so the user can still see "no model I selected has
+  // data" if that's the point they want to inspect).
+  if (mode === 'models') {
+    return fallbackToWedai(bag, metric, index, models, leadTimeHours)
+  }
+  return null
+}
+
+function fallbackToWedai(
+  bag: SeriesBag,
+  metric: MetricId,
+  index: number,
+  models: WeatherModel[],
+  leadTimeHours: number
+): number | null {
+  const wedai = resolveActiveModels(models, [], 'wedai')
+  if (wedai.length === 0) return null
+  const weights = weightsFor(metric, leadTimeHours, 1, wedai)
+  return meanAtHour(bag, metric, index, wedai, weights)
 }
 
 /**
@@ -381,9 +419,20 @@ export function computeWeekSummaries(
   const buckets: Bucket[] = []
   let current: Bucket | null = null
   const limit = Math.min(bag.time.length, maxHours)
+  // B-NEW-5: when the user's selection is empty, fall back to the
+  // full WedAI ensemble so the "Próximos días" sidebar still shows
+  // highs/lows. Without this, deselecting every long-range model
+  // would leave the right column blank even though several models
+  // have data at every hour.
   const activeModels = models.filter(m => activeIds.includes(m.id))
-  if (activeModels.length === 0) return []
-    for (let i = nowIndex; i < limit; i++) {
+  if (activeModels.length === 0) {
+    const wedai = resolveActiveModels(models, [], 'wedai')
+    if (wedai.length === 0) return []
+    // Synthetic activeIds that includes every WedAI model so the
+    // existing loop body keeps working unchanged.
+    activeIds = wedai.map(m => m.id)
+  }
+  for (let i = nowIndex; i < limit; i++) {
     const t = bag.time[i]
     if (!(t instanceof Date)) continue
     const key = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`

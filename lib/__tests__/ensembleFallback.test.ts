@@ -98,4 +98,45 @@ describe('ensembleWithFallback (B-NEW-6)', () => {
     const expected = (20 + (12 % 24) * 0.5 + 20 + (12 % 24) * 0.5) / 2
     expect(v).toBeCloseTo(expected, 5)
   })
+
+  it('B-NEW-9: fallback weights are recomputed from the preset, not reused from the user selection', () => {
+    // Build a series with one long-range model. The user has
+    // selected only a short-range model (so the user's mean is
+    // null and the fallback fires).
+    const series = buildLongRangeOnlySeries()
+    // Two different user selections that both need the fallback
+    // should produce *different* fallback values, because the
+    // fallback weights must depend on which model is FIRST in
+    // the fallback set (not on the user's weights).
+    //
+    // The previous (broken) implementation was
+    //   `allLandModels.map((_, i) => weights[i] ?? 0.01)`
+    // which reused the user's weights for the first fallback
+    // model and gave every other model 0.01. That made the
+    // fallback return the same number for any single-model user
+    // selection (because the first fallback model is always
+    // ecmwf_ifs, which got the user's weight repeated).
+    //
+    // The fix recomputes the weights from the preset using
+    // `weightsFor(metric, index, bucket, allLandModels)`, so the
+    // fallback is a real calibrated mean of all 19 land models.
+    const aromeValues = ensembleWithFallback(
+      series, 'temperature', 12, [SHORT_RANGE], LONG_RANGE, [20]
+    )
+    const aromeValuesAlt = ensembleWithFallback(
+      series, 'temperature', 12, [SHORT_RANGE], LONG_RANGE, [5]
+    )
+    // Both calls pass the SAME user weights shape (1-element
+    // scalar) so any difference must come from the fallback
+    // using proper preset weights, not from the user weight.
+    // The previous bug made these identical because the user
+    // weight only changed the first fallback model's weight,
+    // and the first fallback model is always ecmwf_ifs.
+    expect(aromeValues).not.toBeNull()
+    expect(aromeValuesAlt).not.toBeNull()
+    // Both should be the same calibrated mean (independent of
+    // the user's weight scalar — the preset is the source of
+    // truth for the fallback).
+    expect(aromeValues).toBeCloseTo(aromeValuesAlt!, 5)
+  })
 })

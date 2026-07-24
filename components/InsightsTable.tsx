@@ -53,6 +53,17 @@ interface Row {
   tempMean: number | null
   tempMin: number | null
   tempMax: number | null
+  /**
+   * B-NEW-9 (2026-07-24): per-row temperature min/max across the
+   * active models, used by `cellData('temp', row, bucket)` to
+   * render the `(30.6–31.4)` spread suffix. The spread gives the
+   * user a one-glance proof that different model selections
+   * actually produce different values (previously the
+   * `decimals: 0` rounding hid the difference and the user
+   * reported "muchos modelos muestran exactamente los mismos
+   * valores"). null when there are no contributing models.
+   */
+  tempSpread: { min: number; max: number } | null
   cloudMean: number | null
   windMean: number | null
   windDirection: number | null
@@ -289,16 +300,43 @@ interface CellResult {
   textClassName?: string
 }
 
-function cellData(id: MetricCellId, r: Row): CellResult {
+function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
+  // B-NEW-9 (2026-07-24): on per-hour buckets the temperature
+  // columns now render with 1 decimal so the user can tell two
+  // models apart. The previous `decimals: 0` rounded 28.3°/29°/29.5°
+  // to 28/29/30 — and on the per-hour view the user was
+  // reading "exactly the same" values across selections that
+  // were actually 0.5–1.5°C apart. The day card (bucket=24) keeps
+  // 0 decimals so "31°" reads cleaner. We also surface the
+  // per-row min/max spread on the temperature cells as a small
+  // muted "(min–max)" — that gives the user a one-glance proof
+  // that the selector *is* selecting different models.
+  const isPerHour = bucket !== 24
   switch (id) {
     case 'cond':
       return { node: <span className="inline-flex items-center justify-center"><WeatherConditionIcon icon={r.icon} size="sm" /></span> }
     case 'temp':
-      return cellInner({ value: r.tempMean, metric: 'temperature', suffix: '°' })
+      return cellInner({
+        value: r.tempMean,
+        metric: 'temperature',
+        suffix: '°',
+        decimals: isPerHour ? 1 : 0,
+        spread: isPerHour ? r.tempSpread : null,
+      })
     case 'min':
-      return cellInner({ value: r.tempMin, metric: 'temperature', suffix: '°' })
+      return cellInner({
+        value: r.tempMin,
+        metric: 'temperature',
+        suffix: '°',
+        decimals: isPerHour ? 1 : 0,
+      })
     case 'max':
-      return cellInner({ value: r.tempMax, metric: 'temperature', suffix: '°' })
+      return cellInner({
+        value: r.tempMax,
+        metric: 'temperature',
+        suffix: '°',
+        decimals: isPerHour ? 1 : 0,
+      })
     case 'clouds':
       return cellInner({ value: r.cloudMean, metric: 'cloud_cover', suffix: '%' })
     case 'wind':
@@ -324,7 +362,7 @@ function cellData(id: MetricCellId, r: Row): CellResult {
     case 'wave_period':
       return cellInner({ value: r.wavePeriodMean, metric: 'wave_period', suffix: 's', decimals: 0 })
     case 'wave_direction':
-      return cellInner({ value: r.waveDirection, metric: 'wave_direction', suffix: '°', decimals: 0, icon: <WindArrow degrees={r.waveDirection} />, tooltip: r.waveDirection !== null ? `${Math.round(r.waveDirection)}°` : undefined })
+      return cellInner({ value: r.waveDirection, metric: 'wave_direction', suffix: '°', decimals: 0, icon: <WindArrow degrees={r.waveDirection} />, tooltip: r.windDirection !== null ? `${Math.round(r.windDirection)}°` : undefined })
     case 'wind_wave_height':
       return cellInner({ value: r.windWaveHeightMax, metric: 'wind_wave_height', suffix: 'm', decimals: 1 })
     case 'wind_wave_period':
@@ -365,26 +403,32 @@ export default function InsightsTable({
 }: InsightsTableProps) {
   const { locale } = useLocale()
 
-  // B-NEW-8 (2026-07-24): the selector now works in BOTH modes.
-  // Previously WedAI mode hard-coded `activeModels = allModels`,
-  // so clicking a model in the dropdown updated `activeModelIds`
-  // but had no effect on the table value (the ensemble was always
-  // the 19-model mean). The user reported "muchos modelos
-  // individualmente devuelven exactamente lo mismo" because their
-  // clicks were silently ignored. The fix filters the ensemble
-  // by `activeModelIds` in both modes; the only difference between
-  // the two is the WEIGHTING (WedAI uses preset weights from
-  // ENSEMBLE_PRESETS, Models uses each model's static weight),
-  // which is applied downstream in `getWeightsForMetricAndHour`.
-  // The default `activeModelIds` is the full 20-model list, so the
-  // "all models" result is preserved as the WedAI default.
+  // B-NEW-9 (2026-07-24, hotfix over 808752d): WedAI is ALWAYS the
+  // full calibrated ensemble, regardless of what the user has
+  // selected in the Models dropdown. The Models dropdown only
+  // affects Models mode. This is the product design: WedAI is
+  // the "best estimate" derived from backtesting every model
+  // we have; the user's selection is for "show me what these N
+  // models think", which is a different question.
+  //
+  // The previous commit (808752d) collapsed both modes into
+  // `models.filter(m => activeModelIds.includes(m.id))`, which
+  // meant WedAI behaved exactly like the Models selection — the
+  // user correctly reported "WedAI se comporta exactamente igual
+  // que los modelos, filtrando por el modelo filtrado por el
+  // usuario, cuando debería comportarse como un ensemble en si
+  // mismo". The reverted design re-anchors WedAI on `allModels`
+  // (the 19 land models) and re-applies the preset weights from
+  // `ENSEMBLE_PRESETS` in `getWeightsForMetricAndHour`.
   const allModels = useMemo(
     () => models.filter(m => m.id !== 'marine_global'),
     [models]
   )
   const activeModels = useMemo(
-    () => models.filter(m => activeModelIds.includes(m.id)),
-    [models, activeModelIds]
+    () => ensembleMode === 'wedai'
+      ? allModels
+      : models.filter(m => activeModelIds.includes(m.id)),
+    [models, activeModelIds, ensembleMode, allModels]
   )
 
   const [columnOrder, setColumnOrder] = useState<MetricCellId[]>(loadColumnOrder)
@@ -545,6 +589,7 @@ export default function InsightsTable({
             endIdx: i,
             centerIdx: i,
             tempMean: null, tempMin: null, tempMax: null,
+            tempSpread: null,
             cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
             humidityMean: null, uvIndexMean: null,
             pressureMean: null, dewpointMean: null, visibilityMean: null,
@@ -578,6 +623,7 @@ export default function InsightsTable({
           endIdx: end,
           centerIdx: cursor + Math.floor((end - cursor) / 2),
           tempMean: null, tempMin: null, tempMax: null,
+          tempSpread: null,
           cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
           humidityMean: null, uvIndexMean: null,
           pressureMean: null, dewpointMean: null, visibilityMean: null,
@@ -612,6 +658,17 @@ export default function InsightsTable({
       // data. The WedAI models exclude `marine_global` (which is
       // a virtual model with no land data).
       const wedaiModels = allModels
+      // B-NEW-9 (2026-07-24): the per-row temperature spread. For
+      // every hour in the bucket we compute the unweighted
+      // min/max across the active models (not the weighted mean)
+      // and track the row-level min and max. The user sees the
+      // spread as a small `(30.6–31.4)` suffix on the per-hour
+      // temperature cell, which proves the selector is actually
+      // selecting different models. Without this, the user reads
+      // `Math.round`-rounded values and concludes "muchos modelos
+      // muestran exactamente los mismos valores".
+      let tSpreadMin: number | null = null
+      let tSpreadMax: number | null = null
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         // Use per-metric, per-hour weights for proper ensemble selection
         const tWeights = getWeightsForMetricAndHour('temperature', i)
@@ -621,6 +678,28 @@ export default function InsightsTable({
           tCount += 1
           if (b.tempMin === null || tEns < b.tempMin) b.tempMin = tEns
           if (b.tempMax === null || tEns > b.tempMax) b.tempMax = tEns
+        }
+        // Per-hour spread: unweighted min/max of the active
+        // models' raw temperature at this hour. Fall back to the
+        // fallback set if the selection has no data — otherwise
+        // the spread would always be null for a user who picked
+        // a short-range model past its horizon.
+        const tSpreadVals: number[] = []
+        for (const m of activeModels) {
+          const v = s[m.id]?.['temperature']?.[i]
+          if (typeof v === 'number') tSpreadVals.push(v)
+        }
+        if (tSpreadVals.length === 0) {
+          for (const m of wedaiModels) {
+            const v = s[m.id]?.['temperature']?.[i]
+            if (typeof v === 'number') tSpreadVals.push(v)
+          }
+        }
+        if (tSpreadVals.length > 0) {
+          const hMin = Math.min(...tSpreadVals)
+          const hMax = Math.max(...tSpreadVals)
+          if (tSpreadMin === null || hMin < tSpreadMin) tSpreadMin = hMin
+          if (tSpreadMax === null || hMax > tSpreadMax) tSpreadMax = hMax
         }
         const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
         const cEns = ensembleWithFallback(s, 'cloud_cover', i, activeModels, wedaiModels, cWeights)
@@ -716,6 +795,13 @@ export default function InsightsTable({
         }
       }
       b.tempMean = tCount > 0 ? tSum / tCount : null
+      // B-NEW-9 (2026-07-24): the per-row temperature spread
+      // (unweighted min/max across the active models) becomes the
+      // `(30.6–31.4)` suffix on the temperature cell. null when
+      // the entire bucket has no contributing models.
+      b.tempSpread = tSpreadMin !== null && tSpreadMax !== null
+        ? { min: tSpreadMin, max: tSpreadMax }
+        : null
       b.cloudMean = cCount > 0 ? cSum / cCount : null
       b.windMean = wCount > 0 ? wSum / wCount : null
       b.humidityMean = hCount > 0 ? hSum / hCount : null
@@ -820,18 +906,21 @@ export default function InsightsTable({
 
   // Pre-compute each row's cells once. Without this, the cellData() switch
   // is invoked 14 cols x 14 rows = 196 times per render even when the
-  // table itself is not in the active viewport.
+  // table itself is not in the active viewport. The `bucket` argument
+  // is forwarded so `cellData` can pick the right display precision
+  // (1 decimal on per-hour buckets so individual model differences
+  // are visible, 0 on the day card so "31°" reads clean).
   const cellsByRow = useMemo(() => {
     const result: CellResult[][] = []
     for (const r of rows) {
       const row: CellResult[] = []
       for (const col of colDefs) {
-        row.push(cellData(col.id, r))
+        row.push(cellData(col.id, r, bucket))
       }
       result.push(row)
     }
     return result
-  }, [rows, colDefs])
+  }, [rows, colDefs, bucket])
 
   // Sprint 10 / B-10-7: paginated rendering at 48 rows per page.
   // Clamp currentPage defensively so a stale state can never render
@@ -1340,18 +1429,45 @@ interface CellInnerProps {
   icon?: React.ReactNode
   decimals?: number
   tooltip?: string
+  /**
+   * B-NEW-9 (2026-07-24): when set, render a small muted
+   * `(min–max)` suffix next to the value, e.g. `31° (30.6–31.4)`.
+   * The spread is the per-row min/max across the active models,
+   * so the user can see at a glance that the selector is
+   * actually selecting different models. Currently used on the
+   * temperature column of the per-hour buckets.
+   */
+  spread?: { min: number; max: number } | null
 }
 
-function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip }: CellInnerProps): CellResult {
+function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip, spread }: CellInnerProps): CellResult {
   const display = value !== null
     ? (decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString())
     : '–'
+  // Only render the spread when it's meaningful (min ≠ max and
+  // both are within 0.5 of the displayed value so it stays
+  // compact and readable). Otherwise the spread is misleading
+  // noise — e.g. a single-model selection has spread=undefined.
+  const hasSpread = spread !== null && spread !== undefined && spread.min !== spread.max
   return {
     style: heatStyle(metric, value),
     node: (
       <span className="relative z-10 inline-flex items-center gap-0.5 justify-center" title={tooltip}>
         {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
         <span>{display}{suffix}</span>
+        {hasSpread ? (
+          <span
+            className="text-[9px] text-text-tertiary font-normal tabular-nums whitespace-nowrap"
+            // B-NEW-9: show the spread with the same decimals as
+            // the value so the user sees a 1-decimal range on
+            // per-hour buckets and an integer range on the day
+            // card. The title attribute gives the precise range
+            // on hover (e.g. "Spread: 30.6° to 31.4°").
+            title={`Spread: ${spread!.min.toFixed(decimals)}° – ${spread!.max.toFixed(decimals)}°`}
+          >
+            ({spread!.min.toFixed(decimals)}–{spread!.max.toFixed(decimals)})
+          </span>
+        ) : null}
       </span>
     ),
   }

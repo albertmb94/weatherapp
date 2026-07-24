@@ -180,19 +180,22 @@ export function constantWeights(weights: number[]): (hourIndex: number) => numbe
  * exposes the same logic for the InsightsTable's inline loops
  * without duplicating the per-metric weight construction.
  *
- * The fallback is intentionally narrow: it only fires when the
- * user's selection is non-empty but every selected model returns
- * null at this hour. When the selection is genuinely empty we
- * return null (no models = no data, and the caller should decide
- * what to render — usually the loading skeleton or a "no model
- * selected" message).
- *
- * Note: this helper takes the raw `series` (modelId → metric →
- * values), not a `SeriesBag` with a `series` field, because the
- * InsightsTable passes the series map directly (the `time` array
- * isn't needed for a single-hour mean). The friendly cards, which
- * also use `meanAcrossModels`, build a `SeriesBag` wrapper before
- * calling the central helpers.
+ * B-NEW-9 (2026-07-24, hotfix): the previous version of this
+ * function computed the fallback weights as
+ *   `allLandModels.map((_, i) => weights[i] ?? 0.01)`
+ * which silently reused the user's weights for the first model
+ * in the fallback set and gave every other model a near-zero
+ * weight. If the user had selected a single model and its series
+ * was missing for some hour, the fallback would always be
+ * dominated by whichever model happened to be first in
+ * `allLandModels` — different single-model selections produced
+ * the *same* fallback number, which is exactly the
+ * "muchos modelos muestran exactamente los mismos valores"
+ * the user reported. The fix recomputes the weights for the
+ * fallback set using the same preset lookup (`weightsFor`) the
+ * rest of the table uses, so the fallback is a real calibrated
+ * mean of all 19 land models rather than a hack reusing
+ * 1-element user weights.
  */
 export function ensembleWithFallback(
   series: Record<string, Record<string, (number | null)[]>>,
@@ -206,12 +209,15 @@ export function ensembleWithFallback(
   const v = meanAtHourFromSeries(series, metric as MetricId, index, activeModels, weights)
   if (v !== null) return v
   // The user's selection returned null — fall back to WedAI so the
-  // user always sees data when at least one model has a value. The
-  // WedAI weights are recomputed for the new active set; the helper
-  // is cheap (≤ 19 vals × 1 metric) so the per-row cost is
-  // negligible compared to the surrounding JSX.
+  // user always sees data when at least one model has a value.
+  // Recompute the weights for the fallback set from the preset,
+  // not from `weights` (which is aligned with `activeModels` and
+  // may be much shorter). Without this, a 1-element user
+  // selection would produce a 19-element fallback array with the
+  // user's weight re-applied to the first fallback model and
+  // 0.01 to the rest — wrong AND identical across selections.
   if (allLandModels.length === 0) return null
-  const fallbackWeights = allLandModels.map((_, i) => weights[i] ?? 0.01)
+  const fallbackWeights = weightsFor(metric as MetricId, index, 1, allLandModels)
   return meanAtHourFromSeries(series, metric as MetricId, index, allLandModels, fallbackWeights)
 }
 

@@ -53,17 +53,6 @@ interface Row {
   tempMean: number | null
   tempMin: number | null
   tempMax: number | null
-  /**
-   * B-NEW-9 (2026-07-24): per-row temperature min/max across the
-   * active models, used by `cellData('temp', row, bucket)` to
-   * render the `(30.6–31.4)` spread suffix. The spread gives the
-   * user a one-glance proof that different model selections
-   * actually produce different values (previously the
-   * `decimals: 0` rounding hid the difference and the user
-   * reported "muchos modelos muestran exactamente los mismos
-   * valores"). null when there are no contributing models.
-   */
-  tempSpread: { min: number; max: number } | null
   cloudMean: number | null
   windMean: number | null
   windDirection: number | null
@@ -318,11 +307,10 @@ function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
     case 'temp':
       return cellInner({
         value: r.tempMean,
-        metric: 'temperature',
-        suffix: '°',
-        decimals: isPerHour ? 1 : 0,
-        spread: isPerHour ? r.tempSpread : null,
-      })
+         metric: 'temperature',
+         suffix: '°',
+         decimals: isPerHour ? 1 : 0,
+       })
     case 'min':
       return cellInner({
         value: r.tempMin,
@@ -589,7 +577,6 @@ export default function InsightsTable({
             endIdx: i,
             centerIdx: i,
             tempMean: null, tempMin: null, tempMax: null,
-            tempSpread: null,
             cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
             humidityMean: null, uvIndexMean: null,
             pressureMean: null, dewpointMean: null, visibilityMean: null,
@@ -623,7 +610,6 @@ export default function InsightsTable({
           endIdx: end,
           centerIdx: cursor + Math.floor((end - cursor) / 2),
           tempMean: null, tempMin: null, tempMax: null,
-          tempSpread: null,
           cloudMean: null, windMean: null, windDirection: null, gustsMax: null, precipSum: null,
           humidityMean: null, uvIndexMean: null,
           pressureMean: null, dewpointMean: null, visibilityMean: null,
@@ -659,16 +645,6 @@ export default function InsightsTable({
       // a virtual model with no land data).
       const wedaiModels = allModels
       // B-NEW-9 (2026-07-24): the per-row temperature spread. For
-      // every hour in the bucket we compute the unweighted
-      // min/max across the active models (not the weighted mean)
-      // and track the row-level min and max. The user sees the
-      // spread as a small `(30.6–31.4)` suffix on the per-hour
-      // temperature cell, which proves the selector is actually
-      // selecting different models. Without this, the user reads
-      // `Math.round`-rounded values and concludes "muchos modelos
-      // muestran exactamente los mismos valores".
-      let tSpreadMin: number | null = null
-      let tSpreadMax: number | null = null
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         // Use per-metric, per-hour weights for proper ensemble selection
         const tWeights = getWeightsForMetricAndHour('temperature', i)
@@ -678,28 +654,6 @@ export default function InsightsTable({
           tCount += 1
           if (b.tempMin === null || tEns < b.tempMin) b.tempMin = tEns
           if (b.tempMax === null || tEns > b.tempMax) b.tempMax = tEns
-        }
-        // Per-hour spread: unweighted min/max of the active
-        // models' raw temperature at this hour. Fall back to the
-        // fallback set if the selection has no data — otherwise
-        // the spread would always be null for a user who picked
-        // a short-range model past its horizon.
-        const tSpreadVals: number[] = []
-        for (const m of activeModels) {
-          const v = s[m.id]?.['temperature']?.[i]
-          if (typeof v === 'number') tSpreadVals.push(v)
-        }
-        if (tSpreadVals.length === 0) {
-          for (const m of wedaiModels) {
-            const v = s[m.id]?.['temperature']?.[i]
-            if (typeof v === 'number') tSpreadVals.push(v)
-          }
-        }
-        if (tSpreadVals.length > 0) {
-          const hMin = Math.min(...tSpreadVals)
-          const hMax = Math.max(...tSpreadVals)
-          if (tSpreadMin === null || hMin < tSpreadMin) tSpreadMin = hMin
-          if (tSpreadMax === null || hMax > tSpreadMax) tSpreadMax = hMax
         }
         const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
         const cEns = ensembleWithFallback(s, 'cloud_cover', i, activeModels, wedaiModels, cWeights)
@@ -795,13 +749,6 @@ export default function InsightsTable({
         }
       }
       b.tempMean = tCount > 0 ? tSum / tCount : null
-      // B-NEW-9 (2026-07-24): the per-row temperature spread
-      // (unweighted min/max across the active models) becomes the
-      // `(30.6–31.4)` suffix on the temperature cell. null when
-      // the entire bucket has no contributing models.
-      b.tempSpread = tSpreadMin !== null && tSpreadMax !== null
-        ? { min: tSpreadMin, max: tSpreadMax }
-        : null
       b.cloudMean = cCount > 0 ? cSum / cCount : null
       b.windMean = wCount > 0 ? wSum / wCount : null
       b.humidityMean = hCount > 0 ? hSum / hCount : null
@@ -1429,45 +1376,18 @@ interface CellInnerProps {
   icon?: React.ReactNode
   decimals?: number
   tooltip?: string
-  /**
-   * B-NEW-9 (2026-07-24): when set, render a small muted
-   * `(min–max)` suffix next to the value, e.g. `31° (30.6–31.4)`.
-   * The spread is the per-row min/max across the active models,
-   * so the user can see at a glance that the selector is
-   * actually selecting different models. Currently used on the
-   * temperature column of the per-hour buckets.
-   */
-  spread?: { min: number; max: number } | null
 }
 
-function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip, spread }: CellInnerProps): CellResult {
+function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0, tooltip }: CellInnerProps): CellResult {
   const display = value !== null
     ? (decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString())
     : '–'
-  // Only render the spread when it's meaningful (min ≠ max and
-  // both are within 0.5 of the displayed value so it stays
-  // compact and readable). Otherwise the spread is misleading
-  // noise — e.g. a single-model selection has spread=undefined.
-  const hasSpread = spread !== null && spread !== undefined && spread.min !== spread.max
   return {
     style: heatStyle(metric, value),
     node: (
       <span className="relative z-10 inline-flex items-center gap-0.5 justify-center" title={tooltip}>
         {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
         <span>{display}{suffix}</span>
-        {hasSpread ? (
-          <span
-            className="text-[9px] text-text-tertiary font-normal tabular-nums whitespace-nowrap"
-            // B-NEW-9: show the spread with the same decimals as
-            // the value so the user sees a 1-decimal range on
-            // per-hour buckets and an integer range on the day
-            // card. The title attribute gives the precise range
-            // on hover (e.g. "Spread: 30.6° to 31.4°").
-            title={`Spread: ${spread!.min.toFixed(decimals)}° – ${spread!.max.toFixed(decimals)}°`}
-          >
-            ({spread!.min.toFixed(decimals)}–{spread!.max.toFixed(decimals)})
-          </span>
-        ) : null}
       </span>
     ),
   }

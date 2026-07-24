@@ -220,19 +220,26 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   const intensity = intensityFor(metric, value) ?? 0.5
   // Capped alpha stops so a 14x14 cell grid paints quickly on slow
   // mobile GPUs while still showing the "soft glow" character.
-  // B-NEW-7 (2026-07-24): reverted to the original 32%×60% narrow
-  // ellipse after the user reported the wider 95% gradient was
-  // making rows feel heavier / "wider" on desktop. The narrow
-  // glow leaves a transparent margin around the cell border
-  // which keeps the row visually light and the zebra striping
-  // visible. The mobile "UV column splits the data" bug is
-  // fixed at the cell-content level via `whitespace-nowrap` on
-  // the HeatCell, not by widening the gradient.
+  //
+  // B-NEW-7 (2026-07-24): the gradient size now reads from the
+  // `--heat-cell-bg-size` CSS custom property defined in
+  // app/globals.css. On desktop (>= 640 px) it is the original
+  // 32%×60% narrow ellipse (the user explicitly asked to
+  // restore the "soft glow that doesn't reach the cell border"
+  // character). On mobile (< 640 px) it widens to 95%×95% so
+  // the colour reaches the cell border — the narrow gradient
+  // left a transparent margin around narrow cells, which on
+  // the UV column read as "the data is split in two halves"
+  // (the value "5.8" extended past the coloured band and
+  // rendered with its left/right portions on the transparent
+  // cell background). The radial falloff still gives a "soft
+  // glow" feel; the only difference is that on mobile the
+  // outer edge is solid colour instead of transparent.
   const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
   const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
   const style: React.CSSProperties = {
     ['--heat-rgb-triple' as string]: triple,
-    background: `radial-gradient(ellipse 32% 60% at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
+    background: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
   } as React.CSSProperties
   HEAT_STYLE_CACHE.set(key, style)
   return style

@@ -174,6 +174,33 @@ html.light {
   }
 }
 
+/* B-NEW-7 (2026-07-24): heat-cell gradient size.
+
+   The radial gradient inside each InsightsTable cell used to be a
+   fixed 32%×60% ellipse centred in the cell. On desktop the
+   columns are wide enough (44-px min) that the text always sits
+   on the coloured band; on mobile (52-px sticky column + auto
+   columns that can collapse to 30-40 px) the narrow band leaves
+   a transparent margin around the cell border, and the text falls
+   outside the coloured area — the user described this as the
+   "UV column visual bug" on preloaded rows.
+
+   We keep the original 32%×60% on desktop (the user explicitly
+   asked to restore the "soft glow that doesn't reach the cell
+   border" character) and widen to 95%×95% on mobile (any
+   viewport < 640 px) so the colour always reaches the border
+   and the text reads on a tinted background regardless of how
+   narrow the cell is. The cell component reads this size via
+   `var(--heat-cell-bg-size)` in the inline background. */
+:root {
+  --heat-cell-bg-size: 32% 60%;
+}
+@media (max-width: 639px) {
+  :root {
+    --heat-cell-bg-size: 95% 95%;
+  }
+}
+
 .leaflet-container {
   background: #1a1a2e;
   z-index: 1;

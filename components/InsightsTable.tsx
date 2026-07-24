@@ -367,6 +367,11 @@ export default function InsightsTable({
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [compact, setCompact] = useState(false)
+  // B-NEW-3 (mobile): tracks whether the table container has hidden
+  // content to the left / right, so the gradient masks can render
+  // only on the side that has more to scroll. We start with both
+  // false (table fits) and let the onScroll handler update them.
+  const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({ left: false, right: false })
   // Sprint 10 / B-10-7: paginated rendering, 48 rows per page. The
   // user reported that bucket=1 (336 rows) still caused noticeable
   // slowdowns on mobile even with `content-visibility: auto`. The
@@ -822,12 +827,17 @@ export default function InsightsTable({
           <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
             {STRINGS[locale].insightsTitle}
             {(bucket === 1 || bucket === 2) && (
-              // Sprint 10 / B-10-6: with content-visibility the table now
-              // renders the full horizon (up to 14 days). The label
-              // reflects the actual ceiling so the user knows how far
-              // they can scroll.
+              // Sprint 10 / B-10-6 + B-NEW-3: with content-visibility
+              // the table now renders the full horizon (up to 14
+              // days). The label reflects the actual row count so the
+              // user knows how far they can scroll — the previous
+              // hardcoded "Próximas 336h" was wrong whenever the data
+              // span was anything else (e.g. 168h when only 7 days of
+              // valid series are available).
               <span className="ml-2 normal-case tracking-normal font-normal text-text-muted">
-                ({bucket === 1 ? 'Próximas 336h' : 'Próximas 168h'})
+                ({locale === 'en'
+                  ? `Next ${rows.length}h`
+                  : `Próximas ${rows.length}h`})
               </span>
             )}
           </h3>
@@ -913,9 +923,36 @@ export default function InsightsTable({
           // bucket=1 view). max-h keeps the headers within reach
           // without forcing a huge surface on devices that don't need
           // it.
+          //
+          // B-NEW-3 (mobile): a gradient mask on the right edge
+          // signals there's more content to the right. Phone-width
+          // tables overflow horizontally once the marine columns
+          // (each 64 px) or the 6-column basic view push past the
+          // 360 px viewport, and the user reported the table looked
+          // "completely broken" without a hint that scrolling was
+          // possible.
           ref={tableContainerRef}
-          className="overflow-auto max-h-[70vh] contain-[layout_style_paint]"
+          onScroll={(e) => {
+            const el = e.currentTarget
+            setScrollState({
+              left: el.scrollLeft > 4,
+              right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+            })
+          }}
+          className="relative overflow-auto max-h-[70vh] contain-[layout_style_paint]"
         >
+          {/* Mobile-only scroll hint: fades in on whichever side has
+              more content. Hidden on >=sm where the table fits. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-surface-raised to-transparent z-20 sm:hidden"
+            style={{ opacity: scrollState.left ? 1 : 0, transition: 'opacity 120ms' }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-surface-raised to-transparent z-20 sm:hidden"
+            style={{ opacity: scrollState.right ? 1 : 0, transition: 'opacity 120ms' }}
+          />
           <table
             // Sprint 10 / B-10-8: switched from `border-separate` +
             // `border-spacing: 0` back to `border-collapse: collapse`.
@@ -948,8 +985,19 @@ export default function InsightsTable({
                   // looked "collapsed to the left"). `display: none`
                   // on the <col> collapses the column, so the visible
                   // columns redistribute over the full container width.
+                  //
+                  // B-NEW-3 (mobile): on a 360-px phone viewport 8
+                  // explicit-width 64-px marine columns blow past
+                  // 512 px before any other column is even drawn, and
+                  // the user can't see the rightmost values without
+                  // scrolling. We drop marine columns to 48 px (still
+                  // enough for "0.3m" / "3s" / "73°" at 11 px) so a
+                  // typical marine view fits in ~448 px and the
+                  // right-edge mask has room to fade in.
                   className={col.hideClass}
-                  style={{ width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '64px' : undefined }}
+                  style={{
+                    width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '48px' : undefined,
+                  }}
                 />
               ))}
             </colgroup>
@@ -957,14 +1005,19 @@ export default function InsightsTable({
             <tr className="bg-surface text-text-secondary">
               <th
                 style={{ background: 'var(--surface)' }}
-                // Sprint 10 / B-10-8: the first column header is now
-                // BOTH sticky on the left AND on the top, with a
+                // Sprint 10 / B-10-8 + B-NEW-3: the first column header
+                // is BOTH sticky on the left AND on the top, with a
                 // higher z-index than the rest of the header so it
                 // sits above the thead when the user scrolls either
-                // direction. The `shadow-[2px_0_4px_rgba(0,0,0,0.5)]`
-                // renders a vertical divider on the right edge so the
-                // user can tell the column is sticky.
-                className="sticky left-0 top-0 z-40 text-center px-1.5 py-1.5 font-medium border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)]"
+                // direction. The z-50/z-40 split between the first
+                // column header (z-50) and the first column body cell
+                // (z-40) is critical: at the same z-index, the body
+                // cell paints on top of the header because it comes
+                // later in the DOM, so the "Hoy 10:00" / "Mañ 00:00"
+                // text would scroll over the "Cuándo" header label.
+                // The shadow on the right edge renders a vertical
+                // divider so the user can tell the column is sticky.
+                className="sticky left-0 top-0 z-50 text-center px-1.5 py-1.5 font-medium border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)]"
               >
                 {STRINGS[locale].tableWhen}
               </th>
@@ -979,7 +1032,13 @@ export default function InsightsTable({
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`sticky top-0 bg-surface text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
+                    // B-NEW-3: the rest of the thead gets z-40 so it
+                    // sits above the first-column body cell (z-30).
+                    // Without this, scrolling vertically on a phone
+                    // (where the body cell sticks to the left) lets
+                    // the day/hour text bleed over the other column
+                    // headers.
+                    className={`sticky top-0 z-40 bg-surface text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}
@@ -1079,12 +1138,16 @@ export default function InsightsTable({
                 >
                   <td
                     style={{ background: 'var(--surface)' }}
-                    // Sprint 10 / B-10-8: `sticky left-0 z-40` (raised
-                    // from z-30) so the first-column data cell stays
-                    // above the other cells AND above the thead when
-                    // both axes scroll. Matches the first-column <th>
-                    // z-index.
-                    className={`sticky left-0 z-40 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
+                    // Sprint 10 / B-10-8 + B-NEW-3: `sticky left-0 z-30`
+                    // keeps the first-column data cell above the other
+                    // body cells (so it stays visible when the user
+                    // scrolls horizontally) but BELOW both header tiers
+                    // (z-40 / z-50). The previous z-40 put the body
+                    // cell at the same level as the first-column <th>,
+                    // and because the <td> comes later in the DOM it
+                    // painted on top of the header — the day/hour text
+                    // overlapped the "Cuándo" label on mobile.
+                    className={`sticky left-0 z-30 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
                   >
                     {/* Sprint 10 / B-10-2: when bucket=24 and the user is
                        on the actual current hour (selectedHour === 0),
@@ -1240,7 +1303,16 @@ const HeatCell = memo(function HeatCell({
       // 640 px → sm: breakpoint) on dark mode. The user expects black
       // text consistently; `text-black` is unconditional so the cell
       // text reads the same on every viewport size.
-      className={`text-center px-1 py-1.5 font-mono tabular-nums text-black ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
+      //
+      // B-NEW-3 (mobile): `px-1.5 sm:px-1` trims horizontal padding
+      // on phone-width viewports so the basic 6-column view (cond /
+      // temp / wind / precip / humidity / uv + sticky 64-px "Cuándo")
+      // fits inside ~390 px before the user has to scroll. The
+      // original `px-1` (4 px each side) added up to 8 px per cell,
+      // which was enough to push the rightmost column off-screen on
+      // a 360-px phone with no visible hint that scrolling was
+      // possible.
+      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums text-black ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
       style={style}
     >
       {node}

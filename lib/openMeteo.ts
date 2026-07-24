@@ -87,7 +87,26 @@ export async function fetchForecast(
   // to the long-range globals (ecmwf_ifs, icon_global, gfs_global) for
   // the day buckets beyond the regional horizons.
   const regionSelected = selectModelsForLocation(landModels, lat, lon, forecastDays)
-  const capped = regionSelected.slice(0, MAX_FORECAST_MODELS)
+  // B-NEW-3: the Open-Meteo `/v1/forecast` endpoint truncates the
+  // `hourly.*` series arrays to the SHORTEST model's advertised range
+  // when the request mixes short-range regionals (e.g. arome_france_hd
+  // at 48h, dwd_icon_d2 at 48h) with long-range globals (gfs_global at
+  // 384h). The `hourly.time` array still spans the full window the
+  // caller asked for, but every per-model series is padded with `null`
+  // after the shortest model's horizon — so the ensemble silently
+  // collapses to ~2 days of data on the Insights table and the
+  // DailySummary only computes tMin/tMax for the first 3 day buckets.
+  // We verified this in production on 2026-07-24: Badalona's
+  // DailySummary showed 3 valid days (Vie 24 / Sáb 25 / Dom 26) and
+  // "–°" for Lun 27 onward. We therefore restrict the API request to
+  // long-range models (maxHours ≥ 336, i.e. ≥ 14 days) so every
+  // requested model can cover the full horizon. The DailySummary
+  // ensemble still receives any short-range models the user selected
+  // (via `displayActiveModelIds`); they just contribute null for the
+  // hours the API didn't return, which `weightedAvg` already skips.
+  const MIN_HOURS_FOR_FORECAST = 336
+  const longRange = regionSelected.filter(m => m.maxHours >= MIN_HOURS_FOR_FORECAST)
+  const capped = longRange.slice(0, MAX_FORECAST_MODELS)
   const modelIds = capped.map(m => m.id).join(',')
   // Only send land metrics to the forecast API. Marine metrics are
   // fetched separately via fetchMarine and merged in later.

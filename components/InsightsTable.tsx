@@ -235,11 +235,32 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   // cell background). The radial falloff still gives a "soft
   // glow" feel; the only difference is that on mobile the
   // outer edge is solid colour instead of transparent.
+  //
+  // B-NEW-13 (2026-07-25): also set `backgroundColor` to a
+  // 35%-alpha tint of the heat colour as a FALLBACK layer. The
+  // radial-gradient shorthand sets `background-color` to its
+  // initial value (transparent), which on desktop leaves a
+  // 30%+ transparent margin around the gradient (the
+  // 32% × 60% ellipse does not reach the cell border). With
+  // `border-collapse: collapse` and no explicit border, the
+  // parent's `bg-surface-raised` shows through those margins,
+  // creating a visible 1px-ish seam between every pair of
+  // adjacent cells — visible at the basic→marine boundary
+  // (UV / sea_surface_temperature) and the user described it
+  // as "a border separator after the UV column". Setting a
+  // non-transparent `background-color` removes the seam on
+  // all viewports and still lets the radial gradient overlay
+  // it for the soft-glow character on desktop. On mobile the
+  // CSS rule already overrides `background` to a solid colour
+  // (see `app/globals.css`), so the fallback tint is invisible
+  // there.
   const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
   const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
+  const tintAlpha = 35                       // B-NEW-13 fallback tint
   const style: React.CSSProperties = {
     ['--heat-rgb-triple' as string]: triple,
-    background: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
+    backgroundColor: `rgba(${triple}, ${tintAlpha}%)`,
+    backgroundImage: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
   } as React.CSSProperties
   HEAT_STYLE_CACHE.set(key, style)
   return style
@@ -1045,7 +1066,27 @@ export default function InsightsTable({
             // on its <col>, and the `min-w-[36px]` sm:min-w-[44px] on
             // the data cells (below) prevents any single column from
             // collapsing to nothing.
-            className="w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
+            //
+            // B-NEW-12 (2026-07-25): restore `table-fixed` ONLY on
+            // md+ (desktop) so the table fills its container width
+            // when Marine is on. With `table-auto` the basic
+            // columns auto-size to their content (~35-45 px each)
+            // and the marine columns are 40 px each, so the total
+            // table width on desktop is well below the container
+            // width and there's an empty band of background on the
+            // right (the user described it as "sobra espacio por la
+            // derecha"). With `table-fixed` the explicit-width
+            // columns (sticky + marine) keep their size and the
+            // remaining `width: auto` basic columns share the rest
+            // of the row, filling the container. We keep
+            // `table-auto` below md because on a 360-px phone the
+            // explicit-width marine columns already exceed the
+            // available width (8 × 40 = 320 px), and forcing them
+            // through `table-fixed` would shrink the basic columns
+            // to negative widths — that was the original B-NEW-5
+            // regression. On mobile we let `table-auto` size to
+            // content and `overflow-x-auto` scroll.
+            className="w-full border-collapse text-xs md:table-fixed [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
             <colgroup>
               {/* B-NEW-4 (mobile): the "Cuándo" column drops to
@@ -1105,25 +1146,38 @@ export default function InsightsTable({
                   // more horizontal room to spare.
                   //
                   // B-NEW-11 (2026-07-25): also set `visibility:
-                  // collapse` for columns that have a `hideClass`
-                  // (e.g. `hidden xl:table-cell` on pressure /
-                  // dewpoint / visibility, which sit between UV
-                  // and the marine columns in the default order).
+                  // collapse` for columns that the CSS actually
+                  // hides at the current viewport — i.e. the
+                  // breakpoint-based `hideClass` values like
+                  // `hidden sm:table-cell landscape:table-cell`
+                  // (min/max/clouds/gusts) and `hidden
+                  // xl:table-cell` (pressure/dewpoint/visibility).
                   // Tailwind's `display: none` (via `hidden`) on a
                   // `<col>` does not reliably collapse the column
-                  // width under `table-layout: auto`, so on mobile
-                  // (where those columns should be hidden) they
-                  // kept taking up horizontal space and created a
-                  // visible gap at the basic→marine boundary —
+                  // width under `table-layout: auto`, so on the
+                  // viewports where those columns should be hidden
+                  // they kept taking up horizontal space and created
+                  // a visible gap at the basic→marine boundary —
                   // the user reported this as "a border separator
                   // after the UV column". `visibility: collapse`
                   // is the W3C-recommended way to hide table
-                  // columns and works regardless of
-                  // `table-layout`.
+                  // columns and works regardless of `table-layout`.
+                  //
+                  // IMPORTANT: only apply `visibility: collapse`
+                  // when the hideClass actually hides the column
+                  // (i.e. contains the `hidden` utility). Marine
+                  // columns have `hideClass: 'marine-col'` as a
+                  // pure marker — there's no CSS rule that hides
+                  // them, they are excluded from `visibleIds` when
+                  // `showMarine` is false — so collapsing them
+                  // here would hide them even when the user has
+                  // explicitly turned Marine ON. That was the
+                  // root cause of "Marine on + Basic off = empty
+                  // table" on the previous B-NEW-11 push.
                   className={col.hideClass}
                   style={{
                     width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '40px' : undefined,
-                    ...(col.hideClass ? { visibility: 'collapse' as const } : {}),
+                    ...(col.hideClass && /\bhidden\b/.test(col.hideClass) ? { visibility: 'collapse' as const } : {}),
                   }}
                 />
               ))}

@@ -357,8 +357,8 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     // headers with `border-collapse: collapse` natively.
     const table = scrollContainer!.querySelector('table')!
     expect(table.className).toMatch(/border-collapse/i)
-    // B-NEW-5 (2026-07-24): the table is now in `table-auto` mode
-    // (i.e. no `table-fixed` class). With `table-fixed` every
+    // B-NEW-5 (2026-07-24): the table defaults to `table-auto` on
+    // mobile (no `table-fixed` class). With `table-fixed` every
     // `width: auto` column shared the remaining width equally, which
     // squeezed the 1h/2h/6h columns below readable size on a 360-px
     // phone. Without `table-fixed` each column sizes to the widest
@@ -367,8 +367,20 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     // when the natural width exceeds the viewport. The first column
     // is still pinned via the CSS-variable width on its <col>, and
     // every data cell has a `min-w-[40px] sm:min-w-[44px]` floor so
-    // no column can collapse to nothing.
-    expect(table.className).not.toMatch(/table-fixed/i)
+    // no single column collapses to nothing.
+    //
+    // B-NEW-12 (2026-07-25): on >=md (desktop) the table switches
+    // to `md:table-fixed` so the explicit-width columns (sticky +
+    // marine) keep their size and the remaining `width: auto`
+    // basic columns share the rest of the row, filling the
+    // container. With `table-auto` on desktop the basic columns
+    // auto-sized to ~35-45 px each and the marine columns were
+    // 40 px each, leaving an empty band of background on the right
+    // (the user reported "sobra espacio por la derecha"). We assert
+    // the desktop class is present and the BASE class is absent
+    // (so jsdom doesn't accidentally match the prefixed one).
+    expect(table.className).toMatch(/\bmd:table-fixed\b/)
+    expect(table.className).not.toMatch(/(^|\s)table-fixed(\s|$)/)
     // The table now declares an explicit <colgroup> with the first
     // column pinned to 64 px so the sticky column has a stable width.
     const colgroup = table.querySelector('colgroup')!

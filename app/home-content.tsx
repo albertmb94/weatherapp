@@ -411,12 +411,27 @@ export default function HomeContent() {
   // which is impure. We compute it once on mount + every refresh, then
   // tick it forward via `currentTickMs` (updated 1× per minute by an
   // effect below) so the "Refresh due" badge actually ticks.
-  const [currentTickMs, setCurrentTickMs] = useState(() => Date.now())
+  //
+  // B-NEW-20 (2026-07-27): the previous `useState(() => Date.now())`
+  // initializer captured the server's clock on SSR and the
+  // client's clock on hydration — even if the tick interval
+  // re-syncs them every 60s, the *initial* value differed
+  // between renders and React aborted with hydration error
+  // #418 on the "Updated 5m ago" / "Recarga pendiente 4h"
+  // text node rendered from `forecastAgeMs`. We start the
+  // state at `null` (matches the SSR render and the first
+  // client render) and set the actual `currentTickMs` in the
+  // same `useEffect` that starts the tick interval — that
+  // runs only on the client AFTER hydration.
+  const [currentTickMs, setCurrentTickMs] = useState<number | null>(null)
   useEffect(() => {
+    setCurrentTickMs(Date.now())
     const t = setInterval(() => setCurrentTickMs(Date.now()), 60_000)
     return () => clearInterval(t)
   }, [])
-  const forecastAgeMs = lastFetchedAt ? currentTickMs - lastFetchedAt : null
+  const forecastAgeMs = currentTickMs !== null && lastFetchedAt
+    ? currentTickMs - lastFetchedAt
+    : null
   const needsAutoRefresh = forecastAgeMs !== null && forecastAgeMs >= AUTO_REFRESH_AGE_MS
   useEffect(() => {
     if (!needsAutoRefresh) return

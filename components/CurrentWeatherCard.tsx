@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
 import { CONDITION_LABEL } from '@/lib/i18n'
 import type { WeatherIconId } from '@/lib/weatherIcon'
@@ -43,6 +44,33 @@ export default function CurrentWeatherCard({ city, snapshot, loading }: CurrentW
   const iconId: WeatherIconId = snapshot ? snapshot.icon : 'sunny'
   const condition = snapshot ? CONDITION_LABEL[locale][snapshot.icon] : ''
   const showHighLow = snapshot && snapshot.dailyHighC !== null && snapshot.dailyLowC !== null
+  // B-NEW-20 (2026-07-27): weekday name must NOT be computed
+  // during render — `new Date()` returns the server's clock
+  // during SSR (UTC, container timezone) and the client's
+  // clock during hydration (user timezone), and the
+  // `toLocaleDateString` formatter uses the rendering
+  // environment's locale + timezone. The two values can differ
+  // by a weekday boundary (e.g. server says "sábado" at 23:30
+  // UTC, client says "domingo" at 01:30 CET), which React
+  // detects as a hydration mismatch on the rendered text node
+  // and aborts with error #418. We start the state empty so
+  // SSR and the first client render are identical, then set
+  // the actual weekday in a useEffect once the component is
+  // mounted on the client. There is a 1-frame flash before the
+  // label appears; that's the right trade-off vs. an SSR-side
+  // heuristic that would have to mirror the client's locale
+  // and timezone (Vercel runs SSR in iad1 on UTC, so we'd
+  // never agree with the client's browser).
+  const [weekdayLabel, setWeekdayLabel] = useState('')
+  useEffect(() => {
+    if (!snapshot) {
+      setWeekdayLabel('')
+      return
+    }
+    setWeekdayLabel(
+      new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'es-ES', { weekday: 'long' }),
+    )
+  }, [snapshot, locale])
 
   return (
     <section
@@ -88,7 +116,7 @@ export default function CurrentWeatherCard({ city, snapshot, loading }: CurrentW
               </span>
             )}
             <span className="mt-1 text-[10px] uppercase tracking-widest text-text-muted">
-              {snapshot ? new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'es-ES', { weekday: 'long' }) : ''}
+              {weekdayLabel}
             </span>
           </div>
           <BigWeatherIcon id={iconId} />

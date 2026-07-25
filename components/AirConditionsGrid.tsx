@@ -154,14 +154,27 @@ export default function AirConditionsGrid({
   const uvLabel = uvMode === 'live' ? s.uvModeLive : s.uvModePeak
   const uvUnit = uvMode === 'peak' ? s.uvPeak : ''
   // Age of the live UV reading. Open-Meteo reports ~15 min intervals.
-  // `Date.now()` is impure so we track it through a state tick instead of
-  // calling it during render.
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  // B-NEW-20 (2026-07-27): we MUST NOT call `Date.now()` in the
+  // `useState` initializer. That captures the server's clock
+  // on SSR and the client's clock on hydration; even if the
+  // tick interval re-syncs them every 60s, the *initial* value
+  // differs by however many seconds elapsed between the server
+  // render and the client hydration, which renders as a
+  // different `uvTitle` (the `formatAge(uvAgeMs, locale)`
+  // string) and triggers React #418. We start the state at
+  // `null` (matches the SSR render and the first client
+  // render) and set the actual `nowMs` in the same `useEffect`
+  // that starts the tick interval — that runs only on the
+  // client AFTER hydration.
+  const [nowMs, setNowMs] = useState<number | null>(null)
   useEffect(() => {
+    setNowMs(Date.now())
     const t = setInterval(() => setNowMs(Date.now()), 60_000)
     return () => clearInterval(t)
   }, [])
-  const uvAgeMs = liveUvValidAt instanceof Date && !Number.isNaN(liveUvValidAt.getTime())
+  const uvAgeMs = nowMs !== null
+    && liveUvValidAt instanceof Date
+    && !Number.isNaN(liveUvValidAt.getTime())
     ? nowMs - liveUvValidAt.getTime()
     : null
   const uvTitle = uvAgeMs !== null

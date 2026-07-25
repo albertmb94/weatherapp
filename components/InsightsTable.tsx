@@ -248,11 +248,34 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   // mobile "border mid-UV" issue from the previous bug
   // report is no longer relevant — it's a desktop-only
   // visual choice now.
+  // B-NEW-19 (2026-07-27): restore the B-NEW-13 tint that
+  // filled the transparent margin around the gradient.
+  // The user explicitly asked: "en desktop sigue sin haber
+  // esos emfasis de color alrededor del número, es una tabla
+  // lisa sin fondo. Revisa como era antes de tus commits de
+  // hoy y reimplementa" — they want the desktop cells to
+  // show the heatmap colour as a visible emphasis around
+  // the number, not a flat table with no background.
+  //
+  // The previous "soft-glow only" form was too subtle: with
+  // the radial-gradient sized to 32% x 60% on desktop the
+  // heat colour barely registered, especially at low
+  // intensities (core 22% alpha at 0.5 intensity). Adding
+  // the 35% alpha tint as backgroundColor gives every cell
+  // a flat heatmap colour base that fills the entire cell,
+  // with the soft-glow gradient on top for the centre-
+  // brightened "focus" look. On mobile the CSS rule
+  // `[style*='--heat-rgb-triple'] { background: rgb(...) !important }`
+  // paints over both layers with a flat rgb colour, so the
+  // tint is invisible there (the user wants black text on a
+  // flat heatmap colour on mobile, not the tint).
   const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
   const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
+  const tintAlpha = 35                       // B-NEW-13/19 base tint
   const style: React.CSSProperties = {
     ['--heat-rgb-triple' as string]: triple,
-    background: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid})% 50%, rgba(${triple},0) 92%)`,
+    backgroundColor: `rgba(${triple}, ${tintAlpha}%)`,
+    backgroundImage: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid})% 50%, rgba(${triple},0) 92%)`,
   } as React.CSSProperties
   HEAT_STYLE_CACHE.set(key, style)
   return style

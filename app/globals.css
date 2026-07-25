@@ -143,65 +143,42 @@ body {
   }
 }
 
-/* B-NEW-5 (2026-07-24): heat-cell text colour.
+/* B-NEW-18 (2026-07-27): heat-cell text colour.
 
-   The app uses `html.light` for light mode and the absence of any
-   class for dark mode (the default). The Insights table wants:
-     - light theme (html.light)                → black text always
-     - dark theme, portrait                    → black text
-     - dark theme, landscape                   → white text
-       (the dark heatmap gradient is too dark to read black on)
-
-   We previously encoded this as Tailwind's `dark:landscape:text-white`
-   but Tailwind v4's `dark:` variant only matches when an ancestor
-   carries a `.dark` class — which this app never sets (it sets
-   `.light` instead). The Tailwind variant also has no
-   `prefers-color-scheme` fallback, so it should be a no-op in this
-   project, but on the deployed build we observed the rule firing in
-   light mode anyway (likely a class collision from another rule
-   higher in the cascade). To be unambiguous we resolve the colour
-   with a single CSS rule that reads from `html` directly, so there
-   is no Tailwind class involved at all. */
+   The user explicitly asked: "modo claro y modo oscuro: texto en
+   negro" — they want BLACK text in BOTH light and dark mode, in
+   BOTH portrait and landscape, on every viewport. The previous
+   rule that flipped to white text in dark + landscape
+   (`:root:not(.light) { --heat-cell-text: #f5f5f5; }`) was
+   removed: with the mobile solid-colour background the heatmap
+   is always readable in black; on desktop the soft-glow gradient
+   keeps enough light margin around the value that black text
+   also reads cleanly. No more theme-dependent text colour. */
 :root {
-  --heat-cell-text: #0a0a0a; /* default = dark theme, portrait */
+  --heat-cell-text: #0a0a0a;
 }
 html.light {
-  --heat-cell-text: #0a0a0a; /* light theme: always black */
-}
-@media (orientation: landscape) {
-  :root:not(.light) {
-    --heat-cell-text: #f5f5f5; /* dark + landscape: white */
-  }
+  --heat-cell-text: #0a0a0a;
 }
 
 /* B-NEW-7 (2026-07-24): heat-cell gradient size.
 
-   The radial gradient inside each InsightsTable cell used to be a
-   fixed 32%×60% ellipse centred in the cell. On desktop the
-   columns are wide enough (44-px min) that the text always sits
-   on the coloured band; on mobile (52-px sticky column + auto
-   columns that can collapse to 30-40 px) the narrow band leaves
-   a transparent margin around the cell border, and the text falls
-   outside the coloured area — the user described this as the
-   "UV column visual bug" on preloaded rows.
+   The radial gradient inside each InsightsTable cell is a
+   32%×60% ellipse centred in the cell on desktop — the
+   "soft glow that doesn't reach the cell border" character the
+   user has approved multiple times.
 
-   We keep the original 32%×60% on desktop (the user explicitly
-   asked to restore the "soft glow that doesn't reach the cell
-   border" character).
-
-   B-NEW-17 (2026-07-27): the previous 95%×95% on mobile was too
-   close to the border (the coloured band covered almost the
-   entire cell, no soft glow visible). The user wants the soft
-   glow around the number, NOT touching the edges. We now use
-   60%×80% on mobile — the gradient still tints the cell but
-   keeps a clear transparent margin around the edge so the
-   soft-glow character reads on every viewport. */
+   On mobile (< 640 px) the bg-size widens to 95%×95% so the
+   colour reaches the cell border and the solid-colour override
+   below has a uniform fill to draw from. The cell component
+   reads this size via `var(--heat-cell-bg-size)` in the inline
+   background. */
 :root {
   --heat-cell-bg-size: 32% 60%;
 }
 @media (max-width: 639px) {
   :root {
-    --heat-cell-bg-size: 60% 80%;
+    --heat-cell-bg-size: 95% 95%;
   }
 }
 
@@ -361,9 +338,23 @@ html.light .now-slot {
 /* Insights table cells: a stronger radial so colours diffuminate well
  * inside each cell. The cell component already inlines a
  * `radial-gradient(...)` background via React; CSS here only overrides
- * it on mobile + dark mode, where users asked for the original solid
-  * hue look. The cell passes the colour RGB triple as `--heat-rgb-triple`.
+ * it on mobile, where the user wants the original solid hue look:
+ * black text on a flat heat-coloured background (the heatmap colour
+ * is always readable in black, no soft glow required). The cell
+ * passes the colour RGB triple as `--heat-rgb-triple`.
+ *
+ * B-NEW-18 (2026-07-27): restored this override. The user's explicit
+ * request was "modo claro y modo oscuro: texto en negro + fondo en
+ * escala de color" — solid coloured background based on the metric,
+ * with black text in both themes. The radial gradient is kept on
+ * desktop via the `lg:` breakpoint, so the desktop still shows
+ * the "soft glow around the number" the user asked for separately.
    */
+@media (max-width: 767px) {
+  [style*='--heat-rgb-triple'] {
+    background: rgb(var(--heat-rgb-triple)) !important;
+  }
+}
 
 .scrollbar-none {
   scrollbar-width: none;

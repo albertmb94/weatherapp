@@ -236,31 +236,23 @@ function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperti
   // glow" feel; the only difference is that on mobile the
   // outer edge is solid colour instead of transparent.
   //
-  // B-NEW-13 (2026-07-25): also set `backgroundColor` to a
-  // 35%-alpha tint of the heat colour as a FALLBACK layer. The
-  // radial-gradient shorthand sets `background-color` to its
-  // initial value (transparent), which on desktop leaves a
-  // 30%+ transparent margin around the gradient (the
-  // 32% × 60% ellipse does not reach the cell border). With
-  // `border-collapse: collapse` and no explicit border, the
-  // parent's `bg-surface-raised` shows through those margins,
-  // creating a visible 1px-ish seam between every pair of
-  // adjacent cells — visible at the basic→marine boundary
-  // (UV / sea_surface_temperature) and the user described it
-  // as "a border separator after the UV column". Setting a
-  // non-transparent `background-color` removes the seam on
-  // all viewports and still lets the radial gradient overlay
-  // it for the soft-glow character on desktop. On mobile the
-  // CSS rule already overrides `background` to a solid colour
-  // (see `app/globals.css`), so the fallback tint is invisible
-  // there.
+  // B-NEW-13 (2026-07-26): reverted. The user explicitly asked
+  // to keep the original desktop gradient (the soft-glow character
+  // they had approved in B-NEW-7). The previous tint that
+  // filled the transparent margins changed the look on
+  // desktop — they noticed and asked for it back. The
+  // "seam between cells" the tint was originally masking is
+  // now back, but on mobile the existing CSS rule
+  // (`[style*='--heat-rgb-triple'] { background: rgb(...) }`)
+  // still overrides the gradient to a solid colour, so the
+  // mobile "border mid-UV" issue from the previous bug
+  // report is no longer relevant — it's a desktop-only
+  // visual choice now.
   const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
   const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
-  const tintAlpha = 35                       // B-NEW-13 fallback tint
   const style: React.CSSProperties = {
     ['--heat-rgb-triple' as string]: triple,
-    backgroundColor: `rgba(${triple}, ${tintAlpha}%)`,
-    backgroundImage: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
+    background: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid})% 50%, rgba(${triple},0) 92%)`,
   } as React.CSSProperties
   HEAT_STYLE_CACHE.set(key, style)
   return style
@@ -311,17 +303,22 @@ interface CellResult {
 }
 
 function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
-  // B-NEW-9 (2026-07-24): on per-hour buckets the temperature
-  // columns now render with 1 decimal so the user can tell two
-  // models apart. The previous `decimals: 0` rounded 28.3°/29°/29.5°
-  // to 28/29/30 — and on the per-hour view the user was
-  // reading "exactly the same" values across selections that
-  // were actually 0.5–1.5°C apart. The day card (bucket=24) keeps
-  // 0 decimals so "31°" reads cleaner. We also surface the
-  // per-row min/max spread on the temperature cells as a small
-  // muted "(min–max)" — that gives the user a one-glance proof
-  // that the selector *is* selecting different models.
-  const isPerHour = bucket !== 24
+  // B-NEW-15 (2026-07-26): revert the 1-decimal per-hour
+  // rendering the user introduced in B-NEW-9. The user
+  // reports that with `decimals: 1` the temperature strings
+  // (`26.6°`, `27.8°`, `24.2°`) are 4-5 chars wide and
+  // overflow the basic 1h/2h/6h/12h columns (which are
+  // ~30-50 px wide on mobile portrait and ~50-60 px on desktop
+  // when marine is also on), causing visible text overlap with
+  // the neighbouring cell. We now render every temperature
+  // column (temp / min / max) with 0 decimals regardless of
+  // bucket — `Math.round(value).toString()` produces 1-3 char
+  // strings (`27°`, `31°`, `-2°`) that fit cleanly in any
+  // column. The user is comfortable relying on the row-hover
+  // indicator (the cell glows accent/10) and the row label
+  // ("Hoy 14:00", "Mañ 00:00") to disambiguate rows visually;
+  // they don't need the sub-degree precision on the per-hour
+  // view.
   switch (id) {
     case 'cond':
       return { node: <span className="inline-flex items-center justify-center"><WeatherConditionIcon icon={r.icon} size="sm" /></span> }
@@ -330,21 +327,21 @@ function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
         value: r.tempMean,
          metric: 'temperature',
          suffix: '°',
-         decimals: isPerHour ? 1 : 0,
+         decimals: 0,
        })
     case 'min':
       return cellInner({
         value: r.tempMin,
         metric: 'temperature',
         suffix: '°',
-        decimals: isPerHour ? 1 : 0,
+        decimals: 0,
       })
     case 'max':
       return cellInner({
         value: r.tempMax,
         metric: 'temperature',
         suffix: '°',
-        decimals: isPerHour ? 1 : 0,
+        decimals: 0,
       })
     case 'clouds':
       return cellInner({ value: r.cloudMean, metric: 'cloud_cover', suffix: '%' })
@@ -859,13 +856,58 @@ export default function InsightsTable({
     ]),
     []
   )
+
+  // B-NEW-16 (2026-07-26): on a phone in portrait orientation,
+  // when the user turns Marine on, the table would otherwise
+  // need horizontal scrolling to fit all 14 columns (cond,
+  // temp, wind, precip, humidity, uv + 8 marine). The user
+  // explicitly asked to surface only the key columns on
+  // mobile portrait to avoid the scroll: Temp °C, Wind km/h,
+  // Lluvia mm, Mar °C (sea_surface_temperature), Ola m
+  // (wave_height). On landscape phones the width is enough
+  // for the full view, so we keep the default behaviour.
+  //
+  // SSR initial state is `false` so the server-rendered HTML
+  // contains every column (no hydration mismatch). The
+  // `useEffect` upgrades to `true` on the client when the
+  // viewport matches the media query, and re-renders the
+  // table with the filtered columns. There is a brief flash
+  // of the unfiltered table on first paint (acceptable
+  // trade-off vs. introducing a SSR-side viewport-detection
+  // heuristic that would have to mirror the client).
+  const [isMobilePortrait, setIsMobilePortrait] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(max-width: 767px) and (orientation: portrait)')
+    const update = (e: MediaQueryListEvent | MediaQueryList) => setIsMobilePortrait(e.matches)
+    update(mq)
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  const MOBILE_PORTRAIT_KEY_COLS = useMemo(
+    () => new Set<MetricCellId>([
+      'temp', 'wind', 'precip',
+      'sea_surface_temperature', 'wave_height',
+    ]),
+    []
+  )
+
   const visibleIds = useMemo(
     () => columnOrder.filter(id => {
+      // B-NEW-16: mobile-portrait + marine collapses to the
+      // 5 key columns. The user wants Temp °C / Viento km/h /
+      // Lluvia mm / Mar °C / Ola m in this mode (the basic
+      // icon column and humidity/uv are hidden because they
+      // add horizontal scroll with no extra value on a phone).
+      if (showMarine && isMobilePortrait) {
+        return MOBILE_PORTRAIT_KEY_COLS.has(id)
+      }
       if (!showMarine && marineColIds.has(id)) return false
       if (showMarine && !showBasic && !marineColIds.has(id)) return false
       return true
     }),
-    [columnOrder, showMarine, showBasic, marineColIds]
+    [columnOrder, showMarine, showBasic, isMobilePortrait, marineColIds, MOBILE_PORTRAIT_KEY_COLS]
   )
   const colDefs = useMemo(
     () => visibleIds.map(id => METRIC_COLUMNS.find(c => c.id === id)!),

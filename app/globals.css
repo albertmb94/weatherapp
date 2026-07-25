@@ -131,15 +131,31 @@ body {
    (the `width` HTML attribute and the CSS `width` property collide
    in some browsers), so we expose a custom property and set it via
    a media query. On < sm (phones in portrait) we shrink the
-   sticky "Cuándo" column from 64 px to 52 px so the basic
+   sticky "Cuándo" column from 84 px to 64 px so the basic
    6-column view fits inside ~360 px without forcing the user to
-   scroll. */
+   scroll.
+
+   B-NEW-21 (2026-07-27): the previous 64 px was not enough for
+   "Mañ 00:00" / "Hoy 14:00" — at 11 px font-mono the string is
+   ~63-68 px wide (the diacritic on "ñ" makes it slightly
+   wider), and with `px-1.5` (12 px total padding) the cell
+   needed at least 75 px. With 64 px the text overflowed
+   horizontally on desktop with `whitespace-nowrap`, and on
+   mobile with `whitespace-normal` it wrapped to 2 lines and
+   broke row-height consistency. The user explicitly asked
+   for the column to be "más ancha" and the text on "una sola
+   fila" — we now use 84 px on desktop (1.4× the longest
+   string, with breathing room for the diacritic + the
+   `↳ Ahora · 21°` chip on the active row) and 64 px on
+   mobile (where only the compact 5-column view is rendered
+   and the column doesn't compete for space with the marine
+   columns). */
 :root {
-  --when-col-w: 64px;
+  --when-col-w: 84px;
 }
 @media (max-width: 639px) {
   :root {
-    --when-col-w: 52px;
+    --when-col-w: 64px;
   }
 }
 

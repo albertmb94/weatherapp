@@ -1439,7 +1439,31 @@ export default function InsightsTable({
                     // z-auto) but never rises into the header's
                     // z-30 band, so the "Cuándo" label reads
                     // cleanly even when scrolled.
-                    className={`sticky left-0 z-20 px-1.5 py-1.5 ${showMarine ? 'whitespace-nowrap' : 'whitespace-normal'} text-text-primary border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
+                    //
+                    // B-NEW-21 (2026-07-27): the user asked for the
+                    // text on a single line ("con el texto en una
+                    // sola fila") regardless of marine state, AND
+                    // for all cells to have the same height. The
+                    // previous form switched `whitespace-normal`
+                    // on/off with `showMarine`, so without marine
+                    // the text wrapped to 2 lines and broke row-height
+                    // consistency. We now use `whitespace-nowrap`
+                    // always (the column is wide enough — see
+                    // `--when-col-w` 84 px / 64 px in app/globals.css).
+                    //
+                    // For row-height consistency we additionally
+                    // reserve the chip area on EVERY row with
+                    // `min-h-[14px]`, even when the chip isn't
+                    // shown. This way every Cuándo cell is at
+                    // least `12px padding-top + 14px chip + 2px
+                    // margin + 17px label + 12px padding-bottom =
+                    // ~57px`, with the chip area empty on non-active
+                    // rows. The active row paints the chip in that
+                    // reserved space; all rows now have the same
+                    // height (57px on a single line + chip) so the
+                    // table doesn't get the "step" between bucket=24
+                    // and bucket=1/2/6/12 the user complained about.
+                    className={`sticky left-0 z-20 px-1.5 py-1.5 whitespace-nowrap text-text-primary border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
                   >
                     {/* Sprint 10 / B-10-2: when bucket=24 and the user is
                        on the actual current hour (selectedHour === 0),
@@ -1449,16 +1473,27 @@ export default function InsightsTable({
                        doesn't read it as a daily average. For any
                        other selectedHour (e.g. tomorrow) we do not
                        show "Ahora" — the value is a forecast for that
-                       future hour. */}
-                    {isActive && bucket === 24 && selectedHour === 0 && r.tempMean !== null ? (
-                      <div
-                        className="text-[9px] uppercase tracking-wider font-semibold text-accent mb-0.5 leading-tight"
-                        aria-label="Hora actual"
-                        data-testid="ahora-chip"
-                      >
-                        ↳ Ahora · {Math.round(r.tempMean)}°
-                      </div>
-                    ) : null}
+                       future hour.
+
+                       B-NEW-21 (2026-07-27): the chip div is now
+                       always rendered (with an empty string when
+                       the conditions don't hold) so the cell
+                       height stays the same across all rows.
+                       Previously the active row was taller than
+                       the others, which broke row-height
+                       consistency. The wrapper has min-h-[14px]
+                       (= 11 px font × 1.25 leading-tight + small
+                       breathing room) so the chip area is
+                       reserved even when empty. */}
+                    <div
+                      className="text-[9px] uppercase tracking-wider font-semibold text-accent mb-0.5 leading-tight min-h-[14px]"
+                      aria-label="Hora actual"
+                      data-testid="ahora-chip"
+                    >
+                      {isActive && bucket === 24 && selectedHour === 0 && r.tempMean !== null
+                        ? `↳ Ahora · ${Math.round(r.tempMean)}°`
+                        : ''}
+                    </div>
                     {r.label}
                   </td>
                   {colDefs.map((col, j) => (

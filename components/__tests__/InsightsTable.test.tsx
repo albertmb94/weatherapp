@@ -376,10 +376,17 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     // container. With `table-auto` on desktop the basic columns
     // auto-sized to ~35-45 px each and the marine columns were
     // 40 px each, leaving an empty band of background on the right
-    // (the user reported "sobra espacio por la derecha"). We assert
-    // the desktop class is present and the BASE class is absent
-    // (so jsdom doesn't accidentally match the prefixed one).
-    expect(table.className).toMatch(/\bmd:table-fixed\b/)
+    // (the user reported "sobra espacio por la derecha").
+    //
+    // B-NEW-17 (2026-07-27): the breakpoint moved from `md:` to
+    // `lg:` (>=1024 px). Mobile landscape (768-1023 px) stays on
+    // `table-auto` so basic columns size to their content and the
+    // now-48-px marine columns fit `27.8°` (~33 px text + 12 px
+    // padding = 45 px) without overflowing into the next column.
+    // We assert the desktop class is present and the BASE class
+    // is absent (so jsdom doesn't accidentally match the prefixed
+    // one).
+    expect(table.className).toMatch(/\blg:table-fixed\b/)
     expect(table.className).not.toMatch(/(^|\s)table-fixed(\s|$)/)
     // The table now declares an explicit <colgroup> with the first
     // column pinned to 64 px so the sticky column has a stable width.

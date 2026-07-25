@@ -187,17 +187,21 @@ html.light {
 
    We keep the original 32%×60% on desktop (the user explicitly
    asked to restore the "soft glow that doesn't reach the cell
-   border" character) and widen to 95%×95% on mobile (any
-   viewport < 640 px) so the colour always reaches the border
-   and the text reads on a tinted background regardless of how
-   narrow the cell is. The cell component reads this size via
-   `var(--heat-cell-bg-size)` in the inline background. */
+   border" character).
+
+   B-NEW-17 (2026-07-27): the previous 95%×95% on mobile was too
+   close to the border (the coloured band covered almost the
+   entire cell, no soft glow visible). The user wants the soft
+   glow around the number, NOT touching the edges. We now use
+   60%×80% on mobile — the gradient still tints the cell but
+   keeps a clear transparent margin around the edge so the
+   soft-glow character reads on every viewport. */
 :root {
   --heat-cell-bg-size: 32% 60%;
 }
 @media (max-width: 639px) {
   :root {
-    --heat-cell-bg-size: 95% 95%;
+    --heat-cell-bg-size: 60% 80%;
   }
 }
 
@@ -358,16 +362,8 @@ html.light .now-slot {
  * inside each cell. The cell component already inlines a
  * `radial-gradient(...)` background via React; CSS here only overrides
  * it on mobile + dark mode, where users asked for the original solid
- * hue look. The cell passes the colour RGB triple as `--heat-rgb-triple`.
- */
-@media (max-width: 767px) {
-  /* Mobile: solid colour, matching the historic "strong" look.
-   * Targeting elements with the inline CSS variable lets us keep the
-   * JS-driven hue without re-implementing the scale. */
-  [style*='--heat-rgb-triple'] {
-    background: rgb(var(--heat-rgb-triple)) !important;
-  }
-}
+  * hue look. The cell passes the colour RGB triple as `--heat-rgb-triple`.
+   */
 
 .scrollbar-none {
   scrollbar-width: none;

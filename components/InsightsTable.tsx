@@ -1128,7 +1128,23 @@ export default function InsightsTable({
             // to negative widths — that was the original B-NEW-5
             // regression. On mobile we let `table-auto` size to
             // content and `overflow-x-auto` scroll.
-            className="w-full border-collapse text-xs md:table-fixed [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
+            //
+            // B-NEW-17 (2026-07-27): switch the breakpoint from
+            // `md:` (>=768 px) to `lg:` (>=1024 px). On a phone in
+            // landscape (~800×400) the previous `md:table-fixed`
+            // kicked in and shrank every basic column to ~32 px —
+            // the cell content (a number like `27.8°` plus the °
+            // suffix, ~33 px wide) overflowed the cell and bled
+            // into the next column. The user explicitly asked to
+            // "respect the values inside" the cells. By moving
+            // `table-fixed` up to `lg:`, mobile landscape (768-
+            // 1023 px) stays on `table-auto` so columns size to
+            // their widest content, the longest marine value
+            // `27.8°` (5 chars at 11 px font-mono ≈ 33 px) fits
+            // cleanly in the now-48-px-wide marine column, and
+            // there's no overflow into the next cell. Desktop
+            // (>=1024 px) keeps the fill-the-container behaviour.
+            className="w-full border-collapse text-xs lg:table-fixed [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
             <colgroup>
               {/* B-NEW-4 (mobile): the "Cuándo" column drops to
@@ -1218,7 +1234,21 @@ export default function InsightsTable({
                   // table" on the previous B-NEW-11 push.
                   className={col.hideClass}
                   style={{
-                    width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '40px' : undefined,
+                    // B-NEW-17 (2026-07-27): 48 px (was 40 px).
+                    // The longest marine value is `27.8°` (5 chars
+                    // at 11 px font-mono ≈ 33 px of text). With
+                    // `px-1.5` on mobile (6 px each side = 12 px
+                    // padding) the cell content area needs to be at
+                    // least 33 + 12 = 45 px. 48 px gives 36 px of
+                    // content room with 6 px breathing room either
+                    // side so the text never overflows and bleeds
+                    // into the next column (which is what the user
+                    // reported as "ligero overlap" on mobile
+                    // landscape). At sm+ the padding shrinks to
+                    // `px-1` (4 px each side = 8 px) so 40 px would
+                    // already fit, but we keep 48 px for visual
+                    // consistency across viewports.
+                    width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '48px' : undefined,
                     ...(col.hideClass && /\bhidden\b/.test(col.hideClass) ? { visibility: 'collapse' as const } : {}),
                   }}
                 />

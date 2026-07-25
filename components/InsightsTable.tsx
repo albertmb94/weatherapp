@@ -1103,9 +1103,27 @@ export default function InsightsTable({
                   // but the units ("m", "s", "°") still read
                   // clearly because the basic 6-column view has
                   // more horizontal room to spare.
+                  //
+                  // B-NEW-11 (2026-07-25): also set `visibility:
+                  // collapse` for columns that have a `hideClass`
+                  // (e.g. `hidden xl:table-cell` on pressure /
+                  // dewpoint / visibility, which sit between UV
+                  // and the marine columns in the default order).
+                  // Tailwind's `display: none` (via `hidden`) on a
+                  // `<col>` does not reliably collapse the column
+                  // width under `table-layout: auto`, so on mobile
+                  // (where those columns should be hidden) they
+                  // kept taking up horizontal space and created a
+                  // visible gap at the basic→marine boundary —
+                  // the user reported this as "a border separator
+                  // after the UV column". `visibility: collapse`
+                  // is the W3C-recommended way to hide table
+                  // columns and works regardless of
+                  // `table-layout`.
                   className={col.hideClass}
                   style={{
                     width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '40px' : undefined,
+                    ...(col.hideClass ? { visibility: 'collapse' as const } : {}),
                   }}
                 />
               ))}

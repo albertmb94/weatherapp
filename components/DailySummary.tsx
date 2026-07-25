@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
-import { ensembleWithFallback } from '@/lib/ensemble/central'
+import { ensembleWithFallback, resolveActiveModels } from '@/lib/ensemble/central'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import WeatherConditionIcon from './WeatherConditionIcon'
@@ -33,6 +33,14 @@ interface DailySummaryProps {
   utcOffsetSeconds: number
   /** Index in `times` of the current hour — used to skip past days. */
   startIndex?: number
+  /** B-NEW-10 (2026-07-25): ensemble mode. When `'wedai'`, the
+   *  Resumen diario chips use the calibrated full land-model
+   *  ensemble (all 19 non-marine models with preset weights),
+   *  regardless of `activeModelIds`. When `'models'` (the default),
+   *  they respect the user's selection. The previous behaviour
+   *  was hardcoded to "respect the user's selection" which leaked
+   *  into the friendly cards even after the user clicked WedAI. */
+  ensembleMode?: 'wedai' | 'models'
 }
 
 interface DayBucket {
@@ -80,12 +88,18 @@ export default function DailySummary({
   showBasic = true,
   utcOffsetSeconds = 0,
   startIndex = 0,
+  ensembleMode = 'models',
 }: DailySummaryProps) {
   const { locale } = useLocale()
 
+  // B-NEW-10 (2026-07-25): when the Avanzado toggle is on WedAI,
+  // resolve the active set via `resolveActiveModels(_, _, 'wedai')`
+  // so the chip temperature comes from every land model, not the
+  // user's last selection. When the toggle is on Models, keep the
+  // previous "respect the user's selection" behaviour.
   const activeModels = useMemo(
-    () => models.filter(m => activeModelIds.includes(m.id)),
-    [models, activeModelIds]
+    () => resolveActiveModels(models, activeModelIds, ensembleMode),
+    [models, activeModelIds, ensembleMode]
   )
 
   const days = useMemo<DayBucket[]>(() => {

@@ -964,6 +964,14 @@ export default function HomeContent() {
                   liveUvValidAt={liveUv?.uvIndexValidAt ?? null}
                   fetchedAt={data?.fetchedAt ?? null}
                   forecastAgeMs={forecastAgeMs}
+                  // B-NEW-10 (2026-07-25): thread the ensemble toggle
+                  // through to FriendlyHome so the AHORA + future
+                  // slots in the hourly strip respect the toggle.
+                  // Default 'wedai' keeps the friendly overview on
+                  // the calibrated ensemble — the user expects
+                  // "Previsión de hoy" to follow whatever the Avanzado
+                  // toggle says.
+                  ensembleMode={ensembleMode}
                 />
               )}
 
@@ -1231,6 +1239,11 @@ export default function HomeContent() {
                   })
                 }}
                 onSelectHour={handleHourChange}
+                // B-NEW-10 (2026-07-25): thread the ensemble toggle
+                // through to Próximos días so the daily highs/lows
+                // use the calibrated ensemble when the Avanzado
+                // toggle is on WedAI.
+                ensembleMode={ensembleMode}
               />
             </div>
           </aside>
@@ -1523,6 +1536,10 @@ const AdvancedSection = memo(function AdvancedSection({
             showBasic={showBasic}
             utcOffsetSeconds={fullUtc}
             startIndex={startIndex}
+            // B-NEW-10 (2026-07-25): thread the ensemble toggle so
+            // Resumen diario uses the calibrated full ensemble when
+            // the Avanzado toggle is on WedAI.
+            ensembleMode={ensembleMode}
           />
           <ModelSelector
             models={displayModels}

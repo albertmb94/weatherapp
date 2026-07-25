@@ -214,3 +214,133 @@ describe('computeWeekSummaries', () => {
   })
 })
 
+// B-NEW-10 (2026-07-25): WedAI mode must override the user's
+// activeIds for the friendly helpers (computeHourlySlots,
+// computeWeekSummaries). Previously both helpers hardcoded
+// 'models' mode internally, so a single-model selection in
+// Models mode leaked into AHORA's future slots and Próximos días
+// even after the user clicked the WedAI button. The mode param
+// (default 'models') lets the Avanzado toggle override these.
+describe('computeHourlySlots + computeWeekSummaries respect mode override', () => {
+  // Build a series where gfs_global = 18°C and icon_global = 26°C
+  // (8°C apart) so the two models give visibly different answers.
+  function divergentSeries(count: number) {
+    return {
+      gfs_global: {
+        temperature: Array.from({ length: count }, () => 18),
+        precipitation: Array.from({ length: count }, () => 0),
+        wind_speed: Array.from({ length: count }, () => 5),
+        wind_gusts: Array.from({ length: count }, () => 5),
+        cloud_cover: Array.from({ length: count }, () => 0),
+        humidity: Array.from({ length: count }, () => 50),
+        uv_index: Array.from({ length: count }, () => 3),
+      },
+      icon_global: {
+        temperature: Array.from({ length: count }, () => 26),
+        precipitation: Array.from({ length: count }, () => 0),
+        wind_speed: Array.from({ length: count }, () => 5),
+        wind_gusts: Array.from({ length: count }, () => 5),
+        cloud_cover: Array.from({ length: count }, () => 0),
+        humidity: Array.from({ length: count }, () => 50),
+        uv_index: Array.from({ length: count }, () => 3),
+      },
+    }
+  }
+
+  it('computeHourlySlots future slots follow mode=wedai and ignore a single-model activeIds', () => {
+    const series = divergentSeries(48)
+    // Slot 1 is the 4h block AFTER the 4h block containing hour 14,
+    // i.e. it lands at index 16 (hour 16). Both models contribute so
+    // the weighted mean lands between 18 and 26.
+    const slots = computeHourlySlots(
+      { time: fakeTimes(48), series },
+      MODELS,
+      ['gfs_global'],  // user's single-model selection
+      14,
+      'en',
+      7,
+      4,
+      true,
+      'wedai',  // Avanzado toggle is on WedAI
+    )
+    expect(slots.length).toBe(7)
+    // Slot 0 (AHORA) is always WedAI (nowMode='wedai') so it's ~22.
+    expect(slots[0].tempC).not.toBeNull()
+    expect(slots[0].tempC!).toBeGreaterThan(20)
+    expect(slots[0].tempC!).toBeLessThan(24)
+    // Slot 1..6 must also be the calibrated mean (>=20, <=24),
+    // NOT the literal gfs_global value of 18.
+    for (let i = 1; i < slots.length; i++) {
+      expect(slots[i].tempC).not.toBeNull()
+      expect(slots[i].tempC!).toBeGreaterThan(20)
+      expect(slots[i].tempC!).toBeLessThan(24)
+    }
+  })
+
+  it('computeHourlySlots future slots honour mode=models and a single-model activeIds', () => {
+    const slots = computeHourlySlots(
+      { time: fakeTimes(48), series: divergentSeries(48) },
+      MODELS,
+      ['gfs_global'],
+      14,
+      'en',
+      7,
+      4,
+      true,
+      'models',
+    )
+    // Future slots (1..6) use the user's selection (gfs_global=18).
+    expect(slots[0].tempC).not.toBeNull()
+    expect(slots[0].tempC!).toBeGreaterThan(20) // AHORA is still WedAI
+    for (let i = 1; i < slots.length; i++) {
+      expect(slots[i].tempC).toBeCloseTo(18, 0)
+    }
+  })
+
+  it('computeWeekSummaries follows mode=wedai and ignores a single-model activeIds', () => {
+    const out: Date[] = []
+    const base = new Date(Date.UTC(2026, 5, 10, 0, 0, 0))
+    for (let i = 0; i < 24 * 7; i++) out.push(new Date(base.getTime() + i * 3_600_000))
+    const days = computeWeekSummaries(
+      { time: out, series: divergentSeries(24 * 7) },
+      MODELS,
+      ['gfs_global'],  // user's single-model selection
+      0,
+      24 * 7,
+      'en',
+      7,
+      'wedai',
+    )
+    expect(days.length).toBeGreaterThan(0)
+    // Each day must come from the calibrated mean of both models.
+    for (const d of days) {
+      expect(d.highC).not.toBeNull()
+      expect(d.highC!).toBeGreaterThan(20)
+      expect(d.highC!).toBeLessThan(24)
+      expect(d.lowC).not.toBeNull()
+      expect(d.lowC!).toBeGreaterThan(20)
+      expect(d.lowC!).toBeLessThan(24)
+    }
+  })
+
+  it('computeWeekSummaries honours mode=models and a single-model activeIds', () => {
+    const out: Date[] = []
+    const base = new Date(Date.UTC(2026, 5, 10, 0, 0, 0))
+    for (let i = 0; i < 24 * 7; i++) out.push(new Date(base.getTime() + i * 3_600_000))
+    const days = computeWeekSummaries(
+      { time: out, series: divergentSeries(24 * 7) },
+      MODELS,
+      ['gfs_global'],
+      0,
+      24 * 7,
+      'en',
+      7,
+      'models',
+    )
+    for (const d of days) {
+      expect(d.highC).toBeCloseTo(18, 0)
+      expect(d.lowC).toBeCloseTo(18, 0)
+    }
+  })
+})
+

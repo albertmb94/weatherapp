@@ -27,14 +27,14 @@ interface FriendlyHomeProps {
   /** Index in `time` (full) of the current local hour. */
   nowIndex: number
   /** Hour offset the user selected relative to the current hour. When 0
-   *  we are showing the live-now state; otherwise the labels should make
-   *  it clear this is a forecast for a future hour. */
+   * we are showing the live-now state; otherwise the labels should make
+   * it clear this is a forecast for a future hour. */
   selectedHourOffset: number
   /** UTC offset seconds for the location (used to derive "today" for the
-   *  "Ahora" label in the hourly strip). */
+   * "Ahora" label in the hourly strip). */
   utcOffsetSeconds?: number
   /** Live UV reading from the provider's `current=uv_index` block. Only
-   *  applied while selectedHourOffset === 0. */
+   * applied while selectedHourOffset === 0. */
   liveUvIndex?: number | null
   /** Validity timestamp for the live UV reading (provider-reported). */
   liveUvValidAt?: Date | null
@@ -42,6 +42,13 @@ interface FriendlyHomeProps {
   fetchedAt?: number | null
   /** Forecast age (ms) — used to flag the card when the data is stale. */
   forecastAgeMs?: number | null
+  /** B-NEW-10 (2026-07-25): ensemble mode for the hourly strip's
+   *  future slots. The big "Tiempo actual" card (computeCurrentSnapshot)
+   *  is ALWAYS WedAI regardless of this value (the current hour is a
+   *  "best estimate" overview per B-10-1). Default is `'wedai'` so the
+   *  user-friendly card surfaces the calibrated ensemble when no
+   *  caller opts in (e.g. older deep links). */
+  ensembleMode?: 'wedai' | 'models'
 }
 
 export default function FriendlyHome({
@@ -58,6 +65,7 @@ export default function FriendlyHome({
   liveUvValidAt = null,
   fetchedAt = null,
   forecastAgeMs = null,
+  ensembleMode = 'wedai',
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -107,6 +115,7 @@ export default function FriendlyHome({
         nowIndex={nowIndex}
         isViewingToday={isViewingToday}
         title={s.hourlyTitle}
+        ensembleMode={ensembleMode}
       />
       <AirConditionsGrid
         snapshot={snapshot}

@@ -20,6 +20,14 @@ interface WeekForecastPanelProps {
   weekDays: 7 | 14
   onWeekDaysChange: (next: 7 | 14) => void
   onSelectHour?: (hour: number) => void
+  /** B-NEW-10 (2026-07-25): ensemble mode for the day summaries.
+   *  When the Avanzado toggle is on WedAI, the caller passes
+   *  `'wedai'` so Próximos días uses the calibrated full ensemble
+   *  regardless of which single model the user previously picked
+   *  in Models mode. Defaults to `'models'` to preserve the
+   *  previous behaviour for callers that haven't been updated
+   *  yet. */
+  ensembleMode?: 'wedai' | 'models'
 }
 
 function fmtTemp(value: number | null): string {
@@ -36,13 +44,14 @@ export default function WeekForecastPanel({
   weekDays,
   onWeekDaysChange,
   onSelectHour,
+  ensembleMode = 'models',
 }: WeekForecastPanelProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
 
   const days = useMemo<DaySummary[]>(
-    () => computeWeekSummaries({ time, series }, models, activeIds, nowIndex, maxHours, locale, weekDays),
-    [models, activeIds, time, series, nowIndex, maxHours, locale, weekDays]
+    () => computeWeekSummaries({ time, series }, models, activeIds, nowIndex, maxHours, locale, weekDays, ensembleMode),
+    [models, activeIds, time, series, nowIndex, maxHours, locale, weekDays, ensembleMode]
   )
 
   if (days.length === 0) return null

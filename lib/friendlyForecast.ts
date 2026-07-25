@@ -298,7 +298,16 @@ export function computeHourlySlots(
   /** When false, the "Ahora" / "Now" label is suppressed (used when the
    *  caller has selected a future day via the day chips). Defaults to true
    *  for backward compatibility. */
-  isViewingToday = true
+  isViewingToday = true,
+  /** B-NEW-10 (2026-07-25): ensemble mode for the future slots (1..count-1).
+   *  Defaults to `'models'` to preserve the previous behaviour where the
+   *  hourly strip respected the user's selection. When the user flips the
+   *  Avanzado toggle to WedAI, the caller passes `'wedai'` so the future
+   *  slots also use the calibrated full ensemble — otherwise selecting a
+   *  single model in Models mode would leak into the friendly card even
+   *  after the user clicked WedAI (the B-NEW-10 bug). The AHORA slot
+   *  always uses WedAI (nowMode='wedai' below) regardless of this arg. */
+  mode: EnsembleMode = 'models'
 ): HourlySlot[] {
   const out: HourlySlot[] = []
   if (!bag.time[nowIndex]) return out
@@ -362,9 +371,12 @@ export function computeHourlySlots(
   })
 
   // Slots 1…count-1: 4-hour blocks anchored at blockStartHour.
-  // These remain on the user's selectedIds so the chart still shows
-  // "your ensemble" for future hours.
-  const futureMode: EnsembleMode = 'models'
+  // The mode for these slots is now driven by the `mode` parameter
+  // (B-NEW-10): when the Avanzado toggle is on WedAI, the caller
+  // passes 'wedai' and the future slots use the calibrated full
+  // ensemble too. Otherwise we keep the previous "respect the
+  // user's selection" behaviour.
+  const futureMode: EnsembleMode = mode
   for (let i = 1; i < count; i++) {
     const idx = startIdx + i * intervalHours
     if (idx >= bag.time.length) break
@@ -413,7 +425,15 @@ export function computeWeekSummaries(
   nowIndex: number,
   maxHours: number,
   locale: 'en' | 'es',
-  count: 7 | 14 = 7
+  count: 7 | 14 = 7,
+  /** B-NEW-10 (2026-07-25): ensemble mode for the future day buckets.
+   *  Defaults to `'models'` to preserve the previous behaviour where the
+   *  right-sidebar Próximos días panel respected the user's selection.
+   *  When the user flips the Avanzado toggle to WedAI, the caller
+   *  passes `'wedai'` so the panel uses the calibrated full ensemble —
+   *  otherwise selecting a single model in Models mode would leak into
+   *  Próximos días even after the user clicked WedAI. */
+  mode: EnsembleMode = 'models'
 ): DaySummary[] {
   interface Bucket { key: string; dayIdx: number; start: number; end: number }
   const buckets: Bucket[] = []
@@ -481,10 +501,13 @@ export function computeWeekSummaries(
     let cloudCount = 0
     let gustsMax: number | null = null
     let noonIndex = b.start
-    // Week summaries aggregate future days, so they respect the
-    // user's `selectedIds` (mode='models'). The "current hour"
+    // Week summaries aggregate future days, so the mode is driven by
+    // the `mode` parameter (B-NEW-10): when the Avanzado toggle is on
+    // WedAI, the caller passes 'wedai' and the panel uses the
+    // calibrated full ensemble. Otherwise we keep the previous
+    // "respect the user's selection" behaviour. The "current hour"
     // override lives in `computeCurrentSnapshot` / InsightsTable.
-    const weekMode: EnsembleMode = 'models'
+    const weekMode: EnsembleMode = mode
     for (let i = b.start; i <= b.end; i++) {
       const t = meanAcrossModels(bag, 'temperature', i, models, activeIds, weekMode)
       if (t !== null) {

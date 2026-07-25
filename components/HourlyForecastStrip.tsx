@@ -19,6 +19,13 @@ interface HourlyForecastStripProps {
    *  has selected a future day). Defaults to true. */
   isViewingToday?: boolean
   title: string
+  /** B-NEW-10 (2026-07-25): ensemble mode for the future slots
+   *  (1..count-1). The AHORA slot (slot 0) is ALWAYS WedAI per
+   *  B-10-1. When the Avanzado toggle is on WedAI, the caller passes
+   *  `'wedai'` so the future slots also use the calibrated full
+   *  ensemble. Defaults to `'models'` to preserve the previous
+   *  behaviour for callers that haven't been updated yet. */
+  ensembleMode?: 'wedai' | 'models'
 }
 
 function fmtTemp(value: number | null): string {
@@ -33,12 +40,13 @@ export default function HourlyForecastStrip({
   nowIndex,
   isViewingToday = true,
   title,
+  ensembleMode = 'models',
 }: HourlyForecastStripProps) {
   const { locale } = useLocale()
 
   const slots = useMemo<HourlySlot[]>(
-    () => computeHourlySlots({ time, series }, models, activeIds, nowIndex, locale, 7, 4, isViewingToday),
-    [models, activeIds, time, series, nowIndex, locale, isViewingToday]
+    () => computeHourlySlots({ time, series }, models, activeIds, nowIndex, locale, 7, 4, isViewingToday, ensembleMode),
+    [models, activeIds, time, series, nowIndex, locale, isViewingToday, ensembleMode]
   )
 
   if (slots.length === 0) return null

@@ -20,6 +20,11 @@ interface AirConditionsGridProps {
   fetchedAt?: number | null
   /** Forecast age (ms) — shown next to the metrics header. */
   forecastAgeMs?: number | null
+  /** Daily accumulated precipitation (mm/day) aligned with the trimmed
+   *  hourly series by index 0. Used to surface the "Total hoy" tile in
+   *  the third rain toggle position. Provided by `home-content` so the
+   *  grid component stays free of fetch logic. */
+  dailyPrecipitationSum?: (number | null)[] | null
 }
 
 function fmtTemp(value: number | null): string {
@@ -133,6 +138,7 @@ export default function AirConditionsGrid({
   liveUvValidAt = null,
   fetchedAt = null,
   forecastAgeMs = null,
+  dailyPrecipitationSum = null,
 }: AirConditionsGridProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -141,7 +147,7 @@ export default function AirConditionsGrid({
   const [uvMode, setUvMode] = useState<'live' | 'peak'>('live')
   const [feelMode, setFeelMode] = useState<'feel' | 'high'>('feel')
   const [windMode, setWindMode] = useState<'wind' | 'gusts'>('wind')
-  const [rainMode, setRainMode] = useState<'chance' | 'total'>('chance')
+  const [rainMode, setRainMode] = useState<'chance' | 'intensity' | 'day'>('chance')
 
   // UV: in live mode prefer the provider's current=uv_index reading if we
   // still have it cached AND the user is on the actual current hour.
@@ -196,13 +202,29 @@ export default function AirConditionsGrid({
   const windDisplay = fmtWind(windVal)
   const windLabel = windMode === 'wind' ? s.windSpeed : s.windGusts
 
-  // Prob. lluvia / Lluvia total
+  // Probabilidad calibrada / Intensidad / Total hoy
+  // We try the calibrated probability first; if every model returned
+  // null for that hour the helper falls back to the intensity heuristic,
+  // so the cell never goes blank.
+  const dailySum: number | null = (() => {
+    if (!dailyPrecipitationSum || dailyPrecipitationSum.length === 0) return null
+    const first = dailyPrecipitationSum[0]
+    return typeof first === 'number' ? first : null
+  })()
   const rainVal = rainMode === 'chance'
     ? (snapshot?.chanceOfRainPct ?? null)
-    : (snapshot?.precipitationMm ?? null)
-  const rainDisplay = rainMode === 'chance' ? fmtPercent(rainVal) : fmtMm(rainVal)
+    : rainMode === 'intensity'
+      ? (snapshot?.precipitationMm ?? null)
+      : dailySum
+  const rainDisplay = rainMode === 'chance'
+    ? fmtPercent(rainVal)
+    : fmtMm(rainVal)
   const rainUnit = rainMode === 'chance' ? '' : 'mm'
-  const rainLabel = rainMode === 'chance' ? s.chanceOfRain : s.precipTotal
+  const rainLabel = rainMode === 'chance'
+    ? s.chanceOfRain
+    : rainMode === 'intensity'
+      ? (s as { rainIntensity?: string }).rainIntensity ?? s.precipTotal
+      : s.rainTotalDay
 
   return (
     <section aria-label={heading} className="rounded-2xl border border-border bg-surface-raised p-4 md:p-5">
@@ -245,7 +267,7 @@ export default function AirConditionsGrid({
           unit={rainUnit}
           icon={<DropIcon />}
           accent="rose"
-          onClick={() => setRainMode(m => m === 'chance' ? 'total' : 'chance')}
+          onClick={() => setRainMode(m => m === 'chance' ? 'intensity' : m === 'intensity' ? 'day' : 'chance')}
         />
         <ToggleCard
           // The mode label (Live/Peak) already tells the user which

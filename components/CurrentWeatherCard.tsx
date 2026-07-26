@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
-import { CONDITION_LABEL } from '@/lib/i18n'
+import { CONDITION_LABEL, STRINGS } from '@/lib/i18n'
 import type { WeatherIconId } from '@/lib/weatherIcon'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
+import ConfidenceChip from './ConfidenceChip'
+import { classifySpread } from '@/lib/confidence'
 
 interface CurrentWeatherCardProps {
   city: string
@@ -102,6 +104,15 @@ export default function CurrentWeatherCard({ city, snapshot, loading }: CurrentW
                     {formatPercent(snapshot.chanceOfRainPct)}
                   </span>
                 </span>
+              </>
+            ) : null}
+            {snapshot && snapshot.spread && snapshot.spread.sampleCount >= 2 ? (
+              <>
+                <span className="text-text-muted" aria-hidden="true">·</span>
+                <ConfidenceChip
+                  level={classifySpread(snapshot.spread.stdDev).level}
+                  spreadLabel={`${STRINGS[locale].spreadLabel}${snapshot.spread.stdDev.toFixed(1)}${STRINGS[locale].spreadSuffix}`}
+                />
               </>
             ) : null}
           </p>

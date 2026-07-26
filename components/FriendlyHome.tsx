@@ -49,6 +49,9 @@ interface FriendlyHomeProps {
    *  user-friendly card surfaces the calibrated ensemble when no
    *  caller opts in (e.g. older deep links). */
   ensembleMode?: 'wedai' | 'models'
+  /** Daily accumulated precipitation aligned with `time` by index 0.
+   *  Surfaced in the AirConditionsGrid "Total hoy" tile. */
+  dailyPrecipitationSum?: (number | null)[]
 }
 
 export default function FriendlyHome({
@@ -66,6 +69,7 @@ export default function FriendlyHome({
   fetchedAt = null,
   forecastAgeMs = null,
   ensembleMode = 'wedai',
+  dailyPrecipitationSum,
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -124,6 +128,7 @@ export default function FriendlyHome({
         liveUvValidAt={liveUvValidAt ?? null}
         fetchedAt={fetchedAt ?? null}
         forecastAgeMs={forecastAgeMs ?? null}
+        dailyPrecipitationSum={dailyPrecipitationSum}
       />
     </div>
   )

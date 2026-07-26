@@ -989,6 +989,7 @@ export default function HomeContent() {
                   liveUvValidAt={liveUv?.uvIndexValidAt ?? null}
                   fetchedAt={data?.fetchedAt ?? null}
                   forecastAgeMs={forecastAgeMs}
+                  dailyPrecipitationSum={effectiveData?.dailyPrecipitationSum}
                   // B-NEW-10 (2026-07-25): thread the ensemble toggle
                   // through to FriendlyHome so the AHORA + future
                   // slots in the hourly strip respect the toggle.

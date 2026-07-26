@@ -145,6 +145,11 @@ export const STRINGS: Record<Locale, {
   confidenceMedium: string
   confidenceLow: string
   confidenceTooltip: string
+  spreadLabel: string
+  spreadSuffix: string
+  rainProbCalibrated: string
+  rainIntensity: string
+  rainTotalDay: string
   modelAccuracyTitle: string
   accuracyType: string
   accuracyMAE: string
@@ -155,6 +160,18 @@ export const STRINGS: Record<Locale, {
   noAccuracyData: string
   methodologyTitle: string
   methodologyDescription: string
+  nowcastTitle: string
+  nowcastExplanation: string
+  nowcastObs: string
+  nowcastFcst: string
+  profilePickerTitle: string
+  profilePickerLabel: string
+  profileCoastal: string
+  profileMountain: string
+  profileUrban: string
+  profileAgricultural: string
+  profileSailing: string
+  profilePlain: string
 }> = {
   es: {
     today: 'Hoy',
@@ -275,6 +292,11 @@ export const STRINGS: Record<Locale, {
     confidenceMedium: 'Media',
     confidenceLow: 'Baja',
     confidenceTooltip: 'Confianza del ensemble basada en la concordancia entre modelos',
+    spreadLabel: '±',
+    spreadSuffix: '° de dispersión',
+    rainProbCalibrated: 'Probabilidad calibrada (ensemble)',
+    rainIntensity: 'Intensidad (mm/h)',
+    rainTotalDay: 'Total hoy',
     modelAccuracyTitle: 'Precisión por modelo',
     accuracyType: 'Tipo',
     accuracyMAE: 'MAE',
@@ -285,6 +307,18 @@ export const STRINGS: Record<Locale, {
     noAccuracyData: 'Sin datos de precisión disponibles. Los datos se actualizarán tras el primer backtest semanal.',
     methodologyTitle: 'Metodología',
     methodologyDescription: 'El ensemble pondera dinámicamente los modelos basándose en su precisión histórica para la ubicación y el tipo de terreno actual.',
+    nowcastTitle: 'Nowcast',
+    nowcastExplanation: 'Mezcla la última lectura de la estación más cercana con la primera hora del ensemble para los minutos iniciales.',
+    nowcastObs: 'Estación',
+    nowcastFcst: 'Ensemble',
+    profilePickerTitle: 'Perfil',
+    profilePickerLabel: 'Perfil de uso',
+    profileCoastal: 'Costa',
+    profileMountain: 'Montaña',
+    profileUrban: 'Ciudad',
+    profileAgricultural: 'Agricultura',
+    profileSailing: 'Navegación',
+    profilePlain: 'Llanura',
   },
   en: {
     today: 'Today',
@@ -405,6 +439,11 @@ export const STRINGS: Record<Locale, {
     confidenceMedium: 'Medium',
     confidenceLow: 'Low',
     confidenceTooltip: 'Ensemble confidence based on model agreement',
+    spreadLabel: '±',
+    spreadSuffix: '° spread',
+    rainProbCalibrated: 'Calibrated rain probability (ensemble)',
+    rainIntensity: 'Intensity (mm/h)',
+    rainTotalDay: 'Today total',
     modelAccuracyTitle: 'Model accuracy',
     accuracyType: 'Type',
     accuracyMAE: 'MAE',
@@ -415,5 +454,17 @@ export const STRINGS: Record<Locale, {
     noAccuracyData: 'No accuracy data available yet. Data updates after the first weekly backtest.',
     methodologyTitle: 'Methodology',
     methodologyDescription: 'The ensemble dynamically weights models based on their historical accuracy for the current location and terrain type.',
+    nowcastTitle: 'Nowcast',
+    nowcastExplanation: 'Blends the closest station reading with the first hour of the ensemble for the opening minutes.',
+    nowcastObs: 'Station',
+    nowcastFcst: 'Ensemble',
+    profilePickerTitle: 'Profile',
+    profilePickerLabel: 'Usage profile',
+    profileCoastal: 'Coastal',
+    profileMountain: 'Mountain',
+    profileUrban: 'Urban',
+    profileAgricultural: 'Agricultural',
+    profileSailing: 'Sailing',
+    profilePlain: 'Plain',
   },
 }

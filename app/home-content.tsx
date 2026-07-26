@@ -37,9 +37,7 @@ import { saveLastForecast, loadLastForecast } from '@/lib/forecastIndexedDB'
 import { useHourSlider } from '@/lib/hooks/useHourSlider'
 import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
 import { useClientNow } from '@/lib/hooks/useClientNow'
-import { useUsageProfile } from '@/lib/hooks/useUsageProfile'
 import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
-import ProfilePicker from '@/components/ProfilePicker'
 import { deriveProfileFromTerrain } from '@/lib/profiles'
 import { getLeadTimeBucket } from '@/lib/models'
 import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
@@ -181,7 +179,6 @@ export default function HomeContent() {
   // outcome toast is disabled (see comment near the useEffect that
   // previously set it) so we don't read `lastOutcome` here.
   const { refresh } = useRefresh()
-  const [usageProfile, setUsageProfile] = useUsageProfile()
   // Sprint 13: the auto-derived profile for the current location.
   // Resolved asynchronously from `classifyTerrain`; `null` until
   // the elevation API replies (or forever, if it never does).
@@ -1046,11 +1043,6 @@ export default function HomeContent() {
             >
               {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map' || selectedView === 'stations') && (
                 <>
-                <ProfilePicker
-                  value={usageProfile}
-                  onChange={setUsageProfile}
-                  className="max-w-xl"
-                />
                 <FriendlyHome
                   city={cityName}
                   cityIsLoading={isLoading && !viewData}

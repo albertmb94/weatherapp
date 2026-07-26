@@ -164,8 +164,6 @@ export const STRINGS: Record<Locale, {
   nowcastExplanation: string
   nowcastObs: string
   nowcastFcst: string
-  profilePickerTitle: string
-  profilePickerLabel: string
   profileCoastal: string
   profileMountain: string
   profileUrban: string
@@ -318,8 +316,6 @@ export const STRINGS: Record<Locale, {
     nowcastExplanation: 'Mezcla la última lectura de la estación más cercana con la primera hora del ensemble para los minutos iniciales.',
     nowcastObs: 'Estación',
     nowcastFcst: 'Ensemble',
-    profilePickerTitle: 'Perfil',
-    profilePickerLabel: 'Perfil de uso',
     profileCoastal: 'Costa',
     profileMountain: 'Montaña',
     profileUrban: 'Ciudad',
@@ -467,8 +463,6 @@ export const STRINGS: Record<Locale, {
     nowcastExplanation: 'Blends the closest station reading with the first hour of the ensemble for the opening minutes.',
     nowcastObs: 'Station',
     nowcastFcst: 'Ensemble',
-    profilePickerTitle: 'Profile',
-    profilePickerLabel: 'Usage profile',
     profileCoastal: 'Coastal',
     profileMountain: 'Mountain',
     profileUrban: 'Urban',

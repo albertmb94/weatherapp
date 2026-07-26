@@ -15,7 +15,6 @@ import {
   PROFILE_ORDER,
   PROFILE_LABELS,
   PROFILE_LABELS_EN,
-  getProfileRecommendation,
   type UsageProfile,
 } from '@/lib/profiles'
 import type { TerrainClassification } from '@/lib/backtest/classifyTerrain'
@@ -89,17 +88,8 @@ describe('profilesAreEqual', () => {
   })
 })
 
-describe('getProfileRecommendation (deprecated stub)', () => {
-  it('returns an empty recommendation', () => {
-    const rec = getProfileRecommendation()
-    expect(rec.preferredModels).toEqual([])
-    expect(rec.preferMarine).toBe(false)
-    expect(rec.preferLongRange).toBe(false)
-    expect(rec.descriptionEs).toBe('')
-    expect(rec.descriptionEn).toBe('')
-  })
-
-  it('UsageProfile union is a subset of the original 6-element union', () => {
+describe('UsageProfile union', () => {
+  it('is exactly the four profiles we render today', () => {
     const all: UsageProfile[] = ['plain', 'coastal', 'mountain', 'urban']
     expect(PROFILE_ORDER).toEqual(all)
   })

@@ -815,9 +815,34 @@ export default function InsightsTable({
     return () => mq.removeEventListener('change', update)
   }, [])
 
-  const MOBILE_PORTRAIT_KEY_COLS = useMemo(
+  // Sprint 14 revert (v2): the column set for mobile portrait is split
+  // into basic and marine so `showMarine` controls whether marine
+  // columns appear. Previously both were in one set, which caused
+  // two bugs:
+  //   1. marine columns rendered even when `showMarine` was false
+  //      (with empty values because marine_global data was missing).
+  //   2. in portrait with Marine ON, 8 data columns + sticky didn't
+  //      fit in 360 px, causing visible text overlap.
+  //
+  // The fix: show up to 6 data columns in portrait regardless of
+  // marine state — when marine is OFF, show the 6 basic columns;
+  // when marine is ON, replace humidity + uv with sea_temp + wave_height.
+  const PORTRAIT_BASIC_COLS = useMemo(
     () => new Set<MetricCellId>([
       'cond', 'temp', 'wind', 'precip', 'humidity', 'uv',
+    ]),
+    []
+  )
+  // When marine is ON in portrait, humidity + uv are replaced by
+  // the two key marine columns so the total stays at 6 data cols.
+  const PORTRAIT_MARINE_REPLACEMENT = useMemo(
+    () => new Set<MetricCellId>([
+      'cond', 'temp', 'wind', 'precip',
+    ]),
+    []
+  )
+  const PORTRAIT_MARINE_COLS = useMemo(
+    () => new Set<MetricCellId>([
       'sea_surface_temperature', 'wave_height',
     ]),
     []
@@ -825,19 +850,24 @@ export default function InsightsTable({
 
   const visibleIds = useMemo(
     () => columnOrder.filter(id => {
-      // Mobile-portrait: filter to the key columns that fit on
-      // a 360-px phone even with table-fixed + ellipsis.
-      // Pressure / dewpoint / visibility / wind_gusts / min /
-      // max / clouds are dropped because the longer labels
-      // (e.g. "Presión hPa") can't truncate to under 36 px.
       if (isMobilePortrait) {
-        return MOBILE_PORTRAIT_KEY_COLS.has(id)
+        // Portrait always shows exactly 6 data columns.
+        // Marine OFF: cond, temp, wind, precip, humidity, uv
+        // Marine ON:  cond, temp, wind, precip, sea_temp, wave_height
+        // (humidity + uv are replaced by sea_temp + wave_height)
+        if (showMarine && marineColIds.has(id)) {
+          return PORTRAIT_MARINE_COLS.has(id)
+        }
+        if (showMarine) {
+          return PORTRAIT_MARINE_REPLACEMENT.has(id)
+        }
+        return PORTRAIT_BASIC_COLS.has(id)
       }
       if (!showMarine && marineColIds.has(id)) return false
       if (showMarine && !showBasic && !marineColIds.has(id)) return false
       return true
     }),
-    [columnOrder, showMarine, showBasic, isMobilePortrait, marineColIds, MOBILE_PORTRAIT_KEY_COLS]
+    [columnOrder, showMarine, showBasic, isMobilePortrait, marineColIds, PORTRAIT_BASIC_COLS, PORTRAIT_MARINE_COLS, PORTRAIT_MARINE_REPLACEMENT]
   )
   const colDefs = useMemo(
     () => visibleIds.map(id => METRIC_COLUMNS.find(c => c.id === id)!),
@@ -1459,9 +1489,17 @@ function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0,
   return {
     style: heatStyle(metric, value),
     node: (
-      <span className="relative z-10 inline-flex items-center gap-0.5 justify-center" title={tooltip}>
-        {icon ? icon : emoji && <span aria-hidden className="text-xs">{emoji}</span>}
-        <span>{display}{suffix}</span>
+      // Using inline layout (not flex) so the parent <td>'s
+      // text-overflow: ellipsis reliably clips overflowing content.
+      // inline-flex children bypass the <td>'s text-overflow in
+      // several browsers, causing visible overlap between columns.
+      <span className="relative z-10" title={tooltip}>
+        {icon ? (
+          <span className="align-middle mr-0.5 leading-none">{icon}</span>
+        ) : emoji ? (
+          <span aria-hidden className="text-xs align-middle mr-0.5 leading-none">{emoji}</span>
+        ) : null}
+        <span className="align-middle leading-none">{display}{suffix}</span>
       </span>
     ),
   }

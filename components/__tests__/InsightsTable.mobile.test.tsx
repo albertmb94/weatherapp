@@ -180,6 +180,50 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     expect(headers).not.toContain('dewpoint')
     expect(headers).not.toContain('visibility')
     expect(headers).not.toContain('gusts')
+    // Marine columns must NOT appear when showMarine is false (default)
+    expect(headers).not.toContain('sea_surface_temperature')
+    expect(headers).not.toContain('wave_height')
+  })
+
+  it('portrait with Marine ON shows sea_temp + wave_height, drops humidity + uv to fit', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        showMarine={true}
+        onMarineToggle={() => {}}
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    const headers = Array.from(document.querySelectorAll('thead th')).map(
+      th => th.getAttribute('data-col-id')
+    )
+    expect(headers[0]).toBe('__when__')
+    // Basic essentials
+    expect(headers).toContain('cond')
+    expect(headers).toContain('temp')
+    expect(headers).toContain('wind')
+    expect(headers).toContain('precip')
+    // Marine key columns replace humidity + uv
+    expect(headers).toContain('sea_surface_temperature')
+    expect(headers).toContain('wave_height')
+    // Dropped to keep 6 data cols
+    expect(headers).not.toContain('humidity')
+    expect(headers).not.toContain('uv')
+    // Non-key columns are absent
+    expect(headers).not.toContain('pressure')
+    expect(headers).not.toContain('gusts')
+    expect(headers).not.toContain('wave_period')
+    expect(headers).not.toContain('wave_direction')
   })
 
   it('clicking a row still fires onSelectHour with the row center', async () => {

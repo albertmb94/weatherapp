@@ -13,6 +13,7 @@ interface LocaleContextValue {
 const LocaleContext = createContext<LocaleContextValue | null>(null)
 
 const DEFAULT_LOCALE: Locale = 'es'
+export { DEFAULT_LOCALE }
 
 // M3: avoid hydration mismatch. The server always renders the default
 // locale; on the client we read localStorage / navigator.language on

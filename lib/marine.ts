@@ -1,4 +1,4 @@
-import type { Metric } from './models'
+import type { Metric, MetricId } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { parseOpenMeteoTimes } from './dateUtils'
 
@@ -134,4 +134,98 @@ export async function fetchMarine(
   }
 
   return { time, timeStrings, series, utcOffsetSeconds: data.utc_offset_seconds ?? 0 }
+}
+
+/**
+ * Sprint 14: grid variant of `fetchMarine`. The map heatmap needs
+ * the same marine metric at N coordinates (a 6×8 grid = 48 points
+ * by default); calling `fetchMarine` for each point would issue 48
+ * sequential `/api/marine` requests and a serial SST pass. Instead
+ * we run all the points through `fetchMarine` in parallel batches
+ * so the map heatmap can render the marine layer without the
+ * previous "always-null" dead end.
+ *
+ * Output shape matches `fetchHeatmapGrid`: `series[i]` is the
+ * value-array for grid point `i`, ordered the same as `latLngs`.
+ * When a grid point has no data (out-of-coverage, fetch rejected,
+ * etc.) the corresponding entry is `null`. The `times` array is
+ * shared by every entry and reflects the union of the timestamps
+ * the underlying requests returned; in practice the API uses
+ * `timezone=auto` and `forecast_days` uniformly so the timestamps
+ * match across points.
+ *
+ * Concurrency is bounded by `MAX_CONCURRENCY` (default 6) so a
+ * single map heatmap fetch never exceeds 6 simultaneous
+ * `/api/marine` calls; on mobile that matters because the API has
+ * a per-IP rate limit and we don't want a heatmap zoom-in to lock
+ * out the rest of the app.
+ */
+export interface MarineGridResult {
+  series: (number | null)[][]
+  times: Date[]
+  /** True when at least one grid point had no usable data. The map
+   *  surfaces this as a soft warning rather than an error — partial
+   *  coverage (e.g. half over sea, half over land) is expected when
+   *  the user pans inland. */
+  partialCoverage: boolean
+}
+
+const MAX_CONCURRENCY = 6
+
+export async function fetchMarineGrid(
+  latLngs: { lat: number; lng: number }[],
+  metric: MetricId,
+  forecastDays: number,
+  signal?: AbortSignal
+): Promise<MarineGridResult> {
+  if (latLngs.length === 0) {
+    return { series: [], times: [], partialCoverage: false }
+  }
+  const metricDef: Metric | undefined = [
+    { id: 'sea_surface_temperature', label: '', unit: '', hourlyParam: 'sea_surface_temperature', group: 'marine' },
+    { id: 'wave_height', label: '', unit: '', hourlyParam: 'wave_height', group: 'marine' },
+    { id: 'wave_period', label: '', unit: '', hourlyParam: 'wave_period', group: 'marine' },
+    { id: 'wave_direction', label: '', unit: '', hourlyParam: 'wave_direction', group: 'marine' },
+    { id: 'wind_wave_height', label: '', unit: '', hourlyParam: 'wind_wave_height', group: 'marine' },
+    { id: 'wind_wave_period', label: '', unit: '', hourlyParam: 'wind_wave_period', group: 'marine' },
+    { id: 'swell_wave_height', label: '', unit: '', hourlyParam: 'swell_wave_height', group: 'marine' },
+    { id: 'swell_wave_period', label: '', unit: '', hourlyParam: 'swell_wave_period', group: 'marine' },
+  ].find(m => m.id === metric)
+  if (!metricDef) {
+    return { series: latLngs.map(() => []), times: [], partialCoverage: true }
+  }
+
+  const out: ((number | null)[] | null)[] = new Array(latLngs.length).fill(null)
+  let times: Date[] = []
+  let partialCoverage = false
+
+  let cursor = 0
+  async function worker(): Promise<void> {
+    while (cursor < latLngs.length) {
+      if (signal?.aborted) return
+      const idx = cursor++
+      const { lat, lng } = latLngs[idx]
+      try {
+        const result = await fetchMarine(lat, lng, [metricDef!], forecastDays, signal)
+        if (signal?.aborted) return
+        if (times.length === 0) times = result.time
+        const values = result.series.marine_global?.[metricDef!.id] ?? []
+        out[idx] = values.length > 0 ? values : null
+        if (values.length === 0) partialCoverage = true
+      } catch {
+        if (signal?.aborted) return
+        out[idx] = null
+        partialCoverage = true
+      }
+    }
+  }
+
+  const concurrency = Math.min(MAX_CONCURRENCY, latLngs.length)
+  await Promise.all(Array.from({ length: concurrency }, () => worker()))
+
+  return {
+    series: out.map(v => v ?? []),
+    times,
+    partialCoverage,
+  }
 }

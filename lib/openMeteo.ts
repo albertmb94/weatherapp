@@ -1,7 +1,7 @@
 import type { WeatherModel, Metric, MetricId } from './models'
 import { METRICS, MODELS } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
-import { fetchMarine, computeMarineDays } from './marine'
+import { fetchMarine, computeMarineDays, fetchMarineGrid } from './marine'
 import { parseOpenMeteoTimes } from './dateUtils'
 import { HEATMAP_MAX_MODELS } from './heatmapConfig'
 import { selectModelsForLocation } from './regionDetection'
@@ -347,8 +347,29 @@ export async function fetchHeatmapGrid(
     return { series: [], times: [], modelCapExceeded: false, requestedModels: 0, usedModels: 0 }
   }
 
-  const hourlyParam = METRICS.find(m => m.id === metric)?.hourlyParam
-  if (!hourlyParam) throw new Error(`Unknown metric: ${metric}`)
+  const metricDef = METRICS.find(m => m.id === metric)
+  if (!metricDef) throw new Error(`Unknown metric: ${metric}`)
+
+  // Sprint 14: marine metrics have a different upstream (the marine
+  // API, not /api/forecast). Routing them through the same code path
+  // used to silently return all-null series, which is why the
+  // marine pill in the map looked broken. We now dispatch to
+  // `fetchMarineGrid` which fans out per-cell `fetchMarine` calls
+  // with bounded concurrency. The model-set is irrelevant for
+  // marine (the marine API uses a single best-match model per
+  // request), so we report `requestedModels === 0` and no cap.
+  if (metricDef.group === 'marine') {
+    const grid = await fetchMarineGrid(latLngs, metric, forecastDays, signal)
+    return {
+      series: grid.series,
+      times: grid.times,
+      modelCapExceeded: false,
+      requestedModels: 0,
+      usedModels: 0,
+    }
+  }
+
+  const hourlyParam = metricDef.hourlyParam
 
   const lats = latLngs.map(p => p.lat.toFixed(3)).join(',')
   const lngs = latLngs.map(p => p.lng.toFixed(3)).join(',')

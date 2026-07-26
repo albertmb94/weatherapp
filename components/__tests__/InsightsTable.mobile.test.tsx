@@ -77,32 +77,35 @@ function wrap(node: React.ReactNode) {
 }
 
 /**
- * Pin `matchMedia` to a known portrait phone viewport so the
- * component's `isMobilePortrait` flag resolves deterministically.
- * The default jsdom matchMedia returns `matches: false` which
- * would skip the mobile-portrait column filter and break the
- * no-overflow invariant.
+ * Pin `matchMedia` to known viewport states so the component's
+ * `isMobilePortrait` / `isMobileLandscape` flags resolve
+ * deterministically. The default jsdom matchMedia returns
+ * `matches: false` which would skip every mobile branch and
+ * break the invariants.
  */
-function setMatchMediaPortrait(value: boolean) {
-  const mql: MediaQueryList = {
-    matches: value,
-    media: '(max-width: 767px) and (orientation: portrait)',
+function setMatchMedia(queries: Record<string, boolean>) {
+  const createMql = (mq: string): MediaQueryList => ({
+    matches: queries[mq] ?? false,
+    media: mq,
     onchange: null,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     addListener: vi.fn(),
     removeListener: vi.fn(),
     dispatchEvent: vi.fn(),
-  }
+  })
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     configurable: true,
-    value: vi.fn(() => mql),
+    value: vi.fn((mq: string) => createMql(mq)),
   })
 }
 
+const PORTRAIT_Q = '(max-width: 767px) and (orientation: portrait)'
+const LANDSCAPE_Q = '(max-width: 1023px) and (orientation: landscape)'
+
 describe('InsightsTable — mobile portrait, table only (no card layout)', () => {
-  beforeEach(() => setMatchMediaPortrait(true))
+  beforeEach(() => setMatchMedia({ [PORTRAIT_Q]: true, [LANDSCAPE_Q]: false }))
 
   it('always renders the <table> on phone portrait (no card layout)', async () => {
     render(wrap(
@@ -224,6 +227,12 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     expect(headers).not.toContain('gusts')
     expect(headers).not.toContain('wave_period')
     expect(headers).not.toContain('wave_direction')
+    // Container must stay overflow-x-hidden even with Marine ON
+    // (horizontal scroll is not allowed on portrait)
+    const containers = Array.from(document.querySelectorAll('div'))
+      .filter(d => d.className.includes('max-h-[70vh]'))
+    expect(containers.length).toBeGreaterThan(0)
+    expect(containers[0].className).toContain('overflow-x-hidden')
   })
 
   it('clicking a row still fires onSelectHour with the row center', async () => {
@@ -277,7 +286,7 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
 })
 
 describe('InsightsTable — desktop non-portrait renders the full column set', () => {
-  beforeEach(() => setMatchMediaPortrait(false))
+  beforeEach(() => setMatchMedia({ [PORTRAIT_Q]: false, [LANDSCAPE_Q]: false }))
 
   it('renders every non-marine column on desktop', async () => {
     render(wrap(
@@ -303,5 +312,46 @@ describe('InsightsTable — desktop non-portrait renders the full column set', (
     expect(headers).toContain('dewpoint')
     expect(headers).toContain('visibility')
     expect(headers).toContain('gusts')
+  })
+})
+
+describe('InsightsTable — mobile landscape with Marine + Basic shows scroll', () => {
+  beforeEach(() => setMatchMedia({ [PORTRAIT_Q]: false, [LANDSCAPE_Q]: true }))
+
+  it('container has overflow-x-auto when Marine + Basic are both active on landscape', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        showMarine={true}
+        onMarineToggle={() => {}}
+        showBasic={true}
+        onBasicToggle={() => {}}
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    const containers = Array.from(document.querySelectorAll('div'))
+      .filter(d => d.className.includes('max-h-[70vh]'))
+    expect(containers.length).toBeGreaterThan(0)
+    const container = containers[0]
+    // Must allow horizontal scroll so the user can reach every column
+    expect(container.className).toContain('overflow-x-auto')
+    // The full column set is present (basic + marine)
+    const headers = Array.from(document.querySelectorAll('thead th')).map(
+      th => th.getAttribute('data-col-id')
+    )
+    expect(headers).toContain('pressure')
+    expect(headers).toContain('gusts')
+    expect(headers).toContain('wave_period')
+    expect(headers).toContain('wave_direction')
   })
 })

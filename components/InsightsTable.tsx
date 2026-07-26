@@ -278,9 +278,14 @@ function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
     case 'visibility':
       return cellInner({ value: r.visibilityMean, metric: 'visibility', suffix: 'km', decimals: 1 })
     case 'sea_surface_temperature':
-      return cellInner({ value: r.seaTempMean, metric: 'sea_surface_temperature', suffix: '°', decimals: 1 })
+      // Sprint 14 fix: 0 decimals so "27.8°" (5 chars) becomes
+      // "28°" (3 chars) and fits inside the 48 px column on
+      // mobile portrait without triggering text-overflow ellipsis.
+      return cellInner({ value: r.seaTempMean, metric: 'sea_surface_temperature', suffix: '°', decimals: 0 })
     case 'wave_height':
-      return cellInner({ value: r.waveHeightMax, metric: 'wave_height', suffix: 'm', decimals: 1 })
+      // Sprint 14 fix: the unit "m" is omitted so "0.7m" (4 chars)
+      // becomes "0.7" (3 chars) and fits cleanly in 48 px.
+      return cellInner({ value: r.waveHeightMax, metric: 'wave_height', suffix: '', decimals: 1 })
     case 'wave_period':
       return cellInner({ value: r.wavePeriodMean, metric: 'wave_period', suffix: 's', decimals: 0 })
     case 'wave_direction':
@@ -815,6 +820,22 @@ export default function InsightsTable({
     return () => mq.removeEventListener('change', update)
   }, [])
 
+  // Sprint 14 / landscape scroll: when the user activates Marine +
+  // Basic on a phone in landscape, the full column set (~21 cols)
+  // overflows the viewport and every cell gets text-overflow:
+  // ellipsis. We detect landscape-on-phone here so the container
+  // can switch from overflow-x-hidden to overflow-x-auto,
+  // letting the user scroll horizontally through the columns.
+  const [isMobileLandscape, setIsMobileLandscape] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(max-width: 1023px) and (orientation: landscape)')
+    const update = (e: MediaQueryListEvent | MediaQueryList) => setIsMobileLandscape(e.matches)
+    update(mq)
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
   // Sprint 14 revert (v2): the column set for mobile portrait is split
   // into basic and marine so `showMarine` controls whether marine
   // columns appear. Previously both were in one set, which caused
@@ -1024,7 +1045,19 @@ export default function InsightsTable({
           // horizontal scroll event to track. The visual hint
           // gradients are also gone. We keep the ref because the
           // pagination hook uses it for scroll-to-top.
-          className="relative overflow-x-hidden max-h-[70vh] contain-[layout_style_paint] md:overflow-auto"
+          //
+          // Sprint 14 / landscape scroll: when Marine + Basic are
+          // both active on a phone in landscape, the full column
+          // set (~21 cols) overflows ~800 px. We switch to
+          // overflow-x-auto so the user can scroll horizontally
+          // through the columns without losing the overview.
+          className={`relative max-h-[70vh] contain-[layout_style_paint] ${
+            isMobilePortrait
+              ? 'overflow-x-hidden'
+              : isMobileLandscape && showMarine && showBasic
+                ? 'overflow-x-auto'
+                : 'overflow-x-hidden md:overflow-auto'
+          }`}
         >
           {/* Sprint 14: scroll-hint gradients removed. The previous
               gradient masks signalled "more content to scroll" on

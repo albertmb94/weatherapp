@@ -37,6 +37,8 @@ import { saveLastForecast, loadLastForecast } from '@/lib/forecastIndexedDB'
 import { useHourSlider } from '@/lib/hooks/useHourSlider'
 import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
 import { useClientNow } from '@/lib/hooks/useClientNow'
+import { useUsageProfile } from '@/lib/hooks/useUsageProfile'
+import ProfilePicker from '@/components/ProfilePicker'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
 // in the background. The user asked for this to kick in at 4h for
@@ -175,6 +177,7 @@ export default function HomeContent() {
   // outcome toast is disabled (see comment near the useEffect that
   // previously set it) so we don't read `lastOutcome` here.
   const { refresh } = useRefresh()
+  const [usageProfile, setUsageProfile] = useUsageProfile()
   const queryClient = useQueryClient()
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
@@ -975,6 +978,12 @@ export default function HomeContent() {
               className="p-3 md:p-4 lg:p-6 space-y-3 md:space-y-4"
             >
               {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map' || selectedView === 'stations') && (
+                <>
+                <ProfilePicker
+                  value={usageProfile}
+                  onChange={setUsageProfile}
+                  className="max-w-xl"
+                />
                 <FriendlyHome
                   city={cityName}
                   cityIsLoading={isLoading && !viewData}
@@ -999,6 +1008,7 @@ export default function HomeContent() {
                   // toggle says.
                   ensembleMode={ensembleMode}
                 />
+                </>
               )}
 
               {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map') && (

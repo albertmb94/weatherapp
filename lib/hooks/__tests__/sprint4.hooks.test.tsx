@@ -63,21 +63,29 @@ describe('useClientNow', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('returns null on SSR-style render and starts ticking after mount', () => {
+  it('returns a finite number from the very first render', () => {
     const { result } = renderHook(() => useClientNow())
-    // In React Testing Library, the first render is already after
-    // mount; we therefore expect a number, not null.
     expect(typeof result.current).toBe('number')
+    expect(Number.isFinite(result.current)).toBe(true)
   })
 
   it('ticks at the requested interval', () => {
     const { result } = renderHook(() => useClientNow(60_000))
     const first = result.current
     act(() => {
-      vi.setSystemTime(new Date(Date.now() + 60_000))
       vi.advanceTimersByTime(60_000)
     })
     expect(result.current).not.toBe(first)
+  })
+
+  it('with no interval, returns a number on first render', () => {
+    // The hook doesn't tick by itself with `intervalMs = undefined`,
+    // but it always re-issues `setNow(Date.now())` once mounted so the
+    // very first render after the mount includes the live clock value.
+    // We don't try to assert anything about that timing here — we just
+    // make sure the hook doesn't crash and returns a finite number.
+    const { result } = renderHook(() => useClientNow())
+    expect(typeof result.current).toBe('number')
   })
 })
 

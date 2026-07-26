@@ -439,12 +439,12 @@ export default function HomeContent() {
   // state at `null` (matches the SSR render and the first
   // client render) and set the actual `currentTickMs` in the
   // same `useEffect` that starts the tick interval — that
-  // Reuses `useClientNow` so the pattern (null on SSR, ticks at 1min
-  // once mounted) lives in one place. Used to compute `forecastAgeMs`
-  // for the auto-refresh check below.
-  const currentTickMs = useClientNow(60_000)
-  const forecastAgeMs = currentTickMs !== null && lastFetchedAt
-    ? currentTickMs - lastFetchedAt
+  // Reuses `useClientNow` so the pattern (server-time on the SSR
+  // pass, ticking every 1 min thereafter) lives in one place. Drives
+  // the `forecastAgeMs` calculation that powers auto-refresh below.
+  const currentTickMs = useClientNow(60_000) ?? 0
+  const forecastAgeMs = lastFetchedAt
+    ? Math.max(0, currentTickMs - lastFetchedAt)
     : null
   const needsAutoRefresh = forecastAgeMs !== null && forecastAgeMs >= AUTO_REFRESH_AGE_MS
   useEffect(() => {
@@ -697,7 +697,13 @@ export default function HomeContent() {
   const startIndex = useMemo(() => {
     const effectiveData = data ?? offlineSnapshot?.data
     if (!effectiveData?.time?.length) return 0
-    const referenceMs = effectiveData.fetchedAt ?? Date.now()
+    // Prefer the upstream `fetchedAt`; fall back to the client clock
+    // only when the response didn't carry one (offline snapshot path).
+    // `currentTickMs` is the React-managed wall clock that ticks each
+    // minute, which lets `startIndex` "slide" with the wall clock —
+    // if the user leaves the tab open past midnight the startIndex
+    // advances to the new day without a refetch.
+    const referenceMs = effectiveData.fetchedAt ?? currentTickMs
     // Convert the UTC reference timestamp into the location's
     // UTC-fake-local representation (same shape as the time[]
     // entries), then floor to the hour. `getLocationNow` does the
@@ -711,7 +717,7 @@ export default function HomeContent() {
       if (t instanceof Date && t.getTime() >= nowTs) return i
     }
     return effectiveData.time.length
-  }, [data, offlineSnapshot])
+  }, [data, offlineSnapshot, currentTickMs])
 
   // Use live data if available, otherwise fall back to offline snapshot
   const effectiveData = data ?? offlineSnapshot?.data ?? null

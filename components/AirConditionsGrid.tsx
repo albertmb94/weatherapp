@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
 import { formatAge } from '@/lib/formatAge'
+import { useClientNow } from '@/lib/hooks/useClientNow'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
 
 interface AirConditionsGridProps {
@@ -172,16 +173,10 @@ export default function AirConditionsGrid({
   // render) and set the actual `nowMs` in the same `useEffect`
   // that starts the tick interval — that runs only on the
   // client AFTER hydration.
-  const [nowMs, setNowMs] = useState<number | null>(null)
-  useEffect(() => {
-    setNowMs(Date.now())
-    const t = setInterval(() => setNowMs(Date.now()), 60_000)
-    return () => clearInterval(t)
-  }, [])
-  const uvAgeMs = nowMs !== null
-    && liveUvValidAt instanceof Date
+  const nowMs = useClientNow(60_000) ?? 0
+  const uvAgeMs = liveUvValidAt instanceof Date
     && !Number.isNaN(liveUvValidAt.getTime())
-    ? nowMs - liveUvValidAt.getTime()
+    ? Math.max(0, nowMs - liveUvValidAt.getTime())
     : null
   const uvTitle = uvAgeMs !== null
     ? `${locale === 'en' ? 'Live UV, updated ' : 'UV en vivo, actualizado hace '}${formatAge(uvAgeMs, locale)}`

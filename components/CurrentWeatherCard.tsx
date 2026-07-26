@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
 import { CONDITION_LABEL, STRINGS } from '@/lib/i18n'
 import type { WeatherIconId } from '@/lib/weatherIcon'
@@ -27,6 +27,11 @@ interface CurrentWeatherCardProps {
   nowcastTemperatureC?: number | null
   nowcastDeltaC?: number | null
   nowcastStationName?: string | null
+  /** Wall-clock timestamp (ms) used to compute the weekday label in
+   *  the user's locale. The card deliberately does NOT call
+   *  `new Date()` itself — that would break React 19 Strict Mode
+   *  purity rules when the parent's value drifts between renders. */
+  wallClockMs?: number
 }
 
 function formatTemp(value: number | null): string {
@@ -55,38 +60,24 @@ export default function CurrentWeatherCard({
   nowcastTemperatureC = null,
   nowcastDeltaC = null,
   nowcastStationName = null,
+  wallClockMs,
 }: CurrentWeatherCardProps) {
   const { locale } = useLocale()
   const iconId: WeatherIconId = snapshot ? snapshot.icon : 'sunny'
   const condition = snapshot ? CONDITION_LABEL[locale][snapshot.icon] : ''
   const showHighLow = snapshot && snapshot.dailyHighC !== null && snapshot.dailyLowC !== null
-  // B-NEW-20 (2026-07-27): weekday name must NOT be computed
-  // during render — `new Date()` returns the server's clock
-  // during SSR (UTC, container timezone) and the client's
-  // clock during hydration (user timezone), and the
-  // `toLocaleDateString` formatter uses the rendering
-  // environment's locale + timezone. The two values can differ
-  // by a weekday boundary (e.g. server says "sábado" at 23:30
-  // UTC, client says "domingo" at 01:30 CET), which React
-  // detects as a hydration mismatch on the rendered text node
-  // and aborts with error #418. We start the state empty so
-  // SSR and the first client render are identical, then set
-  // the actual weekday in a useEffect once the component is
-  // mounted on the client. There is a 1-frame flash before the
-  // label appears; that's the right trade-off vs. an SSR-side
-  // heuristic that would have to mirror the client's locale
-  // and timezone (Vercel runs SSR in iad1 on UTC, so we'd
-  // never agree with the client's browser).
-  const [weekdayLabel, setWeekdayLabel] = useState('')
-  useEffect(() => {
-    if (!snapshot) {
-      setWeekdayLabel('')
-      return
-    }
-    setWeekdayLabel(
-      new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'es-ES', { weekday: 'long' }),
+  // Weekday label: derive from a stable wall-clock provided by the
+  // parent. We never call `new Date()` here so the SSR render and the
+  // first client render produce the same string (otherwise the
+  // server's UTC clock and the client's local TZ could differ across
+  // a weekday boundary, triggering React #418).
+  const weekdayLabel = useMemo(() => {
+    if (typeof wallClockMs !== 'number') return ''
+    return new Date(wallClockMs).toLocaleDateString(
+      locale === 'en' ? 'en-US' : 'es-ES',
+      { weekday: 'long', timeZone: 'UTC' },
     )
-  }, [snapshot, locale])
+  }, [wallClockMs, locale])
 
   return (
     <section

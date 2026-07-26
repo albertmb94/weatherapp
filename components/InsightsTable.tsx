@@ -10,6 +10,7 @@ import { resolveActiveModels, weightsFor, weightsForAbsolute, ensembleWithFallba
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
+import { useClientNow } from '@/lib/hooks/useClientNow'
 import WeatherConditionIcon from './WeatherConditionIcon'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
@@ -559,11 +560,13 @@ export default function InsightsTable({
   // only runs on the client after hydration. The 1-frame flash where
   // "today" labels are wrong is the documented trade-off vs. an SSR
   // mismatch that aborts the whole tree.
-  const [nowMs, setNowMs] = useState<number | null>(null)
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setNowMs((times[0] instanceof Date) ? times[0].getTime() : Date.now())
-  }, [times])
+  // "Today" anchor for the bucket labels: prefer the upstream `times[0]`
+  // (a stable stamp from the Open-Meteo response) and fall back to the
+  // client wall clock only when the response didn't carry a time array.
+  // Using `useSyncExternalStore` (via `useClientNow`) keeps React 19
+  // strict-mode clean while still ticking every minute.
+  const wallClock = useClientNow(60_000)
+  const nowMs: number | null = times[0] instanceof Date ? times[0].getTime() : wallClock
 
   const isDefaultOrder = useMemo(
     () => columnOrder.every((id, i) => id === DEFAULT_ORDER[i]),

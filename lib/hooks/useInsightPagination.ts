@@ -30,9 +30,13 @@ export function useInsightPagination(
   remaining: number
   /** `onNextClick` and `onPrevClick` are the JSX-friendly handlers
    *  that scroll the container to the top of the table after
-   *  changing page. Pass the table ref into them. */
-  onNextClick: (tableRef: React.RefObject<HTMLDivElement>) => void
-  onPrevClick: (tableRef: React.RefObject<HTMLDivElement>) => void
+   *  changing page. Pass the table ref into them. The ref type
+   *  matches what `useRef<HTMLDivElement | null>(null)` produces
+   *  (an initially-null mutable ref) because that's the shape
+   *  every call site uses; declaring it as `RefObject<HTMLDivElement>`
+   *  (non-nullable) would force callers to cast. */
+  onNextClick: (tableRef: React.RefObject<HTMLDivElement | null>) => void
+  onPrevClick: (tableRef: React.RefObject<HTMLDivElement | null>) => void
 } {
   const [page, setPage] = useState(0)
   const prevBucketRef = useRef<number>(bucket)
@@ -54,7 +58,7 @@ export function useInsightPagination(
     [visibleStart, visibleEnd],
   )
 
-  const onNextClick = useCallback((tableRef: React.RefObject<HTMLDivElement>) => {
+  const onNextClick = useCallback((tableRef: React.RefObject<HTMLDivElement | null>) => {
     if (visibleEnd >= rowCount) return
     setPage(p => p + 1)
     requestAnimationFrame(() => {
@@ -63,7 +67,7 @@ export function useInsightPagination(
     })
   }, [rowCount, visibleEnd])
 
-  const onPrevClick = useCallback((tableRef: React.RefObject<HTMLDivElement>) => {
+  const onPrevClick = useCallback((tableRef: React.RefObject<HTMLDivElement | null>) => {
     setPage(p => Math.max(0, p - 1))
     requestAnimationFrame(() => {
       const el = tableRef.current

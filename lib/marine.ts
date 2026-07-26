@@ -181,7 +181,14 @@ export async function fetchMarineGrid(
   if (latLngs.length === 0) {
     return { series: [], times: [], partialCoverage: false }
   }
-  const metricDef: Metric | undefined = [
+  // Inline `as const` so TypeScript keeps the `id` literal types
+  // (MetricId) instead of widening them to plain `string`. The
+  // previous form (a plain object literal) lost the literal type
+  // and broke `.find(m => m.id === metric)` because the resulting
+  // type's `id` field was just `string`, not assignable to
+  // MetricId. The `as Metric[]` then re-establishes the
+  // structured shape.
+  const marineMetrics: Metric[] = [
     { id: 'sea_surface_temperature', label: '', unit: '', hourlyParam: 'sea_surface_temperature', group: 'marine' },
     { id: 'wave_height', label: '', unit: '', hourlyParam: 'wave_height', group: 'marine' },
     { id: 'wave_period', label: '', unit: '', hourlyParam: 'wave_period', group: 'marine' },
@@ -190,7 +197,8 @@ export async function fetchMarineGrid(
     { id: 'wind_wave_period', label: '', unit: '', hourlyParam: 'wind_wave_period', group: 'marine' },
     { id: 'swell_wave_height', label: '', unit: '', hourlyParam: 'swell_wave_height', group: 'marine' },
     { id: 'swell_wave_period', label: '', unit: '', hourlyParam: 'swell_wave_period', group: 'marine' },
-  ].find(m => m.id === metric)
+  ]
+  const metricDef = marineMetrics.find(m => m.id === metric)
   if (!metricDef) {
     return { series: latLngs.map(() => []), times: [], partialCoverage: true }
   }

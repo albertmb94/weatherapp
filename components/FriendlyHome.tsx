@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { WeatherModel } from '@/lib/models'
+import type { MetricId, WeatherModel } from '@/lib/models'
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
 import { getLocationNow } from '@/lib/dateUtils'
@@ -9,9 +9,44 @@ import {
   computeCurrentSnapshot,
   type CurrentSnapshot,
 } from '@/lib/friendlyForecast'
+import { useNowcast } from '@/lib/hooks/useNowcast'
+import type { StationObservation } from '@/lib/nowcast'
 import CurrentWeatherCard from './CurrentWeatherCard'
 import HourlyForecastStrip from './HourlyForecastStrip'
 import AirConditionsGrid from './AirConditionsGrid'
+
+/**
+ * Build a per-hour "mean across contributing models" series for a
+ * given metric. Used by the nowcast hook so we can compare the
+ * ensemble average with the closest station reading without having
+ * to recompute the weights on every render. `null` for hours with no
+ * contributing model.
+ */
+function buildMeanSeries(
+  time: Date[],
+  series: Record<string, Record<string, (number | null)[]>>,
+  metric: MetricId,
+): (number | null)[] {
+  // The horizon is bounded by the longest array we find across models.
+  // We don't try to align different lengths; instead we walk i while
+  // every model still has a slot and stop otherwise.
+  let maxLen = 0
+  for (const modelId of Object.keys(series)) {
+    const arr = series[modelId]?.[metric]
+    if (Array.isArray(arr) && arr.length > maxLen) maxLen = arr.length
+  }
+  maxLen = Math.min(maxLen, time.length || Infinity)
+  const out: (number | null)[] = []
+  for (let i = 0; i < maxLen; i++) {
+    const samples: number[] = []
+    for (const modelId of Object.keys(series)) {
+      const v = series[modelId]?.[metric]?.[i]
+      if (typeof v === 'number') samples.push(v)
+    }
+    out.push(samples.length > 0 ? samples.reduce((a, b) => a + b, 0) / samples.length : null)
+  }
+  return out
+}
 
 interface FriendlyHomeProps {
   city: string
@@ -52,6 +87,10 @@ interface FriendlyHomeProps {
   /** Daily accumulated precipitation aligned with `time` by index 0.
    *  Surfaced in the AirConditionsGrid "Total hoy" tile. */
   dailyPrecipitationSum?: (number | null)[]
+  /** Stations within the user's radius. The friendly cards blend the
+   *  ensemble reading at the current hour with the closest fresh
+   *  station so the "now" reading carries real-world anchoring. */
+  stations?: StationObservation[]
 }
 
 export default function FriendlyHome({
@@ -70,6 +109,7 @@ export default function FriendlyHome({
   forecastAgeMs = null,
   ensembleMode = 'wedai',
   dailyPrecipitationSum,
+  stations = [],
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -100,6 +140,26 @@ export default function FriendlyHome({
     )
   }, [time, nowIndex, utcOffsetSeconds])
 
+  // S10: blend the closest fresh station with the first hour of the
+  // ensemble. Only effective while the user is on "now" (`isLiveNow`).
+  // On future hours we hide the result so the user sees the pure ensemble.
+  const hourlyTemperatureC = useMemo(
+    () => buildMeanSeries(time, series, 'temperature'),
+    [time, series],
+  )
+  const hourlyPrecipitationMm = useMemo(
+    () => buildMeanSeries(time, series, 'precipitation'),
+    [time, series],
+  )
+  const nowcastResult = useNowcast({
+    userLat: 0,
+    userLon: 0,
+    nowIndex,
+    hourlyTemperatureC,
+    hourlyPrecipitationMm,
+    stations,
+  })
+
   return (
     <div className="space-y-3 md:space-y-4">
       <CurrentWeatherCard
@@ -110,6 +170,13 @@ export default function FriendlyHome({
         forecastAgeMs={forecastAgeMs}
         liveUv={liveUvIndex ?? null}
         liveUvValidAt={liveUvValidAt ?? null}
+        nowcastTemperatureC={isLiveNow ? nowcastResult.temperatureC : null}
+        nowcastDeltaC={isLiveNow ? nowcastResult.observationDeltaC : null}
+        nowcastStationName={
+          isLiveNow && nowcastResult.station
+            ? `${nowcastResult.station.id} · ${nowcastResult.station.distanceKm.toFixed(1)} km`
+            : null
+        }
       />
       <HourlyForecastStrip
         models={models}

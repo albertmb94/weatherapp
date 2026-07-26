@@ -20,6 +20,13 @@ interface CurrentWeatherCardProps {
   liveUv?: number | null
   /** Timestamp for the live UV reading. */
   liveUvValidAt?: Date | null
+  /** Optional nowcast result from `useNowcast`. When the closest
+   *  station is fresh we display the blended temperature and a Δ
+   *  vs the ensemble so the user can tell whether the station sees
+   *  things differently from the model. */
+  nowcastTemperatureC?: number | null
+  nowcastDeltaC?: number | null
+  nowcastStationName?: string | null
 }
 
 function formatTemp(value: number | null): string {
@@ -41,7 +48,14 @@ const ICON_BG: Record<WeatherIconId, string> = {
   snowy: 'from-sky-200/25 to-slate-400/15',
 }
 
-export default function CurrentWeatherCard({ city, snapshot, loading }: CurrentWeatherCardProps) {
+export default function CurrentWeatherCard({
+  city,
+  snapshot,
+  loading,
+  nowcastTemperatureC = null,
+  nowcastDeltaC = null,
+  nowcastStationName = null,
+}: CurrentWeatherCardProps) {
   const { locale } = useLocale()
   const iconId: WeatherIconId = snapshot ? snapshot.icon : 'sunny'
   const condition = snapshot ? CONDITION_LABEL[locale][snapshot.icon] : ''
@@ -117,18 +131,28 @@ export default function CurrentWeatherCard({ city, snapshot, loading }: CurrentW
             ) : null}
           </p>
         </div>
-        <div className="flex items-end gap-3 md:gap-5">
+          <div className="flex items-end gap-3 md:gap-5">
           <div className="flex flex-col items-end">
             {loading ? (
               <div className="h-16 w-24 rounded bg-surface-popover animate-pulse" />
             ) : (
               <span className="text-6xl md:text-7xl font-extralight text-text-primary leading-none tabular-nums">
-                {formatTemp(snapshot?.temperatureC ?? null)}
+                {nowcastTemperatureC !== null ? formatTemp(nowcastTemperatureC) : formatTemp(snapshot?.temperatureC ?? null)}
               </span>
             )}
             <span className="mt-1 text-[10px] uppercase tracking-widest text-text-muted">
               {weekdayLabel}
             </span>
+            {nowcastTemperatureC !== null && nowcastDeltaC !== null && nowcastDeltaC !== 0 ? (
+              <span
+                className={`mt-1 text-[10px] tabular-nums ${
+                  nowcastDeltaC > 0 ? 'text-rose-400' : 'text-sky-400'
+                }`}
+                title={nowcastStationName ?? undefined}
+              >
+                {nowcastDeltaC > 0 ? '+' : ''}{nowcastDeltaC.toFixed(1)}° vs ensemble
+              </span>
+            ) : null}
           </div>
           <BigWeatherIcon id={iconId} />
         </div>

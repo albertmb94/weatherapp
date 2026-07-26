@@ -1,8 +1,19 @@
-// SW version is injected at build time so a new deployment can purge the
-// previous cache deterministically. Generic scoping rules from public/sw.js.
-const SW_VERSION = 'weather-2026-07-19' // bumped manually on each deploy
-const CACHE_NAME = `${SW_VERSION}-static`
-const RUNTIME_CACHE = `${SW_VERSION}-runtime`
+// SW version is injected at build time by `next.config.ts` so a new
+// deployment can purge the previous cache deterministically. The
+// placeholder below is replaced before bundling; if you see this
+// comment in a deployed bundle the build pipeline is broken.
+//
+// `__SW_BUILD_ID__` will be a short hash like `weather-2026-07-26.abc1234`.
+// Older deployments that lack the hash will keep their existing cache.
+// `__SW_BUILD_ID_FALLBACK__` is the manual bump counter used when
+// the build pipeline isn't running (e.g. `npm run dev`).
+const SW_VERSION = '__SW_BUILD_ID__'
+const SW_VERSION_FALLBACK = '__SW_BUILD_ID_FALLBACK__'
+const EFFECTIVE_VERSION = (SW_VERSION === '__SW_BUILD_ID__')
+  ? `weather-dev-${SW_VERSION_FALLBACK}`
+  : SW_VERSION
+const CACHE_NAME = `${EFFECTIVE_VERSION}-static`
+const RUNTIME_CACHE = `${EFFECTIVE_VERSION}-runtime`
 const PRECACHE_URLS = ['/', '/manifest.json', '/icon-192.svg']
 
 self.addEventListener('install', (event) => {
@@ -18,7 +29,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => !k.startsWith(SW_VERSION))
+          .filter((k) => !k.startsWith(EFFECTIVE_VERSION))
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())

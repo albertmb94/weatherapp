@@ -53,7 +53,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </ErrorBoundary>
         <script
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,
+            // The SW is served through `/api/sw` so the build-time
+            // version stamp from `next.config.ts` is injected into the
+            // served source (see `app/api/sw/route.ts`). Registering
+            // with a path-based URL keeps the same scope (`/`) and lets
+            // us add `Cache-Control: no-store` to the response.
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/api/sw').catch(()=>{})})}`,
           }}
         />
       </body>

@@ -149,3 +149,90 @@ New shared hooks in `lib/hooks/`:
   hooks.
 - `docs/SPRINTS.md` (this file) summarises the S0–S11 refactor plan
   and its outcomes.
+
+### S12 — InsightsTable refactor
+- `lib/hooks/useColumnOrder.ts`: column-order state + persistence
+  + reorder helper.
+- `lib/hooks/useDragReorder.ts`: drag-state machine used by the
+  Insights column picker.
+- `lib/hooks/useInsightPagination.ts`: 48-row pager for the
+  insights table.
+- `components/HeatCell.tsx` and `components/InsightsToolbar.tsx`
+  extracted from the 1708-line `InsightsTable.tsx`.
+- `lib/__tests__/sprint11.insightsMeta.test.ts` covers the
+  extracted helpers (4 tests).
+
+### S13 — Profile = auto-derived, never user-selected
+The previous `ProfilePicker` banner (Sprint 1.3) was a UI selector
+backed by `useUsageProfile` (localStorage key `weather-profile`).
+The hardcoded `PROFILE_RECOMMENDATIONS` table was exported but
+never consumed: the banner promised a per-profile ensemble bias
+and delivered nothing. Sprint 13 wires the bias to actual data and
+hides the picker.
+
+**What changed**
+
+- `lib/profiles.ts`: new module. `UsageProfile` is now a 4-value
+  string literal union (`plain`, `coastal`, `mountain`, `urban`).
+  `deriveProfileFromTerrain(terrain)` maps the 6 `TerrainType`
+  values down to those 4 profiles. Confidence below 0.6 always
+  falls back to `plain`.
+- `lib/ensemble/central.ts`: new `weightsForProfile(metric,
+  hourIndex, bucketHours, activeModels, recommended, profile)`. It
+  is a profile-aware wrapper over `weightsFor` that applies a +5%
+  boost (capped at 2× the original weight) to every model that is
+  both active and in the backtest recommendation set. `profile
+  === 'plain'` and an empty recommendation set both short-circuit
+  to the unmodified `weightsFor` output.
+- `lib/backtest/db.ts`: new `getModelAccuracyByTerrain(terrain,
+  metric, leadTimeBucket, { topN, windowDays })`. Terrain-wide
+  query (no specific lat/lon), ordered by RMSE ASC, limited to
+  `topN` (default 5) within a 90-day rolling window. Returns `[]`
+  when the DB is unavailable or no rows match.
+- `lib/hooks/useEffectiveProfile.ts`: new React hook. Resolves the
+  profile from `classifyTerrain(lat, lon)` asynchronously; caches
+  the result per ~1 km grid so the elevation API isn't hit on
+  every render. The hook never throws — failures are surfaced via
+  `result.error` and the caller falls back to the un-boosted
+  ensemble.
+- `components/ProfileChip.tsx`: small badge rendered next to the
+  "Tiempo actual" card. Shows `Perfil: <name> · <N models>` when
+  the boost is taking effect, `Perfil: <name> · No regional bias`
+  otherwise. Hidden entirely while the classifier is in flight.
+- `lib/friendlyForecast.ts`: every `meanAcrossModels` call inside
+  `computeCurrentSnapshot` now threads `profile` and `recommended`
+  down to `weightsForProfile`. Default args preserve the
+  pre-S13 behaviour byte-for-byte when the caller doesn't pass
+  them (e.g. older tests).
+- `components/ProfilePicker.tsx`, `lib/hooks/useUsageProfile.ts`
+  and the `PROFILE_RECOMMENDATIONS` table are deleted. The
+  `localStorage` `weather-profile` key is no longer read or
+  written.
+
+**Tests added** (40 across the sprint, total 539 → 579 passing)
+
+- `lib/__tests__/sprint13.profiles.test.ts` (13 tests) — the
+  terrain → profile mapping and confidence fallback.
+- `lib/ensemble/__tests__/sprint13.weightsForProfile.test.ts`
+  (11 tests) — boost, renormalisation, cap, and short-circuit
+  semantics.
+- `lib/backtest/__tests__/sprint13.getModelAccuracyByTerrain.test.ts`
+  (6 tests) — query construction, options, and graceful empty
+  fall-back.
+- `lib/hooks/__tests__/sprint13.useEffectiveProfile.test.tsx`
+  (9 tests) — derivation, caching, error capture.
+- `lib/__tests__/sprint13.snapshotProfile.test.ts` (4 tests) —
+  end-to-end integration through `computeCurrentSnapshot`.
+
+**User-visible behaviour**
+
+- The ProfilePicker banner is gone.
+- A small `ProfileChip` next to the "Tiempo actual" card shows
+  the active profile (`Costero`, `Montaña`, `Urbano`, `Llanura`).
+- When the backtest has rows for the current terrain, the chip
+  shows how many recommended models are being boosted. The
+  ensemble reading shifts by a few percent in their direction;
+  the ranking stays stable.
+- The Marine toggle remains 100% manual. The coastal profile
+  recommends marine models in the ensemble, but it never turns
+  the toggle on.

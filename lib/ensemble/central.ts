@@ -99,6 +99,66 @@ export function weightsFor(
 }
 
 /**
+ * Profile-boosted variant of `weightsFor`. Sprint 13: applies a
+ * small multiplicative boost to the models that the backtest has
+ * identified as the most accurate on the current location's terrain
+ * (`recommended` list, already filtered to the active model set by
+ * the caller). The boost is intentionally tiny — it nudges the
+ * ranking without changing the calibrated ensemble by a meaningful
+ * amount.
+ *
+ * Rules:
+ *   - `profile === 'plain'` or `recommended` empty → returns the
+ *     unmodified `weightsFor` result. Plain never applies a profile
+ *     bias because there's no signal to apply.
+ *   - For each model in `recommended` AND `activeModels`, the
+ *     weight is multiplied by `(1 + BOOST)`. The boost is the
+ *     BOOST_PER_MODEL constant (5%).
+ *   - The boosted weights are clamped to at most 2× the original
+ *     weight, so a zero-weight fallback never gets a free boost.
+ *   - After the boost the weights are renormalised to sum to 1 so
+ *     the `weightedAvg` helper still produces a convex combination.
+ *
+ * The recommended list is a subset of the active set; the caller
+ * (typically `home-content.tsx` via the `useEffectiveProfile` hook)
+ * is responsible for intersecting the backtest output with the
+ * models the user has currently selected. This keeps the function
+ * pure and easy to test.
+ */
+export const BOOST_PER_MODEL = 0.05
+export const MAX_BOOST_RATIO = 2.0
+
+export function weightsForProfile(
+  metric: MetricId,
+  hourIndex: number,
+  bucketHours: number,
+  activeModels: WeatherModel[],
+  recommended: ReadonlySet<string>,
+  profile: import('@/lib/profiles').UsageProfile | null
+): number[] {
+  const base = weightsFor(metric, hourIndex, bucketHours, activeModels)
+  // Profile 'plain' (and missing/null) short-circuit to the
+  // un-boosted weight vector. Plain is the "we don't know" profile;
+  // `null` means the caller hasn't yet derived a profile (the
+  // classifier hasn't returned). An empty recommendation means the
+  // backtest hasn't written any rows yet.
+  if (!profile || profile === 'plain' || recommended.size === 0) return base
+  if (activeModels.length === 0) return base
+
+  const boosted = activeModels.map((m, i) => {
+    if (!recommended.has(m.id)) return base[i]
+    const original = base[i]
+    if (original <= 0) return original
+    const capped = Math.min(original * MAX_BOOST_RATIO, original * (1 + BOOST_PER_MODEL))
+    return capped
+  })
+
+  const sum = boosted.reduce((acc, w) => acc + w, 0)
+  if (sum <= 0) return base
+  return boosted.map(w => w / sum)
+}
+
+/**
  * Same as `weightsFor`, but takes an ABSOLUTE hour index (already
  * offset by `startIndex`). Use this in callers that consume a
  * trimmed `viewTimes` and need their bucket to match the

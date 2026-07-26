@@ -48,7 +48,7 @@ function MetricChip({ cell, label }: MetricChipProps) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-surface-popover/40 px-2 py-1 text-[11px] font-mono tabular-nums"
-      data-mobile-card-chip=""
+      data-testid="mobile-card-chip"
     >
       <span className="text-text-tertiary uppercase tracking-wide text-[9px] font-semibold">
         {label}
@@ -101,7 +101,7 @@ function MobileInsightsCardImpl({
       }}
       aria-label={label}
       aria-pressed={isActive}
-      data-mobile-insights-card=""
+      data-testid="mobile-insights-card"
       data-active={isActive ? 'true' : 'false'}
       className={`block w-full text-left rounded-xl border ${isActive ? 'border-accent ring-1 ring-inset ring-accent/40 bg-accent-soft/30' : 'border-border bg-surface-raised/60'} px-3 py-2.5 mb-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent`}
     >

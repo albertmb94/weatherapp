@@ -47,6 +47,11 @@ interface InsightsTableProps {
    *  the "AHORA" slot of the hourly strip regardless of the user's
    *  `ensembleMode` toggle. Other rows still respect `ensembleMode`. */
   currentHourMode?: 'wedai' | 'models'
+  /** Sprint 14 (test-only): when provided, forces the
+   *  `isMobilePortrait` flag, bypassing the `matchMedia` detection.
+   *  Lets the mobile-portrait card layout be exercised in jsdom
+   *  without faking the MediaQueryList. Undefined in production. */
+  __forceMobilePortrait?: boolean
 }
 
 interface Row {
@@ -323,6 +328,7 @@ export default function InsightsTable({
    *  the "AHORA" slot of the hourly strip regardless of the user's
    *  `ensembleMode` toggle. Other rows still respect `ensembleMode`. */
   currentHourMode = 'wedai',
+  __forceMobilePortrait,
 }: InsightsTableProps) {
   const { locale } = useLocale()
 
@@ -807,8 +813,13 @@ export default function InsightsTable({
   // of the unfiltered table on first paint (acceptable
   // trade-off vs. introducing a SSR-side viewport-detection
   // heuristic that would have to mirror the client).
-  const [isMobilePortrait, setIsMobilePortrait] = useState(false)
+  //
+  // Sprint 14: `__forceMobilePortrait` (test-only prop) lets jsdom
+  // skip the matchMedia dance and render the mobile-card branch
+  // directly. Production code never sets it.
+  const [isMobilePortrait, setIsMobilePortrait] = useState(__forceMobilePortrait === true)
   useEffect(() => {
+    if (__forceMobilePortrait !== undefined) return
     if (typeof window === 'undefined' || !window.matchMedia) return
     const mq = window.matchMedia('(max-width: 767px) and (orientation: portrait)')
     const update = (e: MediaQueryListEvent | MediaQueryList) => setIsMobilePortrait(e.matches)

@@ -17,7 +17,8 @@
  *   - future refactors can move the JSX one block at a time
  *     instead of a multi-file rewrite.
  */
- *
+
+/**
  * The big table component owns the JSX; this module owns the pure
  * functions that turn a `(times, series, models)` payload into
  * ready-to-render `Row[]` rows and that drive the per-cell

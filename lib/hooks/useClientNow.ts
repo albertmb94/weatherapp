@@ -45,7 +45,7 @@ export function useClientNow(intervalMs?: number): number | null {
 function cachedServerNow(intervalMs?: number): number {
   if (typeof window !== 'undefined') return Date.now()
   const key = `__WEATHER_SERVER_NOW_${intervalMs ?? 'once'}__`
-  const g = globalThis as Record<string, number | undefined>
+  const g = globalThis as unknown as Record<string, number | undefined>
   if (typeof g[key] !== 'number') {
     g[key] = Date.now()
   }

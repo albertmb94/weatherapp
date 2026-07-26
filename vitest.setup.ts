@@ -10,8 +10,7 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     unobserve() {}
     disconnect() {}
   }
-  // @ts-expect-error — adding a structural polyfill
-  globalThis.ResizeObserver = StubResizeObserver
+  globalThis.ResizeObserver = StubResizeObserver as unknown as typeof ResizeObserver
 }
 
 // IntersectObserver is similarly absent; the MapPicker uses it

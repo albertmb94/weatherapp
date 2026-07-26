@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { buildForecastCacheKey } from '@/lib/cacheKey'
+import { buildForecastCacheKey, buildUpstreamParams } from '@/lib/cacheKey'
 import { getCachedForecast, getCachedForecastStale, setCachedForecast } from '@/lib/forecastCache'
 import { rateLimit } from '@/lib/rateLimit'
 import {
@@ -31,13 +31,12 @@ export async function GET(request: Request) {
     searchParams.set('timezone', 'auto')
   }
 
-  // B-NEW-4: build the cache key BEFORE stripping internal-only params
-  // like `v` (the cache-bust stamp from lib/openMeteo.ts) so the
-  // version is part of the hashed key. Then remove it before
-  // forwarding to Open-Meteo so the upstream URL stays clean and
-  // doesn't confuse the provider's own cache.
+  // Build the cache key BEFORE stripping internal-only params like
+  // `v` (cache-bust stamp from `lib/openMeteo.ts`) so the version is
+  // part of the hashed key. `buildUpstreamParams` then removes the
+  // stripped params before forwarding to Open-Meteo.
   const cacheKey = buildForecastCacheKey(searchParams)
-  searchParams.delete('v')
+  const upstreamParams = buildUpstreamParams(searchParams)
 
   try {
     const cached = await getCachedForecast(cacheKey)
@@ -57,9 +56,13 @@ export async function GET(request: Request) {
     console.warn('forecast_cache lookup failed', err)
   }
 
-  const upstream = `https://api.open-meteo.com/v1/forecast?${searchParams.toString()}`
+  const upstream = `https://api.open-meteo.com/v1/forecast?${upstreamParams.toString()}`
   try {
-    const { res, modelsRejected } = await fetchOpenMeteoWithModelFallback(upstream, searchParams)
+    const { res, modelsRejected } = await fetchOpenMeteoWithModelFallback(
+      upstream,
+      upstreamParams,
+      request.signal,
+    )
     const text = await res.text()
     if (!res.ok) {
       const stale = await getCachedForecastStale(cacheKey).catch(() => null)

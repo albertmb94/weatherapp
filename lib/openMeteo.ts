@@ -322,6 +322,11 @@ export async function fetchHeatmapGrid(
     hourly: hourlyParam,
     models: modelsParam,
     forecast_days: forecastDays.toString(),
+    // past_days=1 makes the grid cover "yesterday → horizon" so the
+    // MapPicker can anchor the painted cell to the same UTC-fake-local
+    // timestamp the main forecast uses, instead of guessing on absolute
+    // hours.
+    past_days: '1',
     timezone: 'auto',
   })
 
@@ -332,11 +337,15 @@ export async function fetchHeatmapGrid(
   const points: { hourly?: Record<string, (number | null)[] | string[]> }[] = Array.isArray(data) ? data : [data]
 
   const firstWithTime = points.find(p => Array.isArray(p?.hourly?.time))
-  const times: Date[] = firstWithTime
-    ? (firstWithTime.hourly!.time as string[]).map(t => new Date(t))
+  // Use `parseOpenMeteoTime` (not `new Date(t)`) so the grid honours
+  // the same UTC-fake-local trick as the rest of the app. Without it,
+  // non-standard offsets like IST +05:30 / NPT +05:45 misalign the
+  // painted cell vs the daily summary.
+  const times: Date[] = firstWithTime && Array.isArray(firstWithTime.hourly?.time)
+    ? parseOpenMeteoTimes(firstWithTime.hourly!.time as string[])
     : []
 
-  // Open-Meteo drops the model suffix when only one model is requested.
+
   const singleKey = hourlyParam
   const isSingle = heatmapModels.length === 1
 

@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/lib/cacheKey', () => ({
-  buildMarineCacheKey: vi.fn(() => 'test-marine-cache-key'),
-}))
+vi.mock('@/lib/cacheKey', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/cacheKey')>('@/lib/cacheKey')
+  return {
+    ...actual,
+    buildMarineCacheKey: vi.fn(() => 'test-marine-cache-key'),
+  }
+})
 
 vi.mock('@/lib/marineCache', () => ({
   getCachedMarine: vi.fn(),

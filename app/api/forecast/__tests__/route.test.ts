@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock dependencies before importing the route
-vi.mock('@/lib/cacheKey', () => ({
-  buildForecastCacheKey: vi.fn(() => 'test-cache-key'),
-}))
+// Mock dependencies before importing the route.
+// `buildUpstreamParams` is left un-mocked so it strips `v` like the
+// real implementation; this way the route test verifies that v never
+// reaches the upstream fetch.
+vi.mock('@/lib/cacheKey', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/cacheKey')>('@/lib/cacheKey')
+  return {
+    ...actual,
+    buildForecastCacheKey: vi.fn(() => 'test-cache-key'),
+  }
+})
 
 vi.mock('@/lib/forecastCache', () => ({
   getCachedForecast: vi.fn(),

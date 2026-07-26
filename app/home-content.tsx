@@ -1080,7 +1080,7 @@ export default function HomeContent() {
                       metric={selectedMetric}
                       selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
                       hourIndex={safeSelectedHour}
-                      mapTimes={effectiveData?.time ?? []}
+                      viewTimes={effectiveData?.time ?? []}
                       showRadar={showRadar}
                     />
                     <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-surface-raised/90 p-2 rounded-lg shadow-lg pointer-events-none">

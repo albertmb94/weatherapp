@@ -16,18 +16,20 @@
  */
 
 export function parseOpenMeteoTime(iso: string): Date {
-  // B-NEW-10 (docs): the supported input shapes are:
-  //  - `"YYYY-MM-DDTHH:MM"`     (no offset → treated as location-local)
-  //  - `"YYYY-MM-DDTHH:MM:SS"`  (same)
-  //  - `"YYYY-MM-DDTHH:MMZ"`    (UTC)
-  //  - `"YYYY-MM-DDTHH:MM±HH:MM"` (explicit offset, e.g. `+05:30`)
-  // Anything else (e.g. `+0530` without colon, fractional seconds, named
-  // TZs) falls back to appending `Z`, which is what the old implementation
-  // already did — callers that pass exotic strings get a best-effort Date.
-  // Open-Meteo itself only emits the first two formats in practice.
-  const safe = iso.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z'
-  return new Date(safe)
+  // ISO 8601 timestamps we accept as-is without appending `Z`:
+  //   - trailing `Z`
+  //   - `±HH:MM`, `±HHMM` (no colon), `±HH:MM:SS`, `±HHMMSS` (with seconds)
+  // Anything else (no offset) is treated as location-local and gets a
+  // `Z` suffix so the resulting Date is "UTC-fake-local": the absolute
+  // ms become the location's local time expressed in UTC. Callers must
+  // read the Date with `getUTC*` / `toLocaleString({ timeZone: 'UTC' })`.
+  const hasOffset = /Z$|[+-]\d{2}:?\d{2}(:?\d{2})?$/.test(iso)
+  return new Date(hasOffset ? iso : `${iso}Z`)
 }
+
+/** Exposed for unit tests so they can pin the supported offset shapes
+ *  without re-declaring the regex. */
+export const OPEN_METEO_TIME_OFFSET_RE = /[+-]\d{2}:?\d{2}(:?\d{2})?$/
 
 export function parseOpenMeteoTimes(times: string[]): Date[] {
   return times.map(parseOpenMeteoTime)

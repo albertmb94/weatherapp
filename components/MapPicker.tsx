@@ -32,13 +32,14 @@ interface MapPickerProps {
   showHeatmap: boolean
   metric: MetricId
   selectedModels: string[]
-  /** Index into the heatmap-grid series to render (0-based hour slot). */
+  /** Absolute hour index into the main forecast's `viewTimes` array.
+   *  Used as the anchor timestamp for the heatmap (see S2). */
   hourIndex: number
-  /** Latest available timestamp in the grid series (Unix ms). The heatmap
-   *  series is 7 days long and shares no past_days with the main forecast
-   *  series, so we can no longer reuse the absolute `startIndex` from the
-   *  main response — alignment must happen by timestamp. */
-  mapTimes?: Date[]
+  /** Full time series from the main forecast (`viewTimes`). The heatmap
+   *  paints the cell whose grid timestamp is closest to
+   *  `viewTimes[hourIndex]` — this is what unblocks alignment and
+   *  avoids the previous "heatmap freezes at day 7" drift. */
+  viewTimes?: Date[]
   showRadar: boolean
 }
 
@@ -163,7 +164,7 @@ export default function MapPicker({
   metric,
   selectedModels,
   hourIndex,
-  mapTimes,
+  viewTimes,
   showRadar,
 }: MapPickerProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
@@ -310,26 +311,31 @@ export default function MapPicker({
 
     ctx.clearRect(0, 0, cw, ch)
 
-    // The grid series has its own time axis (typically 7 days forward from
-    // "today at 00:00 local" without the 3-day past_days of the main
-    // forecast). Indexing it by `hourIndex + nowOffset` previously caused
-    // a ~3-day drift (startIndex was 72+h). Align by timestamp instead.
+    // Anchor the painted cell to the absolute timestamp of the main
+    // forecast (`viewTimes[hourIndex]`). We accept a tolerance of
+    // ±90 min so DST days that compress or stretch the hour slots
+    // don't snap to the wrong day. If the anchor is past the last
+    // available grid slot, `realIdx` lands at the end and the next
+    // effect surfaces the gap via the status line.
+    const TOLERANCE_MS = 90 * 60_000
     let realIdx = hourIndex
-    if (mapTimes && mapTimes.length > 0 && mapTimes[0] instanceof Date) {
-      const base = mapTimes[0].getTime()
-      const targetMs = base + hourIndex * 3_600_000
-      let bestIdx = 0
+    const anchor = viewTimes?.[hourIndex]
+    const gridLength = gridSeries[0]?.length ?? 0
+    if (anchor instanceof Date && gridLength > 0 && viewTimes && viewTimes.length > 0) {
+      const anchorMs = anchor.getTime()
+      let bestIdx = -1
       let bestDelta = Infinity
-      for (let i = 0; i < mapTimes.length; i++) {
-        const t = mapTimes[i]
+      const limit = Math.min(viewTimes.length, gridLength)
+      for (let i = 0; i < limit; i++) {
+        const t = viewTimes[i]
         if (!(t instanceof Date)) continue
-        const delta = Math.abs(t.getTime() - targetMs)
+        const delta = Math.abs(t.getTime() - anchorMs)
         if (delta < bestDelta) {
           bestDelta = delta
           bestIdx = i
         }
       }
-      realIdx = bestIdx
+      if (bestIdx !== -1 && bestDelta <= TOLERANCE_MS) realIdx = bestIdx
     }
     const values = gridSeries.map(series => series?.[realIdx] ?? null)
     const allNull = values.every(v => v === null)
@@ -362,7 +368,7 @@ export default function MapPicker({
     }
 
     ctx.putImageData(imageData, 0, 0)
-  }, [mapInstance, gridCells, gridSeries, hourIndex, mapTimes, effectiveMetric])
+  }, [mapInstance, gridCells, gridSeries, hourIndex, viewTimes, effectiveMetric])
 
   useEffect(() => {
     if (!showHeatmap || !mapInstance) return

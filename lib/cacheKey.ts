@@ -13,7 +13,22 @@
  * - All other params are sorted alphabetically.
  */
 const LATLON_DECIMALS = 2
-const SKIP_PARAMS = new Set<string>()
+/** Params stripped from the upstream URL only (the cache key keeps them
+ *  so the version stamp acts as a cache-buster).
+ *
+ *   - `v` is the client-issued cache-bust stamp emitted by
+ *     `lib/openMeteo.ts`. It must never reach the provider — Open-Meteo
+ *     ignores it but it leaks the version in their access logs.
+ */
+export const STRIPPED_UPSTREAM_KEYS = new Set<string>(['v'])
+
+/**
+ * @deprecated Use `STRIPPED_UPSTREAM_KEYS` — the previous name was
+ * misleading because only the upstream URL is stripped, not the cache
+ * key itself. Kept as an alias for backwards compatibility with
+ * external imports during the migration window.
+ */
+export const STRIPPED_KEYS = STRIPPED_UPSTREAM_KEYS
 
 function roundCoord(s: string): string {
   const n = Number(s)
@@ -54,7 +69,6 @@ export function buildForecastCacheKey(params: URLSearchParams): string {
 
   for (const [k, v] of params.entries()) {
     if (k === 'latitude' || k === 'longitude') continue
-    if (SKIP_PARAMS.has(k)) continue
     entries.push([k, v])
   }
 
@@ -79,10 +93,26 @@ export function buildMarineCacheKey(params: URLSearchParams): string {
   for (const [k, v] of params.entries()) {
     if (k === 'latitude' || k === 'longitude') continue
     if (k === 'models') continue
-    if (SKIP_PARAMS.has(k)) continue
     entries.push([k, v])
   }
 
   entries.sort(([a], [b]) => a.localeCompare(b))
   return entries.map(([k, v]) => `${k}=${v}`).join('|')
+}
+
+/**
+ * Build the upstream URL by stripping cache-buster params (`v`) so the
+ * provider never sees them. Cache keys intentionally keep them so a
+ * version bump invalidates entries without admin intervention.
+ *
+ * Returns a fresh `URLSearchParams` so callers can mutate without
+ * affecting the incoming request.
+ */
+export function buildUpstreamParams(params: URLSearchParams): URLSearchParams {
+  const out = new URLSearchParams()
+  for (const [k, v] of params.entries()) {
+    if (STRIPPED_UPSTREAM_KEYS.has(k)) continue
+    out.set(k, v)
+  }
+  return out
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { buildMarineCacheKey } from '@/lib/cacheKey'
+import { buildMarineCacheKey, buildUpstreamParams } from '@/lib/cacheKey'
 import { getCachedMarine, getCachedMarineStale, setCachedMarine } from '@/lib/marineCache'
 import { rateLimit } from '@/lib/rateLimit'
 import { fetchWithRetry, parseOpenMeteoResponse } from '@/lib/api/openMeteoProxy'
@@ -24,6 +24,7 @@ export async function GET(request: Request) {
   }
 
   const cacheKey = buildMarineCacheKey(searchParams)
+  const upstreamParams = buildUpstreamParams(searchParams)
 
   try {
     const cached = await getCachedMarine(cacheKey)
@@ -43,9 +44,9 @@ export async function GET(request: Request) {
     console.warn('marine_cache lookup failed', err)
   }
 
-  const url = `https://marine-api.open-meteo.com/v1/marine?${searchParams.toString()}`
+  const url = `https://marine-api.open-meteo.com/v1/marine?${upstreamParams.toString()}`
   try {
-    const res = await fetchWithRetry(url)
+    const res = await fetchWithRetry(url, request.signal)
     const text = await res.text()
     if (!res.ok) {
       const stale = await getCachedMarineStale(cacheKey).catch(() => null)

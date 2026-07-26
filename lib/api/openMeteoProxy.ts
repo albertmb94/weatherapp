@@ -38,17 +38,39 @@ function extractRejectedModel(body: string, requestedModels: string[]): string |
   return null
 }
 
-export async function fetchWithRetry(url: string): Promise<Response> {
+export async function fetchWithRetry(url: string, signal?: AbortSignal): Promise<Response> {
   // Outer loop: retries for transient failures (429, 5xx).
-  let res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+  // `signal` lets the caller abort the upstream fetch when the client
+  // disconnects; combine it with our own per-request timeout so an
+  // idle client can't keep the upstream running on Vercel.
+  const combinedSignal = combineSignals(signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS))
+  let res = await fetch(url, { signal: combinedSignal })
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (res.ok || !RETRYABLE_STATUSES.has(res.status)) return res
     const retryAfterMs = parseRetryAfterMs(res.headers.get('retry-after'))
     const delay = retryAfterMs ?? BASE_DELAY_MS * Math.pow(2, attempt)
     await new Promise(r => setTimeout(r, delay))
-    res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    res = await fetch(url, { signal: combineSignals(signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)) })
   }
   return res
+}
+
+/** Combine two AbortSignals into one. The returned signal fires when
+ *  either of the inputs fires. We don't use the built-in `any` because
+ *  older runtimes (and jsdom in tests) lack it. */
+function combineSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined {
+  if (!a && !b) return undefined
+  if (!a) return b
+  if (!b) return a
+  const controller = new AbortController()
+  const onAbort = () => controller.abort()
+  if (a.aborted || b.aborted) {
+    controller.abort()
+    return controller.signal
+  }
+  a.addEventListener('abort', onAbort, { once: true })
+  b.addEventListener('abort', onAbort, { once: true })
+  return controller.signal
 }
 
 /** Variant used by the forecast route: if Open-Meteo rejects the request
@@ -57,12 +79,13 @@ export async function fetchWithRetry(url: string): Promise<Response> {
  *  pathological loops. */
 export async function fetchOpenMeteoWithModelFallback(
   requestUrl: string,
-  requestParams: URLSearchParams
+  requestParams: URLSearchParams,
+  signal?: AbortSignal
 ): Promise<{ res: Response; modelsUsed: string[]; modelsRejected: string[] }> {
   const requested = (requestParams.get('models') ?? '').split(',').filter(Boolean)
   let url = requestUrl
   const modelsRejected: string[] = []
-  let res = await fetchWithRetry(url)
+  let res = await fetchWithRetry(url, signal)
   if (res.status !== MODEL_NOT_FOUND_STATUS || requested.length === 0) {
     return { res, modelsUsed: requested, modelsRejected }
   }
@@ -74,7 +97,7 @@ export async function fetchOpenMeteoWithModelFallback(
     const params = new URLSearchParams(requestParams)
     params.delete('models')
     url = `${new URL(requestUrl).origin}${new URL(requestUrl).pathname}?${params.toString()}`
-    res = await fetchWithRetry(url)
+    res = await fetchWithRetry(url, signal)
     modelsRejected.push(...requested)
     return { res, modelsUsed: [], modelsRejected }
   }
@@ -89,7 +112,7 @@ export async function fetchOpenMeteoWithModelFallback(
     params.delete('models')
   }
   url = `${new URL(requestUrl).origin}${new URL(requestUrl).pathname}?${params.toString()}`
-  res = await fetchWithRetry(url)
+  res = await fetchWithRetry(url, signal)
   return { res, modelsUsed: params.get('models')?.split(',').filter(Boolean) ?? [], modelsRejected }
 }
 

@@ -11,6 +11,7 @@ import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import { useClientNow } from '@/lib/hooks/useClientNow'
+import { useInsightPagination } from '@/lib/hooks/useInsightPagination'
 import { heatStyle as heatStyleFn } from './heatStyle'
 import WeatherConditionIcon from './WeatherConditionIcon'
 import MobileInsightsCard from './MobileInsightsCard'
@@ -373,8 +374,12 @@ export default function InsightsTable({
   // bottom of the table advances `currentPage` so the user can step
   // through the full horizon without ever mounting all 336 rows at
   // once. Bucket changes reset to page 0.
-  const PAGE_SIZE = 48
-  const [currentPage, setCurrentPage] = useState(0)
+  //
+  // Sprint 14: the pagination state machine, the slice helper, the
+  // bucket-change reset effect and the scroll-to-top handlers were
+  // extracted to `useInsightPagination` (Sprint 12). The component
+  // just consumes the hook's outputs and renders the existing
+  // markup.
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
   const dragNodeRef = useRef<HTMLTableCellElement | null>(null)
 
@@ -421,13 +426,7 @@ export default function InsightsTable({
 
   // Reset currentPage to 0 whenever the bucket changes so the user
   // always starts at the top of the new window.
-  const prevBucketRef = useRef(bucket)
-  useEffect(() => {
-    if (prevBucketRef.current !== bucket) {
-      setCurrentPage(0)
-      prevBucketRef.current = bucket
-    }
-  }, [bucket])
+// Sprint 14: this effect is now owned by `useInsightPagination`.
 
   // B-NEW-21 (2026-07-27): the "today" anchor used by `bucketLabel`
   // must be the same on the server and the client. The forecast's
@@ -866,17 +865,18 @@ export default function InsightsTable({
   }, [rows, colDefs, bucket])
 
   // Sprint 10 / B-10-7: paginated rendering at 48 rows per page.
-  // Clamp currentPage defensively so a stale state can never render
-  // an out-of-bounds slice (e.g. after a bucket change that shrunk
-  // the row count).
-  const safePage = Math.min(currentPage, Math.max(0, Math.floor((rows.length - 1) / PAGE_SIZE)))
-  const pageStart = safePage * PAGE_SIZE
-  const pageEnd = Math.min(rows.length, pageStart + PAGE_SIZE)
-  const visibleRows = rows.slice(pageStart, pageEnd)
-  const visibleCellsByRow = cellsByRow.slice(pageStart, pageEnd)
-  const hasNext = pageEnd < rows.length
-  const hasPrev = safePage > 0
-  const remaining = rows.length - pageEnd
+  // Sprint 14: the pagination state machine + helpers now live in
+  // `useInsightPagination`. We slice `rows` here using the hook's
+  // computed window and read its `hasNext` / `hasPrev` /
+  // `remaining` flags for the CTA rows below. The hook must be
+  // called AFTER `rows` is computed so the row count we hand it is
+  // accurate (the hook uses it to clamp the page index).
+  const pagination = useInsightPagination(rows.length, bucket)
+  const { visibleStart: pageStart, visibleEnd: pageEnd, visibleRows: paginateRows, hasNext, hasPrev, remaining, onNextClick, onPrevClick } = pagination
+  const visibleRows = paginateRows(rows)
+  const visibleCellsByRow = paginateRows(cellsByRow)
+  const safePage = pagination.page
+  const INSIGHTS_PAGE_SIZE = pagination.pageSize
 
   if (activeModels.length === 0) return null
 
@@ -903,11 +903,11 @@ export default function InsightsTable({
           {/* Sprint 10 / B-10-7: page indicator for paginated buckets
               (1/2/6 h). Helps the user understand how many 48h
               "pages" remain without scrolling to the bottom CTA. */}
-          {rows.length > PAGE_SIZE ? (
+          {rows.length > INSIGHTS_PAGE_SIZE ? (
             <span className="ml-auto text-[10px] tabular-nums text-text-muted">
               {locale === 'en'
-                ? `Page ${safePage + 1} / ${Math.ceil(rows.length / PAGE_SIZE)} · hours ${pageStart + 1}–${pageEnd}`
-                : `Pág. ${safePage + 1} / ${Math.ceil(rows.length / PAGE_SIZE)} · horas ${pageStart + 1}–${pageEnd}`}
+                ? `Page ${safePage + 1} / ${Math.ceil(rows.length / INSIGHTS_PAGE_SIZE)} · hours ${pageStart + 1}–${pageEnd}`
+                : `Pág. ${safePage + 1} / ${Math.ceil(rows.length / INSIGHTS_PAGE_SIZE)} · horas ${pageStart + 1}–${pageEnd}`}
             </span>
           ) : null}
       </div>
@@ -1287,29 +1287,11 @@ export default function InsightsTable({
                 key="__prev-page-cta__"
                 role="button"
                 tabIndex={0}
-                onClick={() => {
-                  setCurrentPage(p => Math.max(0, p - 1))
-                  requestAnimationFrame(() => {
-                    // Guard against jsdom / browsers that don't
-                    // implement scrollTo on a generic element (the
-                    // feature was added later than the underlying
-                    // scroll behaviour). Real browsers always have it.
-                    const el = tableContainerRef.current
-                    if (el && typeof el.scrollTo === 'function') {
-                      el.scrollTo({ top: 0, behavior: 'smooth' })
-                    }
-                  })
-                }}
+                onClick={() => onPrevClick(tableContainerRef)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    setCurrentPage(p => Math.max(0, p - 1))
-                    requestAnimationFrame(() => {
-                      const el = tableContainerRef.current
-                      if (el && typeof el.scrollTo === 'function') {
-                        el.scrollTo({ top: 0, behavior: 'smooth' })
-                      }
-                    })
+                    onPrevClick(tableContainerRef)
                   }
                 }}
                 aria-label="Previous 48 hours"
@@ -1470,34 +1452,17 @@ export default function InsightsTable({
                 key="__next-page-cta__"
                 role="button"
                 tabIndex={0}
-                onClick={() => {
-                  setCurrentPage(p => p + 1)
-                  // Bring the user back to the top of the table
-                  // container so the new page starts under the
-                  // sticky headers instead of mid-scroll.
-                  requestAnimationFrame(() => {
-                    const el = tableContainerRef.current
-                    if (el && typeof el.scrollTo === 'function') {
-                      el.scrollTo({ top: 0, behavior: 'smooth' })
-                    }
-                  })
-                }}
+                onClick={() => onNextClick(tableContainerRef)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    setCurrentPage(p => p + 1)
-                    requestAnimationFrame(() => {
-                      const el = tableContainerRef.current
-                      if (el && typeof el.scrollTo === 'function') {
-                        el.scrollTo({ top: 0, behavior: 'smooth' })
-                      }
-                    })
+                    onNextClick(tableContainerRef)
                   }
                 }}
                 aria-label={
                   locale === 'en'
-                    ? `Show next ${Math.min(PAGE_SIZE, remaining)} hours`
-                    : `Mostrar siguientes ${Math.min(PAGE_SIZE, remaining)} horas`
+                    ? `Show next ${Math.min(INSIGHTS_PAGE_SIZE, remaining)} hours`
+                    : `Mostrar siguientes ${Math.min(INSIGHTS_PAGE_SIZE, remaining)} horas`
                 }
                 className="cursor-pointer bg-surface-popover/40 hover:bg-accent/10 transition-colors focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 data-testid="next-page-cta"
@@ -1507,7 +1472,7 @@ export default function InsightsTable({
                   className="text-center px-2 py-3 text-[11px] text-text-secondary tabular-nums border-t border-border"
                 >
                   <span className="font-semibold text-accent">
-                    {STRINGS[locale].insightsShowNext.replace('{n}', String(Math.min(PAGE_SIZE, remaining)))}
+                    {STRINGS[locale].insightsShowNext.replace('{n}', String(Math.min(INSIGHTS_PAGE_SIZE, remaining)))}
                   </span>
                   <span className="ml-2 text-text-muted">
                     {STRINGS[locale].insightsRowsRemaining.replace('{n}', String(remaining))}

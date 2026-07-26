@@ -49,6 +49,22 @@ export interface ForecastResult {
   /** Fetched-at timestamp (ms since epoch). Used to drive the 4h
    *  auto-refresh and surface data freshness in the UI. */
   fetchedAt: number
+  /** Daily accumulated precipitation (mm/day). One entry per day, aligned
+   *  with the hourly series by index modulo 24. `null` when the provider
+   *  didn't return a `daily` block (e.g. when only a single day was
+   *  requested). Consumed by `AirConditionsGrid` in S10 to surface the
+   *  "Total rain today" cell. */
+  dailyPrecipitationSum: (number | null)[]
+  /** Daily peak of `precipitation_probability` (%). Same alignment as
+   *  `dailyPrecipitationSum`. Used by `DailySummary` to display
+   *  "X% prob. lluvia" without doing a manual `Math.max` over 24 entries. */
+  dailyPrecipitationProbabilityMax: (number | null)[]
+  /** Daily `time[]` array — these are the local-time 00:00 timestamps
+   *  used to label the columns. */
+  dailyTime: Date[]
+  /** Daily counter for hours with measurable precipitation
+   *  (hours of rain). */
+  dailyPrecipitationHours: (number | null)[]
 }
 
 /** "Live" UV reading sourced from Open-Meteo `current=uv_index`. Comes
@@ -132,6 +148,12 @@ export async function fetchForecast(
     latitude: lat.toString(),
     longitude: lon.toString(),
     hourly: hourlyList.join(','),
+    // Daily aggregates surfaced by the dashboard in S10. `precipitation_sum`
+    // is the actual accumulated mm/day (vs the mm/h hourly series that
+    // `CurrentWeatherCard` previously displayed as "total"); `*_max` lets
+    // us show the daily peak probability of precipitation without
+    // re-deriving it from the hourly stream.
+    daily: 'precipitation_sum,precipitation_hours,precipitation_probability_max',
     models: modelIds,
     past_days: pastDays,
     forecast_days: forecastDays.toString(),
@@ -221,12 +243,36 @@ export async function fetchForecast(
     }
   }
 
+  // The daily block is optional in the response — older provider
+  // versions or single-day requests omit it. Fall back to empty arrays
+  // so callers can still index into them without runtime guards.
+  const daily = data.daily ?? {}
+  const dailyTimeStrings: string[] = Array.isArray(daily.time) ? daily.time : []
+  const dailyTime = parseOpenMeteoTimes(dailyTimeStrings)
+  const precipSumRaw = Array.isArray(daily.precipitation_sum) ? daily.precipitation_sum : []
+  const precipProbRaw = Array.isArray(daily.precipitation_probability_max)
+    ? daily.precipitation_probability_max
+    : []
+  const precipHoursRaw = Array.isArray(daily.precipitation_hours)
+    ? daily.precipitation_hours
+    : []
+
   return {
     time,
     timeStrings,
     series,
     utcOffsetSeconds: data.utc_offset_seconds ?? 0,
     fetchedAt,
+    dailyPrecipitationSum: precipSumRaw.map((v: unknown) =>
+      Number.isFinite(Number(v)) ? Number(v) : null,
+    ),
+    dailyPrecipitationProbabilityMax: precipProbRaw.map((v: unknown) =>
+      Number.isFinite(Number(v)) ? Number(v) : null,
+    ),
+    dailyTime,
+    dailyPrecipitationHours: precipHoursRaw.map((v: unknown) =>
+      Number.isFinite(Number(v)) ? Number(v) : null,
+    ),
   }
 }
 

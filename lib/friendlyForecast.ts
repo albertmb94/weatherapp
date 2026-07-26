@@ -92,6 +92,65 @@ function allModelAverage(bag: SeriesBag, metric: string, index: number): number 
   return count > 0 ? sum / count : null
 }
 
+/**
+ * Spread of the WedAI ensemble at a single hour. Used by the friendly
+ * cards to display "± X°" alongside the temperature. Computed as the
+ * weighted standard deviation across contributing models; `null` when
+ * fewer than two models contributed (spread would be zero by
+ * construction and would mislead the user into "high confidence").
+ *
+ * The bug-fix this enables (S10): the previous build never surfaced
+ * the spread, so when two models predicted wildly different
+ * temperatures the UI silently picked one of them. With this signal
+ * exposed we can label the row "high" / "medium" / "low" confidence
+ * and let the user decide whether to trust the card.
+ */
+export function ensembleSpread(
+  bag: SeriesBag,
+  metric: MetricId,
+  index: number,
+  models: WeatherModel[],
+  leadTimeHours: number = 0,
+): { stdDev: number; min: number; max: number; range: number; sampleCount: number } | null {
+  const active = resolveActiveModels(models, [], 'wedai')
+  if (active.length < 2) return null
+  const vals: number[] = []
+  for (const m of active) {
+    const v = bag.series[m.id]?.[metric]?.[index]
+    if (typeof v === 'number' && Number.isFinite(v)) vals.push(v)
+  }
+  if (vals.length < 2) return null
+  const weights = weightsFor(metric, leadTimeHours, 1, active)
+  // Weighted mean using only the contributing models.
+  let sum = 0
+  let wSum = 0
+  for (let i = 0; i < active.length; i++) {
+    const v = bag.series[active[i].id]?.[metric]?.[index]
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue
+    sum += v * weights[i]
+    wSum += weights[i]
+  }
+  const mean = wSum > 0 ? sum / wSum : 0
+  // Standard deviation is computed against the contributing models
+  // unweighted (each model contributes equally to "uncertainty"
+  // regardless of its ensemble weight). The result is a robust
+  // estimator of model-to-model disagreement that's easy for users
+  // to interpret.
+  let sq = 0
+  for (const v of vals) {
+    const d = v - mean
+    sq += d * d
+  }
+  const stdDev = Math.sqrt(sq / vals.length)
+  return {
+    stdDev,
+    min: Math.min(...vals),
+    max: Math.max(...vals),
+    range: Math.max(...vals) - Math.min(...vals),
+    sampleCount: vals.length,
+  }
+}
+
 export interface CurrentSnapshot {
   temperatureC: number | null
   feelsLikeC: number | null
@@ -99,10 +158,17 @@ export interface CurrentSnapshot {
   windGustsKmh: number | null
   precipitationMm: number | null
   chanceOfRainPct: number | null
+  /** Calibrated probability (0-100) of precipitation in the hour. `null`
+   *  when neither the calibrated series nor a fallback is available. */
+  precipitationProbabilityPct: number | null
   uvIndex: number | null
   uvIndexPeak: number | null
   cloudCoverPct: number | null
   humidityPct: number | null
+  /** Ensemble disagreement at the current hour. `null` when fewer
+   *  than two models contributed. The UI surfaces `± X°` next to the
+   *  temperature when present. */
+  spread: ReturnType<typeof ensembleSpread>
   icon: WeatherIconId
   conditionLabel: string
   dailyHighC: number | null
@@ -261,6 +327,11 @@ export function computeCurrentSnapshot(
     minTempC: dailyLow,
   })
 
+  // S10 confidence: surface the spread of the contributing models.
+  // `leadTimeHours` is left at 0 here — the snapshot always reflects the
+  // current hour, never a future lead time.
+  const temperatureSpread = ensembleSpread(bag, 'temperature', hourIndex, models, 0)
+
   return {
     temperatureC: temp,
     feelsLikeC: feelsLike(temp, gusts ?? wind, humidity),
@@ -268,10 +339,12 @@ export function computeCurrentSnapshot(
     windGustsKmh: gusts,
     precipitationMm: precip,
     chanceOfRainPct: rainProbability,
+    precipitationProbabilityPct: rainProbability,
     uvIndex: uv,
     uvIndexPeak: peak,
     cloudCoverPct: cloud,
     humidityPct: humidity,
+    spread: temperatureSpread,
     icon,
     conditionLabel: CONDITION_KEY[icon],
     dailyHighC: dailyHigh,

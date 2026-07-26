@@ -56,12 +56,23 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
     }
     series[modelId] = out
   }
+  // The daily arrays are aligned with the hourly series by construction
+  // (every 24th hourly entry shares an index with the corresponding day),
+  // so the same `.slice(startIndex)` produces a view that's still
+  // aligned with the trimmed hourly series.
+  function sliceArr<T>(arr: T[] | undefined): T[] {
+    return (arr ?? []).slice(startIndex)
+  }
   return {
     time,
     timeStrings,
     series,
     utcOffsetSeconds: data.utcOffsetSeconds,
     fetchedAt: data.fetchedAt,
+    dailyTime: sliceArr(data.dailyTime),
+    dailyPrecipitationSum: sliceArr(data.dailyPrecipitationSum),
+    dailyPrecipitationProbabilityMax: sliceArr(data.dailyPrecipitationProbabilityMax),
+    dailyPrecipitationHours: sliceArr(data.dailyPrecipitationHours),
   }
 }
 

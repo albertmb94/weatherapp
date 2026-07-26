@@ -19,6 +19,7 @@ import FriendlyHome from '@/components/FriendlyHome'
 import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
 import SettingsPanel from '@/components/SettingsPanel'
+import CitiesList from '@/components/CitiesList'
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
 import { fetchForecast, fetchCurrentUv, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
 import { useUrlState } from '@/lib/useUrlState'
@@ -28,12 +29,14 @@ import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
 import { floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
-import { saveLocalLocation, getLocalSavedLocations, deleteLocalLocation } from '@/lib/localStorageLocations'
+import { saveLocalLocation } from '@/lib/localStorageLocations'
 import { useRefresh } from '@/lib/useRefresh'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { saveLastView, loadLastView } from '@/lib/lastView'
 import { saveLastForecast, loadLastForecast } from '@/lib/forecastIndexedDB'
 import { useHourSlider } from '@/lib/hooks/useHourSlider'
+import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
+import { useClientNow } from '@/lib/hooks/useClientNow'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
 // in the background. The user asked for this to kick in at 4h for
@@ -422,13 +425,10 @@ export default function HomeContent() {
   // state at `null` (matches the SSR render and the first
   // client render) and set the actual `currentTickMs` in the
   // same `useEffect` that starts the tick interval — that
-  // runs only on the client AFTER hydration.
-  const [currentTickMs, setCurrentTickMs] = useState<number | null>(null)
-  useEffect(() => {
-    setCurrentTickMs(Date.now())
-    const t = setInterval(() => setCurrentTickMs(Date.now()), 60_000)
-    return () => clearInterval(t)
-  }, [])
+  // Reuses `useClientNow` so the pattern (null on SSR, ticks at 1min
+  // once mounted) lives in one place. Used to compute `forecastAgeMs`
+  // for the auto-refresh check below.
+  const currentTickMs = useClientNow(60_000)
   const forecastAgeMs = currentTickMs !== null && lastFetchedAt
     ? currentTickMs - lastFetchedAt
     : null
@@ -530,13 +530,10 @@ export default function HomeContent() {
   })
 
   // Mirrors the Cities panel's lookup so we can highlight when the current
-  // location is already bookmarked. Cities live entirely in localStorage now.
-  const { data: savedLocations } = useQuery<{ id: number; name: string; latitude: number; longitude: number }[]>({
-    queryKey: ['saved-locations'],
-    queryFn: async () => getLocalSavedLocations(),
-    staleTime: 5 * 60 * 1000,
-    initialData: getLocalSavedLocations,
-  })
+  // location is already bookmarked. Cities live entirely in localStorage now,
+  // routed through the S4 `useSavedLocations` hook so the cache is shared
+  // with `CitiesList` (one query subscription for both panels).
+  const { saved: savedLocations } = useSavedLocations()
 
   const handleCitySelect = useCallback((name: string, lat: number, lon: number) => {
     setCityName(name)
@@ -1298,112 +1295,6 @@ export default function HomeContent() {
           }
         }}
       />
-    </div>
-  )
-}
-
-function CitiesList({
-  onSelect,
-  currentCityName,
-  currentCityId,
-  onSaveCurrent,
-  saving,
-}: {
-  onSelect: (name: string, lat: number, lon: number) => void
-  currentCityName: string
-  currentCityId?: number
-  onSaveCurrent: () => void
-  saving: boolean
-}) {
-  // Saved-cities panel for the Ciudades sidebar entry. Renders the user's
-  // bookmarked locations with a "Save city" CTA so the current weather view
-  // can be bookmarked without leaving the friendly layout. Data lives in
-  // localStorage only — see comment in `saveMutation` above.
-  const { locale } = useLocale()
-  const s = STRINGS[locale]
-  const queryClient = useQueryClient()
-  const { data, isLoading } = useQuery({
-    queryKey: ['saved-locations'],
-    queryFn: async () => getLocalSavedLocations(),
-    staleTime: 5 * 60 * 1000,
-    initialData: getLocalSavedLocations,
-  })
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      deleteLocalLocation(id)
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-locations'] }),
-  })
-
-  const empty = !data || data.length === 0
-
-  return (
-    <div className="space-y-3">
-      <button
-        type="button"
-        onClick={onSaveCurrent}
-        disabled={saving || currentCityId !== undefined}
-        aria-label={s.citiesSaveCurrent}
-        className={`w-full flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
-          currentCityId !== undefined
-            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-            : 'border-border bg-accent text-white hover:bg-accent-hover disabled:opacity-60'
-        }`}
-      >
-        <span className="flex flex-col">
-          <span className="text-sm font-semibold">{s.citiesSaveCurrent}</span>
-          <span
-            className={`text-xs truncate ${currentCityId !== undefined ? 'text-emerald-300/80' : 'text-white/80'}`}
-          >
-            {currentCityName}
-          </span>
-        </span>
-        {saving ? (
-          <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        ) : currentCityId !== undefined ? (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        )}
-      </button>
-
-      {isLoading ? (
-        <p className="text-sm text-text-tertiary">{s.loadingStations}</p>
-      ) : empty ? (
-        <p className="text-sm text-text-tertiary">
-          {s.citiesEmpty} {s.citiesEmptyHint}
-        </p>
-      ) : (
-        <ul className="space-y-1">
-          {data!.map(loc => (
-            <li
-              key={loc.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2"
-            >
-              <button
-                onClick={() => onSelect(loc.name, loc.latitude, loc.longitude)}
-                className="min-h-[36px] flex-1 text-left text-sm text-text-primary hover:text-accent transition-colors"
-              >
-                {loc.name}
-                <span className="block text-xs text-text-tertiary tabular-nums">
-                  {loc.latitude.toFixed(2)}, {loc.longitude.toFixed(2)}
-                </span>
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(loc.id)}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-tertiary hover:text-red-400 transition-colors"
-                aria-label={`Remove ${loc.name}`}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 }

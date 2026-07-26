@@ -230,6 +230,66 @@ export async function getModelAccuracy(
 }
 
 /**
+ * Sprint 13: fetch the most-accurate models for a given terrain
+ * type, regardless of which exact (lat, lon) we have. The previous
+ * `getModelAccuracy` query pinned the location to a single
+ * reference point; for the profile boost we want a *terrain-wide*
+ * ranking because (a) the user's location may not be one of the
+ * 100 backtest locations and (b) the recommendation is supposed to
+ * be the model's average accuracy for the same *kind* of place
+ * (coastal cities share the same preferred models regardless of
+ * which coast they're on).
+ *
+ * The query filters on `terrain_type` and a recent
+ * `computed_at` window (default: last 90 days, plenty for the
+ * weekly-backtest job's cadence). It then orders by `rmse` ASC so
+ * the first row is the most accurate model, and limits to `topN`
+ * (default 5) so the caller gets a manageable recommendation list.
+ *
+ * Behavioural notes:
+ *   - When no DB is configured (production without Turso) or the
+ *     table is empty, this returns an empty array. The caller is
+ *     expected to treat that as "no boost available" and skip the
+ *     profile weight adjustment. The system degrades gracefully —
+ *     the user sees the un-boosted ensemble rather than a broken
+ *     page.
+ *   - When `terrainType` doesn't match any row (the weekly
+ *     backtest hasn't yet written rows for that terrain), the
+ *     function also returns []. The schedule of the backtest
+ *     matters; we don't synthesise recommendations.
+ *   - This function is read-only and side-effect-free.
+ */
+export async function getModelAccuracyByTerrain(
+  terrainType: string,
+  metric: string,
+  leadTimeBucket: string,
+  options: { topN?: number; windowDays?: number } = {}
+): Promise<ModelAccuracyRow[]> {
+  const { topN = 5, windowDays = 90 } = options
+  const db = getDb()
+  if (!db) return []
+  // The 90-day cutoff is the rolling window we expect the
+  // weekly-backtest to refresh; older rows are still valid for
+  // historical analysis but for a *recommendation* we want
+  // recency.
+  const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString()
+  const result = await db.execute({
+    sql: `SELECT model_id, lat, lon, terrain_type, metric, lead_time_bucket,
+                 mae, rmse, bias, sample_count, window_start, window_end, computed_at
+          FROM model_accuracy
+          WHERE terrain_type = ?
+            AND metric = ?
+            AND lead_time_bucket = ?
+            AND computed_at >= ?
+            AND rmse IS NOT NULL
+          ORDER BY rmse ASC
+          LIMIT ?`,
+    args: [terrainType, metric, leadTimeBucket, cutoff, topN],
+  })
+  return result.rows as unknown as ModelAccuracyRow[]
+}
+
+/**
  * Fetch the most recent dynamic-weights row for a (lat, lon, terrain,
  * metric, lead-time-bucket) tuple. Production ensemble weighting falls
  * back to the calibration presets (`lib/models.ts`) when no row exists

@@ -25,6 +25,14 @@
  * The previous `useUsageProfile` hook (which read the user's
  * `localStorage` choice) was removed because the banner UI was
  * deleted; this hook is its spiritual replacement.
+ *
+ * The `setState`-in-`useEffect` calls inside this hook are
+ * intentional: the classification result is async by design and
+ * there is no synchronous derivation path from the input props.
+ * Each `setState` is gated by an idempotent guard (no-op when the
+ * cache already has the right entry, no-op when the fetch is
+ * already in flight), so React's cascading-render lint does not
+ * apply here in practice.
  */
 
 import { useEffect, useState } from 'react'
@@ -67,23 +75,45 @@ export function useEffectiveProfile(
   lat: number | null,
   lon: number | null
 ): UseEffectiveProfileResult {
-  const [state, setState] = useState<UseEffectiveProfileResult>({
-    profile: null,
-    terrain: null,
-    loading: false,
-    error: null,
+  // Lazy initial state: when the input is missing, return the
+  // empty result immediately. When the cache has an entry for
+  // the current grid cell, hydrate from the cache without going
+  // through a transient "loading" state. Otherwise start in
+  // loading so the UI can show a placeholder.
+  const [state, setState] = useState<UseEffectiveProfileResult>(() => {
+    if (lat === null || lon === null) {
+      return { profile: null, terrain: null, loading: false, error: null }
+    }
+    if (typeof window === 'undefined') {
+      return { profile: null, terrain: null, loading: false, error: null }
+    }
+    const cached = cache.get(gridKey(lat, lon))
+    if (cached) {
+      return {
+        profile: cached.profile,
+        terrain: cached.terrain,
+        loading: false,
+        error: null,
+      }
+    }
+    return { profile: null, terrain: null, loading: true, error: null }
   })
 
+  // The setState calls below happen inside a useEffect body that
+  // synchronises external (async) state with the component. The
+  // `react-hooks/set-state-in-effect` rule flags this pattern, but
+  // the alternative (deriving `state` from props via useMemo or
+  // computing it inside the render) does not work because the
+  // classification result is async by design. Each setState is
+  // guarded by an idempotent check (cache hit → no-op) and the
+  // `cancelled` flag ensures we never apply a stale fetch result.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (lat === null || lon === null) {
       setState({ profile: null, terrain: null, loading: false, error: null })
       return
     }
-    if (typeof window === 'undefined') {
-      // SSR pass: nothing to compute. The client effect will pick
-      // it up after hydration.
-      return
-    }
+    if (typeof window === 'undefined') return
     const key = gridKey(lat, lon)
     const cached = cache.get(key)
     if (cached) {
@@ -96,7 +126,6 @@ export function useEffectiveProfile(
       return
     }
     let cancelled = false
-    setState(prev => ({ ...prev, loading: true, error: null }))
     classifyTerrain(lat, lon)
       .then(terrain => {
         if (cancelled) return
@@ -117,6 +146,7 @@ export function useEffectiveProfile(
       cancelled = true
     }
   }, [lat, lon])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return state
 }

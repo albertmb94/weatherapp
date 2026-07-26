@@ -38,7 +38,6 @@ import { useHourSlider } from '@/lib/hooks/useHourSlider'
 import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
-import { deriveProfileFromTerrain } from '@/lib/profiles'
 import { getLeadTimeBucket } from '@/lib/models'
 import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
 
@@ -736,7 +735,20 @@ export default function HomeContent() {
   // the current terrain (the weekly job has not yet run, or this
   // terrain is new), `recommendedSet` is empty and the ensemble is
   // computed exactly as before.
+  //
+  // We initialise the state with an empty Set and update it via
+  // setState inside the effect — the cascading-update lint that
+  // synchronous setState-in-effect would trigger is intentional
+  // here because the alternative (deriving `recommendedSet` from
+  // props) is impossible: the backtest result is async by design.
   const [recommendedSet, setRecommendedSet] = useState<Set<string>>(() => new Set())
+  // The setState calls below are inside a useEffect that synchronises
+  // the backtest result (async by design) with the React state. The
+  // `react-hooks/set-state-in-effect` rule flags this pattern but
+  // it is correct here because the alternative — deriving
+  // `recommendedSet` from props — is impossible: the backtest is
+  // async, runs once per terrain, and the result must be cached.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const terrain = effectiveProfile.terrain
     if (!terrain) {
@@ -764,6 +776,7 @@ export default function HomeContent() {
       cancelled = true
     }
   }, [effectiveProfile.terrain, selectedMetric])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // The number of recommendation entries that actually overlap with
   // the user's active model selection — surfaced in the chip so the

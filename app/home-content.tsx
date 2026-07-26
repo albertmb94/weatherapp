@@ -38,7 +38,11 @@ import { useHourSlider } from '@/lib/hooks/useHourSlider'
 import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useUsageProfile } from '@/lib/hooks/useUsageProfile'
+import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
 import ProfilePicker from '@/components/ProfilePicker'
+import { deriveProfileFromTerrain } from '@/lib/profiles'
+import { getLeadTimeBucket } from '@/lib/models'
+import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
 // in the background. The user asked for this to kick in at 4h for
@@ -178,6 +182,10 @@ export default function HomeContent() {
   // previously set it) so we don't read `lastOutcome` here.
   const { refresh } = useRefresh()
   const [usageProfile, setUsageProfile] = useUsageProfile()
+  // Sprint 13: the auto-derived profile for the current location.
+  // Resolved asynchronously from `classifyTerrain`; `null` until
+  // the elevation API replies (or forever, if it never does).
+  const effectiveProfile = useEffectiveProfile(position[0], position[1])
   const queryClient = useQueryClient()
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
@@ -722,6 +730,59 @@ export default function HomeContent() {
   // Use live data if available, otherwise fall back to offline snapshot
   const effectiveData = data ?? offlineSnapshot?.data ?? null
 
+  // Sprint 13: profile-driven backtest recommendation. The TerrainType
+  // is the raw output of `classifyTerrain` and feeds
+  // `getModelAccuracyByTerrain` (terrain-wide, topN). The result is a
+  // Set<string> of recommended model ids, intersected with the user's
+  // active set so the chip in FriendlyHome reflects what the boost
+  // actually affected. While the backtest hasn't produced rows for
+  // the current terrain (the weekly job has not yet run, or this
+  // terrain is new), `recommendedSet` is empty and the ensemble is
+  // computed exactly as before.
+  const [recommendedSet, setRecommendedSet] = useState<Set<string>>(() => new Set())
+  useEffect(() => {
+    const terrain = effectiveProfile.terrain
+    if (!terrain) {
+      setRecommendedSet(new Set())
+      return
+    }
+    // The lead-time bucket for the recommendation comes from the
+    // current "now" hour (lead time 0). We only query one bucket
+    // (0-24h) — the recommendation is stable enough across lead
+    // times that we don't need to refetch on every hour tick. If
+    // the backtest eventually ships per-bucket recommendations,
+    // this is the place to extend.
+    const leadBucket = getLeadTimeBucket(0)
+    let cancelled = false
+    void getModelAccuracyByTerrain(terrain.type, selectedMetric, leadBucket, { topN: 5 })
+      .then(rows => {
+        if (cancelled) return
+        setRecommendedSet(new Set(rows.map(r => r.model_id)))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setRecommendedSet(new Set())
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [effectiveProfile.terrain, selectedMetric])
+
+  // The number of recommendation entries that actually overlap with
+  // the user's active model selection — surfaced in the chip so the
+  // user can see whether the boost is taking effect (a coastal city
+  // with no marine-aware models active shows 0 even if the backtest
+  // returned a marine recommendation).
+  const usageProfileBoostedCount = useMemo(() => {
+    if (!effectiveProfile.profile) return 0
+    const active = new Set(displayActiveModelIds)
+    let count = 0
+    for (const id of recommendedSet) {
+      if (active.has(id)) count++
+    }
+    return count
+  }, [effectiveProfile.profile, displayActiveModelIds, recommendedSet])
+
   const viewData = useMemo(() => {
     if (!effectiveData) return null
     if (startIndex === 0) return effectiveData
@@ -1013,6 +1074,14 @@ export default function HomeContent() {
                   // "Previsión de hoy" to follow whatever the Avanzado
                   // toggle says.
                   ensembleMode={ensembleMode}
+                  // Sprint 13: the auto-derived profile (or null
+                  // while the classifier is in flight) and the
+                  // backtest recommendation set. Empty set means
+                  // no boost is applied — the snapshot degrades
+                  // to the pre-Sprint-13 behaviour byte-for-byte.
+                  usageProfile={effectiveProfile.profile}
+                  usageProfileBoostedCount={usageProfileBoostedCount}
+                  usageProfileRecommended={recommendedSet}
                 />
                 </>
               )}

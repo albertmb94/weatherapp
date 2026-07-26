@@ -10,6 +10,8 @@ import {
   type CurrentSnapshot,
 } from '@/lib/friendlyForecast'
 import { useNowcast } from '@/lib/hooks/useNowcast'
+import ProfileChip from './ProfileChip'
+import type { UsageProfile } from '@/lib/profiles'
 import type { StationObservation } from '@/lib/nowcast'
 import CurrentWeatherCard from './CurrentWeatherCard'
 import HourlyForecastStrip from './HourlyForecastStrip'
@@ -91,6 +93,23 @@ interface FriendlyHomeProps {
    *  ensemble reading at the current hour with the closest fresh
    *  station so the "now" reading carries real-world anchoring. */
   stations?: StationObservation[]
+  /** Sprint 13: the auto-derived profile for the current location.
+   *  Surfaced as a small chip next to the "Tiempo actual" card so the
+   *  user can see at a glance which profile is biasing the ensemble
+   *  (e.g. "Costero"). `null` while the classifier is in flight, in
+   *  which case the chip is hidden. */
+  usageProfile?: UsageProfile | null
+  /** Sprint 13: number of backtest-recommended models that were
+   *  actually applied as a weight boost (intersection of the
+   *  recommendation with the user's active set). 0 means no boost
+   *  was applied — chip shows the neutral label. */
+  usageProfileBoostedCount?: number
+  /** Sprint 13: full backtest recommendation set, threaded down to
+   *  `computeCurrentSnapshot` so the snapshot's `meanAcrossModels`
+   *  uses `weightsForProfile` and biases the recommended models.
+   *  An empty Set means no boost — the snapshot degrades to the
+   *  pre-Sprint-13 behaviour byte-for-byte. */
+  usageProfileRecommended?: ReadonlySet<string>
 }
 
 export default function FriendlyHome({
@@ -110,6 +129,9 @@ export default function FriendlyHome({
   ensembleMode = 'wedai',
   dailyPrecipitationSum,
   stations = [],
+  usageProfile = null,
+  usageProfileBoostedCount = 0,
+  usageProfileRecommended = new Set(),
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -125,8 +147,17 @@ export default function FriendlyHome({
       // hour. Selecting a future hour keeps the ensemble value so the
       // UV "follows" the rest of the snapshot for that future point.
       isLiveNow ? liveUvIndex : null,
+      // Sprint 13: thread the auto-derived profile + backtest
+      // recommendation down to computeCurrentSnapshot so every
+      // `meanAcrossModels` call inside uses `weightsForProfile`
+      // instead of `weightsFor`. Default-arg semantics in
+      // friendlyForecast.ts make this safe to leave undefined here
+      // — when usageProfile is null (classifier still in flight) we
+      // skip the boost and use the pre-Sprint-13 weights exactly.
+      usageProfile,
+      usageProfileRecommended,
     ),
-    [models, activeIds, time, series, nowIndex, liveUvIndex, isLiveNow]
+    [models, activeIds, time, series, nowIndex, liveUvIndex, isLiveNow, usageProfile, usageProfileRecommended]
   )
 
   const isViewingToday = useMemo(() => {
@@ -162,6 +193,14 @@ export default function FriendlyHome({
 
   return (
     <div className="space-y-3 md:space-y-4">
+      {usageProfile !== null && usageProfile !== undefined ? (
+        <div className="flex items-center gap-2 flex-wrap" data-testid="profile-chip-row">
+          <ProfileChip
+            profile={usageProfile}
+            boostedCount={usageProfileBoostedCount}
+          />
+        </div>
+      ) : null}
       <CurrentWeatherCard
         city={city}
         snapshot={snapshot}

@@ -3,10 +3,12 @@ import { pickWeatherIcon, type WeatherIconId } from './weatherIcon'
 import {
   resolveActiveModels,
   weightsFor,
+  weightsForProfile,
   meanAtHour,
   type EnsembleMode,
   type SeriesBag,
 } from './ensemble/central'
+import type { UsageProfile } from './profiles'
 
 export type { SeriesBag }
 
@@ -40,13 +42,22 @@ function meanAcrossModels(
   models: WeatherModel[],
   selectedIds: string[],
   mode: EnsembleMode,
-  leadTimeHours: number = 0
+  leadTimeHours: number = 0,
+  /** Sprint 13: optional profile-aware weighting. When the caller
+   *  passes both a non-null profile and a non-empty recommended
+   *  set, the helper uses `weightsForProfile` instead of
+   *  `weightsFor` so backtest-recommended models are nudged by a
+   *  small +5% boost. The fallback to WedAI below also respects
+   *  the same profile (otherwise the boost would silently
+   *  disappear when the user's selection returns null). */
+  profile: UsageProfile | null = null,
+  recommended: ReadonlySet<string> = new Set()
 ): number | null {
   const active = resolveActiveModels(models, selectedIds, mode)
   if (active.length === 0) {
-    return fallbackToWedai(bag, metric, index, models, leadTimeHours)
+    return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended)
   }
-  const weights = weightsFor(metric, leadTimeHours, 1, active)
+  const weights = weightsForProfile(metric, leadTimeHours, 1, active, recommended, profile)
   const v = meanAtHour(bag, metric, index, active, weights)
   if (v !== null) return v
   // B-NEW-5: user's selection returned no data for this hour —
@@ -56,7 +67,7 @@ function meanAcrossModels(
   // selection (so the user can still see "no model I selected has
   // data" if that's the point they want to inspect).
   if (mode === 'models') {
-    return fallbackToWedai(bag, metric, index, models, leadTimeHours)
+    return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended)
   }
   return null
 }
@@ -66,11 +77,13 @@ function fallbackToWedai(
   metric: MetricId,
   index: number,
   models: WeatherModel[],
-  leadTimeHours: number
+  leadTimeHours: number,
+  profile: UsageProfile | null = null,
+  recommended: ReadonlySet<string> = new Set()
 ): number | null {
   const wedai = resolveActiveModels(models, [], 'wedai')
   if (wedai.length === 0) return null
-  const weights = weightsFor(metric, leadTimeHours, 1, wedai)
+  const weights = weightsForProfile(metric, leadTimeHours, 1, wedai, recommended, profile)
   return meanAtHour(bag, metric, index, wedai, weights)
 }
 
@@ -272,7 +285,13 @@ export function computeCurrentSnapshot(
   /** When non-null, used in place of the hourly-ensemble average for the
    *  "live" UV card. The provider's `current=uv_index` is updated at ~15 min
    *  cadence; the ensemble hourly floored value can lag by up to one hour. */
-  liveUvOverride: number | null = null
+  liveUvOverride: number | null = null,
+  /** Sprint 13: optional profile-aware weighting, threaded down to
+   *  every `meanAcrossModels` call inside this function. Default
+   *  values preserve the pre-Sprint-13 behaviour byte-for-byte:
+   *  no profile, empty recommendation set, plain weightsFor. */
+  profile: UsageProfile | null = null,
+  recommended: ReadonlySet<string> = new Set()
 ): CurrentSnapshot | null {
   if (!bag.time[hourIndex]) return null
   // Sprint 10 / B-10-1: the "current hour" snapshot is always the
@@ -281,14 +300,14 @@ export function computeCurrentSnapshot(
   // "AHORA" slot of the hourly strip must agree with the InsightsTable
   // active row, which also uses WedAI for the current hour.
   const mode: EnsembleMode = 'wedai'
-  const temp = meanAcrossModels(bag, 'temperature', hourIndex, models, activeIds, mode)
-  const wind = meanAcrossModels(bag, 'wind_speed', hourIndex, models, activeIds, mode)
-  const gusts = meanAcrossModels(bag, 'wind_gusts', hourIndex, models, activeIds, mode)
-  const precip = meanAcrossModels(bag, 'precipitation', hourIndex, models, activeIds, mode)
+  const temp = meanAcrossModels(bag, 'temperature', hourIndex, models, activeIds, mode, 0, profile, recommended)
+  const wind = meanAcrossModels(bag, 'wind_speed', hourIndex, models, activeIds, mode, 0, profile, recommended)
+  const gusts = meanAcrossModels(bag, 'wind_gusts', hourIndex, models, activeIds, mode, 0, profile, recommended)
+  const precip = meanAcrossModels(bag, 'precipitation', hourIndex, models, activeIds, mode, 0, profile, recommended)
   const uvHourly = allModelAverage(bag, 'uv_index', hourIndex)
   const uv = liveUvOverride ?? uvHourly
-  const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds, mode)
-  const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds, mode)
+  const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds, mode, 0, profile, recommended)
+  const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds, mode, 0, profile, recommended)
   const peak = dailyUvPeak(bag, hourIndex)
   // Prefer the calibrated `precipitation_probability` series from the
   // provider. If every model returned null we degrade to the intensity
@@ -313,7 +332,7 @@ export function computeCurrentSnapshot(
       const ti = bag.time[i]
       if (!(ti instanceof Date)) continue
       if (`${ti.getUTCFullYear()}-${ti.getUTCMonth()}-${ti.getUTCDate()}` !== dayKey) break
-      const tv = meanAcrossModels(bag, 'temperature', i, models, activeIds, mode)
+      const tv = meanAcrossModels(bag, 'temperature', i, models, activeIds, mode, 0, profile, recommended)
       if (tv === null) continue
       if (dailyHigh === null || tv > dailyHigh) dailyHigh = tv
       if (dailyLow === null || tv < dailyLow) dailyLow = tv

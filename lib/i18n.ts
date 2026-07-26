@@ -172,6 +172,13 @@ export const STRINGS: Record<Locale, {
   profileAgricultural: string
   profileSailing: string
   profilePlain: string
+  /** Sprint 13: small badge rendered inside FriendlyHome next to
+   * the "Tiempo actual" card. The first segment is the literal
+   * label (e.g. "Perfil:"); the second is the trailing text the
+   * chip shows when the auto-derived profile did NOT bias the
+   * ensemble (e.g. plain profile or empty backtest). */
+  profileChipPrefix: string
+  profileChipNeutral: string
 }> = {
   es: {
     today: 'Hoy',
@@ -319,6 +326,8 @@ export const STRINGS: Record<Locale, {
     profileAgricultural: 'Agricultura',
     profileSailing: 'Navegación',
     profilePlain: 'Llanura',
+    profileChipPrefix: 'Perfil',
+    profileChipNeutral: 'Sin sesgo regional',
   },
   en: {
     today: 'Today',
@@ -466,5 +475,7 @@ export const STRINGS: Record<Locale, {
     profileAgricultural: 'Agricultural',
     profileSailing: 'Sailing',
     profilePlain: 'Plain',
+    profileChipPrefix: 'Profile',
+    profileChipNeutral: 'No regional bias',
   },
 }

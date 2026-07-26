@@ -236,3 +236,87 @@ hides the picker.
 - The Marine toggle remains 100% manual. The coastal profile
   recommends marine models in the ensemble, but it never turns
   the toggle on.
+
+### S14 — Mobile vertical: heatmaps + zero-scroll Insights table
+
+The previous behaviour on a phone in portrait orientation had
+two paper cuts that the user reported after Sprint 13 shipped:
+
+1. **Map heatmaps often failed to paint.** The fetch effect was
+   aborted on every parent re-render (the parent passes a
+   freshly-allocated `selectedModels.filter()` array, so the
+   effect's cleanup ran the abort controller and left
+   `loadingHeatmap=true` with an empty grid series).
+2. **Insights table forced horizontal scrolling on every
+   phone.** The natural table width exceeds a 360-px viewport
+   because the marine column widths + sticky first column +
+   `whitespace-nowrap` add up to >500 px. The right-edge
+   gradient hint acknowledged the scroll but the user wanted
+   it gone entirely in portrait.
+
+**Heatmap fixes (`components/MapPicker.tsx`)**
+
+- Added `useMemo(() => selectedModels.slice().sort().join(','))`
+  to derive a stable `modelsKey` string. The fetch effect now
+  depends on `modelsKey` instead of the array identity, so an
+  unrelated parent render no longer aborts the in-flight
+  request.
+- Added `dataStartIndex?: number` prop. The parent passes
+  `viewData.time` (the trimmed forecast slice) plus
+  `dataStartIndex={startIndex}`, and the renderer translates
+  the parent's view-relative `hourIndex` into the absolute
+  grid index before doing the nearest-timestamp snap. The
+  painted cell now matches the user's currently-selected hour
+  after the trim.
+- Marine metrics used to silently route through
+  `/api/forecast`, which returned all-null series and left the
+  canvas blank. New `fetchMarineGrid` in `lib/marine.ts`
+  fans out per-cell `fetchMarine` calls with bounded
+  concurrency (6 simultaneous /api/marine requests), and
+  `fetchHeatmapGrid` dispatches to it when the requested
+  metric's group is `'marine'`. The marine pill on the map now
+  paints correctly.
+
+**Insights table fixes (`components/InsightsTable.tsx`)**
+
+- New `components/MobileInsightsCard.tsx` renders each row as a
+  stacked card: header (bucket label + icon + temperature with
+  the heatmap colour) + a wrap-around chip strip for every
+  visible metric. No horizontal scrolling possible.
+- New `components/heatStyle.ts` extracts the radial-gradient
+  helper that used to live inline in `InsightsTable.tsx`. Both
+  the table and the cards share the same colour recipe without
+  one importing the other.
+- `InsightsTable` branches on `isMobilePortrait`: above the sm
+  breakpoint (768 px) the scrollable `<table>` renders as
+  before; below the breakpoint the cards render inside the same
+  overflow-auto container with the same pagination. The
+  horizontal scroll-fade gradient hints are scoped to the table
+  branch only.
+- Pagination state machine + scroll-to-top handlers were
+  migrated to `useInsightPagination` (the hook added in Sprint
+  12). The component just consumes the hook's outputs.
+
+**Tests added** (8 across the sprint, total 579 → 587 passing)
+
+- `components/__tests__/InsightsTable.mobile.test.tsx` (8
+  tests) — mobile-portrait card stack, click → onSelectHour,
+  active card ring, heatStyle integration, desktop table
+  branch, pagination CTA on desktop, chip-strip count, and the
+  no-horizontal-overflow assertion (`scrollWidth <= clientWidth`).
+- `MobileInsightsCard` exposes `data-testid` on the card root
+  and each chip; `InsightsTable` adds a `__forceMobilePortrait`
+  test-only prop so the matchMedia dance can be bypassed in
+  jsdom.
+
+**User-visible behaviour**
+
+- Heatmap paints consistently on the map at any viewport size
+  (mobile portrait included). Marine metrics on the map heatmap
+  show wave height / sea surface temperature instead of an
+  empty canvas.
+- Insights table on phone portrait: zero horizontal scroll.
+  Each row is a self-contained card; the bucket selector,
+  Marine toggle, Basic toggle, column-order reset, and
+  pagination CTAs stay where they were on desktop.
+- Desktop layout is unchanged.

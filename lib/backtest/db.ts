@@ -229,16 +229,20 @@ export async function getModelAccuracy(
   return result.rows as unknown as ModelAccuracyRow[]
 }
 
-export async function _unused_getDynamicWeights(
+/**
+ * Fetch the most recent dynamic-weights row for a (lat, lon, terrain,
+ * metric, lead-time-bucket) tuple. Production ensemble weighting falls
+ * back to the calibration presets (`lib/models.ts`) when no row exists
+ * — this read path is used by the consumer-side nowcasting code that
+ * will land in S10.
+ */
+export async function getDynamicWeights(
   lat: number,
   lon: number,
   terrainType: string,
   metric: string,
   leadTimeBucket: string
 ): Promise<DynamicWeightRow[]> {
-  // Renamed from getDynamicWeights — kept only as an internal helper for
-  // backtest experiments; no production caller. The named export below
-  // is intentionally absent so that dead-code detection stays quiet.
   const db = getDb()
   if (!db) return []
   const result = await db.execute({

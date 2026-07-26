@@ -23,6 +23,7 @@ export const UV_MIN_FORECAST_DAYS = 7
 // whichever has data.
 const LONG_RANGE_MIN_HOURS = 168
 
+
 export function capModels(models: WeatherModel[], max: number, forecastDays?: number): WeatherModel[] {
   if (models.length <= max) return models
   const sorted = [...models].sort((a, b) => b.weight - a.weight)
@@ -38,10 +39,6 @@ export function capModels(models: WeatherModel[], max: number, forecastDays?: nu
     }
   }
   return picked
-}
-
-export function computeForecastDays(rangeHours: number, maxDays: number): number {
-  return Math.max(Math.min(Math.ceil(rangeHours / 24), maxDays), UV_MIN_FORECAST_DAYS)
 }
 
 export interface ForecastResult {

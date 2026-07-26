@@ -86,19 +86,3 @@ export async function loadLastForecast(position?: [number, number]): Promise<For
     return null
   }
 }
-
-/** All snapshots — used by the auto-refresh ticker to decide which
- *  locations need to be re-fetched in the background. */
-export async function listSnapshots(): Promise<ForecastSnapshot[]> {
-  try {
-    const db = await openDb()
-    return await new Promise<ForecastSnapshot[]>((resolve) => {
-      const tx = db.transaction(STORE_NAME, 'readonly')
-      const req = tx.objectStore(STORE_NAME).getAll()
-      req.onsuccess = () => resolve((req.result as ForecastSnapshot[]) ?? [])
-      req.onerror = () => resolve([])
-    })
-  } catch {
-    return []
-  }
-}

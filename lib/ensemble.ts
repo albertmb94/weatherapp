@@ -8,12 +8,17 @@
  *   When provided, overrides static weights for matching models.
  * @param modelIds - Array of model IDs corresponding to each value.
  *   Required when using dynamicWeights to look up per-model weights.
+ * @param biasCorrection - Optional map of model_id -> additive bias (in the
+ *   same unit as `values`). When provided, the bias is subtracted from
+ *   each model value before weighting so systematic over/under-prediction
+ *   doesn't drag the ensemble. Defaults to no correction.
  */
 export function weightedAvg(
   values: (number | null)[],
   weights: number[],
   dynamicWeights?: Record<string, number> | null,
-  modelIds?: string[]
+  modelIds?: string[],
+  biasCorrection?: Record<string, number> | null
 ): number | null {
   const effectiveWeights = dynamicWeights && modelIds
     ? weights.map((w, i) => {
@@ -27,38 +32,14 @@ export function weightedAvg(
   let wSum = 0
   for (let i = 0; i < values.length; i++) {
     const v = values[i]
-    if (v !== null && v !== undefined) {
-      sum += v * effectiveWeights[i]
-      wSum += effectiveWeights[i]
+    if (v === null || v === undefined) continue
+    let adjusted = v
+    if (biasCorrection && modelIds) {
+      const bias = modelIds[i] ? biasCorrection[modelIds[i]] : undefined
+      if (typeof bias === 'number' && Number.isFinite(bias)) adjusted = v - bias
     }
+    sum += adjusted * effectiveWeights[i]
+    wSum += effectiveWeights[i]
   }
   return wSum > 0 ? sum / wSum : null
-}
-
-/**
- * Compute ensemble weights for a given metric and lead time from preset definitions.
- * Returns an array of weights in the same order as the input model IDs.
- *
- * @param modelIds - Array of model IDs to compute weights for
- * @param ensembleWeights - The ensemble preset's weight map for the relevant bucket
- * @returns Array of weights, normalized to sum to 1
- */
-export function getEnsembleWeights(
-  modelIds: string[],
-  ensembleWeights: Record<string, number>
-): number[] {
-  const raw = modelIds.map(id => ensembleWeights[id] ?? 0)
-  const sum = raw.reduce((a, b) => a + b, 0)
-  if (sum === 0) return modelIds.map(() => 1 / modelIds.length)
-  return raw.map(w => w / sum)
-}
-
-export function contrastText(rgb: string): string {
-  const match = rgb.match(/rgb\((\d+),(\d+),(\d+)\)/)
-  if (!match) return '#fff'
-  const r = parseInt(match[1])
-  const g = parseInt(match[2])
-  const b = parseInt(match[3])
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.55 ? '#0a0a0a' : '#fff'
 }

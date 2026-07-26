@@ -2,14 +2,11 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getLocalSavedLocations, deleteLocalLocation } from '@/lib/localStorageLocations'
-
-interface SavedLocation {
-  id: number
-  name: string
-  latitude: number
-  longitude: number
-}
+import {
+  type SavedLocation,
+  getLocalSavedLocations,
+  deleteLocalLocation,
+} from '@/lib/localStorageLocations'
 
 interface SavedLocationsProps {
   onSelect: (name: string, lat: number, lon: number) => void

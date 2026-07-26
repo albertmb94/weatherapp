@@ -146,7 +146,6 @@ export const STRINGS: Record<Locale, {
   confidenceLow: string
   confidenceTooltip: string
   modelAccuracyTitle: string
-  modelLabel: string
   accuracyType: string
   accuracyMAE: string
   accuracyRMSE: string
@@ -277,7 +276,6 @@ export const STRINGS: Record<Locale, {
     confidenceLow: 'Baja',
     confidenceTooltip: 'Confianza del ensemble basada en la concordancia entre modelos',
     modelAccuracyTitle: 'Precisión por modelo',
-    modelLabel: 'Modelo',
     accuracyType: 'Tipo',
     accuracyMAE: 'MAE',
     accuracyRMSE: 'RMSE',
@@ -408,7 +406,6 @@ export const STRINGS: Record<Locale, {
     confidenceLow: 'Low',
     confidenceTooltip: 'Ensemble confidence based on model agreement',
     modelAccuracyTitle: 'Model accuracy',
-    modelLabel: 'Model',
     accuracyType: 'Type',
     accuracyMAE: 'MAE',
     accuracyRMSE: 'RMSE',

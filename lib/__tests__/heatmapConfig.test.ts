@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { HEATMAP_ROWS, HEATMAP_COLS, HEATMAP_MAX_LOCATIONS, HEATMAP_DEBOUNCE_MS, HEATMAP_FORECAST_DAYS } from '../heatmapConfig'
+import { HEATMAP_ROWS, HEATMAP_COLS, HEATMAP_DEBOUNCE_MS, HEATMAP_FORECAST_DAYS } from '../heatmapConfig'
 
 describe('heatmapConfig', () => {
   it('has valid HEATMAP_ROWS', () => {
@@ -10,11 +10,6 @@ describe('heatmapConfig', () => {
   it('has valid HEATMAP_COLS', () => {
     expect(HEATMAP_COLS).toBeGreaterThan(0)
     expect(Number.isInteger(HEATMAP_COLS)).toBe(true)
-  })
-
-  it('HEATMAP_MAX_LOCATIONS is reasonable', () => {
-    expect(HEATMAP_MAX_LOCATIONS).toBeGreaterThanOrEqual(1)
-    expect(HEATMAP_MAX_LOCATIONS).toBeLessThanOrEqual(1000)
   })
 
   it('HEATMAP_DEBOUNCE_MS is positive', () => {

@@ -26,7 +26,7 @@ import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
 import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
-import { getLocationNow, floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
+import { floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation, getLocalSavedLocations, deleteLocalLocation } from '@/lib/localStorageLocations'
 import { useRefresh } from '@/lib/useRefresh'
@@ -819,10 +819,6 @@ export default function HomeContent() {
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1 min-w-0 z-50">
             <CitySearch onSelect={handleCitySelect} />
-          </div>
-          <div className="shrink-0 flex items-center gap-1.5">
-            {/* Top map icon (mobile secondary header) was removed in favour of
-                the Mapa entry in the bottom tab bar. */}
           </div>
         </div>
       </div>

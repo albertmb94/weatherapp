@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { weightedAvg, contrastText } from '../ensemble'
+import { weightedAvg } from '../ensemble'
+import { contrastText } from '../colorScales'
 
 describe('weightedAvg', () => {
   it('returns null for all null values', () => {

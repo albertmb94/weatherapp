@@ -58,8 +58,7 @@ export function termFrequencies(tokens: string[]): Map<string, number> {
 }
 
 /** Per-term document frequency (count of docs containing the term).
- *  Tokens are normalised (lowercased) so the corpus and query paths
- *  share the same vocabulary keys. */
+ *  Used internally by `buildIndex`; exported for testability. */
 export function documentFrequencies(docs: string[][]): Map<string, number> {
   const out = new Map<string, number>()
   for (const doc of docs) {
@@ -83,6 +82,9 @@ export interface BM25Index {
   avgDocLen: number
   /** Number of documents the index was built over. */
   docCount: number
+  /** k1 and b used to build the index. Defaults are 1.5 / 0.75. */
+  k1: number
+  b: number
 }
 
 export interface BM25Options {
@@ -121,12 +123,7 @@ export function buildIndex(
     // BM25+ IDF variant (safe for empty df and N=1).
     idf[idx] = Math.log(1 + (N - dft + 0.5) / (dft + 0.5))
   }
-  // k1 and b are stored on the index for vectorize() to pick up.
-  // We piggy-back on a side channel: the index object holds them in
-  // a Symbol-keyed property so they don't leak into JSON serialisation.
-  ;(idf as unknown as { __k1: number }).__k1 = k1
-  ;(idf as unknown as { __b: number }).__b = b
-  return { vocabulary: vocab, idf, avgDocLen, docCount: N }
+  return { vocabulary: vocab, idf, avgDocLen, docCount: N, k1, b }
 }
 
 /**
@@ -141,8 +138,8 @@ export function vectorize(
   index: BM25Index,
   options: BM25Options = {}
 ): Record<number, number> {
-  const k1 = options.k1 ?? (index.idf as unknown as { __k1?: number }).__k1 ?? DEFAULT_K1
-  const b = options.b ?? (index.idf as unknown as { __b?: number }).__b ?? DEFAULT_B
+  const k1 = options.k1 ?? index.k1 ?? DEFAULT_K1
+  const b = options.b ?? index.b ?? DEFAULT_B
   const tf = termFrequencies(tokens)
   const out: Record<number, number> = {}
   for (const [term, freq] of tf.entries()) {

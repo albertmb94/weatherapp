@@ -173,3 +173,21 @@ export function getColor(metric: MetricId, value: number | null): string {
   }
   return '#2a2a2a'
 }
+
+const RGB_RE = /rgb\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*\)/
+
+/**
+ * Pick a foreground colour (`#0a0a0a` or `#fff`) that remains readable
+ * against an `rgb(r,g,b)` background. The formula follows the Rec. 601
+ * luminance approximation, which is good enough for our heat cells and
+ * avoids pulling in a colour library. Unknown inputs fall back to white.
+ */
+export function contrastText(rgb: string): string {
+  const match = rgb.match(RGB_RE)
+  if (!match) return '#fff'
+  const r = Number(match[1])
+  const g = Number(match[2])
+  const b = Number(match[3])
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.55 ? '#0a0a0a' : '#fff'
+}

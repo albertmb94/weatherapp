@@ -81,60 +81,42 @@ export function computeDynamicWeights(
  * The ensemble preset provides a stable baseline; dynamic weights
  * fine-tune based on recent performance. If no backtest data exists,
  * the preset weights are used as-is.
- *
- * @param metricId - The metric to get weights for
- * @param accuracyRecords - Recent accuracy records from backtest (may be empty)
- * @param decayFactor - Recency decay factor for dynamic weights
- * @param leadTimeBucket - The lead time bucket (e.g. '0-48h', '48-96h')
  */
 export function getMetricWeights(
-  _metricId: string,
-  _accuracyRecords: ModelAccuracyRow[],
-  _decayFactor: number = 0.95,
-  _leadTimeBucket: string = '0-48h'
+  metricId: string,
+  accuracyRecords: ModelAccuracyRow[],
+  decayFactor: number = 0.95,
+  leadTimeBucket: string = '0-48h'
 ): Record<string, number> {
-  // Dead helper kept as a re-export in case downstream consumers (e.g. an
-  // experiment in evaluate.ts) still call it. Body intentionally thin —
-  // production ensemble weighting uses the preset tables in models.ts.
-  return {}
-  /* unused
-  const presetId = metricId === 'precipitation' || metricId === 'wind_speed' || metricId === 'wind_gusts'
-    ? 'precipitation'
-    : 'temperature'
+  const presetId: EnsemblePreset =
+    metricId === 'precipitation' || metricId === 'wind_speed' || metricId === 'wind_gusts'
+      ? 'precipitation'
+      : 'temperature'
   const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
-
-  // Get the weights for this lead time bucket
   const presetWeights = preset.weights[leadTimeBucket] ?? preset.weights['0-48h'] ?? {}
-
-  // If no backtest data, return preset weights
-  if (accuracyRecords.length === 0) return { ...presetWeights }
-
-  // Compute dynamic weights from backtest data
-  const dynamicWeights = computeDynamicWeights(accuracyRecords, decayFactor)
-
-  // If no dynamic weights could be computed, return preset
-  if (Object.keys(dynamicWeights).length === 0) return { ...presetWeights }
-
-  // Merge: 70% preset + 30% dynamic (blended approach)
-  const merged: Record<string, number> = {}
-  const allModelIds = new Set([...Object.keys(presetWeights), ...Object.keys(dynamicWeights)])
-
-  for (const modelId of allModelIds) {
-    const presetW = presetWeights[modelId] ?? 0
-    const dynamicW = dynamicWeights[modelId] ?? 0
-    merged[modelId] = presetW * 0.7 + dynamicW * 0.3
+  if (accuracyRecords.length === 0) {
+    return { ...presetWeights }
   }
-
-  // Normalize
+  const dynamicWeights = computeDynamicWeights(accuracyRecords, decayFactor)
+  if (Object.keys(dynamicWeights).length === 0) {
+    return { ...presetWeights }
+  }
+  // Blend: 70% preset baseline + 30% dynamic. This keeps the long-run
+  // calibration stable while still letting recent accuracy nudge
+  // weights when a model starts drifting.
+  const merged: Record<string, number> = {}
+  const allIds = new Set([
+    ...Object.keys(presetWeights),
+    ...Object.keys(dynamicWeights),
+  ])
+  for (const id of allIds) {
+    merged[id] = (presetWeights[id] ?? 0) * 0.7 + (dynamicWeights[id] ?? 0) * 0.3
+  }
   const total = Object.values(merged).reduce((a, b) => a + b, 0)
   if (total > 0) {
-    for (const modelId of Object.keys(merged)) {
-      merged[modelId] /= total
-    }
+    for (const id of Object.keys(merged)) merged[id] /= total
   }
-
   return merged
-  */
 }
 
 /**

@@ -51,13 +51,13 @@ function loadIndex(): BM25Index {
     Object.entries(raw.vocabulary).map(([k, v]) => [k, Number(v)])
   )
   const idf = new Float64Array(raw.idf)
-  if (raw.k1 !== undefined) (idf as unknown as { __k1: number }).__k1 = raw.k1
-  if (raw.b !== undefined) (idf as unknown as { __b: number }).__b = raw.b
   return {
     vocabulary,
     idf,
     avgDocLen: raw.avgDocLen,
     docCount: raw.docCount,
+    k1: raw.k1 ?? 1.5,
+    b: raw.b ?? 0.75,
   }
 }
 

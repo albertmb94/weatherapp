@@ -2,9 +2,10 @@
 
 import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
-import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/models'
+import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE } from '@/lib/models'
+import type { MetricId } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
-import { ensembleWithFallback, resolveActiveModels } from '@/lib/ensemble/central'
+import { ensembleWithFallback, resolveActiveModels, weightsForAbsolute } from '@/lib/ensemble/central'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import WeatherConditionIcon from './WeatherConditionIcon'
@@ -107,19 +108,10 @@ export default function DailySummary({
     const modelIds = activeModels.map(m => m.id)
 
     // Build per-metric, per-hour weight arrays using ensemble presets.
-    // `hourIndex` is the absolute index in `times`; the lead time relative
-    // to "now" is `hourIndex - startIndex`. Using the absolute value here
-    // would skew the bucket for any future whose startIndex is not 0 (e.g.
-    // a typical mid-day render with startIndex=86 otherwise asks for a
-    // '48-96h' bucket at hour 0 from now).
-    const getWeightsForMetricAndHour = (metric: string, hourIndex: number): number[] => {
-      const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
-      const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
-      const leadTimeHours = Math.max(0, hourIndex - startIndex)
-      const leadBucket = getLeadTimeBucket(leadTimeHours)
-      const bucketWeights = preset.weights[leadBucket] ?? preset.weights['0-48h']
-      return modelIds.map(id => bucketWeights[id] ?? 0.01)
-    }
+    // Use the canonical helper so InsightsTable, DailySummary and the
+    // comparison chart always classify horizons identically.
+    const getWeightsForMetricAndHour = (metric: MetricId, hourIndex: number): number[] =>
+      weightsForAbsolute(metric, hourIndex, 1, activeModels)
 
     const limit = Math.min(times.length, maxHours)
     const buckets: DayBucket[] = []

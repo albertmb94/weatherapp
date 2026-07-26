@@ -32,7 +32,11 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   const result: Partial<UrlState> = {}
   const lat = params.get('lat')
   const lon = params.get('lon')
-  if (lat && lon && !isNaN(Number(lat)) && !isNaN(Number(lon))) {
+  if (
+    lat !== null && lon !== null &&
+    !isNaN(Number(lat)) && !isNaN(Number(lon)) &&
+    Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180
+  ) {
     result.lat = Number(lat)
     result.lon = Number(lon)
   }
@@ -43,7 +47,7 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
     result.models = models === MODELS_NONE_TOKEN ? [] : models.split(',').filter(Boolean)
   }
   const hour = params.get('hour')
-  if (hour && !isNaN(Number(hour))) result.hour = Number(hour)
+  if (hour && !isNaN(Number(hour)) && Number(hour) >= 0) result.hour = Number(hour)
   const range = params.get('range')
   if (range && ALLOWED_RANGES.has(Number(range))) result.range = Number(range)
   const showMap = params.get('map')
@@ -107,7 +111,6 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
 export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<UrlState>) => void] {
   const lastPushedQuery = useRef<string | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const stateRef = useRef<UrlState | null>(null)
 
   // SSR-safe initial state: always start with `defaults` so the server
   // render and the first client render are byte-identical. Reading
@@ -137,7 +140,6 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
   // Sync URL whenever state changes. Use window.history.replaceState to avoid
   // a Next.js re-render cycle (router.replace would re-trigger this hook).
   useEffect(() => {
-    stateRef.current = state
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
       const query = buildQuery(state, defaults)

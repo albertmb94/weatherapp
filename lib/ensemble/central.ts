@@ -99,6 +99,32 @@ export function weightsFor(
 }
 
 /**
+ * Same as `weightsFor`, but takes an ABSOLUTE hour index (already
+ * offset by `startIndex`). Use this in callers that consume a
+ * trimmed `viewTimes` and need their bucket to match the
+ * UTC-fake-local absolute hour (so a forecast opened at 14:30
+ * gives rows that span 14–48h the bucket `0-48h` instead of
+ * mis-tagging them with bucket `0-48h` again based on a
+ * `hourIndex * bucket` starting at zero).
+ */
+export function weightsForAbsolute(
+  metric: MetricId,
+  absoluteHour: number,
+  bucketHours: number,
+  activeModels: WeatherModel[]
+): number[] {
+  // Mid-row lead time: the centre of the bucket produces the same
+  // preset selection as `weightsFor`. We use absoluteHour as the
+  // starting point and add the row's mid-bucket lead time so a
+  // bucket covering 14–26h with `startIndex=14` selects the
+  // `0-48h` preset rather than `96-168h`.
+  const safeBucket = Math.max(1, bucketHours)
+  const leadTimeHours = Math.max(0, absoluteHour) + (safeBucket - 1) / 2
+  // Reuse the canonical bucket lookup.
+  return weightsFor(metric, leadTimeHours, 1, activeModels)
+}
+
+/**
  * Weighted average of `metric` at a single `hourIndex` across the
  * models in `activeModels`, using the supplied `weights` vector
  * (from `weightsFor`). Returns null when no model contributes.

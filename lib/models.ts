@@ -48,6 +48,7 @@ export const MODELS: WeatherModel[] = [
 
 export type MetricId =
   | 'temperature' | 'cloud_cover' | 'wind_speed' | 'wind_gusts' | 'precipitation'
+  | 'precipitation_probability'
   | 'humidity' | 'uv_index' | 'pressure' | 'dewpoint' | 'visibility'
   | 'sea_surface_temperature'
   | 'wave_height' | 'wave_period' | 'wave_direction'
@@ -68,6 +69,7 @@ export const METRICS: Metric[] = [
   { id: 'wind_speed', label: 'Wind Speed', unit: 'km/h', hourlyParam: 'wind_speed_10m', group: 'land' },
   { id: 'wind_gusts', label: 'Wind Gusts', unit: 'km/h', hourlyParam: 'wind_gusts_10m', group: 'land' },
   { id: 'precipitation', label: 'Precipitation', unit: 'mm/h', hourlyParam: 'precipitation', group: 'land' },
+  { id: 'precipitation_probability', label: 'Rain Probability', unit: '%', hourlyParam: 'precipitation_probability', group: 'land' },
   { id: 'humidity', label: 'Humidity', unit: '%', hourlyParam: 'relative_humidity_2m', group: 'land' },
   { id: 'uv_index', label: 'UV Index', unit: '', hourlyParam: 'uv_index', group: 'land' },
   { id: 'pressure', label: 'Pressure', unit: 'hPa', hourlyParam: 'surface_pressure', group: 'land' },
@@ -126,6 +128,12 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
       '96-168h': {
         ecmwf_ifs: 0.40, icon_global: 0.28, gfs_global: 0.18, gem_global: 0.14,
       },
+      '168-240h': {
+        ecmwf_ifs: 0.42, icon_global: 0.28, gfs_global: 0.18, gem_global: 0.12,
+      },
+      '240-360h': {
+        ecmwf_ifs: 0.40, gfs_global: 0.28, icon_global: 0.20, gem_global: 0.12,
+      },
     },
   },
   {
@@ -144,6 +152,12 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
       },
       '96-168h': {
         gfs_global: 0.30, ecmwf_ifs: 0.28, icon_global: 0.24, gem_global: 0.18,
+      },
+      '168-240h': {
+        gfs_global: 0.32, ecmwf_ifs: 0.28, icon_global: 0.24, gem_global: 0.16,
+      },
+      '240-360h': {
+        gfs_global: 0.36, ecmwf_ifs: 0.28, icon_global: 0.22, gem_global: 0.14,
       },
     },
   },
@@ -164,6 +178,12 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
       '96-168h': {
         ecmwf_ifs: 0.30, icon_global: 0.28, gfs_global: 0.24, gem_global: 0.18,
       },
+      '168-240h': {
+        ecmwf_ifs: 0.32, icon_global: 0.28, gfs_global: 0.24, gem_global: 0.16,
+      },
+      '240-360h': {
+        ecmwf_ifs: 0.34, gfs_global: 0.28, icon_global: 0.22, gem_global: 0.16,
+      },
     },
   },
 ]
@@ -180,6 +200,7 @@ export const METRIC_TO_ENSEMBLE: Record<string, EnsemblePreset> = {
   pressure: 'temperature',
   visibility: 'temperature',
   precipitation: 'precipitation',
+  precipitation_probability: 'precipitation_probability',
   wind_speed: 'precipitation',
   wind_gusts: 'precipitation',
   sea_surface_temperature: 'temperature',
@@ -198,5 +219,7 @@ export const METRIC_TO_ENSEMBLE: Record<string, EnsemblePreset> = {
 export function getLeadTimeBucket(hours: number): string {
   if (hours <= 48) return '0-48h'
   if (hours <= 96) return '48-96h'
-  return '96-168h'
+  if (hours <= 168) return '96-168h'
+  if (hours <= 240) return '168-240h'
+  return '240-360h'
 }

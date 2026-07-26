@@ -32,6 +32,12 @@ export async function fetchERA5Observations(
     latitude: location.lat.toString(),
     longitude: location.lon.toString(),
     hourly: hourlyParams,
+    // Pin the reanalysis model so the backtest is reproducible
+    // across Open-Meteo backend upgrades. Without this the API
+    // returns an undocumented "best match" mixing ERA5, ERA5-Land,
+    // ERA5-Ensemble and CERRA which makes window-over-window
+    // accuracy comparisons unreliable.
+    models: 'era5_seamless',
     start_date: startDate,
     end_date: endDate,
     timezone: 'auto',

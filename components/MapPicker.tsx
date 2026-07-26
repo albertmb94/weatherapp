@@ -242,7 +242,6 @@ export default function MapPicker({
     const cells = buildGrid(bounds, HEATMAP_ROWS, HEATMAP_COLS)
     setGridCells(cells)
 
-    if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
@@ -267,6 +266,13 @@ export default function MapPicker({
         setErrorMsg(msg)
         setGridSeries([])
       })
+
+    // Cleanup aborts the controller on unmount or before the next
+    // run of the effect, preventing stale responses from overwriting
+    // `gridSeries` with the previous map view's data.
+    return () => {
+      controller.abort()
+    }
   }, [showHeatmap, mapInstance, boundsTick, effectiveMetric, selectedModels])
 
   const renderCanvas = useCallback(() => {

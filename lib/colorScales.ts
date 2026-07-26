@@ -42,6 +42,13 @@ export const SCALES: Record<ScaleMetric, ColorStop[]> = {
     { value: 5, color: [120, 0, 200] },
     { value: 10, color: [200, 0, 0] },
   ],
+  precipitation_probability: [
+    { value: 0, color: [255, 255, 200] },
+    { value: 20, color: [180, 220, 255] },
+    { value: 50, color: [80, 160, 255] },
+    { value: 75, color: [40, 80, 220] },
+    { value: 100, color: [120, 0, 180] },
+  ],
   humidity: [
     { value: 0, color: [255, 200, 100] },
     { value: 30, color: [180, 210, 50] },

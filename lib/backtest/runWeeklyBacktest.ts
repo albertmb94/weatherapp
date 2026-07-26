@@ -45,10 +45,11 @@ export async function runWeeklyBacktest(signal?: AbortSignal): Promise<BacktestP
     errors: [],
   }
 
-  // Calculate date range: last 7 days
+  // Calculate date range: last 7 days, computed in absolute ms
+  // (not via `setDate`) so DST boundaries in the host timezone
+  // can't shift the window by an hour.
   const endDate = new Date()
-  const startDate = new Date(endDate)
-  startDate.setDate(startDate.getDate() - 7)
+  const startDate = new Date(endDate.getTime() - 7 * 86_400_000)
 
   const startDateStr = startDate.toISOString().slice(0, 10)
   const endDateStr = endDate.toISOString().slice(0, 10)
@@ -95,7 +96,7 @@ export async function runWeeklyBacktest(signal?: AbortSignal): Promise<BacktestP
  */
 function computeAccuracyFromRaw(
   location: BacktestLocation,
-  forecastRows: { model_id: string; valid_time: string; metric: string; predicted_value: number | null; lead_time_hours: number }[],
+  forecastRows: { model_id: string; init_time: string; valid_time: string; metric: string; predicted_value: number | null; lead_time_hours: number }[],
   observationRows: { valid_time: string; metric: string; observed_value: number | null }[],
   windowStart: string,
   windowEnd: string
@@ -110,13 +111,18 @@ function computeAccuracyFromRaw(
     }
   }
 
-  // Group forecasts by model, metric, and lead time bucket
+  // Group forecasts by model, metric, and lead time bucket.
+  // Pair each forecast row with the observation recorded at the
+  // forecast's *init_time* (when it was issued). Pairing at
+  // `valid_time` instead would credit a forecast with the
+  // ground truth it could not have known, inflating accuracy
+  // for short lead times and producing "skill" for long ones.
   const grouped = new Map<string, { predicted: number[]; observed: number[] }>()
   for (const row of forecastRows) {
     if (row.predicted_value === null) continue
     const bucket = leadTimeBucket(row.lead_time_hours)
     const key = `${row.model_id}|${row.metric}|${bucket}`
-    const obsKey = `${row.valid_time}|${row.metric}`
+    const obsKey = `${row.init_time}|${row.metric}`
     const observed = obsMap.get(obsKey)
     if (observed === undefined) continue
 

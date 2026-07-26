@@ -42,6 +42,12 @@ const ICONS: Record<MetricId, React.ReactNode> = {
       <path d="M8 2.5C8 2.5 4 7 4 10a4 4 0 0 0 8 0c0-3-4-7.5-4-7.5z" />
     </svg>
   ),
+  precipitation_probability: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M8 2.5C8 2.5 4 7 4 10a4 4 0 0 0 8 0c0-3-4-7.5-4-7.5z" />
+      <text x="8" y="14.5" textAnchor="middle" fontSize="5" fill="currentColor" stroke="none">%</text>
+    </svg>
+  ),
   humidity: (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
       <path d="M8 14c3 0 5-2 5-5 0-4-5-8-5-8S3 5 3 9c0 3 2 5 5 5z" />

@@ -462,13 +462,19 @@ export default function HomeContent() {
   // F-5: persist every successful forecast to IndexedDB so the user
   // can read their last known data offline. Best-effort; failures are
   // swallowed inside `saveLastForecast`.
+  //
+  // We use the upstream `data.fetchedAt` rather than `Date.now()` so
+  // two snapshots belonging to the same upstream response share the
+  // same key. Without this the "last seen" time displayed when the
+  // user goes offline can jump forward even though the underlying
+  // forecast payload is byte-identical.
   useEffect(() => {
     if (!data) return
     void saveLastForecast({
       position: [position[0], position[1]],
       cityName,
       utcOffsetSeconds: data.utcOffsetSeconds,
-      fetchedAt: Date.now(),
+      fetchedAt: data.fetchedAt,
       data,
     })
   }, [data, position, cityName])

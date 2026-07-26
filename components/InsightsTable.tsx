@@ -1,12 +1,12 @@
 'use client'
 
 import { useMemo, useState, useCallback, useRef, useEffect, memo } from 'react'
-import type { WeatherModel } from '@/lib/models'
-import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '@/lib/models'
+import type { WeatherModel, MetricId } from '@/lib/models'
+import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE } from '@/lib/models'
 import { getColor, SCALES } from '@/lib/colorScales'
 import type { ScaleMetric } from '@/lib/colorScales'
 import { weightedAvg } from '@/lib/ensemble'
-import { resolveActiveModels, weightsFor, ensembleWithFallback } from '@/lib/ensemble/central'
+import { resolveActiveModels, weightsFor, weightsForAbsolute, ensembleWithFallback } from '@/lib/ensemble/central'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
@@ -590,14 +590,14 @@ export default function InsightsTable({
     const modelIds = activeModels.map(m => m.id)
     const staticWeights = activeModels.map(m => m.weight)
 
-    const getWeightsForMetricAndHour = (metric: string, hourIndex: number): number[] => {
+    const getWeightsForMetricAndHour = (metric: MetricId | string, hourIndex: number): number[] => {
       if (ensembleMode === 'models') return staticWeights
-      const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
-      const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
-      const leadTimeHours = hourIndex * bucket
-      const leadBucket = getLeadTimeBucket(leadTimeHours)
-      const bucketWeights = preset.weights[leadBucket] ?? preset.weights['0-48h']
-      return modelIds.map(id => bucketWeights[id] ?? 0.01)
+      // `hourIndex` here is already offset by `startIndex` because
+      // the time series we receive is the trimmed `viewTimes`.
+      // Pass it as absolute to avoid the previous bucket
+      // mis-classification where rows past the first day were
+      // tagged with the 0-48h preset.
+      return weightsForAbsolute(metric as MetricId, hourIndex + startIndex, bucket, activeModels)
     }
 
     const buckets: Row[] = []

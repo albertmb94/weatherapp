@@ -5,12 +5,10 @@ import {
   weightsFor,
   meanAtHour,
   type EnsembleMode,
+  type SeriesBag,
 } from './ensemble/central'
 
-interface SeriesBag {
-  time: Date[]
-  series: Record<string, Record<string, (number | null)[]>>
-}
+export type { SeriesBag }
 
 /**
  * Mean of a single metric at a single hour.
@@ -117,13 +115,32 @@ export interface CurrentSnapshot {
  * pure heuristic that could produce values >100 % for >1.25 mm/h. We now
  * clamp + cap and render it as an intensity indicator (with fallback name
  * "chanceOfRainPct" preserved for backwards compatibility with i18n/UI).
+ *
+ * Prefer the calibrated `precipitation_probability` series when available;
+ * only fall back to the heuristic when every model returned null for that
+ * hour (which happens during degraded data windows).
  */
-function precipChance(precipMm: number | null): number | null {
+function precipChanceFromIntensity(precipMm: number | null): number | null {
   if (precipMm === null) return null
   if (precipMm <= 0) return 0
   if (precipMm >= 2) return 100
   const pct = Math.round(precipMm * 80)
   return Math.max(0, Math.min(100, pct))
+}
+
+function ensembleProbability(bag: SeriesBag, hourIndex: number, fallback: number | null): number | null {
+  let sum = 0
+  let count = 0
+  for (const id of Object.keys(bag.series)) {
+    if (id === 'marine_global') continue
+    const arr = bag.series[id]?.['precipitation_probability']
+    const v = arr?.[hourIndex]
+    if (typeof v !== 'number' || Number.isNaN(v)) continue
+    sum += v
+    count += 1
+  }
+  if (count === 0) return fallback
+  return Math.max(0, Math.min(100, Math.round(sum / count)))
 }
 
 const CONDITION_KEY: Record<WeatherIconId, 'conditionSunny' | 'conditionPartly' | 'conditionCloudy' | 'conditionRainy' | 'conditionStormy' | 'conditionSnowy'> = {
@@ -207,6 +224,10 @@ export function computeCurrentSnapshot(
   const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds, mode)
   const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds, mode)
   const peak = dailyUvPeak(bag, hourIndex)
+  // Prefer the calibrated `precipitation_probability` series from the
+  // provider. If every model returned null we degrade to the intensity
+  // heuristic so the UI never goes blank.
+  const rainProbability = ensembleProbability(bag, hourIndex, precipChanceFromIntensity(precip))
 
   let dailyHigh: number | null = null
   let dailyLow: number | null = null
@@ -246,7 +267,7 @@ export function computeCurrentSnapshot(
     windKmh: wind,
     windGustsKmh: gusts,
     precipitationMm: precip,
-    chanceOfRainPct: precipChance(precip),
+    chanceOfRainPct: rainProbability,
     uvIndex: uv,
     uvIndexPeak: peak,
     cloudCoverPct: cloud,

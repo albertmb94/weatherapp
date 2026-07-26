@@ -65,23 +65,27 @@ export async function fetchPreviousRuns(
     for (const metric of BACKTEST_METRICS) {
       const param = METRIC_TO_PARAM[metric]
 
-      // Current forecast (lead time 0)
-      const currentValue = hourly[param]?.[i] ?? null
-      if (currentValue !== null) {
-        for (const modelId of BACKTEST_MODEL_IDS) {
-          const modelKey = `${param}_${modelId}`
-          const value = hourly[modelKey]?.[i] ?? currentValue
-          rows.push({
-            model_id: modelId,
-            lat: location.lat,
-            lon: location.lon,
-            init_time: validTime,
-            valid_time: validTime,
-            lead_time_hours: 0,
-            metric,
-            predicted_value: value,
-          })
-        }
+      // Current forecast (lead time 0): emit a row only when we
+      // actually got a per-model value for that hour. Falling back
+      // to the best-match (`hourly[param]`) made the backtest
+      // compare the forecast against itself for any hour where the
+      // per-model entry was missing, which produced RMSE=0 cells
+      // and over-weighted models with sparse coverage (HRRR outside
+      // CONUS, AIGFS over polar regions, …).
+      for (const modelId of BACKTEST_MODEL_IDS) {
+        const modelKey = `${param}_${modelId}`
+        const value = hourly[modelKey]?.[i]
+        if (value === null || value === undefined) continue
+        rows.push({
+          model_id: modelId,
+          lat: location.lat,
+          lon: location.lon,
+          init_time: validTime,
+          valid_time: validTime,
+          lead_time_hours: 0,
+          metric,
+          predicted_value: value,
+        })
       }
 
       // Previous day forecasts (lead time 1-7 days)

@@ -81,9 +81,13 @@ describe('weightsFor', () => {
     const wShort = weightsFor('temperature', 10, 3, active)
     const ecmwfIdx = active.findIndex(m => m.id === 'ecmwf_ifs')
     expect(wShort[ecmwfIdx]).toBeCloseTo(0.3, 5)
-    // hourIndex=70 with bucketHours=3 → leadTimeHours = 210 (96-168h bucket)
-    const wFar = weightsFor('temperature', 70, 3, active)
-    expect(wFar[ecmwfIdx]).toBeCloseTo(0.4, 5)
+    // hourIndex=60 with bucketHours=3 → leadTimeHours = 180 (168-240h bucket).
+    // The 96-168h preset used to handle anything above 96h; S1 added
+    // dedicated buckets above 168h so this assertion pins the new
+    // behaviour rather than silently rolling the new lead time into
+    // the 96-168h preset.
+    const wFar = weightsFor('temperature', 60, 3, active)
+    expect(wFar[ecmwfIdx]).toBeCloseTo(0.42, 5)
   })
 
   it('falls back to 0.01 for models not in the preset', () => {

@@ -41,13 +41,33 @@ export default function ModelComparisonChart({
   ensembleMode = 'models',
 }: ModelComparisonChartProps) {
   const [localHover, setLocalHover] = useState<number | null>(null)
-  const [renderChart, setRenderChart] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const [dims, setDims] = useState<{ w: number; h: number }>({ w: 0, h: 0 })
   const [exporting, setExporting] = useState(false)
+  // B-NEW-22 (2026-07-27): Recharts' ResponsiveContainer reports
+  // `width(-1) / height(-1)` when the parent has zero (or otherwise
+  // unmeasurable) dimensions at mount time. That happens here because
+  // the chart is rendered inside a flex/overflow container that may
+  // not be laid out on the very first frame, and the previous
+  // `requestAnimationFrame` deferred the *render* only — not the
+  // layout. Listening to a ResizeObserver instead means we only hand
+  // the chart to Recharts once the container has a real size, so the
+  // warning (and the silent "the chart renders nothing" symptom) goes
+  // away. On mount we read the container synchronously so the first
+  // paint isn't empty either.
   useEffect(() => {
-    const id = requestAnimationFrame(() => setRenderChart(true))
-    return () => cancelAnimationFrame(id)
+    const el = containerRef.current
+    if (!el) return
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      setDims(prev => (prev.w === rect.width && prev.h === rect.height) ? prev : { w: rect.width, h: rect.height })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [])
+  const renderChart = dims.w > 0 && dims.h > 0
   const activeHour = localHover ?? hoveredHour
 
   const displayMetric = metric

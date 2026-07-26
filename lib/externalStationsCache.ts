@@ -1,4 +1,4 @@
-import { getDb } from './db'
+import { db } from './db'
 import type { MeteoclimaticObservation } from './meteoclimatic-types'
 
 /**
@@ -14,7 +14,7 @@ import type { MeteoclimaticObservation } from './meteoclimatic-types'
  * table keyed by source name. Both AEMET and Meteocat routes share
  * this store. The schema and helpers below were designed for the
  * Turso DB used everywhere else in the project; in development they
- * fall through to the local `local.db` SQLite file via `getDb()`.
+ * fall through to the local `local.db` SQLite file via `db`.
  *
  * TTL semantics:
  *   - 4 h fresh: any read newer than this is served as-is.
@@ -22,6 +22,13 @@ import type { MeteoclimaticObservation } from './meteoclimatic-types'
  *     served even if it's a day old. Older than that we treat the
  *     request as a hard failure rather than broadcasting an
  *     arbitrarily-old forecast.
+ *
+ * When the DB is unavailable (no Turso configured, or the libsql
+ * client rejected the connection — see the production block in
+ * `lib/db.ts`), every helper returns null and writes are no-ops. The
+ * callers in `app/api/aemet/route.ts` and `app/api/meteocat/route.ts`
+ * already fall back to the in-process memo in that case, so the
+ * external routes still serve a fresh-ish response.
  */
 
 export interface CachedStations {
@@ -34,39 +41,33 @@ const TABLE = 'external_stations_cache'
 const FRESH_TTL_MS = 4 * 60 * 60 * 1000
 const STALE_TTL_MS = 24 * 60 * 60 * 1000
 
-let initPromise: Promise<void> | null = null
+let schemaReady: Promise<boolean> | null = null
 
-function ensureSchema(): Promise<void> {
-  if (!initPromise) {
-    initPromise = getDb()
-      .execute(
-        `CREATE TABLE IF NOT EXISTS ${TABLE} (
-          source TEXT PRIMARY KEY,
-          body TEXT NOT NULL,
-          fetched_at INTEGER NOT NULL
-        )`
-      )
-      .then(() => undefined)
-      .catch(err => {
-        initPromise = null
-        throw err
-      })
-  }
-  return initPromise
+async function ensureSchema(): Promise<boolean> {
+  if (schemaReady) return schemaReady
+  schemaReady = db.ensure().then(ok => {
+    if (!ok) return false
+    return db.execute(
+      `CREATE TABLE IF NOT EXISTS ${TABLE} (
+        source TEXT PRIMARY KEY,
+        body TEXT NOT NULL,
+        fetched_at INTEGER NOT NULL
+      )`,
+    )
+  }).catch(() => false)
+  return schemaReady
 }
 
 export async function getCachedStations(
   source: CachedStations['source'],
-  now: number = Date.now()
+  now: number = Date.now(),
 ): Promise<CachedStations | null> {
-  await ensureSchema()
-  const result = await getDb().execute({
-    sql: `SELECT body, fetched_at FROM ${TABLE} WHERE source = ?`,
-    args: [source],
-  })
-  const row = result.rows[0] as unknown as
-    | { body: string; fetched_at: number }
-    | undefined
+  if (!(await ensureSchema())) return null
+  const rows = await db.select<{ body: string; fetched_at: number }>(
+    `SELECT body, fetched_at FROM ${TABLE} WHERE source = ?`,
+    [source],
+  )
+  const row = rows[0]
   if (!row) return null
   const fetchedAt = Number(row.fetched_at)
   const ageMs = now - fetchedAt
@@ -77,14 +78,14 @@ export async function getCachedStations(
 export async function setCachedStations(
   source: CachedStations['source'],
   body: string,
-  now: number = Date.now()
+  now: number = Date.now(),
 ): Promise<void> {
-  await ensureSchema()
-  await getDb().execute({
-    sql: `INSERT INTO ${TABLE} (source, body, fetched_at) VALUES (?, ?, ?)
-          ON CONFLICT(source) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at`,
-    args: [source, body, now],
-  })
+  if (!(await ensureSchema())) return
+  await db.execute(
+    `INSERT INTO ${TABLE} (source, body, fetched_at) VALUES (?, ?, ?)
+     ON CONFLICT(source) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at`,
+    [source, body, now],
+  )
 }
 
 /**
@@ -95,7 +96,7 @@ export async function setCachedStations(
  */
 export async function getFreshCachedStations(
   source: CachedStations['source'],
-  now: number = Date.now()
+  now: number = Date.now(),
 ): Promise<CachedStations | null> {
   const entry = await getCachedStations(source, now)
   if (!entry) return null
@@ -107,7 +108,7 @@ export async function getFreshCachedStations(
 
 export async function getStaleCachedStations(
   source: CachedStations['source'],
-  now: number = Date.now()
+  now: number = Date.now(),
 ): Promise<CachedStations | null> {
   // getCachedStations already enforces STALE_TTL_MS so this is the
   // same call but exposed for clarity at the call site.

@@ -1,47 +1,46 @@
-import { getDb } from '@/lib/db'
+import { db } from '@/lib/db'
 
 const TTL_DAYS = 90
 const TTL_MS = TTL_DAYS * 24 * 60 * 60 * 1000
 
-let initPromise: Promise<void> | null = null
+let schemaReady: Promise<boolean> | null = null
 
-function ensureSchema(): Promise<void> {
-  if (!initPromise) {
-    initPromise = getDb()
-      .execute(`
-        CREATE TABLE IF NOT EXISTS short_links (
-          id TEXT PRIMARY KEY,
-          snapshot TEXT NOT NULL,
-          created_at INTEGER NOT NULL
-        )
-      `)
-      .then(() => undefined)
-      .catch(err => {
-        initPromise = null
-        throw err
-      })
-  }
-  return initPromise
+async function ensureSchema(): Promise<boolean> {
+  if (schemaReady) return schemaReady
+  schemaReady = db.ensure().then(ok => {
+    if (!ok) return false
+    return db.execute(
+      `CREATE TABLE IF NOT EXISTS short_links (
+        id TEXT PRIMARY KEY,
+        snapshot TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )`,
+    )
+  }).catch(() => false)
+  return schemaReady
 }
 
 // F-9: short links stored in our own DB so we don't depend on any
 // external service. Snapshot is the JSON-encoded URL params from
 // `useUrlState` (excluding `locale` and `basic` which are device-local).
-export async function saveShortLink(id: string, snapshot: string): Promise<void> {
-  await ensureSchema()
-  await getDb().execute({
-    sql: 'INSERT OR REPLACE INTO short_links (id, snapshot, created_at) VALUES (?, ?, ?)',
-    args: [id, snapshot, Date.now()],
-  })
+// When the DB is unavailable (no Turso configured, or the libsql client
+// reported the connection as blocked), the writes are no-ops and the
+// reads return null. The caller falls back to the original URL.
+export async function saveShortLink(id: string, snapshot: string): Promise<boolean> {
+  if (!(await ensureSchema())) return false
+  return db.execute(
+    'INSERT OR REPLACE INTO short_links (id, snapshot, created_at) VALUES (?, ?, ?)',
+    [id, snapshot, Date.now()],
+  )
 }
 
 export async function loadShortLink(id: string, now: number = Date.now()): Promise<string | null> {
-  await ensureSchema()
-  const result = await getDb().execute({
-    sql: 'SELECT snapshot, created_at FROM short_links WHERE id = ?',
-    args: [id],
-  })
-  const row = result.rows[0] as unknown as { snapshot: string; created_at: number } | undefined
+  if (!(await ensureSchema())) return null
+  const rows = await db.select<{ snapshot: string; created_at: number }>(
+    'SELECT snapshot, created_at FROM short_links WHERE id = ?',
+    [id],
+  )
+  const row = rows[0]
   if (!row) return null
   const ageMs = now - Number(row.created_at)
   if (ageMs > TTL_MS) return null

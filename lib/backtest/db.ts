@@ -4,8 +4,16 @@ let initPromise: Promise<void> | null = null
 
 export function ensureBacktestSchema(): Promise<void> {
   if (!initPromise) {
-    initPromise = getDb()
-      .execute(`
+    const db = getDb()
+    if (!db) {
+      // No DB available (production without Turso, or the libsql client
+      // reported the connection as blocked). Fail closed: the backtest
+      // route is auth-protected and only triggers when the operator is
+      // prepared to provision storage, so a missing DB is a real error.
+      initPromise = Promise.resolve()
+      return initPromise
+    }
+    initPromise = db.execute(`
         CREATE TABLE IF NOT EXISTS forecast_archive (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           model_id TEXT NOT NULL,
@@ -20,7 +28,10 @@ export function ensureBacktestSchema(): Promise<void> {
           UNIQUE(model_id, lat, lon, init_time, valid_time, metric)
         )
       `)
-      .then(() => getDb().execute(`
+      .then(() => {
+        const fresh = getDb()
+        if (!fresh) throw new Error('DB unavailable')
+        return fresh.execute(`
         CREATE TABLE IF NOT EXISTS observations_era5 (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           lat REAL NOT NULL,
@@ -31,8 +42,12 @@ export function ensureBacktestSchema(): Promise<void> {
           source TEXT DEFAULT 'era5',
           UNIQUE(lat, lon, valid_time, metric, source)
         )
-      `))
-      .then(() => getDb().execute(`
+      `)
+      })
+      .then(() => {
+        const fresh = getDb()
+        if (!fresh) throw new Error('DB unavailable')
+        return fresh.execute(`
         CREATE TABLE IF NOT EXISTS model_accuracy (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           model_id TEXT NOT NULL,
@@ -50,8 +65,12 @@ export function ensureBacktestSchema(): Promise<void> {
           computed_at TEXT DEFAULT (datetime('now')),
           UNIQUE(model_id, lat, lon, terrain_type, metric, lead_time_bucket, window_start)
         )
-      `))
-      .then(() => getDb().execute(`
+      `)
+      })
+      .then(() => {
+        const fresh = getDb()
+        if (!fresh) throw new Error('DB unavailable')
+        return fresh.execute(`
         CREATE TABLE IF NOT EXISTS dynamic_weights (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           lat REAL NOT NULL,
@@ -64,7 +83,8 @@ export function ensureBacktestSchema(): Promise<void> {
           computed_at TEXT DEFAULT (datetime('now')),
           UNIQUE(lat, lon, terrain_type, model_id, metric, lead_time_bucket)
         )
-      `))
+      `)
+      })
       .then(() => undefined)
       .catch(err => {
         initPromise = null
@@ -122,6 +142,7 @@ export interface DynamicWeightRow {
 export async function insertForecastArchive(rows: ForecastArchiveRow[]): Promise<void> {
   if (rows.length === 0) return
   const db = getDb()
+  if (!db) throw new Error('DB unavailable')
   // Batch insert in chunks of 500
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500)
@@ -142,6 +163,7 @@ export async function insertForecastArchive(rows: ForecastArchiveRow[]): Promise
 export async function insertObservations(rows: ObservationRow[]): Promise<void> {
   if (rows.length === 0) return
   const db = getDb()
+  if (!db) throw new Error('DB unavailable')
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500)
     const placeholders = chunk.map(() => '(?, ?, ?, ?, ?)').join(', ')
@@ -160,6 +182,7 @@ export async function insertObservations(rows: ObservationRow[]): Promise<void> 
 export async function insertModelAccuracy(rows: ModelAccuracyRow[]): Promise<void> {
   if (rows.length === 0) return
   const db = getDb()
+  if (!db) throw new Error('DB unavailable')
   for (const r of rows) {
     await db.execute({
       sql: `INSERT OR REPLACE INTO model_accuracy
@@ -177,6 +200,7 @@ export async function insertModelAccuracy(rows: ModelAccuracyRow[]): Promise<voi
 export async function insertDynamicWeights(rows: DynamicWeightRow[]): Promise<void> {
   if (rows.length === 0) return
   const db = getDb()
+  if (!db) throw new Error('DB unavailable')
   for (const r of rows) {
     await db.execute({
       sql: `INSERT OR REPLACE INTO dynamic_weights
@@ -195,6 +219,7 @@ export async function getModelAccuracy(
   leadTimeBucket: string
 ): Promise<ModelAccuracyRow[]> {
   const db = getDb()
+  if (!db) return []
   const result = await db.execute({
     sql: `SELECT * FROM model_accuracy
           WHERE lat = ? AND lon = ? AND terrain_type = ? AND metric = ? AND lead_time_bucket = ?
@@ -215,6 +240,7 @@ export async function _unused_getDynamicWeights(
   // backtest experiments; no production caller. The named export below
   // is intentionally absent so that dead-code detection stays quiet.
   const db = getDb()
+  if (!db) return []
   const result = await db.execute({
     sql: `SELECT * FROM dynamic_weights
           WHERE lat = ? AND lon = ? AND terrain_type = ? AND metric = ? AND lead_time_bucket = ?

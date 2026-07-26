@@ -109,30 +109,30 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stateRef = useRef<UrlState | null>(null)
 
-  const [state, setState] = useState<UrlState>(() => {
-    const params = typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search)
-      : new URLSearchParams()
+  // SSR-safe initial state: always start with `defaults` so the server
+  // render and the first client render are byte-identical. Reading
+  // `window.location.search` here would diverge from the server (which
+  // has no `window`) and trigger React's hydration error #418 on every
+  // deep link. The URL state is resynced in a useEffect below.
+  const [state, setState] = useState<UrlState>(() => ({ ...defaults }))
+
+  // After mount, fold the real URL params into the state. Any defaults
+  // not overridden by the URL stay at their current value.
+  const initialUrlAppliedRef = useRef(false)
+  useEffect(() => {
+    if (initialUrlAppliedRef.current) return
+    initialUrlAppliedRef.current = true
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
     const parsed = parseUrlParams(params)
-    const initial: UrlState = {
-      lat: parsed.lat ?? defaults.lat,
-      lon: parsed.lon ?? defaults.lon,
-      metric: parsed.metric ?? defaults.metric,
-      models: (parsed.models && parsed.models.length > 0) ? parsed.models : defaults.models,
-      hour: parsed.hour ?? defaults.hour,
-      range: parsed.range ?? defaults.range,
-      showMap: parsed.showMap ?? defaults.showMap,
-      showRadar: parsed.showRadar ?? defaults.showRadar,
-      bucket: parsed.bucket ?? defaults.bucket,
-      locale: parsed.locale ?? defaults.locale,
-      marine: parsed.marine ?? defaults.marine,
-      basic: parsed.basic ?? defaults.basic,
-      view: parsed.view ?? defaults.view,
-      weekDays: parsed.weekDays ?? defaults.weekDays,
-      ensembleMode: parsed.ensembleMode ?? defaults.ensembleMode,
-    }
-    return initial
-  })
+    // Empty URL → keep defaults. The popstate handler in this hook
+    // already covers the case where the user navigates back to "/" via
+    // the browser, so we only need to layer the URL on top of whatever
+    // the current state is.
+    if (Object.keys(parsed).length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setState(prev => ({ ...prev, ...parsed }))
+  }, [])
 
   // Sync URL whenever state changes. Use window.history.replaceState to avoid
   // a Next.js re-render cycle (router.replace would re-trigger this hook).

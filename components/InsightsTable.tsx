@@ -298,12 +298,26 @@ function WindArrow({ degrees }: { degrees: number | null }) {
   )
 }
 
-function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' | 'en', utcOffsetSeconds: number): string {
+function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' | 'en', utcOffsetSeconds: number, nowMs: number | null): string {
   // M5: compare the location's "today" (in the location's timezone) instead
   // of the browser's "today", otherwise the label flips between "Hoy" /
   // "Mañ" and a weekday at the wrong moment when the user is in a TZ
   // different from the location.
-  const today = new Date(Date.now() + utcOffsetSeconds * 1000)
+  //
+  // B-NEW-21 (2026-07-27): the previous version derived `today` from
+  // `Date.now()`. That captured the server's clock on SSR and the
+  // client's clock on hydration, and the diff (typically a few seconds,
+  // but occasionally a timezone-aligned tick across midnight) produced
+  // a different `isToday` / weekday label between the two renders —
+  // exactly the kind of mismatch React rejects with hydration error
+  // #418. We now require the caller to pass `nowMs` (the forecast's
+  // own timestamp, which is consistent across the server and client)
+  // and derive "today" from that instead. `nowMs` is `null` until the
+  // parent's `useEffect` runs — in that case we fall back to the
+  // pre-hydration weekday label so the SSR and the first client render
+  // are byte-identical. The `useEffect` then updates `nowMs` and the
+  // table re-renders with the correct "Hoy"/"Mañ" tags.
+  const today = new Date((nowMs ?? 0) + utcOffsetSeconds * 1000)
   const isToday = start.getUTCFullYear() === today.getUTCFullYear() && start.getUTCMonth() === today.getUTCMonth() && start.getUTCDate() === today.getUTCDate()
   const isTomorrow = (() => {
     const t = new Date(today.getTime() + 24 * 60 * 60 * 1000)
@@ -536,6 +550,21 @@ export default function InsightsTable({
     }
   }, [bucket])
 
+  // B-NEW-21 (2026-07-27): the "today" anchor used by `bucketLabel`
+  // must be the same on the server and the client. The forecast's
+  // own timestamp is the natural choice — it's stamped by the
+  // Open-Meteo response and stays consistent across renderers. We
+  // start the state at `null` (matches the SSR render and the first
+  // client render) and set the actual `nowMs` in a useEffect that
+  // only runs on the client after hydration. The 1-frame flash where
+  // "today" labels are wrong is the documented trade-off vs. an SSR
+  // mismatch that aborts the whole tree.
+  const [nowMs, setNowMs] = useState<number | null>(null)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNowMs((times[0] instanceof Date) ? times[0].getTime() : Date.now())
+  }, [times])
+
   const isDefaultOrder = useMemo(
     () => columnOrder.every((id, i) => id === DEFAULT_ORDER[i]),
     [columnOrder]
@@ -612,7 +641,7 @@ export default function InsightsTable({
           const labelT = tt[i] ?? tt[dayStart] ?? tt[startIndex]
           current = {
             label: labelT instanceof Date
-              ? bucketLabel(labelT, labelT, bucket, locale, utcOffsetSeconds)
+              ? bucketLabel(labelT, labelT, bucket, locale, utcOffsetSeconds, nowMs)
               : dayKey,
             startIdx: dayStart,
             endIdx: i,
@@ -646,7 +675,7 @@ export default function InsightsTable({
         if (end < cursor) break
         const endT = times[end]
         buckets.push({
-          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), endT, bucket, locale, utcOffsetSeconds),
+          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), endT, bucket, locale, utcOffsetSeconds, nowMs),
           startIdx: cursor,
           endIdx: end,
           centerIdx: cursor + Math.floor((end - cursor) / 2),

@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db'
+import { db } from '@/lib/db'
 
 export interface CachedEntry {
   body: string
@@ -17,34 +17,30 @@ interface CacheStoreOptions {
 }
 
 export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleMs }: CacheStoreOptions) {
-  let initPromise: Promise<void> | null = null
+  let schemaReady: Promise<boolean> | null = null
 
-  function ensureSchema(): Promise<void> {
-    if (!initPromise) {
-      initPromise = getDb()
-        .execute(`
-          CREATE TABLE IF NOT EXISTS ${tableName} (
-            cache_key TEXT PRIMARY KEY,
-            body TEXT NOT NULL,
-            fetched_at INTEGER NOT NULL
-          )
-        `)
-        .then(() => undefined)
-        .catch(err => {
-          initPromise = null
-          throw err
-        })
-    }
-    return initPromise
+  async function ensureSchema(): Promise<boolean> {
+    if (schemaReady) return schemaReady
+    schemaReady = db.ensure().then(ok => {
+      if (!ok) return false
+      return db.execute(
+        `CREATE TABLE IF NOT EXISTS ${tableName} (
+          cache_key TEXT PRIMARY KEY,
+          body TEXT NOT NULL,
+          fetched_at INTEGER NOT NULL
+        )`,
+      )
+    }).catch(() => false)
+    return schemaReady
   }
 
   async function get(cacheKey: string, now: number = Date.now()): Promise<CachedEntry | null> {
-    await ensureSchema()
-    const result = await getDb().execute({
-      sql: `SELECT body, fetched_at FROM ${tableName} WHERE cache_key = ?`,
-      args: [cacheKey],
-    })
-    const row = result.rows[0] as unknown as { body: string; fetched_at: number } | undefined
+    if (!(await ensureSchema())) return null
+    const rows = await db.select<{ body: string; fetched_at: number }>(
+      `SELECT body, fetched_at FROM ${tableName} WHERE cache_key = ?`,
+      [cacheKey],
+    )
+    const row = rows[0]
     if (!row) return null
     const fetchedAt = Number(row.fetched_at)
     const ageMs = now - fetchedAt
@@ -53,12 +49,12 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleM
   }
 
   async function getStale(cacheKey: string, now: number = Date.now()): Promise<CachedEntry | null> {
-    await ensureSchema()
-    const result = await getDb().execute({
-      sql: `SELECT body, fetched_at FROM ${tableName} WHERE cache_key = ?`,
-      args: [cacheKey],
-    })
-    const row = result.rows[0] as unknown as { body: string; fetched_at: number } | undefined
+    if (!(await ensureSchema())) return null
+    const rows = await db.select<{ body: string; fetched_at: number }>(
+      `SELECT body, fetched_at FROM ${tableName} WHERE cache_key = ?`,
+      [cacheKey],
+    )
+    const row = rows[0]
     if (!row) return null
     const fetchedAt = Number(row.fetched_at)
     const ageMs = now - fetchedAt
@@ -72,17 +68,17 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleM
   }
 
   async function set(cacheKey: string, body: string, now: number = Date.now()): Promise<void> {
-    await ensureSchema()
-    await getDb().execute({
-      sql: `INSERT INTO ${tableName} (cache_key, body, fetched_at) VALUES (?, ?, ?)
-            ON CONFLICT(cache_key) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at`,
-      args: [cacheKey, body, now],
-    })
+    if (!(await ensureSchema())) return
+    await db.execute(
+      `INSERT INTO ${tableName} (cache_key, body, fetched_at) VALUES (?, ?, ?)
+       ON CONFLICT(cache_key) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at`,
+      [cacheKey, body, now],
+    )
     try {
-      await getDb().execute({
-        sql: `DELETE FROM ${tableName} WHERE fetched_at < ?`,
-        args: [now - purgeOlderThanMs],
-      })
+      await db.execute(
+        `DELETE FROM ${tableName} WHERE fetched_at < ?`,
+        [now - purgeOlderThanMs],
+      )
     } catch (err) {
       // Surface prune failures to the server log so silent table growth
       // doesn't go unnoticed.
@@ -91,8 +87,8 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleM
   }
 
   async function purgeAll(): Promise<void> {
-    await ensureSchema()
-    await getDb().execute(`DELETE FROM ${tableName}`)
+    if (!(await ensureSchema())) return
+    await db.execute(`DELETE FROM ${tableName}`)
   }
 
   return { get, getStale, set, purgeAll, ttlMs, maxStaleMs }

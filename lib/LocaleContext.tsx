@@ -34,17 +34,23 @@ function readInitial(): Locale {
   return navigator.language?.startsWith('en') ? 'en' : 'es'
 }
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
+export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
   // Always start with the server default to avoid hydration mismatch;
-  // a useEffect below brings the client snapshot in.
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
+  // a useEffect below brings the client snapshot in. The `initialLocale`
+  // prop is only used by tests to skip the storage/navigator read and
+  // force a specific locale; production callers should omit it.
+  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? DEFAULT_LOCALE)
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (initialLocale) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHydrated(true)
+      return
+    }
     setLocaleState(readInitial())
     setHydrated(true)
-  }, [])
+  }, [initialLocale])
 
   useEffect(() => {
     if (!hydrated) return

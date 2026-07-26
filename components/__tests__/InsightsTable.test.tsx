@@ -387,7 +387,12 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     // is absent (so jsdom doesn't accidentally match the prefixed
     // one).
     expect(table.className).toMatch(/\blg:table-fixed\b/)
-    expect(table.className).not.toMatch(/(^|\s)table-fixed(\s|$)/)
+    // Sprint 14: `table-fixed` is now also on the base class
+    // (not just lg:) so the column widths are explicit in
+    // portrait, where the column filter plus fixed widths plus
+    // ellipsis is what guarantees the user never has to scroll
+    // horizontally.
+    expect(table.className).toMatch(/(^|\s)table-fixed(\s|$)/)
     // The table now declares an explicit <colgroup> with the first
     // column pinned to 64 px so the sticky column has a stable width.
     const colgroup = table.querySelector('colgroup')!

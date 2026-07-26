@@ -14,7 +14,6 @@ import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useInsightPagination } from '@/lib/hooks/useInsightPagination'
 import { heatStyle as heatStyleFn } from './heatStyle'
 import WeatherConditionIcon from './WeatherConditionIcon'
-import MobileInsightsCard from './MobileInsightsCard'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
 
@@ -47,11 +46,6 @@ interface InsightsTableProps {
    *  the "AHORA" slot of the hourly strip regardless of the user's
    *  `ensembleMode` toggle. Other rows still respect `ensembleMode`. */
   currentHourMode?: 'wedai' | 'models'
-  /** Sprint 14 (test-only): when provided, forces the
-   *  `isMobilePortrait` flag, bypassing the `matchMedia` detection.
-   *  Lets the mobile-portrait card layout be exercised in jsdom
-   *  without faking the MediaQueryList. Undefined in production. */
-  __forceMobilePortrait?: boolean
 }
 
 interface Row {
@@ -328,7 +322,6 @@ export default function InsightsTable({
    *  the "AHORA" slot of the hourly strip regardless of the user's
    *  `ensembleMode` toggle. Other rows still respect `ensembleMode`. */
   currentHourMode = 'wedai',
-  __forceMobilePortrait,
 }: InsightsTableProps) {
   const { locale } = useLocale()
 
@@ -364,11 +357,6 @@ export default function InsightsTable({
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [compact, setCompact] = useState(false)
-  // B-NEW-3 (mobile): tracks whether the table container has hidden
-  // content to the left / right, so the gradient masks can render
-  // only on the side that has more to scroll. We start with both
-  // false (table fits) and let the onScroll handler update them.
-  const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({ left: false, right: false })
   // Sprint 10 / B-10-7: paginated rendering, 48 rows per page. The
   // user reported that bucket=1 (336 rows) still caused noticeable
   // slowdowns on mobile even with `content-visibility: auto`. The
@@ -805,21 +793,20 @@ export default function InsightsTable({
   // (wave_height). On landscape phones the width is enough
   // for the full view, so we keep the default behaviour.
   //
-  // SSR initial state is `false` so the server-rendered HTML
-  // contains every column (no hydration mismatch). The
-  // `useEffect` upgrades to `true` on the client when the
-  // viewport matches the media query, and re-renders the
-  // table with the filtered columns. There is a brief flash
-  // of the unfiltered table on first paint (acceptable
-  // trade-off vs. introducing a SSR-side viewport-detection
-  // heuristic that would have to mirror the client).
-  //
-  // Sprint 14: `__forceMobilePortrait` (test-only prop) lets jsdom
-  // skip the matchMedia dance and render the mobile-card branch
-  // directly. Production code never sets it.
-  const [isMobilePortrait, setIsMobilePortrait] = useState(__forceMobilePortrait === true)
+  // Sprint 14 revert: the mobile-portrait card layout was
+  // rejected by the user (they preferred the table even on
+  // phone). The anti-scroll requirement is now enforced at the
+  // CSS level (table-fixed, fixed column widths, ellipsis on
+  // overflowing values) so the table fits inside the viewport
+  // in portrait without any horizontal scrollbar. The
+  // `isMobilePortrait` flag is no longer needed for branching
+  // the JSX; we keep a slim variant only to detect "in portrait
+  // on a phone" so we can apply the tighter column filter
+  // (basic cols only + key marine cols) that previously lived
+  // under the card layout. Without that filter the table would
+  // overflow even with table-fixed + ellipsis.
+  const [isMobilePortrait, setIsMobilePortrait] = useState(false)
   useEffect(() => {
-    if (__forceMobilePortrait !== undefined) return
     if (typeof window === 'undefined' || !window.matchMedia) return
     const mq = window.matchMedia('(max-width: 767px) and (orientation: portrait)')
     const update = (e: MediaQueryListEvent | MediaQueryList) => setIsMobilePortrait(e.matches)
@@ -830,7 +817,7 @@ export default function InsightsTable({
 
   const MOBILE_PORTRAIT_KEY_COLS = useMemo(
     () => new Set<MetricCellId>([
-      'temp', 'wind', 'precip',
+      'cond', 'temp', 'wind', 'precip', 'humidity', 'uv',
       'sea_surface_temperature', 'wave_height',
     ]),
     []
@@ -838,12 +825,12 @@ export default function InsightsTable({
 
   const visibleIds = useMemo(
     () => columnOrder.filter(id => {
-      // B-NEW-16: mobile-portrait + marine collapses to the
-      // 5 key columns. The user wants Temp °C / Viento km/h /
-      // Lluvia mm / Mar °C / Ola m in this mode (the basic
-      // icon column and humidity/uv are hidden because they
-      // add horizontal scroll with no extra value on a phone).
-      if (showMarine && isMobilePortrait) {
+      // Mobile-portrait: filter to the key columns that fit on
+      // a 360-px phone even with table-fixed + ellipsis.
+      // Pressure / dewpoint / visibility / wind_gusts / min /
+      // max / clouds are dropped because the longer labels
+      // (e.g. "Presión hPa") can't truncate to under 36 px.
+      if (isMobilePortrait) {
         return MOBILE_PORTRAIT_KEY_COLS.has(id)
       }
       if (!showMarine && marineColIds.has(id)) return false
@@ -1002,70 +989,25 @@ export default function InsightsTable({
           // "completely broken" without a hint that scrolling was
           // possible.
           ref={tableContainerRef}
-          onScroll={(e) => {
-            const el = e.currentTarget
-            setScrollState({
-              left: el.scrollLeft > 4,
-              right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-            })
-          }}
-          className="relative overflow-auto max-h-[70vh] contain-[layout_style_paint]"
+          // Sprint 14: the scrollState handler is removed. The
+          // container is overflow-x-hidden below md, so there is no
+          // horizontal scroll event to track. The visual hint
+          // gradients are also gone. We keep the ref because the
+          // pagination hook uses it for scroll-to-top.
+          className="relative overflow-x-hidden max-h-[70vh] contain-[layout_style_paint] md:overflow-auto"
         >
-          {/* Sprint 14: in mobile-portrait the table is replaced by
-              a stack of <MobileInsightsCard>s so the user never has
-              to scroll horizontally. The branch is invisible
-              above the sm breakpoint (768 px), where the regular
-              table fits inside the viewport. Both branches share
-              `visibleRows` / `visibleCellsByRow` so pagination,
-              row clicking, and the active-row highlight behave
-              identically. */}
-          {isMobilePortrait ? (
-            <div
-              className="px-2 py-2"
-              data-testid="mobile-insights-cards"
-            >
-              {visibleRows.map((r, i) => {
-                const shiftedStart = bucket === 24 ? r.startIdx - startIndex : r.startIdx
-                const shiftedEnd = bucket === 24 ? r.endIdx - startIndex : r.endIdx
-                const isActive = selectedHour >= shiftedStart && selectedHour <= shiftedEnd
-                const rowCells = visibleCellsByRow[i] ?? []
-                const cellById = new Map<string, CellResult>()
-                for (let j = 0; j < colDefs.length; j++) {
-                  cellById.set(colDefs[j].id, rowCells[j])
-                }
-                const tempCell = cellById.get('temp')
-                const chipIds: Array<{ id: string; label: string }> = []
-                for (const col of colDefs) {
-                  if (col.id === 'cond' || col.id === 'temp') continue
-                  chipIds.push({ id: col.id, label: STRINGS[locale][col.labelKey] as string })
-                }
-                return (
-                  <MobileInsightsCard
-                    key={i}
-                    label={r.label}
-                    iconId={r.icon}
-                    isActive={isActive}
-                    tempCell={tempCell}
-                    metricChips={chipIds.map(c => ({ id: c.id, label: c.label, cell: cellById.get(c.id) }))}
-                    onClick={() => onSelectHour(r.centerIdx - startIndex)}
-                  />
-                )
-              })}
-            </div>
-          ) : (
-            <>
-          {/* Mobile-only scroll hint: fades in on whichever side has
-              more content. Hidden on >=sm where the table fits. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-surface-raised to-transparent z-20 sm:hidden"
-            style={{ opacity: scrollState.left ? 1 : 0, transition: 'opacity 120ms' }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-surface-raised to-transparent z-20 sm:hidden"
-            style={{ opacity: scrollState.right ? 1 : 0, transition: 'opacity 120ms' }}
-          />
+          {/* Sprint 14: scroll-hint gradients removed. The previous
+              gradient masks signalled "more content to scroll" on
+              the right edge — with the new
+              `overflow-x-hidden` + `table-fixed` + ellipsis
+              container, the table never produces a horizontal
+              scrollbar in portrait, so the hint is misleading. The
+              landscape case (>sm) gets the same `overflow-x-hidden`
+              by default; the `md:overflow-auto` restoration only
+              takes over on screens wider than md where the column
+              filter is loose enough that horizontal scroll may be
+              the right fallback for an extremely dense marine
+              view. */}
           <table
             // Sprint 10 / B-10-8: switched from `border-separate` +
             // `border-spacing: 0` back to `border-collapse: collapse`.
@@ -1131,7 +1073,7 @@ export default function InsightsTable({
             // cleanly in the now-48-px-wide marine column, and
             // there's no overflow into the next cell. Desktop
             // (>=1024 px) keeps the fill-the-container behaviour.
-            className="w-full border-collapse text-xs lg:table-fixed [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
+            className="w-full border-collapse text-xs table-fixed lg:table-fixed [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
             <colgroup>
               {/* B-NEW-4 (mobile): the "Cuándo" column drops to
@@ -1258,6 +1200,7 @@ export default function InsightsTable({
                 // The shadow on the right edge renders a vertical
                 // divider so the user can tell the column is sticky.
                 className="sticky left-0 top-0 z-50 text-center px-1.5 py-1.5 font-medium border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)]"
+                data-col-id="__when__"
               >
                 {STRINGS[locale].tableWhen}
               </th>
@@ -1493,8 +1436,6 @@ export default function InsightsTable({
             ) : null}
           </tbody>
         </table>
-            </>
-          )}
         </div>
       </div>
     </div>
@@ -1598,7 +1539,7 @@ const HeatCell = memo(function HeatCell({
       // With nowrap the value is forced to a single line and
       // the cell overflows horizontally (still readable thanks
       // to the gradient on the colored center).
-      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums whitespace-nowrap [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
+      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums whitespace-nowrap overflow-hidden text-ellipsis [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
       style={style}
     >
       {node}

@@ -1,19 +1,31 @@
 /**
- * Sprint 14: integration tests for the mobile-portrait card layout
- * of `InsightsTable`. The component branches on `isMobilePortrait`
- * (matched via `window.matchMedia('(max-width: 767px) and
- * (orientation: portrait)')`). In portrait, the table is replaced
- * by a stack of `<MobileInsightsCard>`s so the user never has to
- * scroll horizontally — that was the user's hard requirement.
+ * Sprint 14 revert: mobile-portrait regression test for the table.
  *
- * The previous behaviour rendered a horizontally-scrollable
- * <table> on every viewport and relied on a right-edge gradient
- * hint to tell the user "more content over there". The mobile
- * cards remove the scroll context entirely.
+ * The first Sprint 14 attempt replaced the table with a card
+ * stack on phone portrait; the user rejected that layout (too
+ * dense, lost the tabular reading). The current implementation
+ * keeps the table everywhere but enforces "no horizontal scroll
+ * in portrait" at the CSS level:
+ *
+ *   - The container is `overflow-x-hidden` below md so a long
+ *     value cannot produce a scrollbar.
+ *   - The table uses `table-fixed` with explicit small column
+ *     widths in portrait, so the rendered width matches the
+ *     container width (the column overflow that produced the
+ *     previous scrollbar is no longer possible).
+ *   - The portrait column filter (see `MOBILE_PORTRAIT_KEY_COLS`
+ *     in InsightsTable) drops every column that wouldn't fit
+ *     inside 360 px, leaving the basic six + the two marine
+ *     essentials.
+ *
+ * The user's hard requirement is: zero horizontal scroll on
+ * portrait phones. The assertions in this file pin that
+ * invariant by measuring the rendered table's scrollWidth
+ * against its clientWidth.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import InsightsTable from '@/components/InsightsTable'
 import { LocaleProvider } from '@/lib/LocaleContext'
@@ -65,11 +77,11 @@ function wrap(node: React.ReactNode) {
 }
 
 /**
- * Override the JS DOM matchMedia so the component's
- * `isMobilePortrait` flag resolves to a known value before the
- * component reads it on first render. The component's
- * `useEffect` would otherwise overwrite it on the next tick, but
- * the SSR-safe initial state is what the assertion needs.
+ * Pin `matchMedia` to a known portrait phone viewport so the
+ * component's `isMobilePortrait` flag resolves deterministically.
+ * The default jsdom matchMedia returns `matches: false` which
+ * would skip the mobile-portrait column filter and break the
+ * no-overflow invariant.
  */
 function setMatchMediaPortrait(value: boolean) {
   const mql: MediaQueryList = {
@@ -89,8 +101,10 @@ function setMatchMediaPortrait(value: boolean) {
   })
 }
 
-describe('InsightsTable — mobile-portrait card layout', () => {
-  it('renders the card stack instead of a table when __forceMobilePortrait is true', () => {
+describe('InsightsTable — mobile portrait, table only (no card layout)', () => {
+  beforeEach(() => setMatchMediaPortrait(true))
+
+  it('always renders the <table> on phone portrait (no card layout)', async () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -104,15 +118,71 @@ describe('InsightsTable — mobile-portrait card layout', () => {
         maxHours={HOURS}
         utcOffsetSeconds={0}
         ensembleMode="wedai"
-        __forceMobilePortrait
       />
     ))
-    const cards = screen.getAllByTestId('mobile-insights-card')
-    expect(cards.length).toBeGreaterThan(0)
-    expect(document.querySelector('table')).toBeNull()
+    await screen.findByTestId('next-page-cta')
+    expect(document.querySelector('table')).not.toBeNull()
+    expect(screen.queryByTestId('mobile-insights-card')).toBeNull()
   })
 
-  it('clicking a card fires onSelectHour with the row center', async () => {
+  it('container is overflow-x-hidden in portrait so values cannot push a scrollbar', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    const containers = Array.from(document.querySelectorAll('div'))
+      .filter(d => d.className.includes('max-h-[70vh]'))
+    expect(containers.length).toBeGreaterThan(0)
+    const container = containers[0]
+    expect(container.className).toContain('overflow-x-hidden')
+  })
+
+  it('column filter on portrait keeps only the columns that fit at 360 px', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    const headers = Array.from(document.querySelectorAll('thead th')).map(
+      th => th.getAttribute('data-col-id')
+    )
+    expect(headers[0]).toBe('__when__')
+    expect(headers).toContain('cond')
+    expect(headers).toContain('temp')
+    expect(headers).toContain('wind')
+    expect(headers).toContain('precip')
+    expect(headers).toContain('humidity')
+    expect(headers).toContain('uv')
+    expect(headers).not.toContain('pressure')
+    expect(headers).not.toContain('dewpoint')
+    expect(headers).not.toContain('visibility')
+    expect(headers).not.toContain('gusts')
+  })
+
+  it('clicking a row still fires onSelectHour with the row center', async () => {
     const user = userEvent.setup()
     let captured: number | null = null
     render(wrap(
@@ -128,16 +198,17 @@ describe('InsightsTable — mobile-portrait card layout', () => {
         maxHours={HOURS}
         utcOffsetSeconds={0}
         ensembleMode="wedai"
-        __forceMobilePortrait
       />
     ))
-    const cards = screen.getAllByTestId('mobile-insights-card')
-    await user.click(cards[3])
+    await screen.findByTestId('next-page-cta')
+    const rows = document.querySelectorAll('tbody tr')
+    expect(rows.length).toBeGreaterThan(0)
+    await user.click(rows[2] as HTMLElement)
     expect(captured).not.toBeNull()
     expect(typeof captured).toBe('number')
   })
 
-  it('marks the active card with the accent ring + data-active attribute', () => {
+  it('next-page CTA is present and advances pagination without adding horizontal scroll', async () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -151,129 +222,20 @@ describe('InsightsTable — mobile-portrait card layout', () => {
         maxHours={HOURS}
         utcOffsetSeconds={0}
         ensembleMode="wedai"
-        __forceMobilePortrait
       />
     ))
-    const cards = screen.getAllByTestId('mobile-insights-card')
-    const activeCard = cards.find(c => c.getAttribute('data-active') === 'true')
-    expect(activeCard).toBeDefined()
-  })
-
-  it('renders the temperature in each card header with the heatmap style', () => {
-    render(wrap(
-      <InsightsTable
-        models={MODELS}
-        activeModelIds={['gfs_global', 'ecmwf_ifs']}
-        times={fakeTimes(0, HOURS)}
-        series={SERIES}
-        bucket={1}
-        onBucketChange={() => {}}
-        selectedHour={0}
-        onSelectHour={() => {}}
-        maxHours={HOURS}
-        utcOffsetSeconds={0}
-        ensembleMode="wedai"
-        __forceMobilePortrait
-      />
-    ))
-    const cards = screen.getAllByTestId('mobile-insights-card')
-    expect(cards.length).toBeGreaterThan(0)
-    const first = cards[0]
-    const temp = within(first).getByTestId('card-temp')
-    const style = (temp as HTMLElement).style
-    // heatStyle emits a backgroundImage / backgroundColor pair
-    // with the heatmap colour; the exact string varies with the
-    // intensity / colour scale, so we accept any non-empty inline
-    // style as proof that the helper was applied.
-    expect(style.backgroundImage || style.backgroundColor).toBeTruthy()
-  })
-})
-
-describe('InsightsTable — desktop table layout', () => {
-  it('renders the <table> when __forceMobilePortrait is false', () => {
-    render(wrap(
-      <InsightsTable
-        models={MODELS}
-        activeModelIds={['gfs_global', 'ecmwf_ifs']}
-        times={fakeTimes(0, HOURS)}
-        series={SERIES}
-        bucket={1}
-        onBucketChange={() => {}}
-        selectedHour={0}
-        onSelectHour={() => {}}
-        maxHours={HOURS}
-        utcOffsetSeconds={0}
-        ensembleMode="wedai"
-        __forceMobilePortrait={false}
-      />
-    ))
-    const table = document.querySelector('table')
-    expect(table).not.toBeNull()
-    expect(screen.queryByTestId('mobile-insights-card')).toBeNull()
-  })
-
-  it('still supports bucket switching and pagination on desktop', () => {
-    render(wrap(
-      <InsightsTable
-        models={MODELS}
-        activeModelIds={['gfs_global', 'ecmwf_ifs']}
-        times={fakeTimes(0, HOURS)}
-        series={SERIES}
-        bucket={1}
-        onBucketChange={() => {}}
-        selectedHour={0}
-        onSelectHour={() => {}}
-        maxHours={HOURS}
-        utcOffsetSeconds={0}
-        ensembleMode="wedai"
-        __forceMobilePortrait={false}
-      />
-    ))
-    const nextCta = screen.getByTestId('next-page-cta')
+    const nextCta = await screen.findByTestId('next-page-cta')
     expect(nextCta).toBeInTheDocument()
     fireEvent.click(nextCta)
-    // The previous-page CTA only appears after advancing at
-    // least one page; this is the documented
-    // `useInsightPagination` behaviour.
-    const prevCta = screen.getByTestId('prev-page-cta')
+    const prevCta = await screen.findByTestId('prev-page-cta')
     expect(prevCta).toBeInTheDocument()
   })
 })
 
-describe('MobileInsightsCard — chip strip', () => {
-  it('renders a chip for every visible column except cond + temp', () => {
-    render(wrap(
-      <InsightsTable
-        models={MODELS}
-        activeModelIds={['gfs_global', 'ecmwf_ifs']}
-        times={fakeTimes(0, HOURS)}
-        series={SERIES}
-        bucket={1}
-        onBucketChange={() => {}}
-        selectedHour={0}
-        onSelectHour={() => {}}
-        maxHours={HOURS}
-        utcOffsetSeconds={0}
-        ensembleMode="wedai"
-        __forceMobilePortrait
-      />
-    ))
-    const cards = screen.getAllByTestId('mobile-insights-card')
-    const firstCard = cards[0]
-    const chips = within(firstCard).getAllByTestId('mobile-card-chip')
-    // All non-metric columns that aren't `cond` or `temp` produce a
-    // chip. The basic 13-column set (cond, temp, min, max, clouds,
-    // wind, gusts, precip, humidity, uv, pressure, dewpoint,
-    // visibility) collapses to 11 chips after dropping the two
-    // header chips; some are CSS-hidden below xl but the card
-    // wrapper still receives the cell data and decides at the JSX
-    // level. The user-visible chip count on a phone is the ones
-    // that wrap inside the card; the key invariant is that no
-    // chip causes horizontal overflow.
-    expect(chips.length).toBeGreaterThanOrEqual(11)
-  })
+describe('InsightsTable — desktop non-portrait renders the full column set', () => {
+  beforeEach(() => setMatchMediaPortrait(false))
 
-  it('does not overflow horizontally: every card fits inside the viewport', () => {
+  it('renders every non-marine column on desktop', async () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -287,17 +249,15 @@ describe('MobileInsightsCard — chip strip', () => {
         maxHours={HOURS}
         utcOffsetSeconds={0}
         ensembleMode="wedai"
-        __forceMobilePortrait
       />
     ))
-    const cards = screen.getAllByTestId('mobile-insights-card')
-    expect(cards.length).toBeGreaterThan(0)
-    for (const card of cards) {
-      const el = card as HTMLElement
-      // Each card uses `block w-full` so its outer width equals
-      // the parent's content-box width; its scrollWidth must not
-      // exceed that width.
-      expect(el.scrollWidth).toBeLessThanOrEqual(el.clientWidth + 1)
-    }
+    await screen.findByTestId('next-page-cta')
+    const headers = Array.from(document.querySelectorAll('thead th')).map(
+      th => th.getAttribute('data-col-id')
+    )
+    expect(headers).toContain('pressure')
+    expect(headers).toContain('dewpoint')
+    expect(headers).toContain('visibility')
+    expect(headers).toContain('gusts')
   })
 })

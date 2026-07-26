@@ -23,19 +23,30 @@ describe('useRefresh', () => {
     vi.restoreAllMocks()
   })
 
-  it('refresh() triggers exactly one fetch per call when not in flight', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+  it('refresh() posts exactly once per click beyond the status probe', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true, status: 200,
       json: () => Promise.resolve({ skipped: false, refreshedAt: 1 }),
-    }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
 
     const { result } = renderHook(() => useRefresh(), { wrapper: createWrapper() })
+    // S4 added an internal status query that fires on mount; consume
+    // the initial mount fetch before counting the user click.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    fetchMock.mockClear()
 
     await act(async () => {
       result.current.refresh()
     })
 
-    expect((fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.length).toBe(1)
+    // The user click triggers exactly one POST /api/refresh.
+    const postCalls = fetchMock.mock.calls.filter(
+      (call) => (call[1] as RequestInit | undefined)?.method === 'POST',
+    )
+    expect(postCalls.length).toBe(1)
   })
 
   it('reports refreshed outcome on success', async () => {

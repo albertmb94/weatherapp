@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 export interface RefreshStatus {
   lastRefreshedAt: number | null
@@ -24,55 +24,74 @@ export interface UseRefreshResult {
   refresh: () => void
 }
 
+interface RefreshStatusResponse {
+  refreshedAt?: number
+  ageMs?: number | null
+  canRefresh?: boolean
+  cooldownMs?: number
+}
+
 /**
- * S6: shared refresh state. The single mutation:
- *  - POSTs /api/refresh (server-side purges the server cache when the
- *    cooldown allows it, otherwise returns {skipped: true}).
- *  - Always invalidates the data queries so the user gets the latest
- *    data the server has, even when the server was in cooldown.
- *  - Exposes the result as `lastOutcome` so the UI can distinguish
- *    "we got new model data" from "we just reloaded the cached data".
+ * S4/Sprint 4: centralised refresh state. The single mutation posts
+ *  to /api/refresh; the single query keeps the latest known
+ *  server-side cooldown visible to every consuming component.
+ *
+ * Before S4, the same query was repeated in `RefreshButton` and
+ * `SettingsPanel`, and the result type was duplicated as
+ *  `RefreshStatus` in two places. After S4, every consumer pulls
+ *  through this hook and the status is real, not `null`.
  */
 export function useRefresh(): UseRefreshResult {
   const queryClient = useQueryClient()
   const [lastOutcome, setLastOutcome] = useState<RefreshOutcome | null>(null)
 
+  const statusQuery = useQuery({
+    queryKey: ['refresh-status'],
+    queryFn: async (): Promise<RefreshStatus> => {
+      const res = await fetch('/api/refresh', { method: 'GET' })
+      const data: RefreshStatusResponse = await res.json().catch(() => ({}))
+      return {
+        lastRefreshedAt: typeof data.refreshedAt === 'number' ? data.refreshedAt : null,
+        ageMs: typeof data.ageMs === 'number' ? data.ageMs : null,
+        canRefresh: Boolean(data.canRefresh),
+        cooldownMs: typeof data.cooldownMs === 'number' ? data.cooldownMs : 0,
+      }
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  })
+
   const mutation = useMutation({
-    mutationFn: async (): Promise<{ skipped: boolean; reason?: string; refreshedAt?: number; ageMs?: number | null; cooldownMs?: number }> => {
+    mutationFn: async (): Promise<RefreshStatusResponse> => {
       const res = await fetch('/api/refresh', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? 'Refresh failed')
-      return data
+      return data as RefreshStatusResponse
     },
     onSuccess: (result) => {
-      // Sprint 10 / B-10-5 (E8): the manual refresh only invalidates
-      // the ensemble forecast (the thing the user actually pressed
-      // "refresh" to update) plus the refresh-status metadata.
-      // Stations and geocode results are independent of the forecast
-      // and have their own cadence, so invalidating them on every
-      // refresh click is wasted upstream calls.
       queryClient.invalidateQueries({ queryKey: ['forecast'] })
       queryClient.invalidateQueries({ queryKey: ['refresh-status'] })
-
-      // onSuccess is invoked from the mutation runtime, not from a render
-      // or effect, so the `react-hooks/set-state-in-effect` lint rule does
-      // not flag this. The rule is overly conservative around async
-      // callbacks that happen to be passed to React APIs.
+      // onSuccess is invoked from the mutation runtime, not from a
+      // render or effect, so `setLastOutcome` doesn't trip
+      // `react-hooks/set-state-in-effect`.
       setLastOutcome(
         result && 'skipped' in result && result.skipped
-          ? { kind: 'cooldown' as const, remainingMs: Math.max(0, (result.cooldownMs ?? 0) - (result.ageMs ?? 0)) }
+          ? {
+              kind: 'cooldown' as const,
+              remainingMs: Math.max(0, (result.cooldownMs ?? 0) - (result.ageMs ?? 0)),
+            }
           : { kind: 'refreshed' as const },
       )
     },
   })
 
   const refresh = useCallback(() => {
-    if (mutation.isPending) return // debounce: ignore double-clicks
+    if (mutation.isPending) return
     mutation.mutate()
   }, [mutation])
 
   return {
-    status: null,
+    status: statusQuery.data ?? null,
     lastOutcome,
     isPending: mutation.isPending,
     refresh,

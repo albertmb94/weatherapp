@@ -1167,17 +1167,18 @@ export default function HomeContent() {
                     {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
                   </div>
                   <div className="h-[40vh] min-h-[260px] max-h-[440px] rounded-2xl border border-border bg-surface-raised relative overflow-hidden">
-                    <MapPicker
-                      position={position}
-                      recenterToken={recenterToken}
-                      onPositionChange={handlePositionChange}
-                      showHeatmap={showMap}
-                      metric={selectedMetric}
-                      selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
-                      hourIndex={safeSelectedHour}
-                      viewTimes={effectiveData?.time ?? []}
-                      showRadar={showRadar}
-                    />
+<MapPicker
+                  position={position}
+                  recenterToken={recenterToken}
+                  onPositionChange={handlePositionChange}
+                  showHeatmap={showMap}
+                  metric={selectedMetric}
+                  selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
+                  hourIndex={safeSelectedHour}
+                  viewTimes={viewData?.time ?? []}
+                  dataStartIndex={startIndex}
+                  showRadar={showRadar}
+                />
                     <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-surface-raised/90 p-2 rounded-lg shadow-lg pointer-events-none">
                       <ColorLegend metric={legendMetric} />
                     </div>

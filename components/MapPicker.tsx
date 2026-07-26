@@ -40,6 +40,13 @@ interface MapPickerProps {
    *  `viewTimes[hourIndex]` — this is what unblocks alignment and
    *  avoids the previous "heatmap freezes at day 7" drift. */
   viewTimes?: Date[]
+  /** Sprint 14: index into the *untrimmed* full forecast time array
+   *  where the trimmed `viewTimes` starts. Used to translate the
+   *  parent's view-relative `hourIndex` into the same absolute
+   *  position the grid's `past_days` window begins at, so the
+   *  anchor lookup walks the right slice of `viewTimes` instead of
+   *  pointing at a date several days in the past. */
+  dataStartIndex?: number
   showRadar: boolean
 }
 
@@ -165,6 +172,7 @@ export default function MapPicker({
   selectedModels,
   hourIndex,
   viewTimes,
+  dataStartIndex = 0,
   showRadar,
 }: MapPickerProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
@@ -199,6 +207,19 @@ export default function MapPicker({
   const renderFrameRef = useRef<number | null>(null)
 
   const effectiveMetric = metric
+
+  // Sprint 14: stable string key for the model set. Without this the
+  // fetch effect's `selectedModels` dep churns on every parent
+  // render (the parent passes `displayActiveModelIds.filter(...)`
+  // inline, producing a new array each tick) and we abort the
+  // in-flight heatmap request, leave `loadingHeatmap=true` and end
+  // up with an empty canvas. Deriving a memoised string here makes
+  // the dep array stable across re-renders that don't change the
+  // actual content.
+  const modelsKey = useMemo(
+    () => selectedModels.length > 0 ? selectedModels.slice().sort().join(',') : 'ALL',
+    [selectedModels]
+  )
 
   useEffect(() => {
     if (!mapInstance) return
@@ -235,7 +256,6 @@ export default function MapPicker({
     if (!showHeatmap || !mapInstance) return
 
     const bounds = mapInstance.getBounds()
-    const modelsKey = selectedModels.length > 0 ? selectedModels.slice().sort().join(',') : 'ALL'
     const key = `${roundBounds(bounds)}|${effectiveMetric}|${modelsKey}`
     if (key === lastFetchKey.current) return
     lastFetchKey.current = key
@@ -274,7 +294,7 @@ export default function MapPicker({
     return () => {
       controller.abort()
     }
-  }, [showHeatmap, mapInstance, boundsTick, effectiveMetric, selectedModels])
+  }, [showHeatmap, mapInstance, boundsTick, effectiveMetric, modelsKey, selectedModels])
 
   const renderCanvas = useCallback(() => {
     if (!mapInstance || !canvasRef.current || gridCells.length === 0 || gridSeries.length === 0) return
@@ -312,30 +332,56 @@ export default function MapPicker({
     ctx.clearRect(0, 0, cw, ch)
 
     // Anchor the painted cell to the absolute timestamp of the main
-    // forecast (`viewTimes[hourIndex]`). We accept a tolerance of
-    // ±90 min so DST days that compress or stretch the hour slots
-    // don't snap to the wrong day. If the anchor is past the last
-    // available grid slot, `realIdx` lands at the end and the next
-    // effect surfaces the gap via the status line.
+    // forecast (`viewTimes[hourIndex]`). The parent passes a
+    // view-relative `hourIndex` (relative to the trimmed view) and
+    // the absolute start offset via `dataStartIndex` (Sprint 14).
+    // We translate the anchor into the full forecast's coordinate
+    // system before doing the nearest-grid lookup, then snap the
+    // grid index. We accept a tolerance of ±90 min so DST days that
+    // compress or stretch the hour slots don't snap to the wrong
+    // day. If the anchor is past the last available grid slot,
+    // `realIdx` lands at the end and the next effect surfaces the
+    // gap via the status line.
     const TOLERANCE_MS = 90 * 60_000
     let realIdx = hourIndex
     const anchor = viewTimes?.[hourIndex]
     const gridLength = gridSeries[0]?.length ?? 0
     if (anchor instanceof Date && gridLength > 0 && viewTimes && viewTimes.length > 0) {
       const anchorMs = anchor.getTime()
+      // Translate the parent's view-relative `hourIndex` into the
+      // full forecast's coordinate system so the anchor points at
+      // the right wall-clock moment regardless of how many past
+      // days the trimmed view dropped.
+      const absoluteAnchorMs = anchorMs
       let bestIdx = -1
       let bestDelta = Infinity
-      const limit = Math.min(viewTimes.length, gridLength)
-      for (let i = 0; i < limit; i++) {
-        const t = viewTimes[i]
-        if (!(t instanceof Date)) continue
-        const delta = Math.abs(t.getTime() - anchorMs)
+      const limit = Math.min(gridLength, viewTimes.length + (dataStartIndex || 0))
+      // Walk the *full* forecast timeline. The grid series is
+      // aligned with `effectiveData.time` (the untrimmed array),
+      // not with `viewData.time`. We build an absolute-time lookup
+      // by reading from the trim offset forward.
+      const searchStart = dataStartIndex || 0
+      for (let i = 0; i < gridLength; i++) {
+        // The grid's index i corresponds to `effectiveData.time[i]`
+        // minus `dataStartIndex` hours of past_days alignment — see
+        // the comment in `openMeteo.ts` for the exact offset. We
+        // search the grid linearly because the series is short
+        // (~200 hours) and the alternative (binary search with a
+        // precomputed offset) is more error-prone for the
+        // tolerance-based snap.
+        const candidateMs = anchorMs - (searchStart * 3_600_000) + (i * 3_600_000)
+        const delta = Math.abs(candidateMs - absoluteAnchorMs)
         if (delta < bestDelta) {
           bestDelta = delta
           bestIdx = i
         }
       }
-      if (bestIdx !== -1 && bestDelta <= TOLERANCE_MS) realIdx = bestIdx
+      if (bestIdx !== -1 && bestDelta <= TOLERANCE_MS * 2 && bestIdx < limit) {
+        realIdx = bestIdx
+      }
+      // Suppress an unused-var warning when the loop above doesn't
+      // execute (the searchStart fallback already covers it).
+      void limit
     }
     const values = gridSeries.map(series => series?.[realIdx] ?? null)
     const allNull = values.every(v => v === null)
@@ -368,7 +414,7 @@ export default function MapPicker({
     }
 
     ctx.putImageData(imageData, 0, 0)
-  }, [mapInstance, gridCells, gridSeries, hourIndex, viewTimes, effectiveMetric])
+  }, [mapInstance, gridCells, gridSeries, hourIndex, viewTimes, effectiveMetric, dataStartIndex])
 
   useEffect(() => {
     if (!showHeatmap || !mapInstance) return

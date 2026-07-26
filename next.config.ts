@@ -1,10 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // React Strict Mode double-invokes effects in dev, which breaks Leaflet's
-  // MapContainer ("Map container is being reused by another instance").
-  // We keep production semantics intact while avoiding the dev-only error.
-  reactStrictMode: false,
+  // Idempotent MapReady guard in MapPicker.tsx makes React 19 Strict Mode
+  // (double-invokes effects in dev) safe with react-leaflet.
+  reactStrictMode: true,
 };
 
 export default nextConfig;

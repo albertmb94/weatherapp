@@ -49,13 +49,16 @@ export async function loadShortLink(id: string, now: number = Date.now()): Promi
 
 const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789'
 export function generateShortId(length = 8): string {
-  let out = ''
   const bytes = new Uint8Array(length)
-  if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
-    crypto.getRandomValues(bytes)
-  } else {
-    for (let i = 0; i < length; i++) bytes[i] = Math.floor(Math.random() * 256)
+  // We always run in environments with `crypto.getRandomValues` available
+  // (browsers + Node 20+ via globalThis.crypto). The previous Math.random
+  // fallback made IDs guessable on platforms missing WebCrypto. If a
+  // platform ever lacks the API, fail loudly rather than ship guessable IDs.
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('crypto.getRandomValues is required to generate short IDs')
   }
+  crypto.getRandomValues(bytes)
+  let out = ''
   for (let i = 0; i < length; i++) {
     out += ID_ALPHABET[bytes[i] % ID_ALPHABET.length]
   }

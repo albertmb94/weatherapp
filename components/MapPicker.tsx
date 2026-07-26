@@ -74,7 +74,14 @@ function MapClickHandler({ onPositionChange }: { onPositionChange: (pos: [number
 
 function MapReady({ onReady }: { onReady: (map: L.Map) => void }) {
   const map = useMap()
+  const handledRef = useRef<L.Map | null>(null)
   useEffect(() => {
+    // Idempotency guard so React 19 Strict Mode (which double-invokes
+    // effects in dev) does not call `onReady` twice with the same map
+    // instance — that caused the "Map container is being reused by
+    // another instance" error from Leaflet in dev.
+    if (handledRef.current === map) return
+    handledRef.current = map
     onReady(map)
   }, [map, onReady])
   return null
@@ -401,7 +408,9 @@ export default function MapPicker({
   }, [showHeatmap])
 
   const handleMapReady = useCallback((map: L.Map) => {
-    setMapInstance(map)
+    // Guard against Strict Mode double-invocation: a new Map instance is
+    // only meaningful when `L.Map` actually re-creates the container.
+    setMapInstance((prev) => (prev === map ? prev : map))
   }, [])
 
   const statusLine = useMemo(() => {

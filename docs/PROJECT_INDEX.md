@@ -14,16 +14,22 @@ needs a quick map of the project without having to grep the whole tree.
 
 ```
 app/              Next.js App Router (page, layout, providers, API routes)
+  api/sw/         Service Worker served with the build-stamped version
 components/       React UI (27 components, no external UI library)
 lib/              Pure logic (models, ensemble, forecasts, date utils)
-lib/ensemble/     Sprint 10 — centralised ensemble logic
-lib/indexer/      Sprint 10 — BM25 + chunker used by the Qdrant indexer
-lib/hooks/        Sprint 10 — extracted hooks (useHourSlider)
-lib/backtest/     Backtesting scripts against ERA5 reanalysis
+  ensemble/       Centralised ensemble logic (meanAtHour, weightsFor…)
+  hooks/          Extracted hooks (useHourSlider, useGeolocation, …)
+  backtest/       Backtesting scripts against ERA5 reanalysis
+  indexer/        BM25 + chunker used by the Qdrant indexer
 docs/             Human-readable documentation (CONVENCIONES, SPRINT_*)
-scripts/          Build / index / e2e helper scripts
+scripts/          Build / index / backtest helpers
 e2e/              Playwright end-to-end tests
 ```
+
+The schema, conventions and sprint history live in `docs/`:
+- `docs/CONVENCIONES.md` — code conventions, naming, tokens
+- `docs/ESQUEMA_DATOS.md` — DB schema + URL state shape
+- `docs/SPRINT_*.md` — per-sprint history (Sprint 0 … Sprint 11)
 
 The schema, conventions and sprint history live in `docs/`:
 - `docs/CONVENCIONES.md` — code conventions, naming, tokens

@@ -11,7 +11,9 @@ import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import { useClientNow } from '@/lib/hooks/useClientNow'
+import { heatStyle as heatStyleFn } from './heatStyle'
 import WeatherConditionIcon from './WeatherConditionIcon'
+import MobileInsightsCard from './MobileInsightsCard'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
 
@@ -148,139 +150,15 @@ function saveColumnOrder(order: MetricCellId[]) {
  * dropped into an rgba(...) value. Used to layer translucent gradients on
  * top of the Insights table cells.
  */
-function rgbTriple(color: string): string {
-  const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
-  if (m) return `${m[1]}, ${m[2]}, ${m[3]}`
-  const hex = color.replace('#', '')
-  if (hex.length === 6) {
-    const r = parseInt(hex.slice(0, 2), 16)
-    const g = parseInt(hex.slice(2, 4), 16)
-    const b = parseInt(hex.slice(4, 6), 16)
-    return `${r}, ${g}, ${b}`
-  }
-  return '120, 120, 120'
-}
-
-/**
- * Map the metric value to a 0..1 "intensity" used to drive how saturated
- * the cell shading is. We pick the closest scale stop and weight by how
- * far the value is from the scale's neutral midpoint. 0 = neutral / cool,
- * 1 = extreme. Returns null when the value is missing or the metric has
- * no usable scale.
- */
-function intensityFor(metric: ScaleMetric, value: number | null): number | null {
-  if (value === null || value === undefined) return null
-  const stops = SCALES[metric]
-  if (!stops || stops.length === 0) return null
-  // Find the enclosing stop pair.
-  let lo = stops[0]
-  let hi = stops[stops.length - 1]
-  for (let i = 0; i < stops.length - 1; i++) {
-    if (value >= stops[i].value && value <= stops[i + 1].value) {
-      lo = stops[i]
-      hi = stops[i + 1]
-      break
-    }
-  }
-  if (value <= stops[0].value) {
-    lo = stops[0]
-    hi = stops[0]
-  } else if (value >= stops[stops.length - 1].value) {
-    lo = stops[stops.length - 1]
-    hi = stops[stops.length - 1]
-  }
-  const loDist = Math.abs(value - lo.value)
-  const hiDist = Math.abs(value - hi.value)
-  const range = Math.max(1, hi.value - lo.value)
-  const proximity = 1 - (loDist + hiDist) / (range * 2) // 0 (far from stops) … 1 (at a stop)
-  return Math.max(0.35, Math.min(1, 0.4 + proximity * 0.6))
-}
-
-/**
- * Build the heatmap cell background. We use a soft radial gradient so
- * the colour diffuses before reaching the cell border, but the gradient
- * is intentionally simple (2 stops) so it remains cheap to paint at the
- * 14 rows × 14 columns size the table reaches on mobile.
- *
- * Sprint 10 / B-10-6: the result is memoised per `(metric, value)`
- * tuple so a 336-row render produces at most one CSSProperties object
- * per unique (metric, value) pair instead of one per cell. For the
- * typical forecast this collapses ~4700 cell-instances to a few
- * dozen unique styles.
- */
-const HEAT_STYLE_CACHE = new Map<string, React.CSSProperties>()
-function heatStyle(metric: ScaleMetric, value: number | null): React.CSSProperties {
-  if (value === null || value === undefined) {
-    return TRANSPARENT_STYLE
-  }
-  const key = `${metric}|${value}`
-  const cached = HEAT_STYLE_CACHE.get(key)
-  if (cached) return cached
-  const color = getColor(metric, value)
-  const triple = rgbTriple(color)
-  const intensity = intensityFor(metric, value) ?? 0.5
-  // Capped alpha stops so a 14x14 cell grid paints quickly on slow
-  // mobile GPUs while still showing the "soft glow" character.
-  //
-  // B-NEW-7 (2026-07-24): the gradient size now reads from the
-  // `--heat-cell-bg-size` CSS custom property defined in
-  // app/globals.css. On desktop (>= 640 px) it is the original
-  // 32%×60% narrow ellipse (the user explicitly asked to
-  // restore the "soft glow that doesn't reach the cell border"
-  // character). On mobile (< 640 px) it widens to 95%×95% so
-  // the colour reaches the cell border — the narrow gradient
-  // left a transparent margin around narrow cells, which on
-  // the UV column read as "the data is split in two halves"
-  // (the value "5.8" extended past the coloured band and
-  // rendered with its left/right portions on the transparent
-  // cell background). The radial falloff still gives a "soft
-  // glow" feel; the only difference is that on mobile the
-  // outer edge is solid colour instead of transparent.
-  //
-  // B-NEW-13 (2026-07-26): reverted. The user explicitly asked
-  // to keep the original desktop gradient (the soft-glow character
-  // they had approved in B-NEW-7). The previous tint that
-  // filled the transparent margins changed the look on
-  // desktop — they noticed and asked for it back. The
-  // "seam between cells" the tint was originally masking is
-  // now back, but on mobile the existing CSS rule
-  // (`[style*='--heat-rgb-triple'] { background: rgb(...) }`)
-  // still overrides the gradient to a solid colour, so the
-  // mobile "border mid-UV" issue from the previous bug
-  // report is no longer relevant — it's a desktop-only
-  // visual choice now.
-  // B-NEW-19 (2026-07-27): restore the B-NEW-13 tint that
-  // filled the transparent margin around the gradient.
-  // The user explicitly asked: "en desktop sigue sin haber
-  // esos emfasis de color alrededor del número, es una tabla
-  // lisa sin fondo. Revisa como era antes de tus commits de
-  // hoy y reimplementa" — they want the desktop cells to
-  // show the heatmap colour as a visible emphasis around
-  // the number, not a flat table with no background.
-  //
-  // The previous "soft-glow only" form was too subtle: with
-  // the radial-gradient sized to 32% x 60% on desktop the
-  // heat colour barely registered, especially at low
-  // intensities (core 22% alpha at 0.5 intensity). Adding
-  // the 35% alpha tint as backgroundColor gives every cell
-  // a flat heatmap colour base that fills the entire cell,
-  // with the soft-glow gradient on top for the centre-
-  // brightened "focus" look. On mobile the CSS rule
-  // `[style*='--heat-rgb-triple'] { background: rgb(...) !important }`
-  // paints over both layers with a flat rgb colour, so the
-  // tint is invisible there (the user wants black text on a
-  // flat heatmap colour on mobile, not the tint).
-  const core = Math.round(intensity * 45)   // 0..45% alpha at the very core
-  const mid = Math.round(intensity * 18)    // 0..18% at the mid radius
-  const tintAlpha = 35                       // B-NEW-13/19 base tint
-  const style: React.CSSProperties = {
-    ['--heat-rgb-triple' as string]: triple,
-    backgroundColor: `rgba(${triple}, ${tintAlpha}%)`,
-    backgroundImage: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid})% 50%, rgba(${triple},0) 92%)`,
-  } as React.CSSProperties
-  HEAT_STYLE_CACHE.set(key, style)
-  return style
-}
+// Sprint 14: heatStyle was extracted to `components/heatStyle.ts` so
+// `MobileInsightsCard` can reuse it without an import cycle through
+// the 1700-line InsightsTable. The helper retains the memoisation
+// cache and the same intensity / colour mapping it had inline. The
+// export below re-exposes it under the legacy local name so the
+// remaining `cellInner` callers (which still live in this file) keep
+// working without renaming.
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+const heatStyle = heatStyleFn
 
 const TRANSPARENT_STYLE: React.CSSProperties = { background: 'transparent' }
 
@@ -333,7 +211,7 @@ function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' |
   return `${day} ${h0}–${h1}`
 }
 
-interface CellResult {
+export interface CellResult {
   node: React.ReactNode
   style?: React.CSSProperties
   /** When set, the cell renders with an extra ring/badge for the active row. */
@@ -1122,6 +1000,49 @@ export default function InsightsTable({
           }}
           className="relative overflow-auto max-h-[70vh] contain-[layout_style_paint]"
         >
+          {/* Sprint 14: in mobile-portrait the table is replaced by
+              a stack of <MobileInsightsCard>s so the user never has
+              to scroll horizontally. The branch is invisible
+              above the sm breakpoint (768 px), where the regular
+              table fits inside the viewport. Both branches share
+              `visibleRows` / `visibleCellsByRow` so pagination,
+              row clicking, and the active-row highlight behave
+              identically. */}
+          {isMobilePortrait ? (
+            <div
+              className="px-2 py-2"
+              data-testid="mobile-insights-cards"
+            >
+              {visibleRows.map((r, i) => {
+                const shiftedStart = bucket === 24 ? r.startIdx - startIndex : r.startIdx
+                const shiftedEnd = bucket === 24 ? r.endIdx - startIndex : r.endIdx
+                const isActive = selectedHour >= shiftedStart && selectedHour <= shiftedEnd
+                const rowCells = visibleCellsByRow[i] ?? []
+                const cellById = new Map<string, CellResult>()
+                for (let j = 0; j < colDefs.length; j++) {
+                  cellById.set(colDefs[j].id, rowCells[j])
+                }
+                const tempCell = cellById.get('temp')
+                const chipIds: Array<{ id: string; label: string }> = []
+                for (const col of colDefs) {
+                  if (col.id === 'cond' || col.id === 'temp') continue
+                  chipIds.push({ id: col.id, label: STRINGS[locale][col.labelKey] as string })
+                }
+                return (
+                  <MobileInsightsCard
+                    key={i}
+                    label={r.label}
+                    iconId={r.icon}
+                    isActive={isActive}
+                    tempCell={tempCell}
+                    metricChips={chipIds.map(c => ({ id: c.id, label: c.label, cell: cellById.get(c.id) }))}
+                    onClick={() => onSelectHour(r.centerIdx - startIndex)}
+                  />
+                )
+              })}
+            </div>
+          ) : (
+            <>
           {/* Mobile-only scroll hint: fades in on whichever side has
               more content. Hidden on >=sm where the table fits. */}
           <div
@@ -1596,6 +1517,8 @@ export default function InsightsTable({
             ) : null}
           </tbody>
         </table>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -125,6 +125,26 @@ const METRIC_COLUMNS: MetricColumnDef[] = [
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
 const STORAGE_KEY = 'insights-column-order'
 
+// B-NEW-22 (2026-07-27, iPhone 16 portrait fix): the data
+// columns in mobile portrait get an explicit pixel width so
+// the table fits inside the ~361 px available on iPhone 16
+// (393 px viewport - 32 px section padding - 2 px border) once
+// the 80 px when-column is subtracted. 46 px × 6 data columns
+// = 276 px + 80 px = 356 px, fits with ~5 px to spare. The
+// tightest value in the basic 6-column view is the wind
+// bearing (e.g. "NE", 2 chars at 11 px font-mono + 4 px
+// padding) which is ~18 px wide — well under the 46 px
+// budget.
+//
+// The width lives in a CSS custom property (set in
+// `app/globals.css`) so the same value can be used by other
+// consumers and so the smallest phones (iPhone SE at 320
+// px) get a tighter 36 px override via a second media
+// query. We resolve the var to a pixel value here only as a
+// fallback for older browsers that don't honour the
+// custom property on `<col style="...">`.
+const PORTRAIT_DATA_COL_PX = 46
+
 function loadColumnOrder(): MetricCellId[] {
   if (typeof window === 'undefined') return DEFAULT_ORDER
   try {
@@ -1165,6 +1185,22 @@ export default function InsightsTable({
             // the data cells (below) prevents any single column from
             // collapsing to nothing.
             //
+            // B-NEW-22 (2026-07-27, iPhone 16 portrait fix): the
+            // user reported the UV column wasn't visible on iPhone 16
+            // (393×852 logical, 1179×2556 physical). With
+            // `table-auto` the browser sizes each column to its widest
+            // CELL — a "Hoy 11:00" label in the when col can push
+            // it past the 80 px CSS variable, which in turn steals
+            // width from the data columns and the UV column (the
+            // rightmost) overflows past the container's
+            // `overflow-x-hidden` clip. We now apply `table-fixed` on
+            // mobile portrait so the colgroup widths are respected
+            // exactly, the table fills the container without
+            // overflowing, and every visible column shows. We keep
+            // `table-auto` on real-desktop and phone-landscape where
+            // the proportional distribution looks better and the
+            // user can horizontally scroll the wider table.
+            //
             // B-NEW-12 (2026-07-25): restore `table-fixed` ONLY on
             // md+ (desktop) so the table fills its container width
             // when Marine is on. With `table-auto` the basic
@@ -1210,7 +1246,25 @@ export default function InsightsTable({
             // container (e.g. mobile-landscape with marine on),
             // the user can scroll horizontally and the content clips
             // instead of overlapping into the next column.
-            className="w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
+            //
+            // B-NEW-22 (2026-07-27, iPhone 16 portrait fix): the
+            // user reported the UV column wasn't visible on iPhone 16
+            // (393×852). With `table-auto` the browser sizes each
+            // column to its widest CELL — a "Hoy 11:00" label in
+            // the when col can push it past the 80 px CSS variable,
+            // which in turn steals width from the data columns and
+            // the UV column (the rightmost) overflows past the
+            // container's `overflow-x-hidden` clip. We now apply
+            // `table-fixed` on mobile portrait so the colgroup
+            // widths are respected exactly, the table fills the
+            // container without overflowing, and every visible
+            // column shows. We keep `table-auto` on real-desktop
+            // and phone-landscape where the proportional
+            // distribution looks better and the user can scroll
+            // the wider table horizontally.
+            className={`w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px] ${
+              isMobilePortrait ? 'table-fixed' : ''
+            }`}
           >
             <colgroup>
               {/* B-NEW-4 (mobile): the "Cuándo" column drops to
@@ -1241,43 +1295,34 @@ export default function InsightsTable({
                 <col
                   key={col.id}
                   data-col-id={col.id}
-                  // Sprint 16: explicit pixel width per column id
-                  // so the table distributes space proportionally to
-                  // each column's actual content, not equally. With
-                  // `table-fixed` + `width: auto` every column
-                  // shared the remaining space equally — that gave
-                  // the first 4 columns ~30 px and pushed every
-                  // Sprint 16: explicit pixel width per column id
-                  // so the table distributes space proportionally to
-                  // each column's actual content, not equally. With
-                  // `table-fixed` + `width: auto` every column
-                  // shared the remaining space equally — that gave
-                  // the first 4 columns ~30 px and pushed every
-                  // marine column to 48 px of empty space, exactly
-                  // the "primeras 4 muy estrechas, ultimas 4 muy
-                  // anchas" complaint. With explicit widths the
-                  // table now uses its full horizontal budget on
-                  // every viewport and stops fighting the layout
-                  // for breathing room.
-                  //
-                  // Sprint 16: the inline `visibility: collapse` is
-                  // applied only when the hideClass contains `hidden`
-                  // (i.e. the column is hidden by the CSS rule, not
-                  // by the JS visibleIds filter). For pressure/
-                  // dewpoint/visibility we removed the hideClass
-                  // entirely and let the JS decide whether to render
-                  // the <col>, so this branch never fires for them.
-                  // Sprint 16: dropped the per-column pixel width so
-                  // the table distributes space proportionally to
-                  // each column's actual content (table-auto +
-                  // auto-width cells). Only the invisible collapse
-                  // hook for hideClass-based hide retains its
-                  // inline style. The first column keeps its
-                  // --when-col-w via the dedicated <col> above.
+                  // B-NEW-22 (2026-07-27, iPhone 16 portrait fix):
+                  // on mobile portrait we now apply `table-fixed`
+                  // and give every data column an explicit pixel
+                  // width. Without these widths the browser sizes
+                  // each column to its widest cell content, which
+                  // (a) pushed the when col past the 80 px CSS
+                  // variable when a "Hoy 11:00" label was present
+                  // and (b) pushed the rightmost data column (UV)
+                  // off-screen on the 393 px iPhone 16 viewport.
+                  // The widths below are computed for the basic
+                  // 6-column portrait view: when (80 px from the CSS
+                  // variable) + 6 data cols × ~46 px = 356 px which
+                  // fits inside the 361 px available on iPhone 16
+                  // (393 px viewport minus the 16 px section padding
+                  // on each side and the 2 px container border).
+                  // The value reads from the `--insights-data-col-w`
+                  // CSS custom property so the smallest phones
+                  // (iPhone SE at 320 px) can override it via a
+                  // second media query (see `app/globals.css`).
+                  // On non-portrait viewports we fall through to
+                  // the previous behaviour (no inline width so
+                  // `table-auto` distributes the column widths).
                   className={col.hideClass ?? ''}
                   style={col.hideClass && /\bhidden\b/.test(col.hideClass)
                     ? { visibility: 'collapse' as const }
-                    : undefined}
+                    : isMobilePortrait
+                      ? { width: 'var(--insights-data-col-w, 46px)' }
+                      : undefined}
                 />
               ))}
             </colgroup>

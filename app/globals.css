@@ -183,9 +183,27 @@ body {
      in landscape) shape catches every iPhone from SE (568 x 320) to
      14 Pro Max (932 x 430) in landscape, without flagging iPads
      (1024+ wide) or any desktop. */
-  :root {
+   :root {
     --when-col-w: 80px;
+    --insights-data-col-w: 46px; /* B-NEW-22 (2026-07-27, iPhone 16 portrait fix) */
     --heat-cell-bg-size: 95% 95%;
+  }
+  /* B-NEW-22 (2026-07-27): on the smallest phones (iPhone SE at
+     320 px, for example) the 80 px when column + 6 × 46 px data
+     columns = 356 px still overflows the ~286 px available
+     inside the section. We shrink BOTH the when column and the
+     data column on the smallest viewports so the basic
+     6-column view fits without horizontal scroll. The
+     56 / 36 split keeps the when label readable ("Mañ 00:00"
+     fits in 56 px with `tabular-nums whitespace-nowrap`) while
+     the data cells still have room for the longest value
+     ("10.5" at 11 px font-mono ≈ 33 px, fits in 36 px with 1.5
+     px breathing room on each side). */
+  @media (max-width: 359px) {
+    :root {
+      --when-col-w: 56px;
+      --insights-data-col-w: 36px;
+    }
   }
   [style*='--heat-rgb-triple'] {
     background: rgb(var(--heat-rgb-triple)) !important;

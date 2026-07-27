@@ -2,11 +2,14 @@
 
 import { useMemo } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
-import { CONDITION_LABEL, STRINGS } from '@/lib/i18n'
+import { CONDITION_LABEL } from '@/lib/i18n'
 import type { WeatherIconId } from '@/lib/weatherIcon'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
-import ConfidenceChip from './ConfidenceChip'
-import { classifySpread } from '@/lib/confidence'
+// ConfidenceChip + classifySpread used to render the "±X°" spread
+// indicator on the card; the user asked us to drop it because
+// the indicator added noise without a corresponding action the
+// user could take. The data still flows through `snapshot.spread`
+// for any future consumer that wants it.
 
 interface CurrentWeatherCardProps {
   city: string
@@ -112,15 +115,16 @@ export default function CurrentWeatherCard({
                 </span>
               </>
             ) : null}
-            {snapshot && snapshot.spread && snapshot.spread.sampleCount >= 2 ? (
-              <>
-                <span className="text-text-muted" aria-hidden="true">·</span>
-                <ConfidenceChip
-                  level={classifySpread(snapshot.spread.stdDev).level}
-                  spreadLabel={`${STRINGS[locale].spreadLabel}${snapshot.spread.stdDev.toFixed(1)}${STRINGS[locale].spreadSuffix}`}
-                />
-              </>
-            ) : null}
+            {/* The `±X°` spread chip and the band label
+                ("alta / media / baja" + the stdDev number) used
+                to be rendered inline here. The user reported that
+                the indicator felt noisy without adding real
+                value — the chance-of-rain + condition already
+                cover the headline, and the spread number was
+                rarely actionable. Removing the block keeps the
+                card cleaner. The underlying `snapshot.spread`
+                data is still computed downstream; we just don't
+                surface it. */}
           </p>
         </div>
           <div className="flex items-end gap-3 md:gap-5">

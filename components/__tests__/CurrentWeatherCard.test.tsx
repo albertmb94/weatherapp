@@ -18,7 +18,13 @@ describe('CurrentWeatherCard', () => {
     expect(container.textContent).toContain('–')
   })
 
-  it('renders the calibrated probability and the spread chip when both are present', () => {
+  it('renders the calibrated probability when present (no spread chip)', () => {
+    // The previous build also rendered a "±X°" spread chip
+    // (the ConfidenceChip with the band label) inline here.
+    // The user asked us to drop it: the indicator added
+    // noise without a corresponding action the user could
+    // take. This test pins the new behaviour — the
+    // probability is still rendered, the spread chip is not.
     const snapshot = {
       temperatureC: 22,
       feelsLikeC: 22,
@@ -37,14 +43,12 @@ describe('CurrentWeatherCard', () => {
       dailyLowC: 18,
       spread: { stdDev: 1.2, min: 21, max: 23, range: 2, sampleCount: 5 },
     }
-    renderCard(snapshot)
+    const { container } = renderCard(snapshot)
     expect(screen.getByText('24%')).toBeInTheDocument()
-    // Spread chip is rendered with a `±` marker; the format includes a
-    // `°` suffix only after the integer; since stdDev.toFixed(1) is
-    // "1.2" the rendered text begins with the ± symbol.
-    const spans = document.querySelectorAll('[aria-live="polite"]')
-    expect(spans.length).toBeGreaterThan(0)
-    expect(spans[0]?.textContent).toMatch(/Alta/)
+    // The spread marker (the `±` glyph) must NOT be rendered
+    // any more. We assert the absence of the typical
+    // ConfidenceChip content.
+    expect(container.textContent).not.toMatch(/±\d/)
   })
 
   it('prefers the nowcast temperature over the snapshot when provided', () => {

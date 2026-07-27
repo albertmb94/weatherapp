@@ -11,7 +11,9 @@ import {
 } from '@/lib/friendlyForecast'
 import { useNowcast } from '@/lib/hooks/useNowcast'
 import { useClientNow } from '@/lib/hooks/useClientNow'
-import ProfileChip from './ProfileChip'
+// ProfileChip is no longer rendered inline (the user asked us
+// to drop the "Perfil: costero" chip from the home view). The
+// component file is still in the repo for future use.
 import type { UsageProfile } from '@/lib/profiles'
 import type { StationObservation } from '@/lib/nowcast'
 import CurrentWeatherCard from './CurrentWeatherCard'
@@ -223,14 +225,19 @@ export default function FriendlyHome({
 
   return (
     <div className="space-y-3 md:space-y-4">
-      {usageProfile !== null && usageProfile !== undefined ? (
-        <div className="flex items-center gap-2 flex-wrap" data-testid="profile-chip-row">
-          <ProfileChip
-            profile={usageProfile}
-            boostedCount={usageProfileBoostedCount}
-          />
-        </div>
-      ) : null}
+      {/* The auto-derived profile chip ("Perfil: costero", "sin
+          sesgo regional", etc.) used to be rendered here. The
+          user reported it added noise without any action the
+          user could take — the underlying boost is already
+          applied transparently to the ensemble, and the chip
+          itself was an "FYI" with no follow-up. We keep the
+          `usageProfile` derivation alive (the classifier
+          still runs and the backtest recommendation still
+          applies via `weightsForProfile` in the central
+          module) so the math is unchanged; we just don't
+          surface the chip. The `ProfileChip` component is
+          still in the repo in case we want to re-introduce
+          it for a power-user view. */}
       <CurrentWeatherCard
         city={city}
         snapshot={snapshot}

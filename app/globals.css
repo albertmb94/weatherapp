@@ -169,7 +169,7 @@ body {
    and the column doesn't compete for space with the marine
    columns). */
 :root {
-  --when-col-w: 84px;
+  --when-col-w: 88px;
 }
 @media (max-width: 767px), (orientation: landscape) and (max-width: 932px) and (max-height: 540px) {
   /* Sprint 16: the mobile palette now also applies on a phone in

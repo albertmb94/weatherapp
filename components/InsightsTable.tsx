@@ -1318,7 +1318,7 @@ export default function InsightsTable({
                     // header text naturally prefers a single line;
                     // without `overflow-hidden` the text overflows
                     // over the next header cell.
-                    className={`sticky top-0 z-40 bg-surface text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary overflow-hidden ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
+                    className={`sticky top-0 z-40 bg-surface text-center px-1 py-1.5 real-desktop:px-2.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary overflow-hidden ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}

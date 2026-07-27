@@ -380,20 +380,12 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     //
     // B-NEW-17 (2026-07-27): the breakpoint moved from `md:` to
     // `lg:` (>=1024 px). Mobile landscape (768-1023 px) stays on
-    // `table-auto` so basic columns size to their content and the
-    // now-48-px marine columns fit `27.8°` (~33 px text + 12 px
-    // padding = 45 px) without overflowing into the next column.
-    // Sprint 15: the >=1024 px variant is `real-desktop:` (renamed from
-    // `lg:` so that iPad portrait 768-1023 px stays on the mobile
-    // layout). We assert the desktop class is present and the BASE
-    // class is also present.
-    expect(table.className).toMatch(/\breal-desktop:table-fixed\b/)
-    // Sprint 14: `table-fixed` is now also on the base class
-    // (not just lg:) so the column widths are explicit in
-    // portrait, where the column filter plus fixed widths plus
-    // ellipsis is what guarantees the user never has to scroll
-    // horizontally.
-    expect(table.className).toMatch(/(^|\s)table-fixed(\s|$)/)
+    // Sprint 16: dropped table-fixed entirely. With table-auto
+    // the browser distributes columns proportionally to content;
+    // the JS visibleIds filter + sticky <col> keep the layout
+    // stable enough across viewports.
+    expect(table.className).not.toMatch(/(^|\s)table-fixed(\s|$)/)
+    expect(table.className).not.toMatch(/\breal-desktop:table-fixed\b/)
     // The table now declares an explicit <colgroup> with the first
     // column pinned to 64 px so the sticky column has a stable width.
     const colgroup = table.querySelector('colgroup')!

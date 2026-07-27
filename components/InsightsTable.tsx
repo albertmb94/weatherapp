@@ -125,41 +125,6 @@ const METRIC_COLUMNS: MetricColumnDef[] = [
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
 const STORAGE_KEY = 'insights-column-order'
 
-// Sprint 16: explicit pixel width per column id. Lengths are tuned so
-// the cell content fits comfortably under the current 11 px
-// font-mono + tabular-nums rendering, with `overflow-hidden
-// text-ellipsis` as a safety net for edge cases.
-//
-// Icon column (`cond`) gets 32 px — just enough for the SVG.
-// Numeric temperature (`temp`, `min`, `max`) gets 48 px because
-// `28°` is 3 chars wide at 11 px. Wind (`wind`) gets 56 px because
-// it shows an SVG (12 px) + margin + 2-3 digit number. Marine
-// columns get 56-60 px because their values include suffixes or
-// decimals and they share a column with rougher metrics.
-const COLUMN_WIDTHS: Record<MetricCellId, number> = {
-  cond: 32,
-  temp: 48,
-  min: 48,
-  max: 48,
-  clouds: 44,
-  wind: 56,
-  gusts: 48,
-  precip: 48,
-  humidity: 52,
-  uv: 44,
-  pressure: 56,
-  dewpoint: 56,
-  visibility: 56,
-  sea_surface_temperature: 60,
-  wave_height: 56,
-  wave_period: 48,
-  wave_direction: 56,
-  wind_wave_height: 60,
-  wind_wave_period: 48,
-  swell_wave_height: 60,
-  swell_wave_period: 48,
-}
-
 function loadColumnOrder(): MetricCellId[] {
   if (typeof window === 'undefined') return DEFAULT_ORDER
   try {
@@ -1228,7 +1193,17 @@ export default function InsightsTable({
             // cleanly in the now-48-px-wide marine column, and
             // there's no overflow into the next cell. Desktop
             // (>=1024 px) keeps the fill-the-container behaviour.
-            className="w-full border-collapse text-xs table-fixed real-desktop:table-fixed [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
+            // Sprint 16: dropped `table-fixed`. With auto layout
+            // the browser distributes columns proportionally — each
+            // column gets the width of its widest cell, the sticky
+            // column uses the CSS variable (which switches on
+            // viewport), and the rest of the horizontal space fills
+            // out automatically. We still need overflow hidden on
+            // each cell so that, when the table does exceed its
+            // container (e.g. mobile-landscape with marine on),
+            // the user can scroll horizontally and the content clips
+            // instead of overlapping into the next column.
+            className="w-full border-collapse text-xs [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
             <colgroup>
               {/* B-NEW-4 (mobile): the "Cuándo" column drops to
@@ -1285,13 +1260,17 @@ export default function InsightsTable({
                   // dewpoint/visibility we removed the hideClass
                   // entirely and let the JS decide whether to render
                   // the <col>, so this branch never fires for them.
+                  // Sprint 16: dropped the per-column pixel width so
+                  // the table distributes space proportionally to
+                  // each column's actual content (table-auto +
+                  // auto-width cells). Only the invisible collapse
+                  // hook for hideClass-based hide retains its
+                  // inline style. The first column keeps its
+                  // --when-col-w via the dedicated <col> above.
                   className={col.hideClass ?? ''}
-                  style={{
-                    width: `${COLUMN_WIDTHS[col.id] ?? 48}px`,
-                    ...(col.hideClass && /\bhidden\b/.test(col.hideClass)
-                      ? { visibility: 'collapse' as const }
-                      : {}),
-                  }}
+                  style={col.hideClass && /\bhidden\b/.test(col.hideClass)
+                    ? { visibility: 'collapse' as const }
+                    : undefined}
                 />
               ))}
             </colgroup>
@@ -1630,7 +1609,7 @@ const HeatCell = memo(function HeatCell({
       className={`text-center py-1.5 font-mono tabular-nums whitespace-nowrap overflow-hidden [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint] ${
         isPortrait
           ? 'px-0.5'
-          : 'px-1.5 sm:px-1'
+          : 'px-1.5 sm:px-1 real-desktop:px-2.5'
       }`}
       style={style}
     >

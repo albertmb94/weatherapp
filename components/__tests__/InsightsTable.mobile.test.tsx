@@ -376,7 +376,7 @@ describe('InsightsTable — mobile landscape with Marine + Basic shows scroll', 
 describe('InsightsTable — mobile landscape keeps the mobile chrome layout (Sprint 15)', () => {
   beforeEach(() => setMatchMedia({ [PORTRAIT_Q]: false, [LANDSCAPE_Q]: true }))
 
-  it('table uses real-desktop:table-fixed so mobile landscape keeps table-auto sizing', async () => {
+  it('table distributes columns proportionally (table-auto, no fixed px)', async () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -395,12 +395,16 @@ describe('InsightsTable — mobile landscape keeps the mobile chrome layout (Spr
     await screen.findByTestId('next-page-cta')
     const table = document.querySelector('table')
     expect(table).not.toBeNull()
-    // Real-desktop variant present (>=1024 px), but in mobile landscape
-    // (the mocked viewport via matchMedia is portrait-by-default in
-    // jsdom), the variant doesn't fire — base `table-fixed` does. jsdom
-    // can't evaluate Tailwind utility CSS, so we only check the
-    // presence of the variant class string in the markup.
-    expect(table!.className).toMatch(/\breal-desktop:table-fixed\b/)
+    // Sprint 16: dropped table-fixed entirely. The <colgroup> only
+    // carries an explicit width on the sticky Cuándo column (via
+    // --when-col-w); every data column relies on auto sizing to
+    // its widest cell so the user gets a real proportional layout
+    // instead of the previous equally-shared fixed columns.
+    expect(table!.className).not.toMatch(/(^|\s)table-fixed(\s|$)/)
+    const cols = Array.from(table!.querySelectorAll('colgroup col')) as HTMLElement[]
+    const colsWithPxWidth = cols.filter((c) => /width:\s*\d+px/.test(c.getAttribute('style') ?? ''))
+    // Only the sticky column has an explicit px width.
+    expect(colsWithPxWidth).toHaveLength(0)
   })
 
   it('on mobile landscape (any toggle state) the container is overflow-x-auto so wider column sets can scroll', async () => {

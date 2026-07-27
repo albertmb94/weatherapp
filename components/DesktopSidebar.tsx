@@ -112,7 +112,7 @@ export default function DesktopSidebar({ active, onSelect, layers, onLayerToggle
   return (
     <nav
       aria-label={s.navAria}
-      className="hidden md:flex flex-col items-stretch py-4 gap-1 w-[200px] shrink-0 bg-surface/80 border-r border-border"
+      className="hidden real-desktop:flex flex-col items-stretch py-4 gap-1 w-[200px] shrink-0 bg-surface/80 border-r border-border"
     >
       <div className="flex flex-col items-center gap-1 px-3 pb-3">
         <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/20">

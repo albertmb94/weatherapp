@@ -366,3 +366,64 @@ describe('InsightsTable — mobile landscape with Marine + Basic shows scroll', 
     expect(headers).toContain('wave_direction')
   })
 })
+
+describe('InsightsTable — mobile landscape keeps the mobile chrome layout (Sprint 15)', () => {
+  beforeEach(() => setMatchMedia({ [PORTRAIT_Q]: false, [LANDSCAPE_Q]: true }))
+
+  it('table uses real-desktop:table-fixed so mobile landscape keeps table-auto sizing', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    const table = document.querySelector('table')
+    expect(table).not.toBeNull()
+    // Real-desktop variant present (>=1024 px), but in mobile landscape
+    // (the mocked viewport via matchMedia is portrait-by-default in
+    // jsdom), the variant doesn't fire — base `table-fixed` does. jsdom
+    // can't evaluate Tailwind utility CSS, so we only check the
+    // presence of the variant class string in the markup.
+    expect(table!.className).toMatch(/\breal-desktop:table-fixed\b/)
+  })
+
+  it('on mobile landscape WITHOUT Marine+Basic the container is overflow-x-hidden (no scroll, fits)', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        showMarine={false}
+        showBasic={true}
+        onMarineToggle={() => {}}
+        onBasicToggle={() => {}}
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    const containers = Array.from(document.querySelectorAll('div'))
+      .filter(d => d.className.includes('max-h-[70vh]'))
+    expect(containers.length).toBeGreaterThan(0)
+    const container = containers[0]
+    // No marine+basic → no horizontal scroll needed → overflow-x-hidden.
+    expect(container.className).toContain('overflow-x-hidden')
+    expect(container.className).not.toContain('overflow-x-auto')
+  })
+})

@@ -896,11 +896,11 @@ export default function HomeContent() {
   const mobileTabFromView = selectedView === 'map' ? 'map' : selectedView === 'stations' ? 'stations' : (selectedView === 'weather' || selectedView === 'cities' ? 'models' : 'models')
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground overflow-x-hidden pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0 landscape:pb-0">
+    <div className="min-h-screen flex flex-col bg-background text-foreground overflow-x-hidden pb-[calc(52px+env(safe-area-inset-bottom))] real-desktop:pb-0">
       {/* MOBILE-ONLY: compact top header (search + range pill + refresh). */}
       <div
         data-header-collapsed={isHeaderCollapsed ? 'true' : 'false'}
-        className={`md:hidden landscape:hidden sticky top-0 z-[1100] bg-surface-raised border-b border-border shrink-0 px-3 transition-[padding] duration-150 ${
+        className={`real-desktop:hidden sticky top-0 z-[1100] bg-surface-raised border-b border-border shrink-0 px-3 transition-[padding] duration-150 ${
           isHeaderCollapsed ? 'py-1' : 'py-1.5'
         }`}
       >
@@ -912,7 +912,7 @@ export default function HomeContent() {
       </div>
 
       {/* MOBILE-ONLY: secondary header (geo, map toggle, theme, lang, hamburger). */}
-      <div ref={mobileMenuRef} className="md:hidden landscape:hidden px-3 py-1.5 bg-surface-raised border-b border-border">
+      <div ref={mobileMenuRef} className="real-desktop:hidden px-3 py-1.5 bg-surface-raised border-b border-border">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           <h1 className="text-xs font-semibold text-text-secondary whitespace-nowrap hidden sm:block">Weather</h1>
           <div className="w-px h-4 bg-border hidden sm:block" />
@@ -1020,7 +1020,7 @@ export default function HomeContent() {
             {/* Sticky search + range on tablet/desktop, sitting at the top of
                 the main column. The metric pills are NOT rendered here — they
                 live next to the Map view (which is what they drive). */}
-            <div className="hidden md:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border px-4 lg:px-6 py-3">
+            <div className="hidden real-desktop:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border px-4 real-desktop:px-6 py-3">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1 min-w-0">
                   <svg
@@ -1052,7 +1052,7 @@ export default function HomeContent() {
             <div
               // eslint-disable-next-line react-hooks/refs
               ref={pullToRefreshRef.ref}
-              className="p-3 md:p-4 lg:p-6 space-y-3 md:space-y-4"
+              className="p-3 real-desktop:p-4 real-desktop:space-y-4 space-y-3"
             >
               {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map' || selectedView === 'stations') && (
                 <>
@@ -1333,10 +1333,10 @@ export default function HomeContent() {
 
           <aside
             aria-label={STRINGS[locale].weekTitle}
-            className="hidden lg:block w-[320px] shrink-0 border-l border-border overflow-y-auto"
+            className="hidden real-desktop:block w-[320px] shrink-0 border-l border-border overflow-y-auto"
             style={{ maxHeight: 'calc(100dvh)' }}
           >
-            <div className="p-4 xl:p-5 space-y-4 xl:sticky xl:top-0">
+            <div className="p-4 real-desktop:p-5 space-y-4 real-desktop:sticky real-desktop:top-0">
               <WeekForecastPanel
                 models={displayModels}
                 activeIds={displayActiveModelIds}
@@ -1368,7 +1368,7 @@ export default function HomeContent() {
       </div>
 
       {/* F-9: footer keyboard hints, hidden on mobile (mobile tab bar lives at the bottom). */}
-      <div className="hidden md:flex md:mt-auto px-3 py-0.5 bg-surface/50 border-t border-border text-[9px] text-text-tertiary gap-3 shrink-0">
+      <div className="hidden real-desktop:flex real-desktop:mt-auto px-3 py-0.5 bg-surface/50 border-t border-border text-[9px] text-text-tertiary gap-3 shrink-0">
         <span>← → {STRINGS[locale].footerHours}</span>
         <span>/ {STRINGS[locale].footerSearch}</span>
         <span>m {STRINGS[locale].footerMap}</span>
@@ -1475,7 +1475,7 @@ const AdvancedSection = memo(function AdvancedSection({
       <button
         type="button"
         onClick={onToggle}
-        className="md:hidden w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-surface-popover/40 transition-colors cursor-pointer"
+        className="real-desktop:hidden w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-surface-popover/40 transition-colors cursor-pointer"
         aria-expanded={expanded}
         aria-controls="advanced-section"
       >
@@ -1502,7 +1502,7 @@ const AdvancedSection = memo(function AdvancedSection({
       <button
         type="button"
         onClick={onToggle}
-        className="hidden md:flex w-full items-center justify-between px-4 py-3 text-text-primary hover:bg-surface-popover/40 transition-colors"
+        className="hidden real-desktop:flex w-full items-center justify-between px-4 py-3 text-text-primary hover:bg-surface-popover/40 transition-colors"
         aria-expanded={expanded}
         aria-controls="advanced-section"
       >

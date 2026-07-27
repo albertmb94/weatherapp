@@ -1017,7 +1017,7 @@ export default function InsightsTable({
           )}
           <button
             onClick={() => setCompact(c => !c)}
-            className={`shrink-0 md:hidden px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'}`}
+            className={`shrink-0 real-desktop:hidden px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'}`}
             title="Compact mode"
           >
             ≡
@@ -1057,7 +1057,7 @@ export default function InsightsTable({
               ? 'overflow-x-hidden'
               : isMobileLandscape && showMarine && showBasic
                 ? 'overflow-x-auto'
-                : 'overflow-x-hidden md:overflow-auto'
+                : 'overflow-x-hidden real-desktop:overflow-auto'
           }`}
         >
           {/* Sprint 14: scroll-hint gradients removed. The previous
@@ -1137,7 +1137,7 @@ export default function InsightsTable({
             // cleanly in the now-48-px-wide marine column, and
             // there's no overflow into the next cell. Desktop
             // (>=1024 px) keeps the fill-the-container behaviour.
-            className="w-full border-collapse text-xs table-fixed lg:table-fixed [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
+            className="w-full border-collapse text-xs table-fixed real-desktop:table-fixed [&_th]:text-[11px] [&_td]:text-[11px] [&_span]:text-[11px]"
           >
             <colgroup>
               {/* B-NEW-4 (mobile): the "Cuándo" column drops to

@@ -383,10 +383,11 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     // `table-auto` so basic columns size to their content and the
     // now-48-px marine columns fit `27.8°` (~33 px text + 12 px
     // padding = 45 px) without overflowing into the next column.
-    // We assert the desktop class is present and the BASE class
-    // is absent (so jsdom doesn't accidentally match the prefixed
-    // one).
-    expect(table.className).toMatch(/\blg:table-fixed\b/)
+    // Sprint 15: the >=1024 px variant is `real-desktop:` (renamed from
+    // `lg:` so that iPad portrait 768-1023 px stays on the mobile
+    // layout). We assert the desktop class is present and the BASE
+    // class is also present.
+    expect(table.className).toMatch(/\breal-desktop:table-fixed\b/)
     // Sprint 14: `table-fixed` is now also on the base class
     // (not just lg:) so the column widths are explicit in
     // portrait, where the column filter plus fixed widths plus

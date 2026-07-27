@@ -1,5 +1,23 @@
 @import "tailwindcss";
-@custom-variant landscape (@media (orientation: landscape));
+
+/* Sprint 15: width-gate the `landscape:` variant.
+
+   Previously it was @media (orientation: landscape) — i.e. it fired in
+   every landscape, including desktop monitors. Combined with `md:`
+   (>=768 px), that meant the chrome mobile vanished on iPhone in
+   landscape (390-844 px wide) and the desktop chrome appeared — the
+   "modo desktop en landscape" bug.
+
+   The new variant only fires on PHONE landscape (max-width: 767 px
+   + landscape): exactly the case where we want the mobile chrome to
+   stay visible. Desktop landscape, iPad landscape, etc. no longer
+   match this variant.
+
+   `real-desktop:` is the explicit counterpart for >=1024 px (lg+).
+   Use this for chrome and layout macros. Use plain `md:`/`lg:` only
+   for typographic / spacing refinements inside cards. */
+@custom-variant landscape (@media (max-width: 767px) and (orientation: landscape));
+@custom-variant real-desktop (@media (min-width: 1024px));
 @source "../components/**/*.tsx";
 @source "../app/**/*.tsx";
 
@@ -192,9 +210,12 @@ body {
 html.light {
   --heat-cell-text: #0a0a0a; /* light theme: always black */
 }
-@media (orientation: landscape) {
+/* Sprint 15: gated to "real-desktop landscape" (>=1024 px AND landscape).
+   Phone landscape (iPhone 390 x 844 rotated) no longer triggers white
+   text — keeps the heatmap text consistent with portrait. */
+@media (min-width: 1024px) and (orientation: landscape) {
   :root:not(.light) {
-    --heat-cell-text: #f5f5f5; /* dark + landscape: white */
+    --heat-cell-text: #f5f5f5; /* dark + real-desktop landscape: white */
   }
 }
 

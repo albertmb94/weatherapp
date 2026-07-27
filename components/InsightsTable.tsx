@@ -1215,16 +1215,36 @@ export default function InsightsTable({
                   // `table-fixed` + `width: auto` every column
                   // shared the remaining space equally — that gave
                   // the first 4 columns ~30 px and pushed every
+                  // Sprint 16: explicit pixel width per column id
+                  // so the table distributes space proportionally to
+                  // each column's actual content, not equally. With
+                  // `table-fixed` + `width: auto` every column
+                  // shared the remaining space equally — that gave
+                  // the first 4 columns ~30 px and pushed every
                   // marine column to 48 px of empty space, exactly
                   // the "primeras 4 muy estrechas, ultimas 4 muy
                   // anchas" complaint. With explicit widths the
                   // table now uses its full horizontal budget on
                   // every viewport and stops fighting the layout
                   // for breathing room.
+                  //
+                  // Sprint 16 follow-up: the inline `visibility:
+                  // collapse` used to be applied for any hideClass
+                  // that contains `hidden`, but it overrides the
+                  // CSS `visibility-or-desktop:table-cell` rule
+                  // regardless of the actual viewport (inline
+                  // styles win without `!important`). That kept
+                  // pressure/dewpoint/visibility hidden in phone
+                  // landscape. We now only apply the collapse when
+                  // the hideClass is purely the breakpoint-based
+                  // `hidden` (i.e. the column has no dynamic
+                  // visibility-or-desktop that could win).
                   className={col.hideClass ?? ''}
                   style={{
                     width: `${COLUMN_WIDTHS[col.id] ?? 48}px`,
-                    ...(col.hideClass && /\bhidden\b/.test(col.hideClass) ? { visibility: 'collapse' as const } : {}),
+                    ...(col.hideClass && /\bhidden\b/.test(col.hideClass) && !/\bvisibility-or-desktop:table-cell\b/.test(col.hideClass)
+                      ? { visibility: 'collapse' as const }
+                      : {}),
                   }}
                 />
               ))}

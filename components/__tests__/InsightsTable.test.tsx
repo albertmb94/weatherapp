@@ -280,11 +280,11 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
         weekDays={14}
       />
     ))
-    // Page 0: hours 0..47 (labels Hoy 00:00, Hoy 01:00, …). The
+    // Page 0: hours 0..47 (labels Hoy 00h, Hoy 01h, …). The
     // first <td> per <tr> is the "Cuándo" column with the label.
     const tbody0 = document.querySelector('tbody')!
     const firstLabelPage0 = tbody0.querySelector('tr td:nth-child(1)')?.textContent ?? ''
-    expect(firstLabelPage0).toMatch(/00:00|01:00|02:00|03:00/i)
+    expect(firstLabelPage0).toMatch(/00h|01h|02h|03h/i)
 
     // Advance to page 1.
     const cta = tbody0.querySelector<HTMLElement>('[data-testid="next-page-cta"]')!

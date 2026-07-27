@@ -206,7 +206,7 @@ function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' |
   const day = isToday ? s.today : isTomorrow ? s.tomorrow : `${DAY_NAMES[locale][start.getUTCDay()]} ${start.getUTCDate()}`
   if (bucket === 24) return day
   const h0 = start.getUTCHours().toString().padStart(2, '0')
-  if (bucket === 1) return `${day} ${h0}:00`
+  if (bucket === 1) return `${day} ${h0}h`
   const h1 = end.getUTCHours().toString().padStart(2, '0')
   return `${day} ${h0}–${h1}`
 }

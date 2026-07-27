@@ -155,7 +155,7 @@ body {
 }
 @media (max-width: 639px) {
   :root {
-    --when-col-w: 64px;
+    --when-col-w: 80px;
   }
 }
 

@@ -309,9 +309,13 @@ function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
     case 'pressure':
       return cellInner({ value: r.pressureMean, metric: 'pressure', decimals: 0 })
     case 'dewpoint':
-      return cellInner({ value: r.dewpointMean, metric: 'dewpoint', suffix: '°', decimals: 1 })
+      // Header already carries "Rocío °C" — cell shows raw value
+      // (e.g. "18.9") with 1 decimal.
+      return cellInner({ value: r.dewpointMean, metric: 'dewpoint', suffix: '', decimals: 1 })
     case 'visibility':
-      return cellInner({ value: r.visibilityMean, metric: 'visibility', suffix: 'km', decimals: 1 })
+      // Header already carries "Vis km" — cell shows raw value (e.g.
+      // "12.3") with 1 decimal.
+      return cellInner({ value: r.visibilityMean, metric: 'visibility', suffix: '', decimals: 1 })
     case 'sea_surface_temperature':
       // The header already says "Mar °C", so the cell just shows
       // the rounded integer — no suffix, 0 decimals. "28" (2 chars)

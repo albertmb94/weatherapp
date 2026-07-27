@@ -90,4 +90,48 @@ describe('AirConditionsGrid', () => {
     const { container } = renderGrid({ snapshot: baseSnapshot, europeanAqi: null })
     expect(container.textContent).not.toContain('Calidad del aire')
   })
+
+  // F5 (revised, second pass): the pollen tile toggles
+  // between grass and birch on tap. The default mode is
+  // grass (per the component's local state).
+  it('renders the pollen tile with the grass reading by default', () => {
+    const { container } = renderGrid({
+      snapshot: baseSnapshot,
+      grassPollen: 12,
+      birchPollen: 3,
+    })
+    expect(container.textContent).toContain('Polen')
+    expect(container.textContent).toContain('12')
+    expect(container.textContent).toContain('Gramíneas')
+    expect(container.textContent).not.toContain('Abedul')
+  })
+
+  it('toggles the pollen tile between grass and birch on tap', () => {
+    const { container } = renderGrid({
+      snapshot: baseSnapshot,
+      grassPollen: 12,
+      birchPollen: 3,
+    })
+    const tile = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Polen'))
+    expect(tile).toBeDefined()
+    fireEvent.click(tile!)
+    // After tap: mode flips to "birch", value is 3, label is
+    // "Abedul" (es locale).
+    expect(container.textContent).toContain('3')
+    expect(container.textContent).toContain('Abedul')
+    expect(container.textContent).not.toContain('Gramíneas')
+    fireEvent.click(tile!)
+    // Tap back: grass mode.
+    expect(container.textContent).toContain('12')
+    expect(container.textContent).toContain('Gramíneas')
+  })
+
+  it('omits the pollen tile when both readings are null', () => {
+    const { container } = renderGrid({
+      snapshot: baseSnapshot,
+      grassPollen: null,
+      birchPollen: null,
+    })
+    expect(container.textContent).not.toContain('Polen')
+  })
 })

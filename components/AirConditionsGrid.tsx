@@ -34,6 +34,15 @@ interface AirConditionsGridProps {
    *  ~120 h of AQI data so a single number from
    *  `series.european_aqi[nowIndex]` is enough. */
   europeanAqi?: number | null
+  /** F5 (revised, second pass): the current grass pollen
+   *  reading (grains/m³). Surfaces as a 6th tile in the
+   *  Métricas block. The tile toggles between grass and
+   *  birch on tap. `null`/missing hides the tile. */
+  grassPollen?: number | null
+  /** F5 (revised, second pass): the current birch pollen
+   *  reading (grains/m³). The tile shows whichever value
+   *  matches the active mode (grass or birch). */
+  birchPollen?: number | null
 }
 
 function fmtTemp(value: number | null): string {
@@ -85,6 +94,22 @@ function AirIcon() {
       <path d="M4 9h11a3 3 0 1 0-3-3" />
       <path d="M3 14h15a3 3 0 1 1-3 3" />
       <path d="M3 19h7" />
+    </svg>
+  )
+}
+
+function PollenIcon() {
+  return (
+    // A simple flower with petals — chosen over a grain-of-pollen
+    // glyph so the icon is recognisable at 16 px without the user
+    // having to hover. The light fill + dark stroke also makes it
+    // readable on the surface-raised background.
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+      <ellipse cx="12" cy="5" rx="2" ry="3" />
+      <ellipse cx="12" cy="19" rx="2" ry="3" />
+      <ellipse cx="5" cy="12" rx="3" ry="2" />
+      <ellipse cx="19" cy="12" rx="3" ry="2" />
     </svg>
   )
 }
@@ -159,6 +184,8 @@ export default function AirConditionsGrid({
   forecastAgeMs = null,
   dailyPrecipitationSum = null,
   europeanAqi = null,
+  grassPollen = null,
+  birchPollen = null,
 }: AirConditionsGridProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -168,6 +195,12 @@ export default function AirConditionsGrid({
   const [feelMode, setFeelMode] = useState<'feel' | 'high'>('feel')
   const [windMode, setWindMode] = useState<'wind' | 'gusts'>('wind')
   const [rainMode, setRainMode] = useState<'chance' | 'intensity' | 'day'>('chance')
+  // F5 (revised, second pass): pollen toggle. We surface the
+  // two most common allergens (grass and birch); the rest of
+  // the AIR_METRICS list is hidden in this UI but stays
+  // available for the (now-removed) full air-quality card and
+  // for future expansion.
+  const [pollenMode, setPollenMode] = useState<'grass' | 'birch'>('grass')
 
   // UV: in live mode prefer the provider's current=uv_index reading if we
   // still have it cached AND the user is on the actual current hour.
@@ -313,6 +346,20 @@ export default function AirConditionsGrid({
             locale={locale}
           />
         ) : null}
+        {/* F5 (revised, second pass): pollen tile. Toggles
+            between grass and birch on tap; whichever value
+            is null falls back to the other. We don't render
+            the tile when both readings are null. */}
+        {(grassPollen !== null && grassPollen !== undefined) ||
+        (birchPollen !== null && birchPollen !== undefined) ? (
+          <PollenTile
+            grassPollen={grassPollen ?? null}
+            birchPollen={birchPollen ?? null}
+            mode={pollenMode}
+            onCycle={() => setPollenMode(m => (m === 'grass' ? 'birch' : 'grass'))}
+            locale={locale}
+          />
+        ) : null}
       </div>
     </section>
   )
@@ -378,5 +425,80 @@ function AirQualityTile({
         {bandLabel}
       </span>
     </div>
+  )
+}
+
+/**
+ * F5 (revised, second pass): pollen tile. Cycles between
+ * grass and birch on tap. The two readings come from the
+ * parent as separate props so the component is a pure
+ * view — the state lives in the parent.
+ *
+ * The active mode label is rendered in the same `sub` slot
+ * the other tiles use (e.g. "Live", "Peak"), so the
+ * Métricas block stays visually consistent.
+ */
+const POLLEN_LABEL: Record<'grass' | 'birch', { es: string; en: string }> = {
+  grass: { es: 'Gramíneas', en: 'Grass' },
+  birch: { es: 'Abedul', en: 'Birch' },
+}
+
+function PollenTile({
+  grassPollen,
+  birchPollen,
+  mode,
+  onCycle,
+  locale,
+}: {
+  grassPollen: number | null
+  birchPollen: number | null
+  mode: 'grass' | 'birch'
+  onCycle: () => void
+  locale: 'en' | 'es'
+}) {
+  // If the active reading is null but the other one is
+  // present, the tile still renders (the user just sees an
+  // em-dash) — better than an invisible slot mid-grid.
+  const activeValue = mode === 'grass' ? grassPollen : birchPollen
+  const fallbackValue = mode === 'grass' ? birchPollen : grassPollen
+  const value = activeValue ?? fallbackValue
+  const modeLabel = POLLEN_LABEL[mode][locale]
+  const display = value === null || value === undefined ? '–' : Math.round(value).toString()
+  const fallbackNote = activeValue === null && fallbackValue !== null
+    ? (locale === 'en' ? `fallback to ${mode === 'grass' ? 'birch' : 'grass'}` : `usando ${mode === 'grass' ? 'abedul' : 'gramíneas'}`)
+    : undefined
+  return (
+    <button
+      type="button"
+      onClick={onCycle}
+      title={
+        fallbackNote
+          ? (locale === 'en'
+              ? `Tap to switch · ${fallbackNote}`
+              : `Toca para cambiar · ${fallbackNote}`)
+          : (locale === 'en' ? 'Tap to switch between grass and birch pollen' : 'Toca para alternar entre gramíneas y abedul')
+      }
+      className="rounded-2xl border border-border bg-surface-raised p-3 md:p-4 flex flex-col gap-1 min-w-0 text-left cursor-pointer transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+    >
+      <div className="flex items-center gap-1.5 text-text-tertiary">
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-emerald-300 bg-emerald-500/10">
+          <PollenIcon />
+        </span>
+        <span className="text-[11px] font-medium uppercase tracking-wide truncate">
+          {locale === 'en' ? 'Pollen' : 'Polen'}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-1 mt-1">
+        <span className="text-2xl md:text-3xl font-semibold text-text-primary tabular-nums leading-none">
+          {display}
+        </span>
+        <span className="text-xs text-text-tertiary tabular-nums">
+          {locale === 'en' ? 'gr/m³' : 'gr/m³'}
+        </span>
+      </div>
+      <span className="text-[10px] tabular-nums text-text-muted">
+        {modeLabel}
+      </span>
+    </button>
   )
 }

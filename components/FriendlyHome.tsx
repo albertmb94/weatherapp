@@ -122,6 +122,14 @@ interface FriendlyHomeProps {
    *  parent (home-content) supplies the value from the
    *  air-quality query; `null`/missing hides the tile. */
   europeanAqi?: number | null
+  /** F5 (revised, second pass): the current grass pollen
+   *  reading (grains/m³). Surfaces inside the Métricas
+   *  block as the 6th tile, which toggles between grass and
+   *  birch on tap. `null`/missing hides the tile. */
+  grassPollen?: number | null
+  /** F5 (revised, second pass): the current birch pollen
+   *  reading (grains/m³). */
+  birchPollen?: number | null
 }
 
 export default function FriendlyHome({
@@ -147,6 +155,8 @@ export default function FriendlyHome({
   usageProfileBoostedCount = 0,
   usageProfileRecommended = new Set(),
   europeanAqi = null,
+  grassPollen = null,
+  birchPollen = null,
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -264,6 +274,10 @@ export default function FriendlyHome({
         // viewport. The air-quality section above is only
         // rendered on desktop / mobile landscape.
         europeanAqi={europeanAqi}
+        // F5 (revised, second pass): pollen values feed
+        // the 6th toggle tile (grass <-> birch).
+        grassPollen={grassPollen}
+        birchPollen={birchPollen}
       />
     </div>
   )

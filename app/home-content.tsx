@@ -20,7 +20,12 @@ import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
 import SettingsPanel from '@/components/SettingsPanel'
 import CitiesList from '@/components/CitiesList'
-import AirQualityCard from '@/components/AirQualityCard'
+// AirQualityCard was removed in the F5 second pass (2026-07-27):
+// the air-quality and pollen tiles now live inside the Métricas
+// block (see <AirQualityTile> in `AirConditionsGrid.tsx`), so
+// the standalone section is no longer rendered anywhere. The
+// component file is still in the repo in case we want to
+// re-introduce the 10-tile grid in a future iteration.
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
 import { fetchForecast, fetchCurrentUv, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
 import { fetchAirQuality, type AirQualityResult } from '@/lib/airQuality'
@@ -103,6 +108,29 @@ function importWithChunkReload<T>(factory: () => Promise<T>): Promise<T> {
     }
     throw err
   })
+}
+
+/**
+ * F5 (revised, second pass): pick the pollen value for the
+ * current local hour. Extracted as a module-level helper so
+ * `useMemo` dependencies in the component body stay stable
+ * (otherwise the closure is recreated on every render and
+ * the memo would never cache).
+ */
+function pickPollenAtHour(
+  data: AirQualityResult | undefined,
+  series: (number | null)[] | undefined,
+): number | null {
+  if (!data || !series || series.length === 0) return null
+  const referenceMs = data.fetchedAt ?? Date.now()
+  const referenceLocal = new Date(referenceMs + data.utcOffsetSeconds * 1000)
+  const target = referenceLocal.getUTCHours()
+  for (let i = 0; i < data.time.length; i++) {
+    const t = data.time[i]
+    if (!(t instanceof Date)) continue
+    if (t.getUTCHours() === target) return series[i] ?? null
+  }
+  return series[0] ?? null
 }
 
 const MapPicker = dynamic(() => importWithChunkReload(() => import('@/components/MapPicker')), { ssr: false })
@@ -533,31 +561,26 @@ export default function HomeContent() {
     return arr[0] ?? null
   }, [airQualityQuery.data])
 
+  // F5 (revised, second pass): same hour-aligned lookup for
+  // the two pollen readings surfaced in the Métricas block.
+  // Each tile consumes its own value so the parent stays a
+  // pure view; the toggle state lives inside
+  // `AirConditionsGrid`.
+  const currentGrassPollen = useMemo(
+    () => pickPollenAtHour(airQualityQuery.data, airQualityQuery.data?.series.grass_pollen),
+    [airQualityQuery.data],
+  )
+  const currentBirchPollen = useMemo(
+    () => pickPollenAtHour(airQualityQuery.data, airQualityQuery.data?.series.birch_pollen),
+    [airQualityQuery.data],
+  )
+
   // F5: viewport detection — desktop or mobile landscape.
-  // Starts `false` to match SSR; the effect updates after mount.
-  // F5 (revised): the full AirQualityCard (with the tile grid)
-  // is desktop + mobile-landscape only. The EU AQI headline
-  // value lives inside the Métricas block and is rendered on
-  // every viewport, so we keep the network query alive on
-  // mobile too. Same breakpoint as the rest of the app:
-  // >=1024 px is "real desktop", and `orientation: landscape`
-  // covers the phone-landscape case.
-  const [isAirQualityCardVisible, setIsAirQualityCardVisible] = useState(false)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return
-    const desktopMq = window.matchMedia('(min-width: 1024px)')
-    const mobileLandscapeMq = window.matchMedia('(orientation: landscape) and (max-height: 540px)')
-    const compute = () => desktopMq.matches || mobileLandscapeMq.matches
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsAirQualityCardVisible(compute())
-    const onChange = () => setIsAirQualityCardVisible(compute())
-    desktopMq.addEventListener('change', onChange)
-    mobileLandscapeMq.addEventListener('change', onChange)
-    return () => {
-      desktopMq.removeEventListener('change', onChange)
-      mobileLandscapeMq.removeEventListener('change', onChange)
-    }
-  }, [])
+  // F5 (revised, second pass): the standalone `AirQualityCard`
+  // is gone, so the viewport gate is no longer needed. The
+  // air-quality query still runs on every viewport because the
+  // Métricas block now consumes the EU AQI and pollen values
+  // on mobile too.
 
   // F-5: persist every successful forecast to IndexedDB so the user
   // can read their last known data offline. Best-effort; failures are
@@ -1184,29 +1207,23 @@ export default function HomeContent() {
                   // so it shows on every viewport including mobile
                   // portrait.
                   europeanAqi={currentEuropeanAqi}
+                  // F5 (revised, second pass): pollen values feed
+                  // the toggle tile inside the Métricas block.
+                  grassPollen={currentGrassPollen}
+                  birchPollen={currentBirchPollen}
                 />
                 </>
               )}
 
-              {/* F5 (revised): the full air-quality tile grid is
-                  desktop + mobile-landscape only. The EU AQI
-                  headline value lives inside the Métricas block
-                  and is rendered on every viewport (see
-                  `<AirQualityTile>` below). */}
-              {isAirQualityCardVisible &&
-                (selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map') && (
-                  <AirQualityCard
-                    data={airQualityQuery.data ?? null}
-                    isLoading={airQualityQuery.isLoading}
-                    error={
-                      airQualityQuery.error
-                        ? (airQualityQuery.error instanceof Error
-                            ? airQualityQuery.error.message
-                            : String(airQualityQuery.error))
-                        : null
-                    }
-                  />
-                )}
+              {/* F5 (revised, second pass): the standalone
+                  `AirQualityCard` is gone. Air quality and
+                  pollen now live exclusively inside the
+                  Métricas block (EU AQI tile + Pollen toggle
+                  tile) on every viewport, so the user gets
+                  the headline values without scrolling past
+                  a 10-tile grid. The data is still fetched
+                  (see `airQualityQuery` above) because the
+                  Métricas tiles depend on it. */}
 
               {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map') && (
                 <SavedLocations onSelect={handleCitySelect} />

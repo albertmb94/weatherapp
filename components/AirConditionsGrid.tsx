@@ -292,7 +292,15 @@ export default function AirConditionsGrid({
           </span>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
+      {/* F5 (third pass): `grid-auto-rows: 1fr` forces every
+          row to the same height so the second row of tiles
+          (UV, EU AQI, Pollen) doesn't visually stick out
+          from the first row (feel, wind, rain) just because
+          the cards have a slightly different intrinsic
+          content height. `min-w-0` on the grid itself
+          prevents a single oversized card from stretching
+          its siblings past the column width. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3 [grid-auto-rows:1fr] min-w-0">
         <ToggleCard
           label={feelLabel}
           value={feelDisplay}
@@ -399,12 +407,20 @@ function AirQualityTile({
   const bandText = classification ? BAND_SUB_TEXT[classification.band] : 'text-text-tertiary'
   const bandLabel = classification?.label ?? '—'
   const hint = classification?.hint
+  // F5 (third pass): the band label used to sit on its own
+  // sub-line below the number. The user reported two issues:
+  //   1. The sub-line made this card ~30% taller than the
+  //      first-row cards (feel / wind / rain / UV), so the
+  //      second row of the grid visibly stuck out.
+  //   2. The label "Moderada" felt disconnected from the
+  //      number — they should read as one piece.
+  // We now render the band label inline with the value:
+  // `40 AQI · Moderada` on a single line. The text colour
+  // keeps the band-specific hue so the user can still tell
+  // the air quality at a glance.
   return (
     <div
       className="rounded-2xl border border-border bg-surface-raised p-3 md:p-4 flex flex-col gap-1 min-w-0 text-left"
-      // The band label is the headline sub-text; we render
-      // the band hint as a tooltip so the long description
-      // is available without crowding the cell.
       title={hint}
     >
       <div className="flex items-center gap-1.5 text-text-tertiary">
@@ -413,17 +429,23 @@ function AirQualityTile({
         </span>
         <span className="text-[11px] font-medium uppercase tracking-wide truncate">{label}</span>
       </div>
-      <div className="flex items-baseline gap-1 mt-1">
+      <div className="flex items-baseline gap-1 mt-1 flex-wrap">
         <span className="text-2xl md:text-3xl font-semibold text-text-primary tabular-nums leading-none">
           {Math.round(value)}
         </span>
         <span className="text-xs text-text-tertiary tabular-nums">
           {locale === 'en' ? 'EU AQI' : 'AQI'}
         </span>
+        {/* Inline band label — same row as the value so the
+            tile keeps the 2-line height the other tiles
+            have. The `·` separator gives a clear visual
+            break between the unit and the band. */}
+        <span
+          className={`text-[11px] font-medium tabular-nums ${bandText}`}
+        >
+          · {bandLabel}
+        </span>
       </div>
-      <span className={`text-[10px] tabular-nums font-medium ${bandText}`}>
-        {bandLabel}
-      </span>
     </div>
   )
 }
@@ -480,12 +502,22 @@ function PollenTile({
       }
       className="rounded-2xl border border-border bg-surface-raised p-3 md:p-4 flex flex-col gap-1 min-w-0 text-left cursor-pointer transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
     >
-      <div className="flex items-center gap-1.5 text-text-tertiary">
-        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-emerald-300 bg-emerald-500/10">
+      {/* F5 (third pass): the active mode label (Gramíneas /
+          Abedul) used to live on its own sub-line below the
+          value, which made this card taller than the other
+          tiles in the grid. The user asked for the mode
+          indicator to sit on the same row as the header
+          ("Polen · Gramíneas") so the card keeps the
+          2-line height the other tiles have. */}
+      <div className="flex items-center gap-1.5 text-text-tertiary min-w-0">
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-emerald-300 bg-emerald-500/10 shrink-0">
           <PollenIcon />
         </span>
         <span className="text-[11px] font-medium uppercase tracking-wide truncate">
           {locale === 'en' ? 'Pollen' : 'Polen'}
+        </span>
+        <span className="text-[11px] font-medium tabular-nums text-text-secondary ml-auto shrink-0">
+          · {modeLabel}
         </span>
       </div>
       <div className="flex items-baseline gap-1 mt-1">
@@ -496,9 +528,6 @@ function PollenTile({
           {locale === 'en' ? 'gr/m³' : 'gr/m³'}
         </span>
       </div>
-      <span className="text-[10px] tabular-nums text-text-muted">
-        {modeLabel}
-      </span>
     </button>
   )
 }

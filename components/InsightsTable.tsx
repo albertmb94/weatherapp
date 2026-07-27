@@ -125,6 +125,41 @@ const METRIC_COLUMNS: MetricColumnDef[] = [
 const DEFAULT_ORDER = METRIC_COLUMNS.map(c => c.id)
 const STORAGE_KEY = 'insights-column-order'
 
+// Sprint 16: explicit pixel width per column id. Lengths are tuned so
+// the cell content fits comfortably under the current 11 px
+// font-mono + tabular-nums rendering, with `overflow-hidden
+// text-ellipsis` as a safety net for edge cases.
+//
+// Icon column (`cond`) gets 32 px — just enough for the SVG.
+// Numeric temperature (`temp`, `min`, `max`) gets 48 px because
+// `28°` is 3 chars wide at 11 px. Wind (`wind`) gets 56 px because
+// it shows an SVG (12 px) + margin + 2-3 digit number. Marine
+// columns get 56-60 px because their values include suffixes or
+// decimals and they share a column with rougher metrics.
+const COLUMN_WIDTHS: Record<MetricCellId, number> = {
+  cond: 32,
+  temp: 48,
+  min: 48,
+  max: 48,
+  clouds: 44,
+  wind: 56,
+  gusts: 48,
+  precip: 48,
+  humidity: 52,
+  uv: 44,
+  pressure: 56,
+  dewpoint: 56,
+  visibility: 56,
+  sea_surface_temperature: 60,
+  wave_height: 56,
+  wave_period: 48,
+  wave_direction: 56,
+  wind_wave_height: 60,
+  wind_wave_period: 48,
+  swell_wave_height: 60,
+  swell_wave_period: 48,
+}
+
 function loadColumnOrder(): MetricCellId[] {
   if (typeof window === 'undefined') return DEFAULT_ORDER
   try {
@@ -1053,9 +1088,15 @@ export default function InsightsTable({
           // overflow-x-auto so the user can scroll horizontally
           // through the columns without losing the overview.
           className={`relative max-h-[70vh] contain-[layout_style_paint] ${
+            // Portrait: never horizontal scroll (user complained about
+            // "no debe existir scroll horizontal" en vertical).
+            // Landscape phone: ALWAYS allow horizontal scroll because
+            // the table now shows min/max/clouds/gusts (+ marine cols
+            // when marine is on) — those don't fit inside 390 px.
+            // Desktop: auto overflow as usual.
             isMobilePortrait
               ? 'overflow-x-hidden'
-              : isMobileLandscape && showMarine && showBasic
+              : isMobileLandscape
                 ? 'overflow-x-auto'
                 : 'overflow-x-hidden real-desktop:overflow-auto'
           }`}
@@ -1168,80 +1209,21 @@ export default function InsightsTable({
                 <col
                   key={col.id}
                   data-col-id={col.id}
-                  // Marine columns are wider because they display
-                  // units (m, s, °); the rest auto-size to 1fr.
-                  //
-                  // B-NEW-2: applying `hideClass` to the <col> element
-                  // too is critical — `table-fixed` lays out columns
-                  // from the <colgroup>, so a hidden column with no
-                  // explicit width otherwise still claims a slice of the
-                  // container width. That left the visible columns
-                  // clustered to the left of the screen with empty
-                  // space on the right (the user reported the table
-                  // looked "collapsed to the left"). `display: none`
-                  // on the <col> collapses the column, so the visible
-                  // columns redistribute over the full container width.
-                  //
-                  // B-NEW-3 / B-NEW-4 (mobile): the marine columns
-                  // used to be a fixed 64 px which alone exceeded a
-                  // 360-px phone viewport (8 marine cols × 64 = 512
-                  // px before the first column or any other data
-                  // column is drawn). We dropped to 40 px (still
-                  // enough for "0.3m" / "73°" at 11 px with the
-                  // cell's `px-1` padding) and the right-edge
-                  // scroll-fade mask gives a hint that more content
-                  // is to the right. On desktop the 40 px is
-                  // visually tighter than the 64 px it replaces
-                  // but the units ("m", "s", "°") still read
-                  // clearly because the basic 6-column view has
-                  // more horizontal room to spare.
-                  //
-                  // B-NEW-11 (2026-07-25): also set `visibility:
-                  // collapse` for columns that the CSS actually
-                  // hides at the current viewport — i.e. the
-                  // breakpoint-based `hideClass` values like
-                  // `hidden sm:table-cell landscape:table-cell`
-                  // (min/max/clouds/gusts) and `hidden
-                  // xl:table-cell` (pressure/dewpoint/visibility).
-                  // Tailwind's `display: none` (via `hidden`) on a
-                  // `<col>` does not reliably collapse the column
-                  // width under `table-layout: auto`, so on the
-                  // viewports where those columns should be hidden
-                  // they kept taking up horizontal space and created
-                  // a visible gap at the basic→marine boundary —
-                  // the user reported this as "a border separator
-                  // after the UV column". `visibility: collapse`
-                  // is the W3C-recommended way to hide table
-                  // columns and works regardless of `table-layout`.
-                  //
-                  // IMPORTANT: only apply `visibility: collapse`
-                  // when the hideClass actually hides the column
-                  // (i.e. contains the `hidden` utility). Marine
-                  // columns have `hideClass: 'marine-col'` as a
-                  // pure marker — there's no CSS rule that hides
-                  // them, they are excluded from `visibleIds` when
-                  // `showMarine` is false — so collapsing them
-                  // here would hide them even when the user has
-                  // explicitly turned Marine ON. That was the
-                  // root cause of "Marine on + Basic off = empty
-                  // table" on the previous B-NEW-11 push.
+                  // Sprint 16: explicit pixel width per column id
+                  // so the table distributes space proportionally to
+                  // each column's actual content, not equally. With
+                  // `table-fixed` + `width: auto` every column
+                  // shared the remaining space equally — that gave
+                  // the first 4 columns ~30 px and pushed every
+                  // marine column to 48 px of empty space, exactly
+                  // the "primeras 4 muy estrechas, ultimas 4 muy
+                  // anchas" complaint. With explicit widths the
+                  // table now uses its full horizontal budget on
+                  // every viewport and stops fighting the layout
+                  // for breathing room.
                   className={col.hideClass}
                   style={{
-                    // B-NEW-17 (2026-07-27): 48 px (was 40 px).
-                    // The longest marine value is `27.8°` (5 chars
-                    // at 11 px font-mono ≈ 33 px of text). With
-                    // `px-1.5` on mobile (6 px each side = 12 px
-                    // padding) the cell content area needs to be at
-                    // least 33 + 12 = 45 px. 48 px gives 36 px of
-                    // content room with 6 px breathing room either
-                    // side so the text never overflows and bleeds
-                    // into the next column (which is what the user
-                    // reported as "ligero overlap" on mobile
-                    // landscape). At sm+ the padding shrinks to
-                    // `px-1` (4 px each side = 8 px) so 40 px would
-                    // already fit, but we keep 48 px for visual
-                    // consistency across viewports.
-                    width: col.id.startsWith('wave_') || col.id === 'sea_surface_temperature' ? '48px' : undefined,
+                    width: `${COLUMN_WIDTHS[col.id] ?? 48}px`,
                     ...(col.hideClass && /\bhidden\b/.test(col.hideClass) ? { visibility: 'collapse' as const } : {}),
                   }}
                 />

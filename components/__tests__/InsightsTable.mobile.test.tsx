@@ -397,7 +397,7 @@ describe('InsightsTable — mobile landscape keeps the mobile chrome layout (Spr
     expect(table!.className).toMatch(/\breal-desktop:table-fixed\b/)
   })
 
-  it('on mobile landscape WITHOUT Marine+Basic the container is overflow-x-hidden (no scroll, fits)', async () => {
+  it('on mobile landscape (any toggle state) the container is overflow-x-auto so wider column sets can scroll', async () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -422,8 +422,13 @@ describe('InsightsTable — mobile landscape keeps the mobile chrome layout (Spr
       .filter(d => d.className.includes('max-h-[70vh]'))
     expect(containers.length).toBeGreaterThan(0)
     const container = containers[0]
-    // No marine+basic → no horizontal scroll needed → overflow-x-hidden.
-    expect(container.className).toContain('overflow-x-hidden')
-    expect(container.className).not.toContain('overflow-x-auto')
+    // Sprint 16: mobile landscape enables horizontal scroll REGARDLESS
+    // of marine/basic toggles. Basic-only now shows min/max/clouds/
+    // gusts which overflow 390 px. The user explicitly asked the
+    // table to "aprovechar todo el ancho disponible" with horizontal
+    // scroll when Marine + Basic are both on, and we extend that
+    // semantics to all landscape scenarios.
+    expect(container.className).toContain('overflow-x-auto')
+    expect(container.className).not.toContain('overflow-x-hidden')
   })
 })

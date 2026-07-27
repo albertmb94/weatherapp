@@ -117,6 +117,11 @@ interface FriendlyHomeProps {
    *  An empty Set means no boost — the snapshot degrades to the
    *  pre-Sprint-13 behaviour byte-for-byte. */
   usageProfileRecommended?: ReadonlySet<string>
+  /** F5 (revised): the EU AQI value for the current hour.
+   *  Surfaced inside the Métricas block as a 5th tile. The
+   *  parent (home-content) supplies the value from the
+   *  air-quality query; `null`/missing hides the tile. */
+  europeanAqi?: number | null
 }
 
 export default function FriendlyHome({
@@ -141,6 +146,7 @@ export default function FriendlyHome({
   usageProfile = null,
   usageProfileBoostedCount = 0,
   usageProfileRecommended = new Set(),
+  europeanAqi = null,
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -224,7 +230,6 @@ export default function FriendlyHome({
         liveUv={liveUvIndex ?? null}
         liveUvValidAt={liveUvValidAt ?? null}
         nowcastTemperatureC={isLiveNow ? nowcastResult.temperatureC : null}
-        nowcastDeltaC={isLiveNow ? nowcastResult.observationDeltaC : null}
         nowcastStationName={
           isLiveNow && nowcastResult.station
             ? `${nowcastResult.station.id} · ${nowcastResult.station.distanceKm.toFixed(1)} km`
@@ -254,6 +259,11 @@ export default function FriendlyHome({
         fetchedAt={fetchedAt ?? null}
         forecastAgeMs={forecastAgeMs ?? null}
         dailyPrecipitationSum={dailyPrecipitationSum}
+        // F5 (revised): pass the EU AQI value down so the
+        // 5th tile in the Métricas block shows on every
+        // viewport. The air-quality section above is only
+        // rendered on desktop / mobile landscape.
+        europeanAqi={europeanAqi}
       />
     </div>
   )

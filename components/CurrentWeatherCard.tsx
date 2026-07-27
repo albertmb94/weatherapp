@@ -20,12 +20,14 @@ interface CurrentWeatherCardProps {
   liveUv?: number | null
   /** Timestamp for the live UV reading. */
   liveUvValidAt?: Date | null
-  /** Optional nowcast result from `useNowcast`. When the closest
-   *  station is fresh we display the blended temperature and a Δ
-   *  vs the ensemble so the user can tell whether the station sees
-   *  things differently from the model. */
+  /** Optional nowcast result from `useNowcast`. The blended
+   *  temperature replaces the snapshot value when present, and
+   *  the closest-station id is shown in the nowcast's tooltip.
+   *  The previous build also surfaced a "vs ensemble" delta
+   *  line, but the user reported that the indicator felt
+   *  noisy and confusing — we removed it; the station name
+   *  tooltip still tells them a station is in play. */
   nowcastTemperatureC?: number | null
-  nowcastDeltaC?: number | null
   nowcastStationName?: string | null
   /** Wall-clock timestamp (ms) used to compute the weekday label in
    *  the user's locale. The card deliberately does NOT call
@@ -58,7 +60,6 @@ export default function CurrentWeatherCard({
   snapshot,
   loading,
   nowcastTemperatureC = null,
-  nowcastDeltaC = null,
   nowcastStationName = null,
   wallClockMs,
 }: CurrentWeatherCardProps) {
@@ -134,16 +135,6 @@ export default function CurrentWeatherCard({
             <span className="mt-1 text-[10px] uppercase tracking-widest text-text-muted">
               {weekdayLabel}
             </span>
-            {nowcastTemperatureC !== null && nowcastDeltaC !== null && nowcastDeltaC !== 0 ? (
-              <span
-                className={`mt-1 text-[10px] tabular-nums ${
-                  nowcastDeltaC > 0 ? 'text-rose-400' : 'text-sky-400'
-                }`}
-                title={nowcastStationName ?? undefined}
-              >
-                {nowcastDeltaC > 0 ? '+' : ''}{nowcastDeltaC.toFixed(1)}° vs ensemble
-              </span>
-            ) : null}
           </div>
           <BigWeatherIcon id={iconId} />
         </div>

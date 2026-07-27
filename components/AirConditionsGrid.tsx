@@ -6,6 +6,7 @@ import { STRINGS } from '@/lib/i18n'
 import { formatAge } from '@/lib/formatAge'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
+import { classifyEuropeanAqi, type AirQualityBand } from '@/lib/airQuality'
 
 interface AirConditionsGridProps {
   snapshot: CurrentSnapshot | null
@@ -26,6 +27,13 @@ interface AirConditionsGridProps {
    *  the third rain toggle position. Provided by `home-content` so the
    *  grid component stays free of fetch logic. */
   dailyPrecipitationSum?: (number | null)[] | null
+  /** F5 (revised): the EU AQI value for the current hour.
+   *  When non-null, the air-quality card renders alongside
+   *  the existing tiles on every viewport. `null`/missing
+   *  hides the card entirely. The provider returns up to
+   *  ~120 h of AQI data so a single number from
+   *  `series.european_aqi[nowIndex]` is enough. */
+  europeanAqi?: number | null
 }
 
 function fmtTemp(value: number | null): string {
@@ -67,6 +75,16 @@ function DropIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
       <path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z" />
+    </svg>
+  )
+}
+
+function AirIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <path d="M4 9h11a3 3 0 1 0-3-3" />
+      <path d="M3 14h15a3 3 0 1 1-3 3" />
+      <path d="M3 19h7" />
     </svg>
   )
 }
@@ -140,6 +158,7 @@ export default function AirConditionsGrid({
   fetchedAt = null,
   forecastAgeMs = null,
   dailyPrecipitationSum = null,
+  europeanAqi = null,
 }: AirConditionsGridProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -240,7 +259,7 @@ export default function AirConditionsGrid({
           </span>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
         <ToggleCard
           label={feelLabel}
           value={feelDisplay}
@@ -277,7 +296,87 @@ export default function AirConditionsGrid({
           onClick={() => setUvMode(m => m === 'live' ? 'peak' : 'live')}
           extraTitle={uvTitle}
         />
+        {/* F5 (revised): the EU AQI value lands as a 5th tile
+            on every viewport (mobile included). The value is
+            the headline number (text-text-primary) and the
+            sub-line carries the band label with a band-
+            specific colour so the user can read it at a
+            glance without needing to compare against a
+            separate chip. The previous build rendered the
+            band as a green-on-green pill which the user
+            reported was unreadable. */}
+        {europeanAqi !== null && europeanAqi !== undefined ? (
+          <AirQualityTile
+            label={s.airQualityMetricLabel}
+            value={europeanAqi}
+            classification={classifyEuropeanAqi(europeanAqi)}
+            locale={locale}
+          />
+        ) : null}
       </div>
     </section>
+  )
+}
+
+/**
+ * F5 (revised): the air-quality tile that lives inside the
+ * Métricas grid. It uses the same `ToggleCard` visual
+ * language (rounded card, big number, sub-line) so the
+ * section reads as one block. The band label is coloured
+ * according to the EU AQI band but the *background* is the
+ * standard surface-raised colour — so the user can always
+ * read the label regardless of the band. The previous
+ * build used a green-on-green pill which lost all contrast
+ * in the "good" / "fair" bands.
+ */
+const BAND_SUB_TEXT: Record<AirQualityBand, string> = {
+  good: 'text-emerald-300',
+  fair: 'text-lime-300',
+  moderate: 'text-amber-300',
+  poor: 'text-orange-300',
+  very_poor: 'text-rose-300',
+  extreme: 'text-red-200',
+}
+
+function AirQualityTile({
+  label,
+  value,
+  classification,
+  locale,
+}: {
+  label: string
+  value: number
+  classification: ReturnType<typeof classifyEuropeanAqi>
+  locale: 'en' | 'es'
+}) {
+  const bandText = classification ? BAND_SUB_TEXT[classification.band] : 'text-text-tertiary'
+  const bandLabel = classification?.label ?? '—'
+  const hint = classification?.hint
+  return (
+    <div
+      className="rounded-2xl border border-border bg-surface-raised p-3 md:p-4 flex flex-col gap-1 min-w-0 text-left"
+      // The band label is the headline sub-text; we render
+      // the band hint as a tooltip so the long description
+      // is available without crowding the cell.
+      title={hint}
+    >
+      <div className="flex items-center gap-1.5 text-text-tertiary">
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-emerald-300 bg-emerald-500/10">
+          <AirIcon />
+        </span>
+        <span className="text-[11px] font-medium uppercase tracking-wide truncate">{label}</span>
+      </div>
+      <div className="flex items-baseline gap-1 mt-1">
+        <span className="text-2xl md:text-3xl font-semibold text-text-primary tabular-nums leading-none">
+          {Math.round(value)}
+        </span>
+        <span className="text-xs text-text-tertiary tabular-nums">
+          {locale === 'en' ? 'EU AQI' : 'AQI'}
+        </span>
+      </div>
+      <span className={`text-[10px] tabular-nums font-medium ${bandText}`}>
+        {bandLabel}
+      </span>
+    </div>
   )
 }

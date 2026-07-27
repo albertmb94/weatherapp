@@ -71,4 +71,23 @@ describe('AirConditionsGrid', () => {
     expect(container.textContent).toContain('Total hoy')
     expect(container.textContent).toContain('–')
   })
+
+  // F5 (revised): the EU AQI tile lives inside the Métricas
+  // block on every viewport. The previous build used a
+  // green-on-green pill (text-emerald-200 on bg-emerald-500/15)
+  // that the user reported was unreadable. The new tile renders
+  // the band label as a band-coloured sub-line on the standard
+  // surface-raised background, which is always readable.
+  it('renders the EU AQI tile with the headline value and the band label', () => {
+    const { container } = renderGrid({ snapshot: baseSnapshot, europeanAqi: 32 })
+    expect(container.textContent).toContain('Calidad del aire')
+    expect(container.textContent).toContain('32')
+    // Band label for AQI 32 is "Aceptable" (es locale).
+    expect(container.textContent).toContain('Aceptable')
+  })
+
+  it('omits the EU AQI tile when europeanAqi is null', () => {
+    const { container } = renderGrid({ snapshot: baseSnapshot, europeanAqi: null })
+    expect(container.textContent).not.toContain('Calidad del aire')
+  })
 })

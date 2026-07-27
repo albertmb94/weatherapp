@@ -127,6 +127,14 @@ export const STRINGS: Record<Locale, {
   navMap: string
   navStations: string
   navSettings: string
+  /** F5 (revised): the air-quality card title in the section
+   *  above the Métricas block. The full set of tiles lives
+   *  there on desktop; on mobile the user sees only the EU
+   *  AQI badge inside Métricas (see `airQualityMetricLabel`). */
+  airQualityTitle: string
+  /** F5 (revised): the label rendered inside the Métricas
+   *  card on every viewport — the EU AQI value + band. */
+  airQualityMetricLabel: string
   navAdvanced: string
   settingsTitle: string
   settingsLanguage: string
@@ -268,6 +276,8 @@ export const STRINGS: Record<Locale, {
     weekOption7: '7 días',
     weekOption14: '14 días',
     chanceLabel: 'Probabilidad de lluvia:',
+    airQualityTitle: 'Calidad del aire',
+    airQualityMetricLabel: 'Calidad del aire',
     conditionSunny: 'Soleado',
     conditionPartly: 'Parcialmente nublado',
     conditionCloudy: 'Nublado',
@@ -415,6 +425,8 @@ export const STRINGS: Record<Locale, {
     weekOption7: '7 days',
     weekOption14: '14 days',
     chanceLabel: 'Chance of rain:',
+    airQualityTitle: 'Air quality',
+    airQualityMetricLabel: 'Air quality',
     conditionSunny: 'Sunny',
     conditionPartly: 'Partly cloudy',
     conditionCloudy: 'Cloudy',

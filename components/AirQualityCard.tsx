@@ -1,51 +1,40 @@
 'use client'
 
 /**
- * F5: air-quality + pollen card.
+ * F5 (revised): air-quality + pollen card.
  *
  * Visible on:
  *   - Desktop (>= 1024 px, all orientations)
  *   - Mobile landscape (any width, orientation=landscape, max height 540)
  *
  * Hidden on mobile portrait. The visibility is decided at the
- * parent (home-content) so this component can stay focused on
- * rendering. We accept a `visible: boolean` prop and bail early
- * with `return null` if it's false — the parent still controls
- * the network query lifecycle (so a hidden card doesn't keep
- * fetching data the user can't see).
+ * parent (home-content) so this component stays focused on
+ * rendering. The parent still controls the network query
+ * lifecycle (so a hidden card doesn't keep fetching data the
+ * user can't see).
+ *
+ * Revised layout (2026-07-27):
+ *   - The "EU AQI" headline badge that used to live in the
+ *     header has been moved to the `AirConditionsGrid`
+ *     (Métricas) section so every viewport — including mobile
+ *     portrait — gets the headline air-quality reading. The
+ *     card title here just labels the section and matches the
+ *     Métricas title typography (`text-[11px] uppercase
+ *     tracking-widest text-text-tertiary font-semibold`).
+ *   - The full tile grid still surfaces pm2_5, pm10, ozone and
+ *     the six pollen types so desktop users can drill in
+ *     without leaving the page.
  */
 import { useMemo } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
 import { AIR_METRICS } from '@/lib/models'
-import {
-  classifyEuropeanAqi,
-  type AirQualityBand,
-  type AirQualityResult,
-} from '@/lib/airQuality'
+import type { AirQualityResult } from '@/lib/airQuality'
 
 interface AirQualityCardProps {
   data: AirQualityResult | null
   isLoading: boolean
   error?: string | null
-}
-
-const BAND_BG: Record<AirQualityBand, string> = {
-  good: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200',
-  fair: 'bg-lime-500/15 border-lime-500/40 text-lime-200',
-  moderate: 'bg-amber-500/15 border-amber-500/40 text-amber-200',
-  poor: 'bg-orange-500/15 border-orange-500/40 text-orange-200',
-  very_poor: 'bg-rose-500/15 border-rose-500/40 text-rose-200',
-  extreme: 'bg-red-700/30 border-red-700/60 text-red-100',
-}
-
-const BAND_TEXT: Record<AirQualityBand, string> = {
-  good: 'text-emerald-300',
-  fair: 'text-lime-300',
-  moderate: 'text-amber-300',
-  poor: 'text-orange-300',
-  very_poor: 'text-rose-300',
-  extreme: 'text-red-200',
 }
 
 function pickCurrentValue(
@@ -75,33 +64,28 @@ export default function AirQualityCard({
 }: AirQualityCardProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
+  const title = s.airQualityTitle
 
-  // F5: i18n doesn't yet have air-quality keys, so we render
-  // labels from the AIR_METRICS table (which is bilingual via
-  // the parent's `STRINGS` map — see "table*" entries for the
-  // pattern). We reuse the existing `table*` keys where they
-  // exist, falling back to the metric label.
-  const headlineAqi = useMemo(() => {
-    if (!data) return null
-    return pickCurrentValue(data.series, 'european_aqi')
-  }, [data])
-
-  const classification = useMemo(
-    () => classifyEuropeanAqi(headlineAqi),
-    [headlineAqi],
+  // F5 (revised): hide the headline EU AQI tile from the
+  // tile grid — it now lives as a single chip in the
+  // AirConditionsGrid (Métricas) so the desktop and mobile
+  // experiences are consistent. The remaining tiles are
+  // pollutants + pollen.
+  const tiles = useMemo(
+    () => AIR_METRICS.filter(m => m.id !== 'european_aqi'),
+    [],
   )
 
   if (error) {
     return (
       <section
-        aria-label={locale === 'en' ? 'Air quality' : 'Calidad del aire'}
-        className="rounded-2xl border border-border bg-surface-raised p-4"
+        aria-label={title}
+        data-testid="air-quality-card"
+        className="rounded-2xl border border-border bg-surface-raised p-4 space-y-3"
       >
-        <div className="flex items-center gap-2 mb-2">
-          <h3 className="text-sm font-semibold text-text-primary">
-            {locale === 'en' ? 'Air quality' : 'Calidad del aire'}
-          </h3>
-        </div>
+        <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
+          {title}
+        </h3>
         <p className="text-xs text-text-tertiary">{error}</p>
       </section>
     )
@@ -109,23 +93,15 @@ export default function AirQualityCard({
 
   return (
     <section
-      aria-label={locale === 'en' ? 'Air quality' : 'Calidad del aire'}
+      aria-label={title}
       data-testid="air-quality-card"
       className="rounded-2xl border border-border bg-surface-raised p-4 space-y-3"
     >
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 className="text-sm font-semibold text-text-primary">
-          {locale === 'en' ? 'Air quality & pollen' : 'Calidad del aire y polen'}
-        </h3>
-        {classification && (
-          <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${BAND_BG[classification.band]}`}
-            title={classification.hint}
-          >
-            EU AQI {Math.round(headlineAqi ?? 0)} · {classification.label}
-          </span>
-        )}
-      </div>
+      {/* Title style matches the Métricas section so the two
+          blocks read as siblings. */}
+      <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
+        {title}
+      </h3>
 
       <div
         className={`grid gap-2 ${
@@ -144,7 +120,7 @@ export default function AirQualityCard({
                 aria-hidden="true"
               />
             ))
-          : AIR_METRICS.map(m => {
+          : tiles.map(m => {
               const v = data ? pickCurrentValue(data.series, m.id) : null
               return (
                 <div
@@ -154,9 +130,7 @@ export default function AirQualityCard({
                   <span className="text-[10px] uppercase tracking-wide text-text-tertiary truncate">
                     {m.label}
                   </span>
-                  <span
-                    className={`text-lg font-semibold tabular-nums ${classification && m.id === 'european_aqi' ? BAND_TEXT[classification.band] : 'text-text-primary'}`}
-                  >
+                  <span className="text-lg font-semibold tabular-nums text-text-primary">
                     {formatValue(v, m.unit)}
                     {v != null && m.unit && (
                       <span className="text-[10px] text-text-tertiary font-normal ml-1">
@@ -168,9 +142,6 @@ export default function AirQualityCard({
               )
             })}
       </div>
-      {classification && (
-        <p className="text-[10px] text-text-tertiary">{classification.hint}</p>
-      )}
     </section>
   )
 }

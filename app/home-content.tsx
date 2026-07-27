@@ -494,10 +494,12 @@ export default function HomeContent() {
   })
 
   // F5: air quality + pollen. The Open-Meteo air-quality endpoint
-  // exposes a separate forecast (5-day max) so it lives in its own
-  // query. We only enable the query when the viewport shows the
-  // card (desktop + mobile landscape) so a phone-portrait user
-  // never spends a request.
+  // exposes a separate forecast (5-day max) so it lives in its
+  // own query. F5 (revised): we ALWAYS run this query now because
+  // the EU AQI tile is rendered inside the Métricas block on
+  // every viewport (mobile included). The full tile card above
+  // is still gated to desktop / mobile landscape, but the
+  // headline value must be available everywhere.
   const airQualityQuery = useQuery<AirQualityResult>({
     queryKey: ['air-quality', position[0], position[1]],
     queryFn: ({ signal }) => fetchAirQuality(position[0], position[1], { signal }),
@@ -505,21 +507,50 @@ export default function HomeContent() {
     refetchOnWindowFocus: true,
   })
 
+  // F5 (revised): pick the EU AQI value for the current local
+  // hour. The air-quality series is aligned with the location's
+  // local time (the API honours `timezone=auto`), so we find
+  // the index whose UTC-fake-local `hour` matches the current
+  // wall clock floored to the hour. When the data hasn't
+  // arrived yet we return `null` so the Métricas tile stays
+  // hidden rather than showing a misleading "—".
+  const currentEuropeanAqi = useMemo<number | null>(() => {
+    const data = airQualityQuery.data
+    if (!data) return null
+    const arr = data.series.european_aqi
+    if (!arr || arr.length === 0) return null
+    // Anchor the lookup on the forecast's `fetchedAt` so
+    // server and client agree on the row (same trick the
+    // forecast uses via `startIndex`).
+    const referenceMs = data.fetchedAt ?? Date.now()
+    const referenceLocal = new Date(referenceMs + data.utcOffsetSeconds * 1000)
+    const target = referenceLocal.getUTCHours()
+    for (let i = 0; i < data.time.length; i++) {
+      const t = data.time[i]
+      if (!(t instanceof Date)) continue
+      if (t.getUTCHours() === target) return arr[i] ?? null
+    }
+    return arr[0] ?? null
+  }, [airQualityQuery.data])
+
   // F5: viewport detection — desktop or mobile landscape.
   // Starts `false` to match SSR; the effect updates after mount.
-  // We use the same breakpoint as the rest of the app: >=1024 px
-  // is "real desktop", and `orientation: landscape` covers the
-  // phone-landscape case (max-width is left open so iPad Pro
-  // landscape at 1366x1024 still counts).
-  const [isAirQualityVisible, setIsAirQualityVisible] = useState(false)
+  // F5 (revised): the full AirQualityCard (with the tile grid)
+  // is desktop + mobile-landscape only. The EU AQI headline
+  // value lives inside the Métricas block and is rendered on
+  // every viewport, so we keep the network query alive on
+  // mobile too. Same breakpoint as the rest of the app:
+  // >=1024 px is "real desktop", and `orientation: landscape`
+  // covers the phone-landscape case.
+  const [isAirQualityCardVisible, setIsAirQualityCardVisible] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return
     const desktopMq = window.matchMedia('(min-width: 1024px)')
     const mobileLandscapeMq = window.matchMedia('(orientation: landscape) and (max-height: 540px)')
     const compute = () => desktopMq.matches || mobileLandscapeMq.matches
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsAirQualityVisible(compute())
-    const onChange = () => setIsAirQualityVisible(compute())
+    setIsAirQualityCardVisible(compute())
+    const onChange = () => setIsAirQualityCardVisible(compute())
     desktopMq.addEventListener('change', onChange)
     mobileLandscapeMq.addEventListener('change', onChange)
     return () => {
@@ -527,12 +558,6 @@ export default function HomeContent() {
       mobileLandscapeMq.removeEventListener('change', onChange)
     }
   }, [])
-  // Disable the network query when the card is hidden so we
-  // don't pay for data the user can't see.
-  useEffect(() => {
-    if (isAirQualityVisible) return
-    queryClient.cancelQueries({ queryKey: ['air-quality', position[0], position[1]] })
-  }, [isAirQualityVisible, queryClient, position])
 
   // F-5: persist every successful forecast to IndexedDB so the user
   // can read their last known data offline. Best-effort; failures are
@@ -1154,14 +1179,21 @@ export default function HomeContent() {
                   usageProfile={effectiveProfile.profile}
                   usageProfileBoostedCount={usageProfileBoostedCount}
                   usageProfileRecommended={recommendedSet}
+                  // F5 (revised): the EU AQI value is rendered
+                  // inside the Métricas block (via AirConditionsGrid)
+                  // so it shows on every viewport including mobile
+                  // portrait.
+                  europeanAqi={currentEuropeanAqi}
                 />
                 </>
               )}
 
-              {/* F5: air quality + pollen card. Visible on desktop
-                  and on mobile landscape; hidden on mobile portrait
-                  (the layout doesn't have room for the 10 tiles). */}
-              {isAirQualityVisible &&
+              {/* F5 (revised): the full air-quality tile grid is
+                  desktop + mobile-landscape only. The EU AQI
+                  headline value lives inside the Métricas block
+                  and is rendered on every viewport (see
+                  `<AirQualityTile>` below). */}
+              {isAirQualityCardVisible &&
                 (selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map') && (
                   <AirQualityCard
                     data={airQualityQuery.data ?? null}

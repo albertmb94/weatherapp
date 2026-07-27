@@ -852,6 +852,75 @@ export default function InsightsTable({
     return () => mq.removeEventListener('change', update)
   }, [])
 
+  // B-NEW-23 (2026-07-27): measure the actual container width
+  // via ResizeObserver so the column widths fit *exactly* inside
+  // the available space. The previous hard-coded CSS variables
+  // (--when-col-w: 80px / 56px + --insights-data-col-w: 46px /
+  // 36px) only worked for two discrete viewport bands and let
+  // any viewport in between overflow. With the observer we
+  // compute per-column widths at runtime: the when col keeps a
+  // minimum that fits "Mañ 00:00" and the data cols share the
+  // rest equally with a per-column floor. On every viewport
+  // change (orientation, sidebar collapse, etc.) we re-compute
+  // and re-render with the new widths.
+  const [measuredWidth, setMeasuredWidth] = useState<number>(0)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const el = tableContainerRef.current
+    if (!el) return
+    const measure = () => {
+      // clientWidth excludes the scrollbar so the value matches
+      // the space the table can actually use. We subtract 0 px
+      // for borders (the container is `border-1` and we want
+      // the table to fill it exactly).
+      const w = el.clientWidth
+      // Guard against zero on the very first render (the
+      // container is still 0 wide before the layout flushes).
+      setMeasuredWidth(w > 0 ? w : 0)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isMobilePortrait])
+
+  // B-NEW-23: compute the per-column pixel widths from the
+  // measured container width. The when col is fixed at
+  // 64 px (enough for "Mañ 00:00" at 11 px font-mono + 8 px
+  // cell padding) and the data cols share whatever's left
+  // with a per-col floor of 28 px (smallest phone, 280 px
+  // viewport: 280 - 64 = 216, 216 / 6 = 36, fits in the
+  // 28-px floor with room to spare). On viewports wider
+  // than ~850 px the data col cap (120 px) kicks in so the
+  // cells don't get absurdly wide — at that point we let
+  // the table have empty space on the right (it has
+  // `w-full` so visually it fills the container) and the
+  // content stays readable.
+  const MOBILE_DATA_COLS = 6
+  const MOBILE_WHEN_PX = 64 // "Mañ 00:00" at 11px font-mono + 8px padding
+  const MOBILE_DATA_MIN = 28 // absolute floor: smallest supported phone (280 px)
+  const MOBILE_DATA_MAX = 120 // wide screens: don't stretch each cell to 200 px
+  const tableColumnWidths = useMemo(() => {
+    if (!isMobilePortrait) return null
+    if (measuredWidth <= 0) return null
+    const whenW = MOBILE_WHEN_PX
+    // Distribute the available width (after the when col) across
+    // the 6 data cols, then clamp to the floor and ceiling. We use
+    // Math.floor (not round) so the total never overshoots the
+    // measured width by more than 1 px (the leftover 1-3 px is
+    // visually fine and guarantees the table fits the container
+    // exactly).
+    const dataW = Math.max(
+      MOBILE_DATA_MIN,
+      Math.min(
+        MOBILE_DATA_MAX,
+        Math.floor((measuredWidth - whenW) / MOBILE_DATA_COLS),
+      ),
+    )
+    return { whenW, dataW }
+  }, [isMobilePortrait, measuredWidth])
+
   // Sprint 14 / landscape scroll: when the user activates Marine +
   // Basic on a phone in landscape, the full column set (~21 cols)
   // overflows the viewport and every cell gets text-overflow:
@@ -1288,7 +1357,15 @@ export default function InsightsTable({
               <col
                 data-col-id="__when__"
                 style={{
-                  width: 'var(--when-col-w, 64px)',
+                  // B-NEW-23: on mobile portrait prefer the
+                  // runtime-measured width so the table fits
+                  // exactly inside whatever container the
+                  // ResizeObserver above reported. Fall back to
+                  // the CSS custom property on non-portrait or
+                  // before the first measurement.
+                  width: isMobilePortrait && tableColumnWidths
+                    ? `${tableColumnWidths.whenW}px`
+                    : 'var(--when-col-w, 64px)',
                 }}
               />
               {colDefs.map((col, idx) => (
@@ -1317,12 +1394,19 @@ export default function InsightsTable({
                   // On non-portrait viewports we fall through to
                   // the previous behaviour (no inline width so
                   // `table-auto` distributes the column widths).
+                  // B-NEW-23: the width is now driven by the
+                  // ResizeObserver-observed container width so it
+                  // adapts to *any* viewport in [280, 1200] px,
+                  // not just the two discrete breakpoints the CSS
+                  // media queries used to support.
                   className={col.hideClass ?? ''}
                   style={col.hideClass && /\bhidden\b/.test(col.hideClass)
                     ? { visibility: 'collapse' as const }
-                    : isMobilePortrait
-                      ? { width: 'var(--insights-data-col-w, 46px)' }
-                      : undefined}
+                    : isMobilePortrait && tableColumnWidths
+                      ? { width: `${tableColumnWidths.dataW}px` }
+                      : isMobilePortrait
+                        ? { width: 'var(--insights-data-col-w, 46px)' }
+                        : undefined}
                 />
               ))}
             </colgroup>

@@ -200,54 +200,112 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
   })
 
   it('iPhone 16 portrait (393x852): UV column is visible and table fits', async () => {
-    // B-NEW-22 (2026-07-27, iPhone 16 portrait fix). The user
-    // reported the UV column was off-screen on iPhone 16 (393
-    // px logical viewport). With `table-auto` the browser
-    // sized the when col to its widest CELL (e.g. "Mañ 00:00"),
-    // pushing the data columns past the available width and
-    // clipping the rightmost (UV). We now apply `table-fixed`
-    // on mobile portrait and give every data column an
-    // explicit pixel width via `--insights-data-col-w`. This
-    // test pins: (a) the UV column is rendered, (b) the
-    // table has `table-fixed`, and (c) every data col has
-    // the explicit inline width.
-    render(wrap(
-      <InsightsTable
-        models={MODELS}
-        activeModelIds={['gfs_global', 'ecmwf_ifs']}
-        times={fakeTimes(0, HOURS)}
-        series={SERIES}
-        bucket={1}
-        onBucketChange={() => {}}
-        selectedHour={0}
-        onSelectHour={() => {}}
-        maxHours={HOURS}
-        utcOffsetSeconds={0}
-        ensembleMode="wedai"
-      />
-    ))
-    await screen.findByTestId('next-page-cta')
-    const table = document.querySelector('table')
-    expect(table).not.toBeNull()
-    // table-fixed keeps the col widths exact.
-    expect(table!.className).toMatch(/table-fixed/)
-    // Every DATA col (excluding the `__when__` col, which
-    // has its own `--when-col-w` width) has the explicit
-    // pixel width set via the `--insights-data-col-w` CSS
-    // custom property. The `__when__` col lives in its own
-    // <col> at the start of the colgroup and uses a different
-    // variable.
-    const dataCols = Array.from(
-      table!.querySelectorAll('colgroup col[data-col-id]:not([data-col-id="__when__"])'),
-    ) as HTMLElement[]
-    expect(dataCols.length).toBeGreaterThan(0)
-    for (const col of dataCols) {
-      const style = col.getAttribute('style') ?? ''
-      expect(style, `col data-col-id=${col.dataset.colId}`).toMatch(/var\(--insights-data-col-w/)
+    // B-NEW-22 + B-NEW-23 (2026-07-27, iPhone 16 portrait fix).
+    // The user reported the UV column was off-screen on iPhone
+    // 16 (393 px logical viewport). With `table-auto` the
+    // browser sized the when col to its widest CELL (e.g.
+    // "Mañ 00:00"), pushing the data columns past the
+    // available width and clipping the rightmost (UV). We now:
+    //   (1) apply `table-fixed` on mobile portrait,
+    //   (2) measure the actual container width with a
+    //       ResizeObserver, and
+    //   (3) give every column a runtime-computed pixel width
+    //       so the table fits exactly inside the container
+    //       on *any* viewport in [280, 1200] px.
+    //
+    // jsdom doesn't lay out the DOM, so `clientWidth` is 0 by
+    // default. We stub it on the container's prototype-chain
+    // lookup so the ResizeObserver callback reads the value
+    // we want to assert against. 361 px is the iPhone 16
+    // available width: 393 px viewport − 16 px section
+    // padding on each side.
+    const IPHONE16_AVAILABLE = 361
+    const originalGetClientWidths = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'clientWidth',
+    )
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        // Only the InsightsTable container (the one with the
+        // 70vh max-h + overflow-x-hidden classes) should
+        // report the iPhone 16 width. Other elements (e.g.
+        // pagination buttons, modal backdrops) keep the
+        // jsdom default of 0 so they don't accidentally
+        // affect unrelated measurements.
+        if (this instanceof HTMLElement && this.className &&
+            this.className.includes('max-h-[70vh]')) {
+          return IPHONE16_AVAILABLE
+        }
+        return 0
+      },
+    })
+    try {
+      render(wrap(
+        <InsightsTable
+          models={MODELS}
+          activeModelIds={['gfs_global', 'ecmwf_ifs']}
+          times={fakeTimes(0, HOURS)}
+          series={SERIES}
+          bucket={1}
+          onBucketChange={() => {}}
+          selectedHour={0}
+          onSelectHour={() => {}}
+          maxHours={HOURS}
+          utcOffsetSeconds={0}
+          ensembleMode="wedai"
+        />
+      ))
+      await screen.findByTestId('next-page-cta')
+      const table = document.querySelector('table')
+      expect(table).not.toBeNull()
+      // (1) table-fixed keeps the col widths exact.
+      expect(table!.className).toMatch(/table-fixed/)
+      // (2) The UV column header is rendered (and not clipped).
+      const uvHeader = document.querySelector('th[data-col-id="uv"]')
+      expect(uvHeader).not.toBeNull()
+      // (3) Every column has a runtime-computed pixel width
+      //     that, when summed, fits exactly inside the
+      //     available container width. The widths are
+      //     integers in the [28, 120] px range on mobile
+      //     portrait (MOBILE_DATA_MIN / MOBILE_DATA_MAX),
+      //     with the when col fixed at MOBILE_WHEN_PX
+      //     (64 px).
+      const allCols = Array.from(
+        table!.querySelectorAll('colgroup col[data-col-id]'),
+      ) as HTMLElement[]
+      expect(allCols.length).toBeGreaterThan(0)
+      let totalWidth = 0
+      for (const col of allCols) {
+        const style = col.getAttribute('style') ?? ''
+        const m = style.match(/width:\s*(\d+)px/)
+        expect(m, `col data-col-id=${col.dataset.colId} should have a runtime-computed px width; got style="${style}"`).not.toBeNull()
+        const w = Number(m![1])
+        // The when col is 64 px (MOBILE_WHEN_PX). Data cols
+        // are between 28 and 120 px.
+        if (col.dataset.colId === '__when__') {
+          expect(w, 'when col fixed at 64 px').toBe(64)
+        } else {
+          expect(w, `data col ${col.dataset.colId} floor`).toBeGreaterThanOrEqual(28)
+          expect(w, `data col ${col.dataset.colId} ceiling`).toBeLessThanOrEqual(120)
+        }
+        totalWidth += w
+      }
+      // (4) The total width fits inside the available
+      //     container. With 361 px available and the formula
+      //     in `tableColumnWidths`, data cols land at
+      //     floor((361 - 64) / 6) = floor(49.5) = 49.
+      //     Total = 64 + 6 * 49 = 358 (3 px safety margin).
+      expect(totalWidth, 'total table width must fit inside the container').toBeLessThanOrEqual(IPHONE16_AVAILABLE)
+      expect(totalWidth, 'total table width should use most of the available space').toBeGreaterThan(IPHONE16_AVAILABLE - 30)
+    } finally {
+      if (originalGetClientWidths) {
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalGetClientWidths)
+      } else {
+        // @ts-expect-error - cleanup when the descriptor didn't exist
+        delete HTMLElement.prototype.clientWidth
+      }
     }
-    // The UV column header is rendered (and not clipped).
-    const uvHeader = document.querySelector('th[data-col-id="uv"]')
-    expect(uvHeader).not.toBeNull()
   })
 
   it('portrait with Marine ON shows sea_temp + wave_height, drops humidity + uv to fit', async () => {

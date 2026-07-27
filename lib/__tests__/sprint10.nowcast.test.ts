@@ -25,6 +25,7 @@ function obsAt(overrides: Partial<StationObservation> = {}): StationObservation 
     pressureHpa: 1015,
     windKmh: 10,
     windDirDeg: 180,
+    precipitationMm: 0,
     ...overrides,
   }
 }
@@ -86,5 +87,37 @@ describe('blendNowcast', () => {
       nowMs: NOW,
     })
     expect(r.temperatureC).toBe(18)
+  })
+
+  // BUG FIX regression: the previous build hard-coded `obsPrecip`
+  // to `null` and the nowcast's rain cell always equalled the
+  // ensemble. We now blend with a small (0.3) observation weight
+  // so a 5-km-away AEMET station showing 4 mm/h pulls the
+  // ensemble visibly.
+  it('blends precipitation when the station reports it', () => {
+    const r = blendNowcast({
+      userLat: 41.39,
+      userLon: 2.17,
+      hourlyTemperatureC: [22],
+      hourlyPrecipitationMm: [0],
+      nowIndex: 0,
+      station: obsAt({ temperatureC: 22, precipitationMm: 4, observedAt: NOW - 5 * 60 * 1000 }),
+      nowMs: NOW,
+    })
+    // 0.3 * 4 + 0.7 * 0 = 1.2
+    expect(r.precipitationMm).toBeCloseTo(1.2, 5)
+  })
+
+  it('uses the observation precipitation alone when the ensemble has none', () => {
+    const r = blendNowcast({
+      userLat: 41.39,
+      userLon: 2.17,
+      hourlyTemperatureC: [22],
+      hourlyPrecipitationMm: [null],
+      nowIndex: 0,
+      station: obsAt({ temperatureC: 22, precipitationMm: 1.5, observedAt: NOW - 5 * 60 * 1000 }),
+      nowMs: NOW,
+    })
+    expect(r.precipitationMm).toBe(1.5)
   })
 })

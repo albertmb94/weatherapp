@@ -44,24 +44,37 @@ function bilinearInterpolate(
   const minLng = gridCells[0]?.lng ?? 0
   const maxLng = gridCells[cols - 1]?.lng ?? 0
 
+  // PERFORMANCE: the in-component copy short-circuits
+  // out-of-bounds points. Keep this test mirror in sync so
+  // the assertions line up with the production behaviour.
+  if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) return null
+
   const stepLat = (maxLat - minLat) / (rows - 1 || 1)
   const stepLng = (maxLng - minLng) / (cols - 1 || 1)
 
   const fi = (lat - minLat) / stepLat
   const fj = (lng - minLng) / stepLng
 
-  const i0 = Math.max(0, Math.min(rows - 2, Math.floor(fi)))
-  const j0 = Math.max(0, Math.min(cols - 2, Math.floor(fj)))
+  const i0 = fi < 0 ? 0 : fi > rows - 1 ? rows - 2 : fi | 0
+  const j0 = fj < 0 ? 0 : fj > cols - 1 ? cols - 2 : fj | 0
   const i1 = i0 + 1
   const j1 = j0 + 1
 
-  const ti = (fi - i0) || 0
-  const tj = (fj - j0) || 0
+  // PERFORMANCE: at the grid boundary, the second row/column
+  // is out of range (we only have `rows` and `cols` cells, so
+  // the corner cell uses i0 == rows - 1). Clamp the indices
+  // back so the value lookup hits the corner instead of
+  // `undefined`.
+  const ii1 = i1 >= rows ? i0 : i1
+  const jj1 = j1 >= cols ? j0 : j1
+
+  const ti = fi - i0
+  const tj = fj - j0
 
   const v00 = values[i0 * cols + j0]
-  const v01 = values[i0 * cols + j1]
-  const v10 = values[i1 * cols + j0]
-  const v11 = values[i1 * cols + j1]
+  const v01 = values[i0 * cols + jj1]
+  const v10 = values[ii1 * cols + j0]
+  const v11 = values[ii1 * cols + jj1]
 
   if (v00 === null || v01 === null || v10 === null || v11 === null) return null
 
@@ -148,9 +161,18 @@ describe('bilinearInterpolate', () => {
     expect(bilinearInterpolate(0.5, 0.5, grid, nullValues, 2, 2)).toBeNull()
   })
 
-  it('handles edge points outside grid (clamped)', () => {
+  it('returns null for points outside the grid (no extrapolation)', () => {
+    // PERFORMANCE: the previous build clamped out-of-bounds
+    // points to the corner cell. That produced extrapolated
+    // values for pixels outside the grid — wrong in
+    // principle, and it forced the per-pixel loop to run the
+    // full bilinear math for every out-of-bounds pixel. The
+    // updated implementation short-circuits to `null` so the
+    // caller can paint a transparent pixel instead, and the
+    // inner loop skips the bilinear math entirely.
     const result = bilinearInterpolate(-1, -1, grid, values, 2, 2)
-    expect(result).not.toBeNull()
+    expect(result).toBeNull()
+    expect(bilinearInterpolate(5, 5, grid, values, 2, 2)).toBeNull()
   })
 })
 

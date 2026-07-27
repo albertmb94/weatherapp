@@ -20,8 +20,10 @@ import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
 import SettingsPanel from '@/components/SettingsPanel'
 import CitiesList from '@/components/CitiesList'
+import AirQualityCard from '@/components/AirQualityCard'
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
 import { fetchForecast, fetchCurrentUv, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
+import { fetchAirQuality, type AirQualityResult } from '@/lib/airQuality'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
@@ -38,6 +40,7 @@ import { useHourSlider } from '@/lib/hooks/useHourSlider'
 import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
+import { useNearbyStations } from '@/lib/hooks/useNearbyStations'
 import { getLeadTimeBucket } from '@/lib/models'
 import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
 
@@ -183,6 +186,19 @@ export default function HomeContent() {
   // the elevation API replies (or forever, if it never does).
   const effectiveProfile = useEffectiveProfile(position[0], position[1])
   const queryClient = useQueryClient()
+  // BUG FIX: this hook was added so the nowcast (closest-station
+  // blend) actually receives a non-empty list of stations. The
+  // previous build hard-coded `stations=[]` in `FriendlyHome`,
+  // so the nowcast hook always ran with an empty list and the
+  // "station + ensemble" temperature blend was silently disabled.
+  // AEMET publishes every 10 min, so a 5-min staleTime plus a
+  // 5-min refetchInterval keeps the list fresh without spamming
+  // the API.
+  const nearbyStations = useNearbyStations({
+    lat: position[0],
+    lon: position[1],
+    radius: 10,
+  })
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
   // metric pills row, and re-expands when they scroll back up. Disabled on
@@ -476,6 +492,47 @@ export default function HomeContent() {
     staleTime: 15 * 60 * 1000,
     refetchOnWindowFocus: true,
   })
+
+  // F5: air quality + pollen. The Open-Meteo air-quality endpoint
+  // exposes a separate forecast (5-day max) so it lives in its own
+  // query. We only enable the query when the viewport shows the
+  // card (desktop + mobile landscape) so a phone-portrait user
+  // never spends a request.
+  const airQualityQuery = useQuery<AirQualityResult>({
+    queryKey: ['air-quality', position[0], position[1]],
+    queryFn: ({ signal }) => fetchAirQuality(position[0], position[1], { signal }),
+    staleTime: 60 * 60 * 1000, // 1h — air quality changes on the order of hours
+    refetchOnWindowFocus: true,
+  })
+
+  // F5: viewport detection — desktop or mobile landscape.
+  // Starts `false` to match SSR; the effect updates after mount.
+  // We use the same breakpoint as the rest of the app: >=1024 px
+  // is "real desktop", and `orientation: landscape` covers the
+  // phone-landscape case (max-width is left open so iPad Pro
+  // landscape at 1366x1024 still counts).
+  const [isAirQualityVisible, setIsAirQualityVisible] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const desktopMq = window.matchMedia('(min-width: 1024px)')
+    const mobileLandscapeMq = window.matchMedia('(orientation: landscape) and (max-height: 540px)')
+    const compute = () => desktopMq.matches || mobileLandscapeMq.matches
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsAirQualityVisible(compute())
+    const onChange = () => setIsAirQualityVisible(compute())
+    desktopMq.addEventListener('change', onChange)
+    mobileLandscapeMq.addEventListener('change', onChange)
+    return () => {
+      desktopMq.removeEventListener('change', onChange)
+      mobileLandscapeMq.removeEventListener('change', onChange)
+    }
+  }, [])
+  // Disable the network query when the card is hidden so we
+  // don't pay for data the user can't see.
+  useEffect(() => {
+    if (isAirQualityVisible) return
+    queryClient.cancelQueries({ queryKey: ['air-quality', position[0], position[1]] })
+  }, [isAirQualityVisible, queryClient, position])
 
   // F-5: persist every successful forecast to IndexedDB so the user
   // can read their last known data offline. Best-effort; failures are
@@ -1071,6 +1128,16 @@ export default function HomeContent() {
                   fetchedAt={data?.fetchedAt ?? null}
                   forecastAgeMs={forecastAgeMs}
                   dailyPrecipitationSum={effectiveData?.dailyPrecipitationSum}
+                  userLat={position[0]}
+                  userLon={position[1]}
+                  // BUG FIX: previously the parent never passed
+                  // `stations` so FriendlyHome's default `[]` was
+                  // used, which meant the nowcast hook always
+                  // ran with an empty list. The stations are now
+                  // fetched here (useNearbyStations) and threaded
+                  // down so the closest-station blend actually
+                  // works.
+                  stations={nearbyStations}
                   // B-NEW-10 (2026-07-25): thread the ensemble toggle
                   // through to FriendlyHome so the AHORA + future
                   // slots in the hourly strip respect the toggle.
@@ -1090,6 +1157,24 @@ export default function HomeContent() {
                 />
                 </>
               )}
+
+              {/* F5: air quality + pollen card. Visible on desktop
+                  and on mobile landscape; hidden on mobile portrait
+                  (the layout doesn't have room for the 10 tiles). */}
+              {isAirQualityVisible &&
+                (selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map') && (
+                  <AirQualityCard
+                    data={airQualityQuery.data ?? null}
+                    isLoading={airQualityQuery.isLoading}
+                    error={
+                      airQualityQuery.error
+                        ? (airQualityQuery.error instanceof Error
+                            ? airQualityQuery.error.message
+                            : String(airQualityQuery.error))
+                        : null
+                    }
+                  />
+                )}
 
               {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map') && (
                 <SavedLocations onSelect={handleCitySelect} />

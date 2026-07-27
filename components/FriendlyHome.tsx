@@ -10,6 +10,7 @@ import {
   type CurrentSnapshot,
 } from '@/lib/friendlyForecast'
 import { useNowcast } from '@/lib/hooks/useNowcast'
+import { useClientNow } from '@/lib/hooks/useClientNow'
 import ProfileChip from './ProfileChip'
 import type { UsageProfile } from '@/lib/profiles'
 import type { StationObservation } from '@/lib/nowcast'
@@ -93,6 +94,12 @@ interface FriendlyHomeProps {
    *  ensemble reading at the current hour with the closest fresh
    *  station so the "now" reading carries real-world anchoring. */
   stations?: StationObservation[]
+  /** User's current coordinate (lat/lon). Threaded down to `useNowcast`
+   *  so the closest-station lookup actually centres on the user's
+   *  position. The previous build hard-coded (0, 0) which produced
+   *  Atlantic-Ocean stations as the "closest match" — a real bug. */
+  userLat?: number
+  userLon?: number
   /** Sprint 13: the auto-derived profile for the current location.
    *  Surfaced as a small chip next to the "Tiempo actual" card so the
    *  user can see at a glance which profile is biasing the ensemble
@@ -129,12 +136,19 @@ export default function FriendlyHome({
   ensembleMode = 'wedai',
   dailyPrecipitationSum,
   stations = [],
+  userLat = 0,
+  userLon = 0,
   usageProfile = null,
   usageProfileBoostedCount = 0,
   usageProfileRecommended = new Set(),
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
+  // BUG FIX: previous build never threaded a wall-clock down to
+  // `CurrentWeatherCard`, so the weekday label was always empty in
+  // production. Tick once a minute (matches the rest of the app) so
+  // the day boundary updates at midnight.
+  const currentTickMs = useClientNow(60_000) ?? 0
 
   const isLiveNow = selectedHourOffset === 0
   const snapshot: CurrentSnapshot | null = useMemo(
@@ -183,8 +197,8 @@ export default function FriendlyHome({
     [time, series],
   )
   const nowcastResult = useNowcast({
-    userLat: 0,
-    userLon: 0,
+    userLat,
+    userLon,
     nowIndex,
     hourlyTemperatureC,
     hourlyPrecipitationMm,
@@ -216,6 +230,11 @@ export default function FriendlyHome({
             ? `${nowcastResult.station.id} · ${nowcastResult.station.distanceKm.toFixed(1)} km`
             : null
         }
+        // BUG FIX: wallClockMs was declared in the prop type but
+        // never threaded down from the parent, so the weekday label
+        // was always empty in production. Use the same wall-clock
+        // tick the rest of the home view reads.
+        wallClockMs={currentTickMs}
       />
       <HourlyForecastStrip
         models={models}

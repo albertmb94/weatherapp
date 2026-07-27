@@ -143,6 +143,74 @@ export const SCALES: Record<ScaleMetric, ColorStop[]> = {
     { value: 14, color: [255, 140, 0] },
     { value: 20, color: [200, 0, 0] },
   ],
+  // F5: air-quality + pollen. The bands loosely follow the
+  // European AQI scale and the WHO PM2.5 daily limit (15 µg/m³).
+  // Pollen uses a generic "low/med/high" ramp per grain count.
+  european_aqi: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 20, color: [180, 220, 100] },
+    { value: 40, color: [255, 220, 0] },
+    { value: 60, color: [255, 140, 0] },
+    { value: 80, color: [255, 60, 60] },
+    { value: 100, color: [150, 0, 100] },
+  ],
+  pm10: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 25, color: [180, 220, 100] },
+    { value: 50, color: [255, 220, 0] },
+    { value: 90, color: [255, 140, 0] },
+    { value: 180, color: [200, 0, 0] },
+  ],
+  pm2_5: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 10, color: [180, 220, 100] },
+    { value: 25, color: [255, 220, 0] },
+    { value: 55, color: [255, 140, 0] },
+    { value: 110, color: [200, 0, 0] },
+  ],
+  ozone: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 60, color: [180, 220, 100] },
+    { value: 120, color: [255, 220, 0] },
+    { value: 180, color: [255, 140, 0] },
+    { value: 240, color: [200, 0, 0] },
+  ],
+  alder_pollen: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 5, color: [255, 220, 0] },
+    { value: 20, color: [255, 140, 0] },
+    { value: 100, color: [200, 0, 0] },
+  ],
+  birch_pollen: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 5, color: [255, 220, 0] },
+    { value: 20, color: [255, 140, 0] },
+    { value: 100, color: [200, 0, 0] },
+  ],
+  grass_pollen: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 5, color: [255, 220, 0] },
+    { value: 20, color: [255, 140, 0] },
+    { value: 100, color: [200, 0, 0] },
+  ],
+  mugwort_pollen: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 5, color: [255, 220, 0] },
+    { value: 20, color: [255, 140, 0] },
+    { value: 100, color: [200, 0, 0] },
+  ],
+  olive_pollen: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 5, color: [255, 220, 0] },
+    { value: 20, color: [255, 140, 0] },
+    { value: 100, color: [200, 0, 0] },
+  ],
+  ragweed_pollen: [
+    { value: 0, color: [0, 200, 100] },
+    { value: 5, color: [255, 220, 0] },
+    { value: 20, color: [255, 140, 0] },
+    { value: 100, color: [200, 0, 0] },
+  ],
 }
 
 function lerp(a: number, b: number, t: number): number {

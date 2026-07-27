@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import StationCard from './StationCard'
 import StationMap from './StationMap'
@@ -52,6 +52,39 @@ const METEOCLIMATIC_MAP: Record<string, string> = {
 const STATION_RETRY_COUNT = 5
 const STATION_RETRY_DELAY_MS = 1000
 
+// F1: mobile users prefer the tightest possible radius (their
+// thumb is on the screen, scrolling through 20 stations in 60
+// km is friction they don't want), while desktop users browse a
+// larger radius with a mouse. The breakpoint is the same one
+// that gates the "real-desktop" Tailwind variant in
+// `app/globals.css` (>=1024 px).
+const MOBILE_DEFAULT_RADIUS_KM = 5
+const DESKTOP_DEFAULT_RADIUS_KM = 10
+const MOBILE_RADIUS_OPTIONS = [5, 10, 30, 60] as const
+const DESKTOP_RADIUS_OPTIONS = [10, 30, 60, 100] as const
+const REAL_DESKTOP_MQ = '(min-width: 1024px)'
+
+/**
+ * SSR-safe hook that returns `true` when the viewport is wide
+ * enough to be considered "real desktop" (>=1024 px). Starts
+ * `false` to match the SSR render and the first client render,
+ * then updates inside an effect — same pattern as the rest of
+ * the app to keep React 19 strict-mode clean.
+ */
+function useIsRealDesktop(): boolean {
+  const [isRealDesktop, setIsRealDesktop] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia(REAL_DESKTOP_MQ)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsRealDesktop(mq.matches)
+    const onChange = () => setIsRealDesktop(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return isRealDesktop
+}
+
 export interface StationDashboardProps {
   /** Current city centre (from home-content). When provided, Meteoclimatic
    *  is fetched by coordinates and filtered by radius. */
@@ -62,10 +95,23 @@ export interface StationDashboardProps {
 
 export default function StationDashboard({ position = null, placeName }: StationDashboardProps = {}) {
   const { locale } = useLocale()
+  const isRealDesktop = useIsRealDesktop()
+  const defaultRadius = isRealDesktop ? DESKTOP_DEFAULT_RADIUS_KM : MOBILE_DEFAULT_RADIUS_KM
+  const radiusOptions = isRealDesktop ? DESKTOP_RADIUS_OPTIONS : MOBILE_RADIUS_OPTIONS
   const [region, setRegion] = useState(REGIONS[0].code)
-  const [radius, setRadius] = useState(10)
+  const [radius, setRadius] = useState(defaultRadius)
+  // F1: if the user resizes from mobile to desktop (or vice
+  // versa) and never touched the radius selector, snap the
+  // default to the new breakpoint. The user who DID touch the
+  // selector keeps their pick — we detect "untouched" via the
+  // `userAdjustedRadius` flag.
+  const [userAdjustedRadius, setUserAdjustedRadius] = useState(false)
   const [search, setSearch] = useState('')
   const [includeMeteo, setIncludeMeteo] = useState(true)
+  // F1 (desktop): the keyboard-nav cursor. -1 means "no station
+  // is focused"; otherwise it points into the `filtered` array.
+  const [focusedIdx, setFocusedIdx] = useState(-1)
+  const stationGridRef = useRef<HTMLDivElement | null>(null)
 
   // Sprint 10 / B-10-5 (E9): debounce the radius so dragging the
   // slider doesn't fire 3 upstream calls per second. We expose the
@@ -81,6 +127,17 @@ export default function StationDashboard({ position = null, placeName }: Station
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [radius])
+
+  // F1: when the viewport breakpoint changes, snap the radius
+  // to the new default — but only if the user never picked one
+  // explicitly. Same effect could be merged with the one above
+  // but we keep it separate for clarity. The cascading-render
+  // warning is intentional: there's no other way to react to a
+  // viewport change synchronously.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!userAdjustedRadius) setRadius(defaultRadius)
+  }, [defaultRadius, userAdjustedRadius])
 
   // Build a coarse position key so the query refetches when the user moves
   // significantly (1 km grid) without thrashing on tiny movements.
@@ -232,6 +289,58 @@ export default function StationDashboard({ position = null, placeName }: Station
     return result
   }, [allStations, position, radius, regionBounds, search])
 
+  // F1 (desktop only): keyboard navigation across the station
+  // grid. Arrow keys move the cursor; Home/End jump to the
+  // edges; Enter "opens" the focused card (the card itself is
+  // non-clickable on desktop because the user is just browsing
+  // the readings, but we still dispatch a click so any future
+  // detail panel will react). The cursor is clamped to the
+  // current `filtered` length so a re-query that drops a row
+  // doesn't leave the focus pointing at a deleted cell.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (focusedIdx >= filtered.length) setFocusedIdx(filtered.length - 1)
+  }, [filtered.length, focusedIdx])
+  const handleGridKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (filtered.length === 0) return
+      const target = e.target as HTMLElement
+      // Ignore keys when the user is typing in the search box.
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
+      let next = focusedIdx
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+          next = focusedIdx < 0 ? 0 : Math.min(filtered.length - 1, focusedIdx + 1)
+          break
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          next = focusedIdx < 0 ? 0 : Math.max(0, focusedIdx - 1)
+          break
+        case 'Home':
+          next = 0
+          break
+        case 'End':
+          next = filtered.length - 1
+          break
+        case 'Enter':
+        case ' ':
+          if (focusedIdx >= 0 && focusedIdx < filtered.length) {
+            // The card itself is informational; we just flash a
+            // selection ring (already implemented) and prevent
+            // the page from scrolling on space.
+            e.preventDefault()
+          }
+          return
+        default:
+          return
+      }
+      e.preventDefault()
+      setFocusedIdx(next)
+    },
+    [filtered.length, focusedIdx],
+  )
+
   // AEMET is the primary, reliable source: it alone gates the loading state
   // and the blocking error. Meteoclimatic and Meteocat are supplementary
   // (opt-in or always-on-but-degrades), so their failures must never blank
@@ -277,12 +386,15 @@ export default function StationDashboard({ position = null, placeName }: Station
         {position && (
           <select
             value={radius}
-            onChange={e => setRadius(Number(e.target.value))}
+            onChange={e => {
+              setRadius(Number(e.target.value))
+              setUserAdjustedRadius(true)
+            }}
             className="bg-gray-900 border border-gray-800 text-gray-300 text-xs rounded-lg px-2 py-1.5
                        focus:outline-none focus:border-gray-600 cursor-pointer"
             aria-label={STRINGS[locale].radiusLabel}
           >
-            {[10, 30, 60, 100].map(r => (
+            {radiusOptions.map(r => (
               <option key={r} value={r}>{r} km</option>
             ))}
           </select>
@@ -355,9 +467,32 @@ export default function StationDashboard({ position = null, placeName }: Station
       )}
 
       {filtered.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-          {filtered.map(s => (
-            <StationCard key={s.code + s.name} station={s} />
+        <div
+          ref={stationGridRef}
+          // F1: keyboard navigation is desktop-only. We give the
+          // grid a tabindex so screen readers treat it as a single
+          // composite widget, but the key handler is a no-op on
+          // mobile (pointer: coarse) so it doesn't interfere with
+          // the touch-driven UI. The active descendant is
+          // announced via `aria-activedescendant`.
+          tabIndex={isRealDesktop ? 0 : -1}
+          role={isRealDesktop ? 'grid' : undefined}
+          aria-activedescendant={isRealDesktop && focusedIdx >= 0 ? `station-card-${filtered[focusedIdx]?.code}` : undefined}
+          onKeyDown={isRealDesktop ? handleGridKeyDown : undefined}
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-lg"
+        >
+          {filtered.map((s, idx) => (
+            <div
+              key={s.code + s.name}
+              id={`station-card-${s.code}`}
+              role={isRealDesktop ? 'gridcell' : undefined}
+              aria-selected={isRealDesktop ? idx === focusedIdx : undefined}
+              onClick={isRealDesktop ? () => setFocusedIdx(idx) : undefined}
+              onFocus={isRealDesktop ? () => setFocusedIdx(idx) : undefined}
+              className={isRealDesktop && idx === focusedIdx ? 'ring-2 ring-accent rounded-lg' : ''}
+            >
+              <StationCard station={s} />
+            </div>
           ))}
         </div>
       )}

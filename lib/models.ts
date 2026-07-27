@@ -54,13 +54,22 @@ export type MetricId =
   | 'wave_height' | 'wave_period' | 'wave_direction'
   | 'wind_wave_height' | 'wind_wave_period'
   | 'swell_wave_height' | 'swell_wave_period'
+  // F5: air-quality metrics (Open-Meteo air-quality-api).
+  | 'pm10' | 'pm2_5' | 'ozone'
+  | 'european_aqi'
+  | 'alder_pollen' | 'birch_pollen' | 'grass_pollen' | 'mugwort_pollen' | 'olive_pollen' | 'ragweed_pollen'
 
 export interface Metric {
   id: MetricId
   label: string
   unit: string
   hourlyParam: string
-  group: 'land' | 'marine'
+  /** F5: metrics now belong to one of three groups. The 'air'
+   *  group is consumed by the dedicated AirQuality component and
+   *  is NOT part of the ensemble forecast. We kept the type
+   *  backward-compatible: existing components continue to
+   *  branch on `group === 'marine'`. */
+  group: 'land' | 'marine' | 'air'
 }
 
 export const METRICS: Metric[] = [
@@ -83,6 +92,31 @@ export const METRICS: Metric[] = [
   { id: 'wind_wave_period', label: 'Wind Wave Period', unit: 's', hourlyParam: 'wind_wave_period', group: 'marine' },
   { id: 'swell_wave_height', label: 'Swell Height', unit: 'm', hourlyParam: 'swell_wave_height', group: 'marine' },
   { id: 'swell_wave_period', label: 'Swell Period', unit: 's', hourlyParam: 'swell_wave_period', group: 'marine' },
+]
+
+/**
+ * F5: air-quality and pollen metrics. These are NOT part of the
+ * main ensemble forecast (Open-Meteo serves them on a separate
+ * endpoint, https://air-quality-api.open-meteo.com/) so we keep
+ * them in their own constant. The dedicated `AirQualityCard`
+ * component reads from this list to render the tiles.
+ *
+ * The list is ordered: pollutant first, AQI as the headline,
+ * then pollen by typical seasonal prevalence. Hidden by
+ * `AirQualityCard` on mobile portrait (the layout doesn't have
+ * room for 6+ tiles on a 360-px screen).
+ */
+export const AIR_METRICS: Metric[] = [
+  { id: 'european_aqi', label: 'Air Quality (EU AQI)', unit: '', hourlyParam: 'european_aqi', group: 'air' },
+  { id: 'pm2_5', label: 'PM2.5', unit: 'µg/m³', hourlyParam: 'pm2_5', group: 'air' },
+  { id: 'pm10', label: 'PM10', unit: 'µg/m³', hourlyParam: 'pm10', group: 'air' },
+  { id: 'ozone', label: 'Ozone (O₃)', unit: 'µg/m³', hourlyParam: 'ozone', group: 'air' },
+  { id: 'grass_pollen', label: 'Grass pollen', unit: 'grains/m³', hourlyParam: 'grass_pollen', group: 'air' },
+  { id: 'birch_pollen', label: 'Birch pollen', unit: 'grains/m³', hourlyParam: 'birch_pollen', group: 'air' },
+  { id: 'olive_pollen', label: 'Olive pollen', unit: 'grains/m³', hourlyParam: 'olive_pollen', group: 'air' },
+  { id: 'alder_pollen', label: 'Alder pollen', unit: 'grains/m³', hourlyParam: 'alder_pollen', group: 'air' },
+  { id: 'mugwort_pollen', label: 'Mugwort pollen', unit: 'grains/m³', hourlyParam: 'mugwort_pollen', group: 'air' },
+  { id: 'ragweed_pollen', label: 'Ragweed pollen', unit: 'grains/m³', hourlyParam: 'ragweed_pollen', group: 'air' },
 ]
 
 export const MARINE_METRIC_IDS: MetricId[] = METRICS.filter(m => m.group === 'marine').map(m => m.id)

@@ -129,6 +129,76 @@ const ICONS: Record<MetricId, React.ReactNode> = {
       <path d="M2 6h2M6 6h2" strokeOpacity={0.6} />
     </svg>
   ),
+  // F5: air-quality + pollen. We use a single SVG per metric —
+  // the MapPicker / heatmap never reach these so the icons are
+  // decoration, not data-bound.
+  european_aqi: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <circle cx="8" cy="8" r="5" />
+      <path d="M8 3a5 5 0 0 1 0 10" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  pm10: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <circle cx="5" cy="6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="5" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="10" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="11" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="4" cy="11" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  pm2_5: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <circle cx="6" cy="5" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="11" cy="6" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="9" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="11" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="11" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  ozone: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <circle cx="8" cy="8" r="5" />
+      <circle cx="8" cy="8" r="2" />
+    </svg>
+  ),
+  alder_pollen: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M11 2c-2 0-4 1.5-4 4 0-2.5-2-4-4-4 0 4 4 6 4 9 0-3 4-5 4-9z" />
+      <path d="M8 11v3" />
+    </svg>
+  ),
+  birch_pollen: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M8 2v8" />
+      <path d="M5 5l3-2 3 2M5 8l3-2 3 2M5 11l3-2 3 2" />
+    </svg>
+  ),
+  grass_pollen: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M8 14V4" />
+      <path d="M8 7c-1.5-1-3-1-3.5 0M8 7c1.5-1 3-1 3.5 0M8 10c-1.5-1-3-1-3.5 0M8 10c1.5-1 3-1 3.5 0" />
+    </svg>
+  ),
+  mugwort_pollen: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M3 13c1-3 2-4 5-4s4 1 5 4" />
+      <path d="M5 9V6l3 2 3-2v3" />
+    </svg>
+  ),
+  olive_pollen: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <ellipse cx="6" cy="8" rx="2.5" ry="3" transform="rotate(-30 6 8)" />
+      <ellipse cx="10" cy="10" rx="2" ry="2.5" transform="rotate(30 10 10)" />
+    </svg>
+  ),
+  ragweed_pollen: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" className="w-3.5 h-3.5">
+      <path d="M8 2v8" />
+      <path d="M5 4l3 3 3-3M5 7l3 3 3-3" />
+      <circle cx="8" cy="13" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
 }
 
 export default function MetricPills({ metrics, selected, onChange, group }: MetricPillsProps) {

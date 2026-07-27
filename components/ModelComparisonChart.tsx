@@ -17,6 +17,31 @@ import {
 import { ChartSkeleton } from './Skeletons'
 import { exportSvgToPng } from '@/lib/chartExport'
 
+/**
+ * SSR-safe hook that returns `true` when the viewport is wide
+ * enough for the model-comparison chart. We render the chart
+ * on >=1024 px ("real desktop") only; mobile users see a small
+ * "View on desktop for the multi-model chart" hint instead. The
+ * `real-desktop:` Tailwind variant already exists in
+ * `app/globals.css`, but we still gate the SVG render in JS so
+ * Recharts' ResponsiveContainer never runs on a hidden
+ * container (which would emit width(-1) / height(-1)
+ * warnings and waste a render frame).
+ */
+function useIsRealDesktop(): boolean {
+  const [isRealDesktop, setIsRealDesktop] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(min-width: 1024px)')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsRealDesktop(mq.matches)
+    const onChange = () => setIsRealDesktop(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return isRealDesktop
+}
+
 interface ModelComparisonChartProps {
   models: WeatherModel[]
   activeModelIds: string[]
@@ -40,6 +65,7 @@ export default function ModelComparisonChart({
   maxHours,
   ensembleMode = 'models',
 }: ModelComparisonChartProps) {
+  const isRealDesktop = useIsRealDesktop()
   const [localHover, setLocalHover] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [dims, setDims] = useState<{ w: number; h: number }>({ w: 0, h: 0 })
@@ -250,22 +276,31 @@ export default function ModelComparisonChart({
         <button
           type="button"
           onClick={handleExportPng}
-          disabled={exporting}
+          disabled={exporting || !isRealDesktop}
           className="text-[11px] px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors cursor-pointer disabled:opacity-50"
-          title="Export chart as PNG"
+          title={isRealDesktop ? 'Export chart as PNG' : 'Available on desktop'}
         >
           {exporting ? 'Exporting…' : 'PNG'}
         </button>
       </div>
-      <div ref={containerRef} className="h-56 sm:h-64 w-full min-w-[300px]">
-        {!renderChart && <ChartSkeleton />}
-        {renderChart && <ResponsiveContainer width="100%" height="100%" debounce={1}>
-          <ComposedChart
-            data={chartData}
-            onMouseMove={handleChartHover}
-            onMouseLeave={handleChartLeave}
-            margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
-          >
+      {/*
+        Mobile gate: the chart, the PNG export and the
+        ResponsiveContainer are all hidden on mobile (<1024 px).
+        We render a small hint instead so the user knows the
+        feature exists on desktop. The same breakpoint is used
+        in the rest of the app via the `real-desktop` Tailwind
+        variant, so the visual rhythm stays consistent.
+      */}
+      {isRealDesktop ? (
+        <div ref={containerRef} className="h-56 sm:h-64 w-full min-w-[300px]">
+          {!renderChart && <ChartSkeleton />}
+          {renderChart && <ResponsiveContainer width="100%" height="100%" debounce={1}>
+            <ComposedChart
+              data={chartData}
+              onMouseMove={handleChartHover}
+              onMouseLeave={handleChartLeave}
+              margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+            >
             <defs>
               <linearGradient id="spreadGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="rgba(100,100,255,0.15)" />
@@ -408,7 +443,12 @@ export default function ModelComparisonChart({
             )}
           </ComposedChart>
         </ResponsiveContainer>}
-      </div>
+        </div>
+      ) : (
+        <div className="h-20 sm:h-24 w-full rounded-lg border border-dashed border-border bg-surface/40 flex items-center justify-center text-[11px] text-text-tertiary text-center px-3">
+          El gráfico multi-modelo y la exportación PNG están disponibles en escritorio (≥1024 px). En móvil consulta la tabla Insights para los mismos datos.
+        </div>
+      )}
     </div>
   )
 }

@@ -129,7 +129,16 @@ export async function fetchForecast(
   const CACHE_KEY_VERSION = 'v3-long-range-2026-07-24'
   const MIN_HOURS_FOR_FORECAST = 336
   const longRange = regionSelected.filter(m => m.maxHours >= MIN_HOURS_FOR_FORECAST)
-  const capped = longRange.slice(0, MAX_FORECAST_MODELS)
+  // BUG FIX: `selectModelsForLocation` returns models in
+  // (regional-by-resolution, then global-by-weight, then AI-by-weight)
+  // order. The previous build then sliced the first N without
+  // re-sorting, which could drop high-weight globals (ECMWF, GFS)
+  // if a future catalogue adds enough long-range regional models
+  // to overflow the cap. We re-sort by `weight DESC` here so the
+  // most-accurate long-range models always survive the cap.
+  const capped = [...longRange]
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, MAX_FORECAST_MODELS)
   const modelIds = capped.map(m => m.id).join(',')
   // Only send land metrics to the forecast API. Marine metrics are
   // fetched separately via fetchMarine and merged in later.

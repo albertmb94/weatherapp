@@ -4,8 +4,14 @@ import { getCachedMarine, getCachedMarineStale, setCachedMarine } from '@/lib/ma
 import { rateLimit } from '@/lib/rateLimit'
 import { fetchWithRetry, parseOpenMeteoResponse } from '@/lib/api/openMeteoProxy'
 
+// BUG FIX: same rationale as `app/api/forecast/route.ts` — the
+// previous s-maxage=14400 (4h) coupled with the marine request
+// shape produced a sprawling CDN cache. We drop to 1h so the
+// cache purges itself in a reasonable window without manual
+// intervention. The per-instance Turso `marine_cache` table
+// still holds the body for 4h.
 const FRESH_CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=14400, stale-while-revalidate=3600',
+  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=3600',
 } as const
 const STALE_CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',

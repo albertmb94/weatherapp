@@ -1,4 +1,5 @@
 import { haversineKm } from './geoDistance'
+import type { MeteoclimaticObservation } from './meteoclimatic-types'
 
 export interface StationObservation {
   /** Provider-specific id ("08001" for AEMET, "XEMA-X" for Meteocat). */
@@ -15,6 +16,12 @@ export interface StationObservation {
   pressureHpa: number | null
   windKmh: number | null
   windDirDeg: number | null
+  /** Instantaneous precipitation in mm (last 10-min accumulator from AEMET,
+   *  current intensity from Meteoclimatic). `null` when the station
+   *  doesn't report it (most Meteocat XEMA stations). Used by
+   *  `blendNowcast` to ground the "rain?" cell in a real measurement
+   *  instead of the ensemble model alone. */
+  precipitationMm: number | null
 }
 
 export interface NowcastInput {
@@ -117,12 +124,24 @@ export function blendNowcast(input: NowcastInput): NowcastResult {
     observationDeltaC = null
   }
 
-  const obsPrecip = station.temperatureC !== null ? null : null
-  const precipitationMm = ensemblePrecip !== null
-    ? ensemblePrecip
-    : obsPrecip !== null
-      ? obsPrecip
-      : null
+  // Precip blending: same rule as temperature, except the
+  // observation weight is lower (rain is a fast-changing signal
+  // and a 10-min AEMET reading is already "old" for the
+  // precipitation cell). The previous build hard-coded `obsPrecip`
+  // to `null` so the nowcast's rain field always equalled the
+  // ensemble, which meant a 5-km-away AEMET station showing 4
+  // mm/h was ignored. We now read the station's `precipitationMm`
+  // and apply the same convex combination with a smaller weight.
+  const obsPrecip = station.precipitationMm
+  const precipWeight = clamp01(0.3) // rain: ensemble-leaning
+  let precipitationMm: number | null
+  if (obsPrecip !== null && ensemblePrecip !== null) {
+    precipitationMm = precipWeight * obsPrecip + (1 - precipWeight) * ensemblePrecip
+  } else if (obsPrecip !== null) {
+    precipitationMm = obsPrecip
+  } else {
+    precipitationMm = ensemblePrecip
+  }
 
   return {
     temperatureC,
@@ -164,4 +183,38 @@ export function pickClosestStation(
     }
   }
   return best
+}
+
+/**
+ * Map a MeteoclimaticObservation (the shape returned by the
+ * station routes) to a `StationObservation` so it can be fed
+ * into `pickClosestStation` / `blendNowcast`. Returns `null`
+ * when the observation lacks a coordinate pair — those rows are
+ * impossible to geolocate, so the nowcast cannot use them.
+ *
+ * The conversion preserves the precipitation field that the
+ * previous build dropped, which the nowcast needs to ground
+ * its "rain" cell.
+ */
+export function meteoclimaticToStationObservation(
+  m: MeteoclimaticObservation,
+  source: StationObservation['source'] = 'meteoclimatic',
+): StationObservation | null {
+  if (typeof m.lat !== 'number' || typeof m.lon !== 'number') return null
+  const observedAtRaw = m.updatedAt
+  const observedAtMs = observedAtRaw ? Date.parse(observedAtRaw) : NaN
+  return {
+    id: m.code,
+    source,
+    lat: m.lat,
+    lon: m.lon,
+    distanceKm: 0, // recomputed by pickClosestStation
+    observedAt: Number.isFinite(observedAtMs) ? observedAtMs : 0,
+    temperatureC: m.temperature?.current ?? null,
+    humidityPct: m.humidity?.current ?? null,
+    pressureHpa: m.pressure?.current ?? null,
+    windKmh: m.wind?.speed ?? null,
+    windDirDeg: m.wind?.bearing ?? null,
+    precipitationMm: m.precipitation ?? null,
+  }
 }

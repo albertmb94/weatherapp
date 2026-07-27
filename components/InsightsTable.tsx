@@ -177,7 +177,7 @@ function WindArrow({ degrees }: { degrees: number | null }) {
   )
 }
 
-function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' | 'en', utcOffsetSeconds: number, nowMs: number | null): string {
+function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' | 'en', utcOffsetSeconds: number, nowMs: number): string {
   // M5: compare the location's "today" (in the location's timezone) instead
   // of the browser's "today", otherwise the label flips between "Hoy" /
   // "Mañ" and a weekday at the wrong moment when the user is in a TZ
@@ -196,7 +196,7 @@ function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' |
   // pre-hydration weekday label so the SSR and the first client render
   // are byte-identical. The `useEffect` then updates `nowMs` and the
   // table re-renders with the correct "Hoy"/"Mañ" tags.
-  const today = new Date((nowMs ?? 0) + utcOffsetSeconds * 1000)
+  const today = new Date(nowMs + utcOffsetSeconds * 1000)
   const isToday = start.getUTCFullYear() === today.getUTCFullYear() && start.getUTCMonth() === today.getUTCMonth() && start.getUTCDate() === today.getUTCDate()
   const isTomorrow = (() => {
     const t = new Date(today.getTime() + 24 * 60 * 60 * 1000)
@@ -446,8 +446,15 @@ export default function InsightsTable({
   // client wall clock only when the response didn't carry a time array.
   // Using `useSyncExternalStore` (via `useClientNow`) keeps React 19
   // strict-mode clean while still ticking every minute.
+  //
+  // BUG FIX: previously `nowMs` was typed `number | null` and the
+  // call sites in `bucketLabel` had to default to `0` (which
+  // rendered the 1970-01-01 chip until the wall-clock ticked).
+  // We now guarantee a numeric value with `?? 0` here, so the
+  // downstream `bucketLabel` can keep its `nowMs: number` shape
+  // and avoid a `?? 0` chain of "this could be null" assumptions.
   const wallClock = useClientNow(60_000)
-  const nowMs: number | null = times[0] instanceof Date ? times[0].getTime() : wallClock
+  const nowMs: number = times[0] instanceof Date ? times[0].getTime() : (wallClock ?? 0)
 
   const isDefaultOrder = useMemo(
     () => columnOrder.every((id, i) => id === DEFAULT_ORDER[i]),

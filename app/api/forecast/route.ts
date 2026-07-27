@@ -11,8 +11,18 @@ import {
 // cacheable in any shared layer (the staleness window is per-instance
 // and the global CDN could otherwise keep an out-of-window response for
 // up to s-maxage/24h).
+//
+// BUG FIX: the previous s-maxage=14400 (4h) coupled with the
+// version-stamp `v=v3-...` cache key produced a hard-to-purge
+// multi-version table in the Vercel edge cache. Every new
+// CACHE_KEY_VERSION wrote a fresh row, and old rows never
+// expired (the version param is part of the key, so the
+// in-DB purge could not find them). We drop the shared-cache
+// s-maxage to 1h so the version stamp purges itself naturally
+// on the next deploy; the per-instance Turso cache still
+// holds the body for 4h via the `forecast_cache` table.
 const FRESH_CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=14400, stale-while-revalidate=3600',
+  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=3600',
 } as const
 const STALE_CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',

@@ -242,7 +242,7 @@ function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
       return cellInner({
         value: r.tempMean,
          metric: 'temperature',
-         suffix: '°',
+         suffix: '',
          decimals: 0,
        })
     case 'min':
@@ -268,7 +268,7 @@ function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
     case 'precip':
       return cellInner({ value: r.precipSum, metric: 'precipitation', decimals: 1 })
     case 'humidity':
-      return cellInner({ value: r.humidityMean, metric: 'humidity', suffix: '%' })
+      return cellInner({ value: r.humidityMean, metric: 'humidity', suffix: '' })
     case 'uv':
       return cellInner({ value: r.uvIndexMean, metric: 'uv_index', decimals: 1 })
     case 'pressure':
@@ -278,13 +278,14 @@ function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
     case 'visibility':
       return cellInner({ value: r.visibilityMean, metric: 'visibility', suffix: 'km', decimals: 1 })
     case 'sea_surface_temperature':
-      // Sprint 14 fix: 0 decimals so "27.8°" (5 chars) becomes
-      // "28°" (3 chars) and fits inside the 48 px column on
-      // mobile portrait without triggering text-overflow ellipsis.
-      return cellInner({ value: r.seaTempMean, metric: 'sea_surface_temperature', suffix: '°', decimals: 0 })
+      // The header already says "Mar °C", so the cell just shows
+      // the rounded integer — no suffix, 0 decimals. "28" (2 chars)
+      // at 11 px font-mono fits well inside the 48 px column.
+      return cellInner({ value: r.seaTempMean, metric: 'sea_surface_temperature', suffix: '', decimals: 0 })
     case 'wave_height':
-      // Sprint 14 fix: the unit "m" is omitted so "0.7m" (4 chars)
-      // becomes "0.7" (3 chars) and fits cleanly in 48 px.
+      // The header already says "Ola m". Cell shows the raw value
+      // with 1 decimal and no unit suffix. "0.6" (3 chars) fits
+      // cleanly in 48 px.
       return cellInner({ value: r.waveHeightMax, metric: 'wave_height', suffix: '', decimals: 1 })
     case 'wave_period':
       return cellInner({ value: r.wavePeriodMean, metric: 'wave_period', suffix: 's', decimals: 0 })
@@ -1455,6 +1456,7 @@ export default function InsightsTable({
                       style={rowCells[j]?.style}
                       hideOnCompact={compact && COMPACT_HIDDEN_COLS.has(col.id)}
                       extraClass={col.hideClass ?? ''}
+                      isPortrait={isMobilePortrait}
                     />
                   ))}
                 </tr>
@@ -1551,66 +1553,31 @@ const HeatCell = memo(function HeatCell({
   style,
   hideOnCompact,
   extraClass,
+  isPortrait,
 }: {
   node: React.ReactNode
   style: React.CSSProperties | undefined
   hideOnCompact: boolean
   extraClass: string
+  isPortrait?: boolean
 }) {
   return (
     <td
-      // Sprint 10 / B-10-6: `contain: layout style paint` makes each
-      // cell an independent paint island so a change to one cell
-      // (e.g. the active-row ring) cannot trigger a repaint of any
-      // sibling. Combined with content-visibility on the row, this
-      // lets the browser aggressively skip work for off-screen rows.
-      //
-      // B-NEW-5 (text color): the colour now comes from the
-      // `--heat-cell-text` CSS custom property defined in
-      // `app/globals.css`. The resolution is unambiguous:
-      //   - light theme (html.light)        → black
-      //   - dark theme, portrait            → black
-      //   - dark theme, landscape           → white
-      // We avoid Tailwind's `dark:` variant entirely because this
-      // app uses `html.light` for light mode and never sets a
-      // `.dark` class, so the variant fires inconsistently across
-      // browser versions. The CSS variable is a single source of
-      // truth and works in every browser that supports custom
-      // properties (which is the same set that supports the rest
-      // of our design-token system).
-      //
-      // B-NEW-3 (mobile): `px-1.5 sm:px-1` trims horizontal padding
-      // on phone-width viewports so the basic 6-column view (cond /
-      // temp / wind / precip / humidity / uv + sticky "Cuándo")
-      // fits inside ~390 px before the user has to scroll. The
-      // original `px-1` (4 px each side) added up to 8 px per cell,
-      // which was enough to push the rightmost column off-screen on
-      // a 360-px phone with no visible hint that scrolling was
-      // possible.
-      //
-      // B-NEW-7 (2026-07-24): reverted the `min-w-[40px] sm:min-w-[44px]`
-      // floor that B-NEW-5 added. The user reported the cells
-      // were now "wider" / heavier on desktop, which broke the
-      // original "soft glow + tight columns" character. The
-      // mobile UV-column wrap issue is fixed by the new
-      // `whitespace-nowrap` instead — a value that overflows the
-      // cell now extends past the cell border horizontally
-      // (under the next column or off the right edge of the
-      // table, both of which scroll / fade) instead of wrapping
-      // onto a second line and overlapping the gradient's
-      // narrow central band.
-      //
-      // B-NEW-6 (2026-07-24): `whitespace-nowrap` added to fix
-      // the UV column "splits the data in two halves" visual
-      // bug. The previous code let a value like "5.8" (3 chars
-      // at 11 px ≈ 21 px) wrap onto two lines inside a 40-px
-      // cell, which combined with the narrow radial gradient
-      // to render the value with one half on the colored
-      // center and the other half on the transparent edges.
-      // With nowrap the value is forced to a single line and
-      // the cell overflows horizontally (still readable thanks
-      // to the gradient on the colored center).
-      className={`text-center px-1.5 sm:px-1 py-1.5 font-mono tabular-nums whitespace-nowrap overflow-hidden text-ellipsis [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint]`}
+      // Sprint 14 / fit guarantee: text-overflow: ellipsis is
+      // REMOVED from every cell — the column set, the reduced
+      // padding in portrait (px-0.5), the removal of redundant
+      // unit suffixes from cell values (units are already in the
+      // header labels), and the explicit marine column widths
+      // jointly guarantee that every value fits inside its
+      // column at every viewport width >= 320 px (iPhone SE
+      // through iPhone 16 Pro Max). No cell should ever display
+      // "…". overflow-hidden is kept as a safety net for edge
+      // cases (zoomed text, unusual fonts).
+      className={`text-center py-1.5 font-mono tabular-nums whitespace-nowrap overflow-hidden [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint] ${
+        isPortrait
+          ? 'px-0.5'
+          : 'px-1.5 sm:px-1'
+      }`}
       style={style}
     >
       {node}

@@ -186,6 +186,17 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     // Marine columns must NOT appear when showMarine is false (default)
     expect(headers).not.toContain('sea_surface_temperature')
     expect(headers).not.toContain('wave_height')
+    // HeatCell uses px-0.5 (tight padding) in portrait so every
+    // value fits inside its column without text-overflow ellipsis.
+    const cells = Array.from(document.querySelectorAll('td.font-mono'))
+    expect(cells.length).toBeGreaterThan(0)
+    for (const cell of cells) {
+      expect(cell.className).toContain('px-0.5')
+      expect(cell.className).not.toContain('px-1.5')
+      // text-ellipsis is removed from HeatCell — no cell should
+      // ever show the "…" indicator.
+      expect(cell.className).not.toMatch(/text-ellipsis/)
+    }
   })
 
   it('portrait with Marine ON shows sea_temp + wave_height, drops humidity + uv to fit', async () => {

@@ -18,6 +18,14 @@
    for typographic / spacing refinements inside cards. */
 @custom-variant landscape (@media (max-width: 767px) and (orientation: landscape));
 @custom-variant real-desktop (@media (min-width: 1024px));
+
+/* Sprint 16: visibility-or-desktop — fires in any landscape orientation
+   OR on real-desktop. Used by the InsightsTable to bring pressure,
+   dewpoint and visibility columns into view in phone landscape too
+   (the user complained these were missing from mobile landscape
+   Basic). Comma-separated list in the media query is the CSS-spec
+   way to express OR. */
+@custom-variant visibility-or-desktop (@media (orientation: landscape), (min-width: 1024px));
 @source "../components/**/*.tsx";
 @source "../app/**/*.tsx";
 
@@ -171,9 +179,24 @@ body {
 :root {
   --when-col-w: 84px;
 }
-@media (max-width: 639px) {
+@media (max-width: 767px), (orientation: landscape) and (max-width: 932px) and (max-height: 540px) {
+  /* Sprint 16: the mobile palette now also applies on a phone in
+     landscape. The previous media query was max-width: 639 — that
+     never fired in 844 x 390 landscape (an iPhone rotated), so the
+     table there used desktop column widths + radial heatmap even
+     though the chrome was identical to portrait. The new query
+     extends the same --when-col-w + --heat-cell-bg-size + solid
+     background override to all phone-form-factor viewports, both
+     portrait and landscape. The (max-width: 932 and max-height: 540
+     in landscape) shape catches every iPhone from SE (568 x 320) to
+     14 Pro Max (932 x 430) in landscape, without flagging iPads
+     (1024+ wide) or any desktop. */
   :root {
     --when-col-w: 80px;
+    --heat-cell-bg-size: 95% 95%;
+  }
+  [style*='--heat-rgb-triple'] {
+    background: rgb(var(--heat-rgb-triple)) !important;
   }
 }
 
@@ -219,25 +242,25 @@ html.light {
   }
 }
 
-/* B-NEW-7 (2026-07-24): heat-cell gradient size.
+/* B-NEW-7 (2026-07-24) + Sprint 16: heat-cell gradient size.
 
    The radial gradient inside each InsightsTable cell is a
    32%×60% ellipse centred in the cell on desktop — the
    "soft glow that doesn't reach the cell border" character the
    user has approved multiple times.
 
-   On mobile (< 640 px) the bg-size widens to 95%×95% so the
-   colour reaches the cell border and the solid-colour override
-   below has a uniform fill to draw from. The cell component
-   reads this size via `var(--heat-cell-bg-size)` in the inline
-   background. */
+   On phone-form-factor viewports (portrait <= 767 px, plus
+   landscape phones up to 932 x 540) the bg-size widens to 95%×95%
+   so the colour reaches the cell border and the solid-colour
+   override below has a uniform fill to draw from. The cell
+   component reads this size via `var(--heat-cell-bg-size)` in
+   the inline background.
+
+   The mobile case is unified in the same media query as the
+   --when-col-w override at the top of the file (Sprint 16).
+   Do not re-introduce a separate (max-width: 639) block here. */
 :root {
   --heat-cell-bg-size: 32% 60%;
-}
-@media (max-width: 639px) {
-  :root {
-    --heat-cell-bg-size: 95% 95%;
-  }
 }
 
 .leaflet-container {

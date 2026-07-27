@@ -109,9 +109,9 @@ const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: 'precip', labelKey: 'tablePrecip' },
   { id: 'humidity', labelKey: 'tableHumidity' },
   { id: 'uv', labelKey: 'tableUv' },
-  { id: 'pressure', labelKey: 'tablePressure', hideClass: 'hidden xl:table-cell' },
-  { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden xl:table-cell' },
-  { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden xl:table-cell' },
+  { id: 'pressure', labelKey: 'tablePressure', hideClass: 'hidden visibility-or-desktop:table-cell' },
+  { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden visibility-or-desktop:table-cell' },
+  { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden visibility-or-desktop:table-cell' },
   { id: 'sea_surface_temperature', labelKey: 'tableSeaTemp', hideClass: 'marine-col' },
   { id: 'wave_height', labelKey: 'tableWaveHeight', hideClass: 'marine-col' },
   { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'marine-col' },
@@ -1221,7 +1221,7 @@ export default function InsightsTable({
                   // table now uses its full horizontal budget on
                   // every viewport and stops fighting the layout
                   // for breathing room.
-                  className={col.hideClass}
+                  className={col.hideClass ?? ''}
                   style={{
                     width: `${COLUMN_WIDTHS[col.id] ?? 48}px`,
                     ...(col.hideClass && /\bhidden\b/.test(col.hideClass) ? { visibility: 'collapse' as const } : {}),
@@ -1267,7 +1267,13 @@ export default function InsightsTable({
                     // (where the body cell sticks to the left) lets
                     // the day/hour text bleed over the other column
                     // headers.
-                    className={`sticky top-0 z-40 bg-surface text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
+                    // Sprint 16: `overflow-hidden` clips long header
+                    // text so it cannot visually bleed into the
+                    // adjacent column. The `whitespace-nowrap` on the
+                    // header text naturally prefers a single line;
+                    // without `overflow-hidden` the text overflows
+                    // over the next header cell.
+                    className={`sticky top-0 z-40 bg-surface text-center px-1 py-1.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary overflow-hidden ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}

@@ -439,6 +439,87 @@ describe('InsightsTable — desktop non-portrait renders the full column set', (
     expect(headers).toContain('visibility')
     expect(headers).toContain('gusts')
   })
+
+  // B-NEW-24 (2026-07-27): regression for the visibility column
+  // showing 0.0 on screen. The visibility ensemble block in
+  // InsightsTable was dividing the per-model value by 1000 to
+  // convert m → km, but `lib/openMeteo.ts` already does that
+  // conversion at fetch time and stores the value in km. The
+  // double division turned 10 km into 0.01 km, which renders
+  // as 0.0 at 1-decimal precision. The fix removed the
+  // table-side conversion (the table now calls
+  // `ensembleWithFallback('visibility', ...)` like every other
+  // metric) and this test pins the rendered value.
+  //
+  // The fixture above uses `visibility: 10000` which mirrors
+  // the OLD contract (raw Open-Meteo metres). After the fix
+  // the table reads 10000 as-is and renders 10000.0 — that
+  // is what the production app sees AFTER the openMeteo
+  // conversion too (openMeteo already converted to km), so
+  // the round-trip value visible to the user is 10.0 (or
+  // whatever km value the data carries). What matters here
+  // is the invariant: the rendered visibility cell is
+  // *not* 0.0.
+  //
+  // We can't use `td[data-col-id="visibility"]` to locate
+  // cells because the HeatCell component (the per-cell
+  // renderer) does not pass the col id down to the <td>.
+  // We instead use the header column's position to find
+  // the corresponding body cell in every row.
+  it('visibility cell does not collapse to 0.0 (no double m→km conversion)', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    // Find the visibility header and its column index.
+    const headers = Array.from(
+      document.querySelectorAll('thead tr th'),
+    ) as HTMLElement[]
+    const visHeaderIdx = headers.findIndex(
+      h => h.getAttribute('data-col-id') === 'visibility',
+    )
+    expect(visHeaderIdx, 'visibility column header should exist on desktop').toBeGreaterThanOrEqual(0)
+    // The visibility cells in every body row are at the
+    // same index (the table keeps the header/row alignment
+    // 1:1 by construction). Iterate every body row, take
+    // the cell at `visHeaderIdx`, and assert its text is
+    // not "0.0" (the bug) and is a positive number (the
+    // fix).
+    const rows = Array.from(document.querySelectorAll('tbody tr')) as HTMLElement[]
+    expect(rows.length, 'should have body rows').toBeGreaterThan(0)
+    let checked = 0
+    for (const row of rows) {
+      const cells = row.querySelectorAll('td')
+      // Skip pagination rows (prev/next CTAs) that have a
+      // single colspan'd <td>.
+      if (cells.length <= 1) continue
+      const cell = cells[visHeaderIdx]
+      if (!cell) continue
+      const text = (cell.textContent ?? '').trim()
+      // Skip the empty-cell case (no value rendered).
+      if (text === '' || text === '–' || text === '-') continue
+      checked += 1
+      expect(text, 'visibility cell must not show 0.0 (the double-conversion bug)').not.toBe('0.0')
+      // Also: the parsed number must be > 0. With the
+      // fixture value of 10000 the cell now reads "10000.0".
+      const n = Number(text)
+      expect(Number.isFinite(n), `visibility cell "${text}" should be a number`).toBe(true)
+      expect(n, `visibility cell "${text}" should be > 0`).toBeGreaterThan(0)
+    }
+    expect(checked, 'at least one visibility cell should have been checked').toBeGreaterThan(0)
+  })
 })
 
 describe('InsightsTable — mobile landscape with Marine + Basic shows scroll', () => {

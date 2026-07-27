@@ -661,13 +661,15 @@ export default function InsightsTable({
         const dpEns = ensembleWithFallback(s, 'dewpoint', i, activeModels, wedaiModels, dpWeights)
         if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
         const visWeights = getWeightsForMetricAndHour('visibility', i)
-        // Visibility is reported in metres; convert to km once here so
-        // every consumer (table, CSV, map) reads the same unit.
-        const visValsForFallback = activeModels.map(m => {
-          const v = s[m.id]?.['visibility']?.[i]
-          return v !== null && v !== undefined ? v / 1000 : null
-        })
-        const visEns = weightedAvg(visValsForFallback, visWeights)
+        // Visibility values in `series[modelId]['visibility']` are
+        // already in **kilometres** — `lib/openMeteo.ts` converts the
+        // raw Open-Meteo metres to km once at fetch time so every
+        // consumer (table, CSV export, map heatmap, model bar) reads
+        // the same unit. The previous version of this block also
+        // divided by 1000 here, which double-converted 10 km → 0.01
+        // km → 0.0 on screen (rounded to 1 decimal). We now just
+        // call `ensembleWithFallback` like every other metric.
+        const visEns = ensembleWithFallback(s, 'visibility', i, activeModels, wedaiModels, visWeights)
         if (visEns !== null) { visSum += visEns; visCount += 1 }
         const dirWeights = getWeightsForMetricAndHour('wind_direction', i)
         let hCos = 0, hSin = 0, hW = 0

@@ -297,7 +297,13 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
 })
 
 describe('InsightsTable — desktop non-portrait renders the full column set', () => {
-  beforeEach(() => setMatchMedia({ [PORTRAIT_Q]: false, [LANDSCAPE_Q]: false }))
+  beforeEach(() =>
+    setMatchMedia({
+      [PORTRAIT_Q]: false,
+      [LANDSCAPE_Q]: false,
+      '(min-width: 1024px)': true,
+    })
+  )
 
   it('renders every non-marine column on desktop', async () => {
     render(wrap(

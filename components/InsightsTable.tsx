@@ -109,9 +109,9 @@ const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: 'precip', labelKey: 'tablePrecip' },
   { id: 'humidity', labelKey: 'tableHumidity' },
   { id: 'uv', labelKey: 'tableUv' },
-  { id: 'pressure', labelKey: 'tablePressure', hideClass: 'hidden visibility-or-desktop:table-cell' },
-  { id: 'dewpoint', labelKey: 'tableDewpoint', hideClass: 'hidden visibility-or-desktop:table-cell' },
-  { id: 'visibility', labelKey: 'tableVisibility', hideClass: 'hidden visibility-or-desktop:table-cell' },
+  { id: 'pressure', labelKey: 'tablePressure' },
+  { id: 'dewpoint', labelKey: 'tableDewpoint' },
+  { id: 'visibility', labelKey: 'tableVisibility' },
   { id: 'sea_surface_temperature', labelKey: 'tableSeaTemp', hideClass: 'marine-col' },
   { id: 'wave_height', labelKey: 'tableWaveHeight', hideClass: 'marine-col' },
   { id: 'wave_period', labelKey: 'tableWavePeriod', hideClass: 'marine-col' },
@@ -876,6 +876,22 @@ export default function InsightsTable({
     return () => mq.removeEventListener('change', update)
   }, [])
 
+  // Sprint 16 follow-up: we no longer rely on CSS
+  // visibility-or-desktop classes (Tailwind v4 doesn't honour a
+  // comma-OR media query inside @custom-variant — only the
+  // first clause got compiled). We watch "real-desktop" in JS
+  // and only include pressure/dewpoint/visibility when the
+  // viewport is wide enough for them to read cleanly.
+  const [isRealDesktop, setIsRealDesktop] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const update = (e: MediaQueryListEvent | MediaQueryList) => setIsRealDesktop(e.matches)
+    update(mq)
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
   // Sprint 14 revert (v2): the column set for mobile portrait is split
   // into basic and marine so `showMarine` controls whether marine
   // columns appear. Previously both were in one set, which caused
@@ -909,6 +925,20 @@ export default function InsightsTable({
     []
   )
 
+  // Extra columns that only render when there is enough horizontal
+  // budget — pressure, dewpoint and visibility need ~60 px each to
+  // read well and would crowd the basic 6+1 set on narrow phones.
+  // The (min-width: 1024px) or "phone landscape" criteria mirror the
+  // original `visibility-or-desktop` hideClass, but resolved in JS
+  // because Tailwind v4 doesn't compile a comma-OR media query in
+  // `@custom-variant`. See globals.css for the phone-palette media
+  // query that informs the same shape as isMobileLandscape above.
+  const wideLayout = isRealDesktop || isMobileLandscape
+  const PRESSURE_DEWPOINT_VIS = useMemo<Set<MetricCellId>>(
+    () => new Set(['pressure', 'dewpoint', 'visibility']),
+    []
+  )
+
   const visibleIds = useMemo(
     () => columnOrder.filter(id => {
       if (isMobilePortrait) {
@@ -924,11 +954,27 @@ export default function InsightsTable({
         }
         return PORTRAIT_BASIC_COLS.has(id)
       }
+      // Phone portrait (no) AND non-wide layout (no) -> drop the
+      // three wide columns; in this branch we still want them on
+      // real desktop (>=1024) and phone landscape so the wide
+      // view matches what the user expects.
+      if (PRESSURE_DEWPOINT_VIS.has(id) && !wideLayout) return false
       if (!showMarine && marineColIds.has(id)) return false
       if (showMarine && !showBasic && !marineColIds.has(id)) return false
       return true
     }),
-    [columnOrder, showMarine, showBasic, isMobilePortrait, marineColIds, PORTRAIT_BASIC_COLS, PORTRAIT_MARINE_COLS, PORTRAIT_MARINE_REPLACEMENT]
+    [
+      columnOrder,
+      showMarine,
+      showBasic,
+      isMobilePortrait,
+      wideLayout,
+      marineColIds,
+      PORTRAIT_BASIC_COLS,
+      PORTRAIT_MARINE_COLS,
+      PORTRAIT_MARINE_REPLACEMENT,
+      PRESSURE_DEWPOINT_VIS,
+    ]
   )
   const colDefs = useMemo(
     () => visibleIds.map(id => METRIC_COLUMNS.find(c => c.id === id)!),
@@ -1232,21 +1278,17 @@ export default function InsightsTable({
                   // every viewport and stops fighting the layout
                   // for breathing room.
                   //
-                  // Sprint 16 follow-up: the inline `visibility:
-                  // collapse` used to be applied for any hideClass
-                  // that contains `hidden`, but it overrides the
-                  // CSS `visibility-or-desktop:table-cell` rule
-                  // regardless of the actual viewport (inline
-                  // styles win without `!important`). That kept
-                  // pressure/dewpoint/visibility hidden in phone
-                  // landscape. We now only apply the collapse when
-                  // the hideClass is purely the breakpoint-based
-                  // `hidden` (i.e. the column has no dynamic
-                  // visibility-or-desktop that could win).
+                  // Sprint 16: the inline `visibility: collapse` is
+                  // applied only when the hideClass contains `hidden`
+                  // (i.e. the column is hidden by the CSS rule, not
+                  // by the JS visibleIds filter). For pressure/
+                  // dewpoint/visibility we removed the hideClass
+                  // entirely and let the JS decide whether to render
+                  // the <col>, so this branch never fires for them.
                   className={col.hideClass ?? ''}
                   style={{
                     width: `${COLUMN_WIDTHS[col.id] ?? 48}px`,
-                    ...(col.hideClass && /\bhidden\b/.test(col.hideClass) && !/\bvisibility-or-desktop:table-cell\b/.test(col.hideClass)
+                    ...(col.hideClass && /\bhidden\b/.test(col.hideClass)
                       ? { visibility: 'collapse' as const }
                       : {}),
                   }}

@@ -509,12 +509,24 @@ describe('InsightsTable — B-NEW-2 hideClass on <col> prevents left-collapse', 
         weekDays={14}
       />
     ))
-    const hiddenIds = ['min', 'max', 'clouds', 'gusts', 'pressure', 'dewpoint', 'visibility']
+    // Sprint 16 follow-up: pressure/dewpoint/visibility are no
+    // longer controlled via CSS hideClass — they live in
+    // visibleIds and are JS-controlled. Their <col> is rendered
+    // (defined in METRIC_COLUMNS) regardless of viewport.
+    const hiddenIds = ['min', 'max', 'clouds', 'gusts']
     const table = document.querySelector('table')!
     for (const id of hiddenIds) {
       const col = table.querySelector(`colgroup col[data-col-id="${id}"]`)
       expect(col, `col[${id}] should exist`).toBeTruthy()
       expect((col?.className ?? '').includes('hidden'), `col[${id}] should carry hidden`).toBe(true)
     }
+    // Sprint 16 follow-up: pressure/dewpoint/visibility's <col>
+    // is rendered only when the column is in visibleIds. In this
+    // test the matchMedia default means isRealDesktop is false,
+    // so they're filtered out by the JS visibleIds and no <col>
+    // is rendered. Verify the <col> exists when the desktop
+    // query matches (a sibling assertion in the mobile suite
+    // covers the desktop path).
+    expect(table.querySelector('colgroup col[data-col-id="pressure"]')).toBeNull()
   })
 })

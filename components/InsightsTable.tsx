@@ -1188,7 +1188,19 @@ export default function InsightsTable({
               {STRINGS[locale].marine}
             </button>
           )}
-          {onBasicToggle && showMarine && (
+          {onBasicToggle && showMarine && !isMobilePortrait && (
+            // B-NEW-28 (2026-07-28): the "Basic" toggle is hidden
+            // on mobile portrait because the column filter is
+            // already conditional on `showMarine` (the marine set
+            // *replaces* humidity + uv with sea_temp + wave_height
+            // so the table always shows 6 data cols in portrait —
+            // see `visibleIds` below). Toggling `showBasic` would
+            // be a no-op on the user's screen, so the button was
+            // dead weight. On landscape phones and real desktop
+            // the toggle is still useful: it lets the user switch
+            // between "marine only" and "marine + basic" so they
+            // can compare how the new columns interact with the
+            // familiar temp/wind/precip/cond set.
             <button
               type="button"
               onClick={onBasicToggle}

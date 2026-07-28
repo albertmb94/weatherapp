@@ -461,7 +461,7 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     ).toBeNull()
   })
 
-  it('Basic toggle is only rendered when Marine is on', async () => {
+  it('Basic toggle is hidden on mobile portrait even when Marine is on (no-op control)', async () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -482,12 +482,25 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
       />
     ))
     await screen.findByTestId('next-page-cta')
-    // B-NEW-25: with Marine on, both Marine and Basic
-    // toggles render in the toolbar.
+    // B-NEW-25 (2026-07-28): the old test expected the Basic
+    // button to be visible when Marine was on. That was a
+    // regression — the portrait column filter is unconditional
+    // on `showMarine` (it swaps humidity + uv for sea_temp +
+    // wave_height so the table always shows 6 data cols), so
+    // toggling `showBasic` would change NOTHING on the user's
+    // screen. The button was dead weight and the user reported
+    // it as confusing.
+    //
+    // B-NEW-28 (2026-07-28): the Basic button is now hidden
+    // on mobile portrait (regardless of `showMarine`). It still
+    // renders on landscape and desktop where the toggle is
+    // meaningful — see the landscape regression test below.
     const marineButton = screen.getByRole('button', { name: /Marine/i })
-    const basicButton = screen.getByRole('button', { name: /Basic/i })
     expect(marineButton).toBeInTheDocument()
-    expect(basicButton).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Basic/i }),
+      'Basic toggle must NOT render on mobile portrait (no-op control)',
+    ).toBeNull()
   })
 
   it('Basic toggle is hidden when Marine is off (the data is already basic)', async () => {
@@ -839,5 +852,36 @@ describe('InsightsTable — mobile landscape keeps the mobile chrome layout (Spr
     // semantics to all landscape scenarios.
     expect(container.className).toContain('overflow-x-auto')
     expect(container.className).not.toContain('overflow-x-hidden')
+  })
+
+  // B-NEW-28 (2026-07-28): the Basic toggle is hidden on mobile
+  // portrait (no-op control) but stays visible on landscape and
+  // desktop where it actually changes the column set. This is
+  // the regression guard for the portrait hide.
+  it('on mobile landscape with Marine on, the Basic toggle IS rendered and switches the column set', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        showMarine={true}
+        showBasic={true}
+        onMarineToggle={() => {}}
+        onBasicToggle={() => {}}
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    const marineButton = screen.getByRole('button', { name: /Marine/i })
+    const basicButton = screen.getByRole('button', { name: /Basic/i })
+    expect(marineButton).toBeInTheDocument()
+    expect(basicButton, 'Basic toggle must still render on landscape where the column set depends on it').toBeInTheDocument()
   })
 })

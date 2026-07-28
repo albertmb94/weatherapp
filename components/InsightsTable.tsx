@@ -82,6 +82,16 @@ const BUCKET_OPTIONS: BucketHours[] = [1, 2, 6, 12, 24]
 const BUCKET_LABELS: Record<BucketHours, string> = {
   1: '1h', 2: '2h', 3: '3h', 4: '4h', 6: '6h', 12: '12h', 24: '1d',
 }
+// B-NEW-25 (2026-07-28): on mobile portrait the bucket bar
+// shows ONLY 1h and 1d. The 2h/6h/12h options were dropped
+// because the user only switches between hour-level and
+// day-level granularity on their phone; the intermediate
+// buckets add clutter and compete for space with Marine +
+// Basic. The desktop/tablet bar keeps the full BUCKET_OPTIONS
+// set. If the user resizes to mobile while a non-mobile
+// bucket is active, the reset effect below snaps it back to
+// 1h so they're not stuck on a bucket they can't switch off.
+const MOBILE_BUCKET_OPTIONS: BucketHours[] = [1, 24]
 
 type MetricCellId =
   | 'cond' | 'temp' | 'min' | 'max' | 'clouds'
@@ -447,10 +457,6 @@ export default function InsightsTable({
     setColumnOrder(DEFAULT_ORDER)
     saveColumnOrder(DEFAULT_ORDER)
   }, [])
-
-  // Reset currentPage to 0 whenever the bucket changes so the user
-  // always starts at the top of the new window.
-// Sprint 14: this effect is now owned by `useInsightPagination`.
 
   // B-NEW-21 (2026-07-27): the "today" anchor used by `bucketLabel`
   // must be the same on the server and the client. The forecast's
@@ -887,6 +893,28 @@ export default function InsightsTable({
     return () => ro.disconnect()
   }, [isMobilePortrait])
 
+  // B-NEW-25 (2026-07-28): when the user lands on mobile
+  // portrait (or rotates to it) with a bucket that's not in
+  // MOBILE_BUCKET_OPTIONS (i.e. 2h/6h/12h — see the comment
+  // on MOBILE_BUCKET_OPTIONS above), reset the bucket to 1h
+  // via the parent's callback. Without this, the user would
+  // see data for the old bucket but have no buttons to
+  // change it. We also force `compact` off: the hamburger
+  // menu that toggles compact is hidden on mobile portrait
+  // (see the toolbar block below) so a stale `compact=true`
+  // from a previous desktop session would lock out 4 of the
+  // 6 mobile columns (humidity, uv, pressure, dewpoint)
+  // without any way to bring them back.
+  useEffect(() => {
+    if (!isMobilePortrait) return
+    if (bucket !== 1 && bucket !== 24) {
+      onBucketChange(1)
+    }
+    if (compact) {
+      setCompact(false)
+    }
+  }, [isMobilePortrait, bucket, compact, onBucketChange])
+
   // B-NEW-23: compute the per-column pixel widths from the
   // measured container width. The when col is fixed at
   // 64 px (enough for "Mañ 00:00" at 11 px font-mono + 8 px
@@ -1110,18 +1138,32 @@ export default function InsightsTable({
           ) : null}
       </div>
       <div className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
-        <div className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">
-          {BUCKET_OPTIONS.map(b => (
-            <button
-              key={b}
-              onClick={() => onBucketChange(b)}
-              className={`flex-1 px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
-                bucket === b ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
-              }`}
-            >
-              {BUCKET_LABELS[b]}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">
+          {/* B-NEW-25 (2026-07-28): the bucket buttons live in
+              their own flex-1 group so they share whatever
+              space the toggle buttons don't take. On mobile
+              portrait only 1h + 1d render (see
+              MOBILE_BUCKET_OPTIONS); on desktop the full set
+              [1, 2, 6, 12, 24] is shown. The gap-x of 1.5
+              (6 px) gives the bucket group a little visual
+              breathing room from the toggles without making
+              the bar look split. */}
+          <div
+            className="flex-1 flex items-center gap-1 min-w-0"
+            data-testid="bucket-bar"
+          >
+            {(isMobilePortrait ? MOBILE_BUCKET_OPTIONS : BUCKET_OPTIONS).map(b => (
+              <button
+                key={b}
+                onClick={() => onBucketChange(b)}
+                className={`flex-1 min-w-0 px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${
+                  bucket === b ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                }`}
+              >
+                {BUCKET_LABELS[b]}
+              </button>
+            ))}
+          </div>
           {onMarineToggle && (
             <button
               type="button"
@@ -1138,7 +1180,7 @@ export default function InsightsTable({
               {STRINGS[locale].marine}
             </button>
           )}
-          {onBasicToggle && (
+          {onBasicToggle && showMarine && (
             <button
               type="button"
               onClick={onBasicToggle}
@@ -1163,13 +1205,25 @@ export default function InsightsTable({
               ↺
             </button>
           )}
-          <button
-            onClick={() => setCompact(c => !c)}
-            className={`shrink-0 real-desktop:hidden px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'}`}
-            title="Compact mode"
-          >
-            ≡
-          </button>
+          {/* B-NEW-25: the hamburger (≡) compact-mode toggle
+              is hidden on mobile portrait. The user only ever
+              wanted the basic 6 columns + the 2 marine
+              essentials on their phone — the column-compaction
+              menu (which would hide 9 additional cols) is
+              dead weight on a 393 px viewport. The
+              useEffect above also forces `compact` off when
+              entering mobile portrait so a stale desktop
+              setting doesn't lock out columns. */}
+          {!isMobilePortrait && (
+            <button
+              onClick={() => setCompact(c => !c)}
+              className={`shrink-0 real-desktop:hidden px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'}`}
+              title="Compact mode"
+              data-testid="compact-toggle"
+            >
+              ≡
+            </button>
+          )}
         </div>
         <div
           // Sprint 10 / B-10-7: vertical + horizontal scroll happen INSIDE

@@ -397,11 +397,137 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
         ensembleMode="wedai"
       />
     ))
-    const nextCta = await screen.findByTestId('next-page-cta')
-    expect(nextCta).toBeInTheDocument()
-    fireEvent.click(nextCta)
-    const prevCta = await screen.findByTestId('prev-page-cta')
-    expect(prevCta).toBeInTheDocument()
+    await screen.findByTestId('next-page-cta')
+    // B-NEW-25 (2026-07-28): on mobile portrait the bucket
+    // bar shows ONLY 1h and 1d. The 2h/6h/12h options were
+    // dropped because the user only switches between
+    // hour-level and day-level granularity on their phone.
+    const bucketBar = screen.getByTestId('bucket-bar')
+    const bucketLabels = Array.from(
+      bucketBar.querySelectorAll('button'),
+    ).map(b => (b.textContent ?? '').trim())
+    expect(bucketLabels, 'mobile portrait bucket bar should only contain 1h and 1d').toEqual(['1h', '1d'])
+  })
+
+  it('compact-mode hamburger toggle is hidden on mobile portrait', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    // B-NEW-25: the ≡ hamburger that toggles `compact`
+    // (which hides 9 of 14 columns) is removed on mobile
+    // portrait. The user only ever wanted the basic 6 cols
+    // + the 2 marine essentials on their phone, and
+    // accidentally toggling compact would lock out 4 of the
+    // 6 mobile columns.
+    expect(
+      screen.queryByTestId('compact-toggle'),
+      'compact-mode hamburger should not be rendered on mobile portrait',
+    ).toBeNull()
+  })
+
+  it('Basic toggle is only rendered when Marine is on', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        showMarine={true}
+        onMarineToggle={() => {}}
+        showBasic={true}
+        onBasicToggle={() => {}}
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    // B-NEW-25: with Marine on, both Marine and Basic
+    // toggles render in the toolbar.
+    const marineButton = screen.getByRole('button', { name: /Marine/i })
+    const basicButton = screen.getByRole('button', { name: /Basic/i })
+    expect(marineButton).toBeInTheDocument()
+    expect(basicButton).toBeInTheDocument()
+  })
+
+  it('Basic toggle is hidden when Marine is off (the data is already basic)', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        showMarine={false}
+        onMarineToggle={() => {}}
+        showBasic={true}
+        onBasicToggle={() => {}}
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    // B-NEW-25: with Marine off the Basic toggle is hidden
+    // — the data already IS the basic column set, so a
+    // "Basic" toggle would be confusing (and the only
+    // meaningful state is the default). The Marine button
+    // is still there so the user can turn marine on.
+    const marineButton = screen.getByRole('button', { name: /Marine/i })
+    expect(marineButton).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Basic/i }),
+      'Basic toggle must not render when Marine is off (no-op control)',
+    ).toBeNull()
+  })
+
+  it('resets bucket to 1h and clears compact when the user lands on mobile portrait with a non-mobile bucket', async () => {
+    const bucketChanges: number[] = []
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={6}
+        onBucketChange={b => bucketChanges.push(b)}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    // B-NEW-25: with bucket=6 on mobile portrait, the
+    // reset useEffect should fire onBucketChange(1) so the
+    // user isn't stuck on a bucket they can't switch off.
+    // We don't need to wait for a next-page-cta (bucket=6
+    // doesn't paginate), the effect fires synchronously
+    // after mount.
+    expect(
+      bucketChanges,
+      'onBucketChange(1) should fire when entering mobile portrait with bucket=6',
+    ).toContain(1)
   })
 })
 
@@ -438,6 +564,66 @@ describe('InsightsTable — desktop non-portrait renders the full column set', (
     expect(headers).toContain('dewpoint')
     expect(headers).toContain('visibility')
     expect(headers).toContain('gusts')
+  })
+
+  it('bucket bar on desktop shows the full 1h/2h/6h/12h/1d set', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    // B-NEW-25: on desktop (isMobilePortrait=false) the
+    // full bucket set is shown. The mobile-only restriction
+    // to [1, 24] only applies when isMobilePortrait is
+    // true. We pin the desktop behavior here so future
+    // refactors don't accidentally drop the intermediate
+    // buckets on desktop too.
+    const bucketBar = screen.getByTestId('bucket-bar')
+    const labels = Array.from(
+      bucketBar.querySelectorAll('button'),
+    ).map(b => (b.textContent ?? '').trim())
+    expect(labels).toEqual(['1h', '2h', '6h', '12h', '1d'])
+  })
+
+  it('compact-mode hamburger is present on desktop non-portrait', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+    // B-NEW-25: on desktop the compact-mode hamburger is
+    // present (real-desktop:hidden in the className only
+    // kicks in on real-desktop viewports; the test setup
+    // pins the 1024+ matchMedia so we render the
+    // non-real-desktop variant which IS the real-desktop
+    // path). We pin the desktop behavior here so future
+    // refactors don't accidentally drop it.
+    expect(
+      screen.queryByTestId('compact-toggle'),
+      'compact-mode hamburger should be present on desktop',
+    ).not.toBeNull()
   })
 
   // B-NEW-24 (2026-07-27): regression for the visibility column

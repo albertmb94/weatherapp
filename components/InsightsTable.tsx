@@ -863,14 +863,16 @@ export default function InsightsTable({
   // B-NEW-23 (2026-07-27): measure the actual container width
   // via ResizeObserver so the column widths fit *exactly* inside
   // the available space. The previous hard-coded CSS variables
-  // (--when-col-w: 80px / 56px + --insights-data-col-w: 46px /
-  // 36px) only worked for two discrete viewport bands and let
+  // (--when-col-w: 88px / 72px + --insights-data-col-w: 46px /
+  // 32px) only worked for two discrete viewport bands and let
   // any viewport in between overflow. With the observer we
   // compute per-column widths at runtime: the when col keeps a
-  // minimum that fits "Mañ 00:00" and the data cols share the
-  // rest equally with a per-column floor. On every viewport
-  // change (orientation, sidebar collapse, etc.) we re-compute
-  // and re-render with the new widths.
+  // minimum that fits the longest 1h-bucket label ("Jue 30 00h"
+  // — 10 chars at 11px font-mono + 12px cell padding ≈ 84px
+  // with breathing room) and the data cols share the rest
+  // equally with a per-column floor. On every viewport change
+  // (orientation, sidebar collapse, etc.) we re-compute and
+  // re-render with the new widths.
   const [measuredWidth, setMeasuredWidth] = useState<number>(0)
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -915,20 +917,26 @@ export default function InsightsTable({
     }
   }, [isMobilePortrait, bucket, compact, onBucketChange])
 
-  // B-NEW-23: compute the per-column pixel widths from the
-  // measured container width. The when col is fixed at
-  // 64 px (enough for "Mañ 00:00" at 11 px font-mono + 8 px
-  // cell padding) and the data cols share whatever's left
-  // with a per-col floor of 28 px (smallest phone, 280 px
-  // viewport: 280 - 64 = 216, 216 / 6 = 36, fits in the
-  // 28-px floor with room to spare). On viewports wider
-  // than ~850 px the data col cap (120 px) kicks in so the
-  // cells don't get absurdly wide — at that point we let
-  // the table have empty space on the right (it has
-  // `w-full` so visually it fills the container) and the
-  // content stays readable.
+  // B-NEW-23 + B-NEW-26 (2026-07-28): compute the per-column
+  // pixel widths from the measured container width. The when
+  // col is fixed at 88 px (enough for the longest 1h-bucket
+  // label, "Jue 30 00h" / "Mié 31 00h" — 10 chars at 11 px
+  // font-mono + 12 px cell padding ≈ 84 px content, with a
+  // 4 px safety margin so the text never bleeds into the
+  // adjacent "Cond" column). The previous 64 px was sized
+  // for the older 9-char "Mañ 00:00" format and silently
+  // overflowed the cell as soon as the label included a
+  // day-of-month digit ("Jue 30 00h"). The data cols share
+  // whatever's left with a per-col floor of 28 px (smallest
+  // phone, 280 px viewport: 280 - 88 = 192, 192 / 6 = 32,
+  // fits in the 28-px floor). On viewports wider than
+  // ~890 px the data col cap (120 px) kicks in so the cells
+  // don't get absurdly wide — at that point we let the table
+  // have empty space on the right (it has `w-full` so
+  // visually it fills the container) and the content stays
+  // readable.
   const MOBILE_DATA_COLS = 6
-  const MOBILE_WHEN_PX = 64 // "Mañ 00:00" at 11px font-mono + 8px padding
+  const MOBILE_WHEN_PX = 88 // "Jue 30 00h" at 11px font-mono + 12px padding
   const MOBILE_DATA_MIN = 28 // absolute floor: smallest supported phone (280 px)
   const MOBILE_DATA_MAX = 120 // wide screens: don't stretch each cell to 200 px
   const tableColumnWidths = useMemo(() => {
@@ -1419,9 +1427,14 @@ export default function InsightsTable({
                   // ResizeObserver above reported. Fall back to
                   // the CSS custom property on non-portrait or
                   // before the first measurement.
+                  // B-NEW-26: the fallback bumped from 64 → 88
+                  // to match the new `MOBILE_WHEN_PX` and the
+                  // updated --when-col-w on mobile (88 px) so
+                  // the longest 1h-bucket label "Jue 30 00h"
+                  // never overflows into the "Cond" column.
                   width: isMobilePortrait && tableColumnWidths
                     ? `${tableColumnWidths.whenW}px`
-                    : 'var(--when-col-w, 64px)',
+                    : 'var(--when-col-w, 88px)',
                 }}
               />
               {colDefs.map((col, idx) => (
@@ -1627,7 +1640,11 @@ export default function InsightsTable({
                     // the text wrapped to 2 lines and broke row-height
                     // consistency. We now use `whitespace-nowrap`
                     // always (the column is wide enough — see
-                    // `--when-col-w` 84 px / 64 px in app/globals.css).
+                    // `--when-col-w` 88 px on desktop/mobile and
+                    // 72 px on the smallest phones in
+                    // app/globals.css, plus `MOBILE_WHEN_PX = 88`
+                    // in JS for the runtime-computed portrait
+                    // path).
                     //
                     // For row-height consistency we additionally
                     // reserve the chip area on EVERY row with

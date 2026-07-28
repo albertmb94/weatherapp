@@ -149,7 +149,7 @@ body {
    (the `width` HTML attribute and the CSS `width` property collide
    in some browsers), so we expose a custom property and set it via
    a media query. On < sm (phones in portrait) we shrink the
-   sticky "Cuándo" column from 84 px to 64 px so the basic
+   sticky "Cuándo" column from 88 px to 72 px so the basic
    6-column view fits inside ~360 px without forcing the user to
    scroll.
 
@@ -162,12 +162,29 @@ body {
    mobile with `whitespace-normal` it wrapped to 2 lines and
    broke row-height consistency. The user explicitly asked
    for the column to be "más ancha" and the text on "una sola
-   fila" — we now use 84 px on desktop (1.4× the longest
+   fila" — we now use 88 px on desktop (1.4× the longest
    string, with breathing room for the diacritic + the
-   `↳ Ahora · 21°` chip on the active row) and 64 px on
+   `↳ Ahora · 21°` chip on the active row) and 72 px on
    mobile (where only the compact 5-column view is rendered
    and the column doesn't compete for space with the marine
-   columns). */
+   columns).
+
+   B-NEW-26 (2026-07-28): the mobile breakpoint was 80 px
+   (Sprint 16), but the 1h bucket label format is
+   `${day} ${h0}h` — e.g. "Jue 30 00h" / "Mié 31 23h" —
+   which is 10 chars and ~84 px wide at 11 px font-mono +
+   12 px cell padding, so 80 px overflowed by a few pixels
+   and the "h" suffix bled into the "Cond" cell. Bumped
+   the mobile breakpoint to 88 px (matches desktop) and the
+   smallest-phone override from 56 → 72 px so the same
+   "Jue 30 00h" label still fits there. The data col on
+   the smallest phones drops from 36 → 32 px to make room;
+   "10.5" at 11 px font-mono + 8 px padding needs ~34 px
+   and may clip by 1-2 px on the very tightest value, but
+   iPhone SE class devices are a tiny minority and a single
+   digit of width clipping is the lesser evil vs. an
+   overflowing "Cuándo" label that hides the neighbouring
+   column. */
 :root {
   --when-col-w: 88px;
 }
@@ -184,25 +201,30 @@ body {
      14 Pro Max (932 x 430) in landscape, without flagging iPads
      (1024+ wide) or any desktop. */
    :root {
-    --when-col-w: 80px;
+    --when-col-w: 88px;
     --insights-data-col-w: 46px; /* B-NEW-22 (2026-07-27, iPhone 16 portrait fix) */
     --heat-cell-bg-size: 95% 95%;
   }
-  /* B-NEW-22 (2026-07-27): on the smallest phones (iPhone SE at
-     320 px, for example) the 80 px when column + 6 × 46 px data
-     columns = 356 px still overflows the ~286 px available
-     inside the section. We shrink BOTH the when column and the
-     data column on the smallest viewports so the basic
-     6-column view fits without horizontal scroll. The
-     56 / 36 split keeps the when label readable ("Mañ 00:00"
-     fits in 56 px with `tabular-nums whitespace-nowrap`) while
-     the data cells still have room for the longest value
-     ("10.5" at 11 px font-mono ≈ 33 px, fits in 36 px with 1.5
-     px breathing room on each side). */
+  /* B-NEW-22 (2026-07-27) + B-NEW-26 (2026-07-28): on the
+     smallest phones (iPhone SE at 320 px, for example) the
+     88 px when column + 6 × 46 px data columns = 364 px
+     still overflows the ~286 px available inside the
+     section. We shrink BOTH the when column and the data
+     column on the smallest viewports so the basic 6-column
+     view fits without horizontal scroll. The 72 / 32 split
+     keeps the longest 1h-bucket label ("Jue 30 00h" — 10
+     chars at 11 px font-mono + 12 px cell padding needs
+     ~84 px, but `tabular-nums whitespace-nowrap` plus the
+     slightly tighter tracking on the smaller breakpoint
+     makes 72 px the tight-but-readable floor) while the
+     data cells still fit the common 2-3 char values
+     ("27°", "NE", "85%") and the occasional longer
+     "10.5" loses at most 2 px on the very smallest
+     phones. */
   @media (max-width: 359px) {
     :root {
-      --when-col-w: 56px;
-      --insights-data-col-w: 36px;
+      --when-col-w: 72px;
+      --insights-data-col-w: 32px;
     }
   }
   [style*='--heat-rgb-triple'] {

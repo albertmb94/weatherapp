@@ -387,7 +387,7 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     expect(table.className).not.toMatch(/(^|\s)table-fixed(\s|$)/)
     expect(table.className).not.toMatch(/\breal-desktop:table-fixed\b/)
     // The table now declares an explicit <colgroup> with the first
-    // column pinned to 64 px so the sticky column has a stable width.
+    // column pinned to 88 px so the sticky column has a stable width.
     const colgroup = table.querySelector('colgroup')!
     expect(colgroup).not.toBeNull()
     const firstCol = colgroup.querySelector('col')!
@@ -396,8 +396,13 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     // desktop without relying on Tailwind responsive variants inside
     // a `<col>` element (which has inconsistent support). The CSS
     // variable is defined in app/globals.css with a media query.
+    // B-NEW-26 (2026-07-28): the inline fallback bumped from
+    // 64 → 88 to match the new MOBILE_WHEN_PX and the updated
+    // --when-col-w on mobile (88 px). The previous 64 px silently
+    // overflowed the cell for the 1h-bucket label "Jue 30 00h"
+    // (10 chars at 11 px font-mono + 12 px cell padding ≈ 84 px).
     expect(firstCol.getAttribute('style')).toMatch(/var\(--when-col-w/i)
-    expect(firstCol.getAttribute('style')).toMatch(/64px/i)
+    expect(firstCol.getAttribute('style')).toMatch(/88px/i)
     // Sprint 10 / B-NEW-2: every <col> must carry the same `hideClass`
     // as its <th>/<td> so `display: none` collapses the column.
     // Under `table-auto` the hideClass still matters: without it,

@@ -270,7 +270,8 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
       //     integers in the [28, 120] px range on mobile
       //     portrait (MOBILE_DATA_MIN / MOBILE_DATA_MAX),
       //     with the when col fixed at MOBILE_WHEN_PX
-      //     (64 px).
+      //     (88 px, B-NEW-26 — widened from 64 px so the
+      //     longest 1h-bucket label "Jue 30 00h" fits).
       const allCols = Array.from(
         table!.querySelectorAll('colgroup col[data-col-id]'),
       ) as HTMLElement[]
@@ -281,10 +282,12 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
         const m = style.match(/width:\s*(\d+)px/)
         expect(m, `col data-col-id=${col.dataset.colId} should have a runtime-computed px width; got style="${style}"`).not.toBeNull()
         const w = Number(m![1])
-        // The when col is 64 px (MOBILE_WHEN_PX). Data cols
-        // are between 28 and 120 px.
+        // B-NEW-26: the when col is 88 px (MOBILE_WHEN_PX),
+        // up from 64 px so the 10-char "Jue 30 00h" / "Mié
+        // 31 00h" labels never overflow into the "Cond"
+        // cell. Data cols are between 28 and 120 px.
         if (col.dataset.colId === '__when__') {
-          expect(w, 'when col fixed at 64 px').toBe(64)
+          expect(w, 'when col fixed at 88 px').toBe(88)
         } else {
           expect(w, `data col ${col.dataset.colId} floor`).toBeGreaterThanOrEqual(28)
           expect(w, `data col ${col.dataset.colId} ceiling`).toBeLessThanOrEqual(120)
@@ -294,8 +297,8 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
       // (4) The total width fits inside the available
       //     container. With 361 px available and the formula
       //     in `tableColumnWidths`, data cols land at
-      //     floor((361 - 64) / 6) = floor(49.5) = 49.
-      //     Total = 64 + 6 * 49 = 358 (3 px safety margin).
+      //     floor((361 - 88) / 6) = floor(45.5) = 45.
+      //     Total = 88 + 6 * 45 = 358 (3 px safety margin).
       expect(totalWidth, 'total table width must fit inside the container').toBeLessThanOrEqual(IPHONE16_AVAILABLE)
       expect(totalWidth, 'total table width should use most of the available space').toBeGreaterThan(IPHONE16_AVAILABLE - 30)
     } finally {

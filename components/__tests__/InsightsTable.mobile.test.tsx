@@ -145,11 +145,20 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
       />
     ))
     await screen.findByTestId('next-page-cta')
-    const containers = Array.from(document.querySelectorAll('div'))
-      .filter(d => d.className.includes('max-h-[70vh]'))
-    expect(containers.length).toBeGreaterThan(0)
-    const container = containers[0]
+    // B-NEW-27 (2026-07-28): the container is identified by
+    // the stable `data-testid` instead of the `max-h-[70vh]`
+    // class — the max-h was removed on mobile portrait so the
+    // page becomes the single scrolling ancestor and the user
+    // doesn't have to juggle a 70vh scroll box inside the page
+    // scroll. The overflow-x-hidden invariant we want to keep
+    // is that a stray wide value still cannot push a horizontal
+    // scrollbar on the container itself.
+    const container = screen.getByTestId('insights-table-scroll')
     expect(container.className).toContain('overflow-x-hidden')
+    // B-NEW-27: also assert the max-h is GONE on mobile portrait
+    // (it stays on landscape and desktop where the bounded scroll
+    // box still makes sense).
+    expect(container.className).not.toMatch(/max-h-\[70vh\]/)
   })
 
   it('column filter on portrait keeps only the columns that fit at 360 px', async () => {
@@ -227,14 +236,23 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
       configurable: true,
       get() {
-        // Only the InsightsTable container (the one with the
-        // 70vh max-h + overflow-x-hidden classes) should
-        // report the iPhone 16 width. Other elements (e.g.
-        // pagination buttons, modal backdrops) keep the
-        // jsdom default of 0 so they don't accidentally
-        // affect unrelated measurements.
-        if (this instanceof HTMLElement && this.className &&
-            this.className.includes('max-h-[70vh]')) {
+        // Only the InsightsTable scroll container (the one
+        // marked with `data-testid="insights-table-scroll"`)
+        // should report the iPhone 16 width. Other elements
+        // (e.g. pagination buttons, modal backdrops) keep the
+        // jsdom default of 0 so they don't accidentally affect
+        // unrelated measurements.
+        //
+        // B-NEW-27 (2026-07-28): the previous filter looked
+        // for `max-h-[70vh]` on the container's className, but
+        // that class is now conditional (only on landscape and
+        // desktop, NOT on mobile portrait where the user wants
+        // the page to be the single scroll). The `data-testid`
+        // is stable across all three viewports, so it survives
+        // the B-NEW-27 change and keeps this test working
+        // without a separate mobile-portrait branch.
+        if (this instanceof HTMLElement && this.dataset &&
+            this.dataset.testid === 'insights-table-scroll') {
           return IPHONE16_AVAILABLE
         }
         return 0
@@ -351,11 +369,13 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     expect(headers).not.toContain('wave_period')
     expect(headers).not.toContain('wave_direction')
     // Container must stay overflow-x-hidden even with Marine ON
-    // (horizontal scroll is not allowed on portrait)
-    const containers = Array.from(document.querySelectorAll('div'))
-      .filter(d => d.className.includes('max-h-[70vh]'))
-    expect(containers.length).toBeGreaterThan(0)
-    expect(containers[0].className).toContain('overflow-x-hidden')
+    // (horizontal scroll is not allowed on portrait). B-NEW-27
+    // (2026-07-28): the container is identified by the stable
+    // `data-testid` instead of the `max-h-[70vh]` class — the
+    // max-h was removed on mobile portrait so the page becomes
+    // the single scroll context.
+    const container = screen.getByTestId('insights-table-scroll')
+    expect(container.className).toContain('overflow-x-hidden')
   })
 
   it('clicking a row still fires onSelectHour with the row center', async () => {

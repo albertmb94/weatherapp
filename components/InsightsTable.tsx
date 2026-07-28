@@ -1251,6 +1251,7 @@ export default function InsightsTable({
           // "completely broken" without a hint that scrolling was
           // possible.
           ref={tableContainerRef}
+          data-testid="insights-table-scroll"
           // Sprint 14: the scrollState handler is removed. The
           // container is overflow-x-hidden below md, so there is no
           // horizontal scroll event to track. The visual hint
@@ -1262,7 +1263,23 @@ export default function InsightsTable({
           // set (~21 cols) overflows ~800 px. We switch to
           // overflow-x-auto so the user can scroll horizontally
           // through the columns without losing the overview.
-          className={`relative max-h-[70vh] contain-[layout_style_paint] ${
+          //
+          // B-NEW-27 (2026-07-28): on mobile portrait the previous
+          // `max-h-[70vh] + overflow-x-hidden` created a
+          // self-contained scroll box inside the page. The user
+          // reported this as a "double scroll" that dirtied the
+          // mobile UX — the page itself scrolls AND the table
+          // scrolls inside its 70vh box, so the user has to
+          // juggle two scroll contexts on a small screen. We now
+          // drop the max-h on mobile portrait so the page becomes
+          // the single scrolling ancestor: the sticky thead sticks
+          // to the viewport top (instead of to the top of the
+          // 70vh box), and the user scrolls the page naturally to
+          // see more rows. The pagination CTAs at the top/bottom
+          // of the table stay reachable because they're part of
+          // the page flow. We keep `overflow-x-hidden` so a stray
+          // wide value still cannot push a horizontal scrollbar.
+          className={`relative ${isMobilePortrait ? '' : 'max-h-[70vh] '}contain-[layout_style_paint] ${
             // Portrait: never horizontal scroll (user complained about
             // "no debe existir scroll horizontal" en vertical).
             // Landscape phone: ALWAYS allow horizontal scroll because

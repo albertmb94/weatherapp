@@ -7,7 +7,6 @@ import dynamic from 'next/dynamic'
 import CitySearch from '@/components/CitySearch'
 import MetricPills from '@/components/MetricPills'
 import ModelSelector from '@/components/ModelSelector'
-import ModelComparisonChart from '@/components/ModelComparisonChart'
 import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
 import MobileTabBar from '@/components/MobileTabBar'
@@ -360,9 +359,12 @@ export default function HomeContent() {
     }
   }, [])
 
-  // The Avanzado content (InsightsTable, DailySummary,
-  // ModelComparisonChart) renders alongside the rest of the page so
-  // the user sees the table on first paint per the product spec.
+  // The Avanzado content (InsightsTable, DailySummary, ModelSelector)
+  // renders alongside the rest of the page so the user sees the
+  // table on first paint per the product spec. The multi-model
+  // comparison chart (WedAI/Models line chart) was removed on
+  // 2026-07-28: the SVG never rendered reliably in the column
+  // layout, so the section now ends with the InsightsTable.
 
   useEffect(() => {
     if (urlState.locale && urlState.locale !== locale) {
@@ -1386,7 +1388,6 @@ export default function HomeContent() {
                   onMarineToggle={handleMarineToggle}
                   showBasic={showBasic}
                   onBasicToggle={handleBasicToggle}
-                  selectedMetric={selectedMetric}
                   onModelChange={handleModelChange}
                   onHourChange={handleHourChange}
                   onBucketChange={handleBucketChange}
@@ -1537,12 +1538,12 @@ export default function HomeContent() {
 }
 
 /**
- * Avanzado (model selector + Insights table + comparison chart) is
- * wrapped in a memoised component so the heavy subtree only re-renders
- * when one of its actual props changes. Without this memo, every URL
- * state change (e.g. toggling a model) re-runs the DailySummary,
- * InsightsTable and ModelComparisonChart tree, which is the dominant
- * cost on slow mobile.
+ * Avanzado (model selector + Insights table) is wrapped in a
+ * memoised component so the heavy subtree only re-renders when one of
+ * its actual props changes. Without this memo, every URL state change
+ * (e.g. toggling a model) re-runs the DailySummary and InsightsTable
+ * tree, which is the dominant cost on slow mobile. The model
+ * comparison chart was removed (2026-07-28) — see comment above.
  */
 const AdvancedSection = memo(function AdvancedSection({
   expanded,
@@ -1560,7 +1561,6 @@ const AdvancedSection = memo(function AdvancedSection({
   onMarineToggle,
   showBasic,
   onBasicToggle,
-  selectedMetric,
   onModelChange,
   onHourChange,
   onBucketChange,
@@ -1583,7 +1583,6 @@ const AdvancedSection = memo(function AdvancedSection({
   onMarineToggle: () => void
   showBasic: boolean
   onBasicToggle: () => void
-  selectedMetric: MetricId
   onModelChange: (ids: string[]) => void
   onHourChange: (hour: number) => void
   onBucketChange: (b: BucketHours) => void
@@ -1712,17 +1711,6 @@ const AdvancedSection = memo(function AdvancedSection({
             onMarineToggle={onMarineToggle}
             showBasic={showBasic}
             onBasicToggle={onBasicToggle}
-            ensembleMode={ensembleMode}
-          />
-          <ModelComparisonChart
-            models={displayModels}
-            activeModelIds={displayActiveModelIds}
-            metric={selectedMetric}
-            times={viewTimes}
-            series={viewSeries}
-            onHourHover={onHourChange}
-            hoveredHour={selectedHour}
-            maxHours={viewTimes.length || effectiveMaxHours}
             ensembleMode={ensembleMode}
           />
         </div>

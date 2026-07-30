@@ -660,6 +660,25 @@ export default function HomeContent() {
   // with `CitiesList` (one query subscription for both panels).
   const { saved: savedLocations } = useSavedLocations()
 
+  // B-NEW-29 (2026-07-30): the smart-Save state shared by
+  // every Save button in the app. `currentCityId` is the id of
+  // the saved record whose name + ~50 m coords match the
+  // currently-loaded city; when it's defined the Save buttons
+  // (mobile menu AND the CitiesList big one) flip into
+  // "already saved" mode instead of letting the user double-tap
+  // and end up with the same city listed two or three times.
+  // The tolerance is intentionally the same one used inside
+  // `saveLocalLocation`'s dedup check, so the UI and the data
+  // layer agree on what "the same place" means.
+  const currentCityId = useMemo(() => {
+    return savedLocations?.find(l =>
+      l.name === cityName &&
+      Math.abs(l.latitude - position[0]) < 0.0005 &&
+      Math.abs(l.longitude - position[1]) < 0.0005
+    )?.id
+  }, [savedLocations, cityName, position])
+  const isCurrentCitySaved = currentCityId !== undefined
+
   const handleCitySelect = useCallback((name: string, lat: number, lon: number) => {
     setCityName(name)
     setPosition([lat, lon])
@@ -1007,15 +1026,25 @@ export default function HomeContent() {
       {/* MOBILE-ONLY: compact top header (search + range pill + refresh). */}
       <div
         data-header-collapsed={isHeaderCollapsed ? 'true' : 'false'}
-        className={`real-desktop:hidden sticky top-0 z-[1100] bg-surface-raised border-b border-border shrink-0 px-3 transition-[padding] duration-150 ${
+        className={`real-desktop:hidden sticky top-0 z-[1100] bg-surface-raised border-b border-border shrink-0 transition-[padding] duration-150 ${
           isHeaderCollapsed ? 'py-1' : 'py-1.5'
         }`}
       >
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 px-3">
           <div className="relative flex-1 min-w-0 z-50">
             <CitySearch onSelect={handleCitySelect} />
           </div>
         </div>
+        {/* B-NEW-29 (2026-07-30): the saved-locations strip now
+            lives directly under the search bar (instead of being
+            buried in the main content flow). On mobile the user
+            wants one-tap access to their bookmarks without
+            scrolling past the metrics, the air-quality card and
+            the forecast map. The strip renders nothing when
+            `saved` is empty, so the header height stays compact
+            on first use. We keep it inside the sticky top header
+            so the chips stay reachable while the user scrolls. */}
+        <SavedLocations onSelect={handleCitySelect} />
       </div>
 
       {/* MOBILE-ONLY: secondary header (geo, map toggle, theme, lang, hamburger). */}
@@ -1083,10 +1112,28 @@ export default function HomeContent() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-                className="min-h-[36px] px-3 rounded text-xs font-medium bg-surface-popover text-text-secondary border border-border disabled:opacity-50 cursor-pointer"
+                // B-NEW-29 (2026-07-30): the mobile-menu Save
+                // button used to ALWAYS be tappable, which
+                // meant double-tapping added the same city
+                // twice. We now flip into the "already
+                // saved" state when the current city is
+                // already in the list (matching the
+                // CitiesList big button, so both stay in
+                // sync). The check uses the shared
+                // `isCurrentCitySaved` flag computed at the
+                // orchestrator level.
+                disabled={saveMutation.isPending || isCurrentCitySaved}
+                data-testid="mobile-menu-save"
+                aria-pressed={isCurrentCitySaved}
+                className={`min-h-[36px] px-3 rounded text-xs font-medium border transition-colors ${
+                  isCurrentCitySaved
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 cursor-default'
+                    : 'bg-surface-popover text-text-secondary border-border cursor-pointer'
+                } disabled:opacity-60`}
               >
-                Save
+                {isCurrentCitySaved
+                  ? (locale === 'en' ? 'Saved' : 'Guardado')
+                  : (locale === 'en' ? 'Save' : 'Guardar')}
               </button>
               {viewData && (
                 <button
@@ -1127,8 +1174,8 @@ export default function HomeContent() {
             {/* Sticky search + range on tablet/desktop, sitting at the top of
                 the main column. The metric pills are NOT rendered here — they
                 live next to the Map view (which is what they drive). */}
-            <div className="hidden real-desktop:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border px-4 real-desktop:px-6 py-3">
-              <div className="flex items-center gap-2">
+            <div className="hidden real-desktop:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border">
+              <div className="flex items-center gap-2 px-4 real-desktop:px-6 py-3">
                 <div className="relative flex-1 min-w-0">
                   <svg
                     viewBox="0 0 24 24"
@@ -1145,6 +1192,15 @@ export default function HomeContent() {
                 </div>
                 <RefreshButton />
               </div>
+              {/* B-NEW-29 (2026-07-30): saved-locations strip
+                  sticks directly under the search input on
+                  desktop, same as on mobile. The user
+                  complained that the previous layout buried
+                  the list below the offline banner + the
+                  air-quality card, which made the bookmarks
+                  hard to find. Renders nothing when empty
+                  (SavedLocations returns null). */}
+              <SavedLocations onSelect={handleCitySelect} />
             </div>
 
             {/* F-5: offline banner — visible only when navigator.onLine is false. */}
@@ -1227,9 +1283,19 @@ export default function HomeContent() {
                   (see `airQualityQuery` above) because the
                   Métricas tiles depend on it. */}
 
-              {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map') && (
-                <SavedLocations onSelect={handleCitySelect} />
-              )}
+              {/* B-NEW-29 (2026-07-30): the saved-locations
+                  strip used to live HERE, below the offline
+                  banner + the AirConditionsGrid + the map. The
+                  user reported it was hard to reach on mobile
+                  because a 3-4 screenfuls of metrics sat
+                  between the search bar and the chips. We
+                  moved it directly under the search bar in
+                  both the mobile sticky header (above) and
+                  the desktop sticky search row (also above)
+                  so the chips are one tap away. The render
+                  here is intentionally removed; the component
+                  itself is rendered twice above (once for
+                  mobile, once for desktop). */}
 
               {showMap && selectedView === 'map' && (
                 <section ref={mapSectionRef} className="space-y-2">
@@ -1412,16 +1478,15 @@ export default function HomeContent() {
                   <CitiesList
                     onSelect={handleCitySelect}
                     currentCityName={cityName}
-                    currentCityId={(() => {
-                      // Match by name + ~50m coordinate tolerance so a re-load
-                      // of the same place is recognised as already-saved.
-                      const around = savedLocations?.find(l =>
-                        l.name === cityName &&
-                        Math.abs(l.latitude - position[0]) < 0.0005 &&
-                        Math.abs(l.longitude - position[1]) < 0.0005
-                      )
-                      return around?.id
-                    })()}
+                    // B-NEW-29: the id lookup is computed once at
+                    // the orchestrator level (`currentCityId`
+                    // useMemo above) and shared by every Save
+                    // button in the app. CitiesList receives the
+                    // same value, so the "already saved"
+                    // treatment stays in sync if the user adds
+                    // or removes the current city from the
+                    // panel.
+                    currentCityId={currentCityId}
                     onSaveCurrent={() => saveMutation.mutate()}
                     saving={saveMutation.isPending}
                   />

@@ -41,8 +41,42 @@ export function getLocalSavedLocations(): SavedLocation[] {
   }
 }
 
+// B-NEW-29 (2026-07-30): two locations are considered the "same
+// place" when the display name matches AND the coordinates are
+// within ~50 m. The tolerance (0.0005 degrees) matches the one
+// `home-content.tsx` uses to identify the currently-loaded city
+// inside the saved list, so a re-save round-trips cleanly. Names
+// are compared case-insensitively because geocoders occasionally
+// return the same city with a different capitalisation
+// ("Barcelona" vs "barcelona").
+const DEDUP_COORD_TOLERANCE = 0.0005
+function isSameLocation(
+  candidate: SavedLocation,
+  name: string,
+  latitude: number,
+  longitude: number,
+): boolean {
+  return (
+    candidate.name.toLocaleLowerCase() === name.toLocaleLowerCase() &&
+    Math.abs(candidate.latitude - latitude) < DEDUP_COORD_TOLERANCE &&
+    Math.abs(candidate.longitude - longitude) < DEDUP_COORD_TOLERANCE
+  )
+}
+
 export function saveLocalLocation(name: string, latitude: number, longitude: number): SavedLocation {
   const locations = getLocalSavedLocations()
+  // Dedup: if a location with the same name and ~50m-tolerated
+  // coords already exists, return the existing record instead of
+  // pushing a duplicate. The UI also disables the Save button in
+  // that case (see `currentCityId` in home-content.tsx + the
+  // mobile-menu Save button), but we treat the data layer as the
+  // single source of truth: any code path that calls
+  // `saveLocalLocation` for an already-saved place must be
+  // idempotent. The user reported the same city appearing two or
+  // three times in the saved list when they tapped Save more than
+  // once on the same view; this is the fix.
+  const existing = locations.find(l => isSameLocation(l, name, latitude, longitude))
+  if (existing) return existing
   const loc: SavedLocation = { id: nextId(), name, latitude, longitude }
   locations.push(loc)
   localStorage.setItem(LOCAL_KEY, JSON.stringify(locations))

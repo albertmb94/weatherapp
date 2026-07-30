@@ -92,6 +92,28 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
     onSelect(r.name, r.latitude, r.longitude)
   }
 
+  // B-NEW-29 (2026-07-30): one-tap clear for the search field.
+  // The previous UX forced the user to select-all + delete (or
+  // hold backspace) to start a fresh search, which on a 393 px
+  // mobile viewport was annoying — the keyboard eats half the
+  // screen and selecting text is fiddly. We show a small ×
+  // inside the input on the right edge whenever `query` is
+  // non-empty; clicking it resets both the visible text and
+  // the debounced query (so an in-flight geocode request gets
+  // cancelled on the next render), closes the dropdown, and
+  // returns focus to the input so the user can keep typing.
+  function handleClear() {
+    setQuery('')
+    setDebouncedQuery('')
+    setIsOpen(false)
+    suppressAutoOpenRef.current = true
+    // Cancel any pending debounce timer so a stale request
+    // doesn't fire after the clear and re-open the dropdown.
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    const input = document.getElementById('city-search-input') as HTMLInputElement | null
+    input?.focus()
+  }
+
   return (
     <div ref={wrapperRef} className="relative w-full">
       <input
@@ -101,12 +123,34 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         onChange={handleChange}
         onFocus={() => { if (results.length > 0) setIsOpen(true) }}
         placeholder="Search..."
-        className="w-full min-w-0 pl-9 pr-3 py-2 bg-surface-popover text-text-primary text-sm rounded-lg placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 border border-border transition-colors"
+        // Bump right padding from pr-3 → pr-9 so the typed text
+        // never slides under the new clear button (or the
+        // existing spinner). The clear button reserves the right
+        // 28 px so the user's last character stays readable.
+        className="w-full min-w-0 pl-9 pr-9 py-2 bg-surface-popover text-text-primary text-sm rounded-lg placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 border border-border transition-colors"
       />
       {isFetching && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <div className="w-3 h-3 border-2 border-text-tertiary border-t-transparent rounded-full animate-spin" />
         </div>
+      )}
+      {query.length > 0 && !isFetching && (
+        <button
+          type="button"
+          onClick={handleClear}
+          aria-label="Clear search"
+          data-testid="city-search-clear"
+          // The button sits where the spinner would be (right
+          // edge) so the input never has two adornments fighting
+          // for the same slot. 24 × 24 keeps the touch target
+          // above the 36 px Material minimum (the parent
+          // container stretches to min-h-9 = 36 px).
+          className="absolute right-2 top-1/2 -translate-y-1/2 min-w-[24px] min-h-[24px] flex items-center justify-center rounded-full text-text-tertiary hover:text-text-primary hover:bg-surface-raised/60 transition-colors"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
       )}
       {isOpen && results.length > 0 && (
         <ul className="absolute z-50 left-0 right-0 mt-1 bg-surface-popover border border-border rounded-lg shadow-lg max-h-48 overflow-auto animate-fadeIn">

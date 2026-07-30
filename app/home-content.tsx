@@ -1021,10 +1021,52 @@ export default function HomeContent() {
 
   const mobileTabFromView = selectedView === 'map' ? 'map' : selectedView === 'stations' ? 'stations' : (selectedView === 'weather' || selectedView === 'cities' ? 'models' : 'models')
 
+  // B-NEW-30 (2026-07-30): expose the mobile-header height as
+  // a CSS custom property on `:root` so the InsightsTable's
+  // sticky toolbar + sticky thead can pin themselves to the
+  // correct y-offset when the user scrolls on a phone. Without
+  // this, the sticky elements have no way to know how tall the
+  // header above them is (it varies with the saved-locations
+  // strip and with the collapsed/expanded padding state), and
+  // they'd either overlap the header or leave a gap.
+  //
+  // We use a ResizeObserver instead of measuring on every
+  // render because the header's height changes mid-session
+  // (e.g. when a saved-location chip is added, the strip
+  // grows by ~30 px). The observer updates the CSS variable
+  // synchronously, so the next paint already has the right
+  // offset.
+  //
+  // On desktop the mobile header is hidden (the
+  // `real-desktop:hidden` class sets `display: none` at the
+  // real-desktop breakpoint), so the observer measures a
+  // 0-height element and `--mobile-header-h` is `0px`. The
+  // InsightsTable's sticky positions then collapse to the
+  // viewport top, which matches the pre-B-NEW-30 behaviour.
+  const mobileHeaderRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const el = mobileHeaderRef.current
+    if (!el) return
+    const measure = () => {
+      const h = el.getBoundingClientRect().height
+      // Use 0 for the desktop case (the header is
+      // `display: none` so its height is 0). We round to the
+      // nearest integer to keep the CSS variable clean.
+      const value = Math.max(0, Math.round(h))
+      document.documentElement.style.setProperty('--mobile-header-h', `${value}px`)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground overflow-x-hidden pb-[calc(52px+env(safe-area-inset-bottom))] real-desktop:pb-0">
       {/* MOBILE-ONLY: compact top header (search + range pill + refresh). */}
       <div
+        ref={mobileHeaderRef}
         data-header-collapsed={isHeaderCollapsed ? 'true' : 'false'}
         className={`real-desktop:hidden sticky top-0 z-[1100] bg-surface-raised border-b border-border shrink-0 transition-[padding] duration-150 ${
           isHeaderCollapsed ? 'py-1' : 'py-1.5'

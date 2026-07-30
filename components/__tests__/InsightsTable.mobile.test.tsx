@@ -150,11 +150,17 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     // class — the max-h was removed on mobile portrait so the
     // page becomes the single scrolling ancestor and the user
     // doesn't have to juggle a 70vh scroll box inside the page
-    // scroll. The overflow-x-hidden invariant we want to keep
-    // is that a stray wide value still cannot push a horizontal
-    // scrollbar on the container itself.
+    // scroll.
+    //
+    // B-NEW-30 (2026-07-30): the horizontal-clip class moved
+    // from `overflow-x-hidden` to `overflow-x-clip` so it no
+    // longer creates a scroll container (which would break
+    // the sticky thead). They behave identically for
+    // clipping — both hide horizontal overflow without a
+    // visible scrollbar — so the user-facing invariant
+    // ("no horizontal scroll on portrait") is unchanged.
     const container = screen.getByTestId('insights-table-scroll')
-    expect(container.className).toContain('overflow-x-hidden')
+    expect(container.className).toMatch(/overflow-x-(hidden|clip)\b/)
     // B-NEW-27: also assert the max-h is GONE on mobile portrait
     // (it stays on landscape and desktop where the bounded scroll
     // box still makes sense).
@@ -368,14 +374,18 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     expect(headers).not.toContain('gusts')
     expect(headers).not.toContain('wave_period')
     expect(headers).not.toContain('wave_direction')
-    // Container must stay overflow-x-hidden even with Marine ON
-    // (horizontal scroll is not allowed on portrait). B-NEW-27
+    // Container must clip horizontal overflow even with Marine
+    // ON (no horizontal scroll on portrait). B-NEW-27
     // (2026-07-28): the container is identified by the stable
     // `data-testid` instead of the `max-h-[70vh]` class — the
     // max-h was removed on mobile portrait so the page becomes
-    // the single scroll context.
+    // the single scroll context. B-NEW-30 (2026-07-30):
+    // `overflow-x-hidden` was switched to `overflow-x-clip` to
+    // stop the container from establishing a scroll context
+    // (which broke the sticky thead), but the user-facing
+    // behaviour — no horizontal scrollbar — is unchanged.
     const container = screen.getByTestId('insights-table-scroll')
-    expect(container.className).toContain('overflow-x-hidden')
+    expect(container.className).toMatch(/overflow-x-(hidden|clip)\b/)
   })
 
   it('clicking a row still fires onSelectHour with the row center', async () => {
@@ -564,6 +574,109 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
       bucketChanges,
       'onBucketChange(1) should fire when entering mobile portrait with bucket=6',
     ).toContain(1)
+  })
+
+  // B-NEW-30 (2026-07-30): the user reported that on mobile
+  // portrait the bucket bar (1h / 1d / Marine) and the column
+  // names row (Cuándo / Cond / Temp / …) scrolled away with
+  // the page, so they lost track of which column they were
+  // looking at. We made BOTH elements sticky on mobile
+  // portrait. The test pins:
+  //   (a) the bucket-bar toolbar carries `sticky top-[…]`
+  //       and an explicit z-index so it stays above the
+  //       page content while scrolling;
+  //   (b) the thead carries `sticky top-[calc(…+44px)]` so
+  //       it lands directly below the toolbar, not on top
+  //       of it.
+  // We don't try to verify the actual CSS variable
+  // resolution (jsdom doesn't compute `calc()`) — the
+  // important invariants are the className strings.
+  it('bucket bar and thead are sticky on mobile portrait (B-NEW-30)', async () => {
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={fakeTimes(0, HOURS)}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+      />
+    ))
+    await screen.findByTestId('next-page-cta')
+
+    // (a) The toolbar wrapping the bucket bar + Marine toggle
+    // must be sticky with a z-index higher than the default
+    // page content (z-40) so it floats above rows while the
+    // user scrolls.
+    const bucketBar = screen.getByTestId('bucket-bar')
+    const toolbar = bucketBar.parentElement as HTMLElement
+    expect(toolbar).not.toBeNull()
+    expect(toolbar.className).toMatch(/\bsticky\b/)
+    expect(toolbar.className).toMatch(/\bz-40\b/)
+    // The sticky `top` references the --mobile-header-h CSS
+    // variable that the app shell sets via ResizeObserver.
+    // We don't assert the exact computed value (jsdom doesn't
+    // run layout) — just that the className declares the
+    // variable-driven top.
+    expect(toolbar.className).toMatch(/top-\[var\(--mobile-header-h/)
+
+    // (b) The thead must also be sticky and pin itself below
+    // the toolbar (44 px = py-2 + min-h-[28px] button row).
+    const thead = document.querySelector('thead') as HTMLElement
+    expect(thead).not.toBeNull()
+    expect(thead.className).toMatch(/\bsticky\b/)
+    expect(thead.className).toMatch(/top-\[calc\(var\(--mobile-header-h/)
+  })
+
+  it('on mobile landscape, the bucket bar is NOT sticky (table container owns the scroll)', async () => {
+    // Swap matchMedia to landscape for this test only.
+    const original = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query.includes('landscape'),
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    })
+    try {
+      render(wrap(
+        <InsightsTable
+          models={MODELS}
+          activeModelIds={['gfs_global', 'ecmwf_ifs']}
+          times={fakeTimes(0, HOURS)}
+          series={SERIES}
+          bucket={1}
+          onBucketChange={() => {}}
+          selectedHour={0}
+          onSelectHour={() => {}}
+          maxHours={HOURS}
+          utcOffsetSeconds={0}
+          ensembleMode="wedai"
+        />
+      ))
+      await screen.findByTestId('next-page-cta')
+
+      const bucketBar = screen.getByTestId('bucket-bar')
+      const toolbar = bucketBar.parentElement as HTMLElement
+      // On landscape the toolbar uses `overflow-x-auto`
+      // (the full bucket set might overflow on narrow widths)
+      // and is NOT sticky — the table container owns the
+      // scroll context there (max-h-[70vh] + overflow-x-auto).
+      expect(toolbar.className).not.toMatch(/\bsticky\b/)
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { writable: true, value: original })
+    }
   })
 })
 

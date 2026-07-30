@@ -1145,8 +1145,38 @@ export default function InsightsTable({
             </span>
           ) : null}
       </div>
-      <div className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
-        <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border">
+      {/* B-NEW-30 (2026-07-30): the card wraps both the bucket
+          bar and the table. We used `overflow-hidden` here so
+          the `rounded-2xl` corners clipped the children, but
+          `overflow: hidden` ALSO creates a scroll context,
+          which breaks the sticky toolbar + sticky thead
+          (their `position: sticky; top: …` would be measured
+          against this card instead of the page, so they
+          wouldn't follow the page scroll). `overflow: clip`
+          clips the rounded corners WITHOUT establishing a
+          scroll container, so sticky positioning still works
+          against the page. Browser support: Chrome 90+,
+          Firefox 81+, Safari 16+ — all fine for the
+          iPhone-class viewport the user is on. */}
+      <div className="rounded-2xl border border-border bg-surface-raised overflow-clip">
+        <div
+          className={`flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border ${
+            // B-NEW-30: `overflow-x-auto` creates a scroll
+            // container, which would break sticky positioning
+            // (the toolbar would stick against ITSELF, not
+            // the page). On mobile portrait we want the
+            // toolbar to stick to the viewport, so we use
+            // `overflow-x-clip` instead — it clips the
+            // overflow without establishing a scroll
+            // container. The 1h/1d/Marine trio on mobile
+            // portrait never overflows, so we don't need the
+            // scroll fallback. On landscape / desktop the
+            // full bucket set (1h/2h/6h/12h/1d) + toggles
+            // might overflow on narrow widths, so we keep
+            // `overflow-x-auto` there.
+            isMobilePortrait ? 'overflow-x-clip sticky top-[var(--mobile-header-h,0px)] z-40 bg-surface-raised' : 'overflow-x-auto'
+          }`}
+        >
           {/* B-NEW-25 (2026-07-28): the bucket buttons live in
               their own flex-1 group so they share whatever
               space the toggle buttons don't take. On mobile
@@ -1298,8 +1328,23 @@ export default function InsightsTable({
             // the table now shows min/max/clouds/gusts (+ marine cols
             // when marine is on) — those don't fit inside 390 px.
             // Desktop: auto overflow as usual.
+            //
+            // B-NEW-30 (2026-07-30): on mobile portrait we
+            // switch `overflow-x-hidden` → `overflow-x-clip`.
+            // They look identical (both clip horizontal
+            // overflow without a visible scrollbar) but
+            // `hidden` ALSO creates a scroll container, which
+            // would break the sticky thead (its `top` would
+            // be measured against this container instead of
+            // the page). `clip` clips without establishing a
+            // scroll context, so the thead stays pinned to
+            // the viewport. The table is `table-fixed` with
+            // explicit column widths on portrait, so the
+            // horizontal clip is a safety net that never
+            // actually fires — switching it to `clip` is
+            // strictly a layout-context fix.
             isMobilePortrait
-              ? 'overflow-x-hidden'
+              ? 'overflow-x-clip'
               : isMobileLandscape
                 ? 'overflow-x-auto'
                 : 'overflow-x-hidden real-desktop:overflow-auto'
@@ -1508,7 +1553,25 @@ export default function InsightsTable({
                 />
               ))}
             </colgroup>
-          <thead className="bg-surface sticky top-0 z-30">
+          <thead
+            className={`bg-surface z-30 ${
+              // B-NEW-30 (2026-07-30): on mobile portrait the
+              // thead has to stick BELOW the mobile header AND
+              // the bucket bar (both are also sticky at this
+              // point). The mobile-header height comes from
+              // the `--mobile-header-h` CSS variable that the
+              // app shell sets via ResizeObserver (see
+              // home-content.tsx); the bucket bar is a fixed
+              // 44 px (py-2 + min-h-[28px] button content).
+              // On landscape / desktop the thead sticks
+              // inside the table container at top: 0 as
+              // before (the table container is the scroll
+              // context there).
+              isMobilePortrait
+                ? 'sticky top-[calc(var(--mobile-header-h,0px)+44px)]'
+                : 'sticky top-0'
+            }`}
+          >
             <tr className="bg-surface text-text-secondary">
               <th
                 style={{ background: 'var(--surface)' }}
@@ -1524,7 +1587,18 @@ export default function InsightsTable({
                 // text would scroll over the "Cuándo" header label.
                 // The shadow on the right edge renders a vertical
                 // divider so the user can tell the column is sticky.
-                className="sticky left-0 top-0 z-50 text-center px-1.5 py-1.5 font-medium border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)]"
+                className={`sticky left-0 z-50 text-center px-1.5 py-1.5 font-medium border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] ${
+                  // B-NEW-30: the first-column header sticks to
+                  // the left AND the top. On mobile portrait
+                  // the `top` value mirrors the thead's so the
+                  // Cuándo cell stays aligned with the rest of
+                  // the header row (otherwise it would scroll
+                  // up to the viewport top while the other
+                  // column headers stay below the bucket bar).
+                  isMobilePortrait
+                    ? 'top-[calc(var(--mobile-header-h,0px)+44px)]'
+                    : 'top-0'
+                }`}
                 data-col-id="__when__"
               >
                 {STRINGS[locale].tableWhen}
@@ -1552,7 +1626,19 @@ export default function InsightsTable({
                     // header text naturally prefers a single line;
                     // without `overflow-hidden` the text overflows
                     // over the next header cell.
-                    className={`sticky top-0 z-40 bg-surface text-center px-1 py-1.5 real-desktop:px-2.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary overflow-hidden ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
+                    //
+                    // B-NEW-30 (2026-07-30): on mobile portrait the
+                    // `top-0` is replaced with the same offset the
+                    // thead uses so every column header stays
+                    // aligned in a single sticky band. Without this
+                    // the data headers would stick to the viewport
+                    // top while the Cuándo header sat 44 px lower,
+                    // breaking the row visually.
+                    className={`sticky z-40 bg-surface text-center px-1 py-1.5 real-desktop:px-2.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary overflow-hidden ${
+                      isMobilePortrait
+                        ? 'top-[calc(var(--mobile-header-h,0px)+44px)]'
+                        : 'top-0'
+                    } ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}

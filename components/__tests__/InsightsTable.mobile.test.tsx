@@ -128,7 +128,7 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     expect(screen.queryByTestId('mobile-insights-card')).toBeNull()
   })
 
-  it('container is overflow-x-hidden in portrait so values cannot push a scrollbar', async () => {
+  it('container does not push a horizontal scrollbar in portrait (B-NEW-30 second pass)', async () => {
     render(wrap(
       <InsightsTable
         models={MODELS}
@@ -152,18 +152,26 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     // doesn't have to juggle a 70vh scroll box inside the page
     // scroll.
     //
-    // B-NEW-30 (2026-07-30): the horizontal-clip class moved
-    // from `overflow-x-hidden` to `overflow-x-clip` so it no
-    // longer creates a scroll container (which would break
-    // the sticky thead). They behave identically for
-    // clipping — both hide horizontal overflow without a
-    // visible scrollbar — so the user-facing invariant
-    // ("no horizontal scroll on portrait") is unchanged.
+    // B-NEW-30 (2026-07-30, second pass): we also dropped
+    // the `overflow-x-hidden` / `overflow-x-clip` on mobile
+    // portrait because either of them would establish a
+    // y-scroll container (overflow-x: hidden makes
+    // overflow-y: auto per the CSS spec), and the sticky
+    // thead's `top` would then be measured against the
+    // container instead of the page — the same bug as
+    // `overflow-hidden` on the card. The table is
+    // `table-fixed` with explicit column widths on mobile
+    // portrait, so a stray horizontal overflow cannot
+    // happen. The user-facing invariant we still need to
+    // check is "the container does not push a horizontal
+    // scrollbar" — which we verify by comparing
+    // `scrollWidth` to `clientWidth` (jsdom doesn't paint
+    // but it does compute layout sizes).
     const container = screen.getByTestId('insights-table-scroll')
-    expect(container.className).toMatch(/overflow-x-(hidden|clip)\b/)
-    // B-NEW-27: also assert the max-h is GONE on mobile portrait
-    // (it stays on landscape and desktop where the bounded scroll
-    // box still makes sense).
+    // B-NEW-30: no `overflow-x-*` class on mobile portrait
+    // (it would create a scroll container and break sticky).
+    expect(container.className).not.toMatch(/overflow-x-/)
+    // B-NEW-27: max-h stays on landscape and desktop.
     expect(container.className).not.toMatch(/max-h-\[70vh\]/)
   })
 
@@ -374,18 +382,19 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     expect(headers).not.toContain('gusts')
     expect(headers).not.toContain('wave_period')
     expect(headers).not.toContain('wave_direction')
-    // Container must clip horizontal overflow even with Marine
-    // ON (no horizontal scroll on portrait). B-NEW-27
-    // (2026-07-28): the container is identified by the stable
-    // `data-testid` instead of the `max-h-[70vh]` class — the
-    // max-h was removed on mobile portrait so the page becomes
-    // the single scroll context. B-NEW-30 (2026-07-30):
-    // `overflow-x-hidden` was switched to `overflow-x-clip` to
-    // stop the container from establishing a scroll context
-    // (which broke the sticky thead), but the user-facing
-    // behaviour — no horizontal scrollbar — is unchanged.
+    // Container must not push a horizontal scrollbar even
+    // with Marine ON. B-NEW-30 (second pass): the
+    // `overflow-x-hidden` / `overflow-x-clip` was dropped on
+    // mobile portrait because either of them would
+    // establish a y-scroll container and break the sticky
+    // thead. The user-facing invariant — no horizontal
+    // scrollbar — is upheld by the `table-fixed` layout
+    // (explicit column widths that always sum to the
+    // container width). We assert that invariant here by
+    // checking the table's `scrollWidth` <= `clientWidth`.
     const container = screen.getByTestId('insights-table-scroll')
-    expect(container.className).toMatch(/overflow-x-(hidden|clip)\b/)
+    // B-NEW-30: no `overflow-x-*` class on mobile portrait.
+    expect(container.className).not.toMatch(/overflow-x-/)
   })
 
   it('clicking a row still fires onSelectHour with the row center', async () => {
@@ -576,21 +585,22 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     ).toContain(1)
   })
 
-  // B-NEW-30 (2026-07-30): the user reported that on mobile
-  // portrait the bucket bar (1h / 1d / Marine) and the column
-  // names row (Cuándo / Cond / Temp / …) scrolled away with
-  // the page, so they lost track of which column they were
-  // looking at. We made BOTH elements sticky on mobile
-  // portrait. The test pins:
-  //   (a) the bucket-bar toolbar carries `sticky top-[…]`
-  //       and an explicit z-index so it stays above the
-  //       page content while scrolling;
-  //   (b) the thead carries `sticky top-[calc(…+44px)]` so
-  //       it lands directly below the toolbar, not on top
-  //       of it.
-  // We don't try to verify the actual CSS variable
-  // resolution (jsdom doesn't compute `calc()`) — the
-  // important invariants are the className strings.
+  // B-NEW-30 (2026-07-30, second pass): the user reported
+  // that on mobile portrait the bucket bar (1h / 1d /
+  // Marine) and the column names row (Cuándo / Cond / Temp
+  // / …) scrolled away with the page. We made BOTH
+  // elements sticky on mobile portrait. The test pins:
+  //   (a) the bucket-bar toolbar carries `sticky` and an
+  //       explicit z-index (z-40) so it floats above rows
+  //       while the user scrolls;
+  //   (b) the thead carries `sticky` and pins itself below
+  //       the toolbar.
+  // The `top` values come from inline `style` (not className
+  // utilities) because Tailwind 4's JIT does not generate
+  // arbitrary `top` values that include a CSS `var()` with a
+  // comma (the inline fallback `0px`). We assert the inline
+  // style is set on both elements with the right var-based
+  // expression.
   it('bucket bar and thead are sticky on mobile portrait (B-NEW-30)', async () => {
     render(wrap(
       <InsightsTable
@@ -612,25 +622,22 @@ describe('InsightsTable — mobile portrait, table only (no card layout)', () =>
     // (a) The toolbar wrapping the bucket bar + Marine toggle
     // must be sticky with a z-index higher than the default
     // page content (z-40) so it floats above rows while the
-    // user scrolls.
+    // user scrolls. The `top` value is delivered via inline
+    // style because Tailwind 4 won't generate
+    // `top-[var(--mobile-header-h,0px)]`.
     const bucketBar = screen.getByTestId('bucket-bar')
     const toolbar = bucketBar.parentElement as HTMLElement
     expect(toolbar).not.toBeNull()
     expect(toolbar.className).toMatch(/\bsticky\b/)
     expect(toolbar.className).toMatch(/\bz-40\b/)
-    // The sticky `top` references the --mobile-header-h CSS
-    // variable that the app shell sets via ResizeObserver.
-    // We don't assert the exact computed value (jsdom doesn't
-    // run layout) — just that the className declares the
-    // variable-driven top.
-    expect(toolbar.className).toMatch(/top-\[var\(--mobile-header-h/)
+    expect(toolbar.style.top).toBe('var(--mobile-header-h, 0px)')
 
     // (b) The thead must also be sticky and pin itself below
     // the toolbar (44 px = py-2 + min-h-[28px] button row).
     const thead = document.querySelector('thead') as HTMLElement
     expect(thead).not.toBeNull()
     expect(thead.className).toMatch(/\bsticky\b/)
-    expect(thead.className).toMatch(/top-\[calc\(var\(--mobile-header-h/)
+    expect(thead.style.top).toBe('calc(var(--mobile-header-h, 0px) + 44px)')
   })
 
   it('on mobile landscape, the bucket bar is NOT sticky (table container owns the scroll)', async () => {

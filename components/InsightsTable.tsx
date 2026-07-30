@@ -1145,37 +1145,58 @@ export default function InsightsTable({
             </span>
           ) : null}
       </div>
-      {/* B-NEW-30 (2026-07-30): the card wraps both the bucket
-          bar and the table. We used `overflow-hidden` here so
-          the `rounded-2xl` corners clipped the children, but
-          `overflow: hidden` ALSO creates a scroll context,
-          which breaks the sticky toolbar + sticky thead
-          (their `position: sticky; top: …` would be measured
-          against this card instead of the page, so they
-          wouldn't follow the page scroll). `overflow: clip`
-          clips the rounded corners WITHOUT establishing a
-          scroll container, so sticky positioning still works
-          against the page. Browser support: Chrome 90+,
-          Firefox 81+, Safari 16+ — all fine for the
-          iPhone-class viewport the user is on. */}
-      <div className="rounded-2xl border border-border bg-surface-raised overflow-clip">
+      {/* B-NEW-30 (2026-07-30, second pass): the card wraps
+          both the bucket bar and the table. We previously
+          used `overflow-hidden` here to clip the `rounded-2xl`
+          corners, but `overflow: hidden` ALSO creates a
+          scroll container — so the sticky toolbar + sticky
+          thead were being measured against THIS card, not
+          against the page, and they scrolled away with the
+          card (the exact bug the user reported as "no
+          aparece corregido").
+
+          We now drop `overflow-hidden` and rely on the
+          default `overflow: visible` so the sticky elements
+          walk up the DOM and find the root <div> as their
+          scrolling ancestor (the root carries
+          `overflow-x-hidden` from the app shell, which
+          establishes a y scroll context for the whole page).
+          The `top` value comes from inline style
+          (`var(--mobile-header-h, 0px) + 44px` for the
+          thead, `var(--mobile-header-h, 0px)` for the
+          toolbar) — inline styles are the only way to ship a
+          `top` value derived from a CSS variable in this
+          stack, because Tailwind 4's JIT does NOT generate
+          `top-[var(--foo,0px)]` (the comma in the var
+          fallback breaks the arbitrary-value parser, so the
+          class is silently dropped and the sticky element
+          ends up with no `top` at all).
+
+          Visual trade-off: without `overflow-hidden` on
+          the card, the last table row's `border-b` is a
+          straight line at the card's bottom edge instead of
+          following the `rounded-2xl` corners. The fix was
+          worth the trade — the user lost track of which
+          column they were looking at, which is a worse
+          problem than a 1-px straight edge. */}
+      <div className="rounded-2xl border border-border bg-surface-raised">
         <div
-          className={`flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border ${
-            // B-NEW-30: `overflow-x-auto` creates a scroll
-            // container, which would break sticky positioning
-            // (the toolbar would stick against ITSELF, not
-            // the page). On mobile portrait we want the
-            // toolbar to stick to the viewport, so we use
-            // `overflow-x-clip` instead — it clips the
-            // overflow without establishing a scroll
-            // container. The 1h/1d/Marine trio on mobile
-            // portrait never overflows, so we don't need the
-            // scroll fallback. On landscape / desktop the
-            // full bucket set (1h/2h/6h/12h/1d) + toggles
-            // might overflow on narrow widths, so we keep
-            // `overflow-x-auto` there.
-            isMobilePortrait ? 'overflow-x-clip sticky top-[var(--mobile-header-h,0px)] z-40 bg-surface-raised' : 'overflow-x-auto'
+          className={`flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-none border-b border-border bg-surface-raised ${
+            isMobilePortrait ? 'sticky z-40' : 'relative'
           }`}
+          // B-NEW-30: the `top` value MUST come from inline
+          // style, not a Tailwind arbitrary class. Tailwind
+          // 4's JIT does NOT generate `top-[var(--foo,0px)]`
+          // (the comma in the CSS var fallback breaks the
+          // arbitrary-value parser), so the sticky element
+          // ends up with no `top` and scrolls away with the
+          // page. Inline `style` always wins and is not
+          // subject to the JIT. We use `var()` with a
+          // 0 px fallback so the toolbar sticks at the
+          // viewport top before the ResizeObserver publishes
+          // the real height (avoids a 1-frame flash where
+          // the toolbar overlaps the global mobile header).
+          style={isMobilePortrait ? { top: 'var(--mobile-header-h, 0px)' } : undefined}
         >
           {/* B-NEW-25 (2026-07-28): the bucket buttons live in
               their own flex-1 group so they share whatever
@@ -1319,32 +1340,35 @@ export default function InsightsTable({
           // 70vh box), and the user scrolls the page naturally to
           // see more rows. The pagination CTAs at the top/bottom
           // of the table stay reachable because they're part of
-          // the page flow. We keep `overflow-x-hidden` so a stray
-          // wide value still cannot push a horizontal scrollbar.
+          // the page flow.
+          //
+          // B-NEW-30 (second pass): we ALSO drop
+          // `overflow-x-hidden` on mobile portrait. With it in
+          // place the table container is a y-scroll container
+          // (overflow-x: hidden makes overflow-y: auto
+          // implicitly per the CSS spec), and the thead's
+          // sticky `top` is measured against the container
+          // instead of the page — the same bug as
+          // `overflow-hidden` on the card. The table is
+          // `table-fixed` on mobile portrait with explicit
+          // column widths, so a stray horizontal overflow
+          // cannot happen in practice; the safety net is
+          // unnecessary. On landscape / desktop the
+          // `overflow-x-hidden` is restored because the
+          // column set CAN overflow on narrow widths.
           className={`relative ${isMobilePortrait ? '' : 'max-h-[70vh] '}contain-[layout_style_paint] ${
-            // Portrait: never horizontal scroll (user complained about
-            // "no debe existir scroll horizontal" en vertical).
             // Landscape phone: ALWAYS allow horizontal scroll because
             // the table now shows min/max/clouds/gusts (+ marine cols
             // when marine is on) — those don't fit inside 390 px.
             // Desktop: auto overflow as usual.
-            //
-            // B-NEW-30 (2026-07-30): on mobile portrait we
-            // switch `overflow-x-hidden` → `overflow-x-clip`.
-            // They look identical (both clip horizontal
-            // overflow without a visible scrollbar) but
-            // `hidden` ALSO creates a scroll container, which
-            // would break the sticky thead (its `top` would
-            // be measured against this container instead of
-            // the page). `clip` clips without establishing a
-            // scroll context, so the thead stays pinned to
-            // the viewport. The table is `table-fixed` with
-            // explicit column widths on portrait, so the
-            // horizontal clip is a safety net that never
-            // actually fires — switching it to `clip` is
-            // strictly a layout-context fix.
+            // B-NEW-30 (second pass): on mobile portrait we
+            // also drop the `overflow-x-hidden` because it
+            // would otherwise establish a y-scroll context
+            // and break the sticky thead. The table is
+            // `table-fixed` with explicit column widths, so
+            // a stray horizontal overflow cannot happen.
             isMobilePortrait
-              ? 'overflow-x-clip'
+              ? ''
               : isMobileLandscape
                 ? 'overflow-x-auto'
                 : 'overflow-x-hidden real-desktop:overflow-auto'
@@ -1555,26 +1579,27 @@ export default function InsightsTable({
             </colgroup>
           <thead
             className={`bg-surface z-30 ${
-              // B-NEW-30 (2026-07-30): on mobile portrait the
-              // thead has to stick BELOW the mobile header AND
-              // the bucket bar (both are also sticky at this
-              // point). The mobile-header height comes from
-              // the `--mobile-header-h` CSS variable that the
-              // app shell sets via ResizeObserver (see
-              // home-content.tsx); the bucket bar is a fixed
-              // 44 px (py-2 + min-h-[28px] button content).
-              // On landscape / desktop the thead sticks
-              // inside the table container at top: 0 as
-              // before (the table container is the scroll
-              // context there).
-              isMobilePortrait
-                ? 'sticky top-[calc(var(--mobile-header-h,0px)+44px)]'
-                : 'sticky top-0'
+              isMobilePortrait ? 'sticky' : 'sticky top-0'
             }`}
+            // B-NEW-30: the `top` value MUST come from inline
+            // style, not a Tailwind arbitrary class. Tailwind
+            // 4's JIT does NOT generate
+            // `top-[calc(var(--foo,0px)+44px)]` (the comma
+            // in the CSS var fallback breaks the
+            // arbitrary-value parser). Without the inline
+            // style the thead ends up with no `top` and
+            // scrolls away with the page — the bug the user
+            // reported as "no aparece corregido" in the
+            // B-NEW-30 first pass. The 44 px is the bucket
+            // bar's height (py-2 + min-h-[28px] button
+            // content). On landscape / desktop the thead
+            // keeps its `top-0` sticky inside the table
+            // container (the table container is the scroll
+            // context there).
+            style={isMobilePortrait ? { top: 'calc(var(--mobile-header-h, 0px) + 44px)' } : undefined}
           >
             <tr className="bg-surface text-text-secondary">
               <th
-                style={{ background: 'var(--surface)' }}
                 // Sprint 10 / B-10-8 + B-NEW-3: the first column header
                 // is BOTH sticky on the left AND on the top, with a
                 // higher z-index than the rest of the header so it
@@ -1587,17 +1612,32 @@ export default function InsightsTable({
                 // text would scroll over the "Cuándo" header label.
                 // The shadow on the right edge renders a vertical
                 // divider so the user can tell the column is sticky.
+                //
+                // B-NEW-30: the first-column header sticks to
+                // the left AND the top. On mobile portrait the
+                // `top` value mirrors the thead's so the
+                // Cuándo cell stays aligned with the rest of
+                // the header row (otherwise it would scroll
+                // up to the viewport top while the other
+                // column headers stay below the bucket bar).
+                // Same inline-style trick as the thead —
+                // Tailwind 4's JIT doesn't generate
+                // `top-[calc(var(--…,0px)+44px)]`, so the
+                // arbitrary class would be silently dropped
+                // and the sticky would scroll away.
+                //
+                // Both style properties are merged into ONE
+                // `style` attribute (React would reject
+                // duplicate attributes and the TS compiler
+                // catches it as JSX17001).
+                style={{
+                  background: 'var(--surface)',
+                  ...(isMobilePortrait
+                    ? { top: 'calc(var(--mobile-header-h, 0px) + 44px)' }
+                    : {}),
+                }}
                 className={`sticky left-0 z-50 text-center px-1.5 py-1.5 font-medium border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] ${
-                  // B-NEW-30: the first-column header sticks to
-                  // the left AND the top. On mobile portrait
-                  // the `top` value mirrors the thead's so the
-                  // Cuándo cell stays aligned with the rest of
-                  // the header row (otherwise it would scroll
-                  // up to the viewport top while the other
-                  // column headers stay below the bucket bar).
-                  isMobilePortrait
-                    ? 'top-[calc(var(--mobile-header-h,0px)+44px)]'
-                    : 'top-0'
+                  isMobilePortrait ? '' : 'top-0'
                 }`}
                 data-col-id="__when__"
               >
@@ -1635,10 +1675,19 @@ export default function InsightsTable({
                     // top while the Cuándo header sat 44 px lower,
                     // breaking the row visually.
                     className={`sticky z-40 bg-surface text-center px-1 py-1.5 real-desktop:px-2.5 font-medium border-b border-border cursor-grab active:cursor-grabbing select-none tabular-nums text-text-secondary overflow-hidden ${
-                      isMobilePortrait
-                        ? 'top-[calc(var(--mobile-header-h,0px)+44px)]'
-                        : 'top-0'
+                      isMobilePortrait ? '' : 'top-0'
                     } ${col.hideClass ?? ''} ${compact && COMPACT_HIDDEN_COLS.has(col.id) ? 'hidden' : ''} ${dragClass}`}
+                    // B-NEW-30: on mobile portrait the `top`
+                    // value mirrors the thead's so every
+                    // column header stays aligned in a single
+                    // sticky band. Without this the data
+                    // headers would stick to the viewport top
+                    // while the Cuándo header sat 44 px lower,
+                    // breaking the row visually. Same
+                    // inline-style trick as the thead —
+                    // Tailwind 4's JIT doesn't generate the
+                    // calc-with-var arbitrary class.
+                    style={isMobilePortrait ? { top: 'calc(var(--mobile-header-h, 0px) + 44px)' } : undefined}
                     title="Drag to reorder"
                   >
                     {STRINGS[locale][col.labelKey]}

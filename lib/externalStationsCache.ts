@@ -1,4 +1,5 @@
 import { db } from './db'
+import { REFRESH_WINDOW_MS } from './refreshWindow'
 import type { MeteoclimaticObservation } from './meteoclimatic-types'
 
 /**
@@ -17,7 +18,9 @@ import type { MeteoclimaticObservation } from './meteoclimatic-types'
  * fall through to the local `local.db` SQLite file via `db`.
  *
  * TTL semantics:
- *   - 4 h fresh: any read newer than this is served as-is.
+ *   - 2 h fresh: any read newer than this is served as-is. Shared
+ *     with `forecast_cache` and `marine_cache` via
+ *     `lib/refreshWindow.ts`.
  *   - 24 h stale: when the upstream fails, the last good payload is
  *     served even if it's a day old. Older than that we treat the
  *     request as a hard failure rather than broadcasting an
@@ -38,7 +41,7 @@ export interface CachedStations {
 }
 
 const TABLE = 'external_stations_cache'
-const FRESH_TTL_MS = 4 * 60 * 60 * 1000
+const FRESH_TTL_MS = REFRESH_WINDOW_MS
 const STALE_TTL_MS = 24 * 60 * 60 * 1000
 
 let schemaReady: Promise<boolean> | null = null

@@ -7,6 +7,7 @@ import { formatAge } from '@/lib/formatAge'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
 import { classifyEuropeanAqi, type AirQualityBand } from '@/lib/airQuality'
+import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
 
 interface AirConditionsGridProps {
   snapshot: CurrentSnapshot | null
@@ -233,7 +234,7 @@ export default function AirConditionsGrid({
   const uvTitle = uvAgeMs !== null
     ? `${locale === 'en' ? 'Live UV, updated ' : 'UV en vivo, actualizado hace '}${formatAge(uvAgeMs, locale)}`
     : undefined
-  const isStale = forecastAgeMs !== null && forecastAgeMs > 4 * 3600_000
+  const isStale = forecastAgeMs !== null && forecastAgeMs > REFRESH_WINDOW_MS
 
   // Sensación / Máx
   const feelVal = feelMode === 'feel'

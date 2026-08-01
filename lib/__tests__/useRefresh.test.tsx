@@ -70,7 +70,7 @@ describe('useRefresh', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true, status: 200,
       json: () => Promise.resolve({
-        skipped: true, reason: 'cooldown', cooldownMs: 14400000, ageMs: 60_000,
+        skipped: true, reason: 'cooldown', cooldownMs: 7_200_000, ageMs: 60_000,
       }),
     }))
 
@@ -83,7 +83,7 @@ describe('useRefresh', () => {
 
     expect(result.current.lastOutcome?.kind).toBe('cooldown')
     if (result.current.lastOutcome?.kind === 'cooldown') {
-      expect(result.current.lastOutcome.remainingMs).toBe(14340000)
+      expect(result.current.lastOutcome.remainingMs).toBe(7_140_000)
     }
   })
 })

@@ -1,9 +1,10 @@
 import { createCacheStore, type CachedEntry } from './cacheStore'
+import { REFRESH_WINDOW_MS } from './refreshWindow'
 
 const store = createCacheStore({
   tableName: 'marine_cache',
-  ttlMs: 4 * 60 * 60 * 1000,
-  purgeOlderThanMs: 6 * 60 * 60 * 1000,
+  ttlMs: REFRESH_WINDOW_MS,
+  purgeOlderThanMs: REFRESH_WINDOW_MS + 2 * 60 * 60 * 1000,
   maxStaleMs: 24 * 60 * 60 * 1000,
 })
 

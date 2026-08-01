@@ -13,8 +13,8 @@ Caché de respuestas de Open-Meteo (forecast).
 | `fetched_at` | INTEGER | NO | Timestamp Unix (ms) de cuando se hizo el fetch | `1748438400000` |
 
 **Reglas de integridad:**
-- TTL: 4 horas. Pasado este tiempo, el caché se considera stale.
-- Purga: si `now - fetched_at > 6 horas`, se purga en el siguiente acceso.
+- TTL: 2 horas (`REFRESH_WINDOW_MS` en `lib/refreshWindow.ts`). Pasado este tiempo, el caché se considera stale y se fuerza un refetch.
+- Purga: si `now - fetched_at > 4 horas`, se purga en el siguiente acceso.
 - Fuente de verdad: `fetched_at` marca cuándo se obtuvo; si el servidor externo falla, se sirve stale con advertencia.
 
 ### 1.2 `marine_cache`
@@ -29,8 +29,8 @@ Caché de respuestas de Open-Meteo (marine). Esquema paralelo al de
 | `fetched_at` | INTEGER | NO | Timestamp Unix (ms) de cuando se hizo el fetch | `1748438400000` |
 
 **Reglas de integridad:**
-- TTL: 4 horas. Pasado este tiempo, el caché se considera stale.
-- Purga: si `now - fetched_at > 6 horas`, se purga en el siguiente acceso.
+- TTL: 2 horas (`REFRESH_WINDOW_MS`). Pasado este tiempo, el caché se considera stale.
+- Purga: si `now - fetched_at > 4 horas`, se purga en el siguiente acceso.
 - Solo se rellena esta tabla cuando el flag `marine=1` está activo en la URL.
 
 ### 1.3 `app_state`

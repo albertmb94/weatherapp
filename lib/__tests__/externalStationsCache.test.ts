@@ -38,7 +38,7 @@ describe('externalStationsCache — fresh window', () => {
     expect(out).toBeNull()
   })
 
-  it('returns the row when age < 4 h', async () => {
+  it('returns the row when age < 2 h', async () => {
     selectMock.mockResolvedValueOnce([
       { body: '{"a":1}', fetched_at: 1_000_000 - 60 * 60 * 1000 },
     ])
@@ -47,11 +47,11 @@ describe('externalStationsCache — fresh window', () => {
     expect(out?.body).toBe('{"a":1}')
   })
 
-  it('returns null when age >= 4 h', async () => {
+  it('returns null when age >= 2 h', async () => {
     selectMock.mockResolvedValueOnce([
       {
         body: '{"a":1}',
-        fetched_at: 1_000_000 - 4 * 60 * 60 * 1000,
+        fetched_at: 1_000_000 - 2 * 60 * 60 * 1000,
       },
     ])
     const out = await getFreshCachedStations('aemet', 1_000_000)

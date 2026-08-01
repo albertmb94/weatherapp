@@ -47,11 +47,14 @@ import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
 import { useNearbyStations } from '@/lib/hooks/useNearbyStations'
 import { getLeadTimeBucket } from '@/lib/models'
 import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
+import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
+import { computeInsightsStartIndex } from '@/lib/insightsTime'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
-// in the background. The user asked for this to kick in at 4h for
-// the same location; we surface it through the refresh badge too.
-const AUTO_REFRESH_AGE_MS = 4 * 60 * 60 * 1000
+// in the background. The user asked for this to kick in at 2h for
+// the same location so a fresh /api/forecast response lands before
+// the cache turns stale; we surface it through the refresh badge too.
+const AUTO_REFRESH_AGE_MS = REFRESH_WINDOW_MS
 
 function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult {
   const time = data.time.slice(startIndex)
@@ -467,12 +470,12 @@ export default function HomeContent() {
   })
 
   // Auto-refresh: after the forecast for *this* location is older than
-  // 4h, kick off a silent background refresh. The user requested this
-  // explicitly ("si hace más de 4h para esa ubicación debe hacerse la
-  // recarga de forma automática y su visualización en la interfaz"), so
-  // we surface it through the refresh badge too — see useQuery refetch().
-  // React Query's `staleTime` only marks stale; the actual fire happens
-  // via refetchOnWindowFocus and the explicit invalidation here.
+  // REFRESH_WINDOW_MS (2h), kick off a silent background refresh. The user
+  // requested this explicitly so a fresh /api/forecast response lands
+  // before the Turso cache turns stale, and we surface it through the
+  // refresh badge too — see useQuery refetch(). React Query's
+  // `staleTime` only marks stale; the actual fire happens via
+  // refetchOnWindowFocus and the explicit invalidation here.
   const lastFetchedAt = data?.fetchedAt
   // `forecastAgeMs` and the auto-refresh trigger rely on `Date.now()`,
   // which is impure. We compute it once on mount + every refresh, then
@@ -848,6 +851,32 @@ export default function HomeContent() {
     }
     return effectiveData.time.length
   }, [data, offlineSnapshot, currentTickMs])
+
+  // The Insights table has its own, stricter "current hour" anchor.
+  // The shared `startIndex` above is intentionally tied to
+  // `fetchedAt` so a cached response always resolves to the same row
+  // across devices — but the user asked the Insights table to start
+  // at the *current wall-clock hour* (e.g. 17:00 when it's 17:52),
+  // regardless of when the cached forecast was issued. We compute
+  // that here against `currentTickMs` and only fall back to
+  // `startIndex` (the `fetchedAt`-anchored value) before the client
+  // has hydrated, so the SSR / first-paint output stays consistent
+  // with the rest of the UI and we don't introduce a hydration
+  // mismatch.
+  const insightsStartIndex = useMemo(() => {
+    const effectiveData = data ?? offlineSnapshot?.data
+    if (!effectiveData?.time?.length) return startIndex
+    // `currentTickMs` is 0 until the client effect fires (see the
+    // useClientNow comment in lib/hooks/useClientNow.ts). Use the
+    // shared `startIndex` in that case so the first render and the
+    // hydrated render produce the same value.
+    if (!currentTickMs) return startIndex
+    return computeInsightsStartIndex(
+      effectiveData.time,
+      effectiveData.utcOffsetSeconds,
+      currentTickMs,
+    )
+  }, [data, offlineSnapshot, currentTickMs, startIndex])
 
   // Use live data if available, otherwise fall back to offline snapshot
   const effectiveData = data ?? offlineSnapshot?.data ?? null
@@ -1490,6 +1519,7 @@ export default function HomeContent() {
                   viewData={viewData}
                   fullData={effectiveData}
                   startIndex={startIndex}
+                  insightsStartIndex={insightsStartIndex}
                   effectiveMaxHours={effectiveMaxHours}
                   bucket={bucket}
                   marine={marine}
@@ -1662,6 +1692,7 @@ const AdvancedSection = memo(function AdvancedSection({
   viewData,
   fullData,
   startIndex,
+  insightsStartIndex,
   effectiveMaxHours,
   bucket,
   marine,
@@ -1684,6 +1715,10 @@ const AdvancedSection = memo(function AdvancedSection({
   viewData: ReturnType<typeof sliceForecast> | NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
   fullData: NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
   startIndex: number
+  /** Insights-only anchor, computed against the wall clock. DailySummary
+   *  and the slider keep using `startIndex` so the shared "now" contract
+   *  (anchored to `fetchedAt`) is preserved everywhere else. */
+  insightsStartIndex: number
   effectiveMaxHours: number
   bucket: BucketHours
   marine: boolean
@@ -1806,7 +1841,11 @@ const AdvancedSection = memo(function AdvancedSection({
             series={viewSeries}
             fullTimes={fullTimes}
             fullSeries={fullSeries}
-            startIndex={startIndex}
+            // Anchored to the current wall-clock hour so the table
+            // starts at the user's actual "now" row (e.g. 17:00 when
+            // the wall clock is 17:52) regardless of when the cached
+            // forecast was issued. DailySummary keeps `startIndex`.
+            startIndex={insightsStartIndex}
             weekDays={weekDays}
             bucket={bucket}
             onBucketChange={onBucketChange}

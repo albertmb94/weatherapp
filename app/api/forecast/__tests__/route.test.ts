@@ -95,6 +95,46 @@ describe('/api/forecast GET', () => {
     expect(setCachedForecast).toHaveBeenCalled()
   })
 
+  it('awaits the Turso write before resolving the response', async () => {
+    // Regression: previously the route called
+    // `setCachedForecast(...).catch(...)` (no `await`) which meant
+    // the response could be returned before the cache write landed.
+    // On a serverless function the lifecycle ends very quickly after
+    // the response resolves, so the fire-and-forget write could be
+    // lost on a cold start or shutdown. The fix awaits the write.
+    let resolveWrite: (() => void) | null = null
+    const writePromise = new Promise<void>((resolve) => {
+      resolveWrite = resolve
+    })
+    vi.mocked(getCachedForecast).mockResolvedValue(null)
+    vi.mocked(setCachedForecast).mockImplementationOnce(async () => {
+      await writePromise
+    })
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve('{"hourly":{"time":["2025-01-01"],"temperature_2m":[10]}}'),
+    }))
+
+    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m')
+    let response: Response | null = null
+    const responsePromise = GET(req).then((res) => {
+      response = res
+    })
+
+    // Yield once so the route starts but does not finish — the
+    // `setCachedForecast` mock is parked on `writePromise`.
+    await new Promise<void>((r) => setTimeout(r, 0))
+    expect(response, 'response must wait for the Turso write').toBeNull()
+
+    // Unblock the write and let the response resolve.
+    resolveWrite!()
+    await responsePromise
+    expect(response!.status).toBe(200)
+    expect(setCachedForecast).toHaveBeenCalled()
+  })
+
   // B-NEW-4: the route must strip the `v` cache-bust stamp before
   // forwarding to Open-Meteo so the upstream URL stays clean. We
   // also verify the stamp IS part of the cache key (i.e. it

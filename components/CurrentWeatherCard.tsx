@@ -17,7 +17,7 @@ interface CurrentWeatherCardProps {
   loading?: boolean
   /** Forecast fetched-at timestamp (ms) for the freshness indicator. */
   fetchedAt?: number | null
-  /** Forecast age (ms) — used to flag the card when stale (>4h). */
+  /** Forecast age (ms) — used to flag the card when stale (>REFRESH_WINDOW_MS). */
   forecastAgeMs?: number | null
   /** Live UV reading from the provider's `current=uv_index`. */
   liveUv?: number | null

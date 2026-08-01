@@ -75,9 +75,14 @@ export async function GET(request: Request) {
     }
     const fetchedAt = Date.now()
     const { parsed, bodyText } = parseOpenMeteoResponse(text)
-    setCachedMarine(cacheKey, bodyText, fetchedAt).catch(err => {
+    // Await the Turso write for the same reason as the forecast
+    // route: the lambda lifecycle ends shortly after this returns
+    // and fire-and-forget writes can be lost.
+    try {
+      await setCachedMarine(cacheKey, bodyText, fetchedAt)
+    } catch (err) {
       console.warn('marine_cache write failed', err)
-    })
+    }
     return NextResponse.json(parsed, {
       headers: {
         ...FRESH_CACHE_HEADERS,

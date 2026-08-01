@@ -1,7 +1,8 @@
 import { db } from '@/lib/db'
+import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
 
 const LAST_REFRESH_KEY = 'last_models_refresh'
-const COOLDOWN_MS = 4 * 60 * 60 * 1000
+const COOLDOWN_MS = REFRESH_WINDOW_MS
 
 // In-memory fallback for environments where the Turso DB is unavailable
 // (Vercel deployments without TURSO_DATABASE_URL, or local dev when the

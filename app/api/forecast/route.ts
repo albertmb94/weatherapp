@@ -94,9 +94,17 @@ export async function GET(request: Request) {
     }
     const fetchedAt = Date.now()
     const { parsed, bodyText } = parseOpenMeteoResponse(text)
-    setCachedForecast(cacheKey, bodyText, fetchedAt).catch(err => {
+    // Await the Turso write so the persistence completes before the
+    // route hands control back to the runtime. On a serverless
+    // function the response lifecycle ends very quickly after this
+    // returns — fire-and-forget writes can be lost on a cold start
+    // or when the runtime trims the event loop. We still wrap in
+    // `try/catch` so a transient Turso outage doesn't 5xx the user.
+    try {
+      await setCachedForecast(cacheKey, bodyText, fetchedAt)
+    } catch (err) {
       console.warn('forecast_cache write failed', err)
-    })
+    }
     const headers: Record<string, string> = {
       ...FRESH_CACHE_HEADERS,
       'X-Forecast-Cache': 'miss',

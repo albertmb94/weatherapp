@@ -1,9 +1,13 @@
 import { createCacheStore, type CachedEntry } from './cacheStore'
+import { REFRESH_WINDOW_MS } from './refreshWindow'
 
 const store = createCacheStore({
   tableName: 'forecast_cache',
-  ttlMs: 4 * 60 * 60 * 1000,
-  purgeOlderThanMs: 6 * 60 * 60 * 1000,
+  ttlMs: REFRESH_WINDOW_MS,
+  // Purge anything older than the fresh window + a 2h grace so a row
+  // that just turned stale still gets a chance to be served as a
+  // fallback before being deleted.
+  purgeOlderThanMs: REFRESH_WINDOW_MS + 2 * 60 * 60 * 1000,
   // Beyond 24h the forecast is too stale to ever serve as a "fallback" —
   // the routes return 503 instead of feeding an arbitrary snapshot to a CDN.
   maxStaleMs: 24 * 60 * 60 * 1000,

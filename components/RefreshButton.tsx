@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { formatAge } from '@/lib/formatAge'
 import { useLocale } from '@/lib/LocaleContext'
 import { useRefresh } from '@/lib/useRefresh'
+import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
 
 interface RefreshStatus {
   lastRefreshedAt: number | null
@@ -47,9 +48,11 @@ export default function RefreshButton() {
   }, [lastOutcome])
 
   const ageLabel = formatAge(status?.ageMs ?? null, locale)
-  // M-UI-3: when the cache is older than 4 hours the data is stale;
-  // tint the label so the user notices without reading the icon.
-  const isStale = (status?.ageMs ?? 0) > 4 * 3600_000
+  // M-UI-3: when the cache is older than the refresh window the data is
+  // stale; tint the label so the user notices without reading the icon.
+  // Uses the shared `REFRESH_WINDOW_MS` so the badge stays in lockstep
+  // with the Turso caches and the manual cooldown.
+  const isStale = (status?.ageMs ?? 0) > REFRESH_WINDOW_MS
   const labelColor = feedback ? 'text-emerald-400' : isStale ? 'text-amber-400' : 'text-gray-600'
 
   return (

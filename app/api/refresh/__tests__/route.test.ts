@@ -29,7 +29,7 @@ describe('/api/refresh', () => {
         lastRefreshedAt: Date.now(),
         ageMs: 1000,
         canRefresh: true,
-        cooldownMs: 14400000,
+        cooldownMs: 7_200_000,
       })
 
       const res = await GET()
@@ -51,7 +51,7 @@ describe('/api/refresh', () => {
         lastRefreshedAt: Date.now(),
         ageMs: 1000,
         canRefresh: false,
-        cooldownMs: 14400000,
+        cooldownMs: 7_200_000,
       })
 
       const res = await POST()
@@ -63,10 +63,10 @@ describe('/api/refresh', () => {
 
     it('performs refresh when cooldown has passed', async () => {
       vi.mocked(getRefreshStatus).mockResolvedValue({
-        lastRefreshedAt: Date.now() - 14400000,
-        ageMs: 14400000,
+        lastRefreshedAt: Date.now() - 7_200_000,
+        ageMs: 7_200_000,
         canRefresh: true,
-        cooldownMs: 14400000,
+        cooldownMs: 7_200_000,
       })
       vi.mocked(recordRefresh).mockResolvedValue(Date.now())
 
@@ -82,7 +82,7 @@ describe('/api/refresh', () => {
         lastRefreshedAt: null,
         ageMs: null,
         canRefresh: true,
-        cooldownMs: 14400000,
+        cooldownMs: 7_200_000,
       })
       vi.mocked(recordRefresh).mockResolvedValue(Date.now())
 
@@ -95,7 +95,7 @@ describe('/api/refresh', () => {
         lastRefreshedAt: null,
         ageMs: null,
         canRefresh: true,
-        cooldownMs: 14400000,
+        cooldownMs: 7_200_000,
       })
       vi.mocked(recordRefresh).mockResolvedValue(Date.now())
 

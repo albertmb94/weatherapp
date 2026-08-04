@@ -136,6 +136,105 @@ describe('InsightsTable — "↳ Ahora" annotation on active row', () => {
     expect(screen.queryByText(/Ahora/)).toBeNull()
   })
 
+  it('starts the first row at the wall-clock hour (times[0]) for bucket=1 (regression for "tabla insights desde la hora actual")', () => {
+    // The user reported the Insights table for non-24 buckets started
+    // at the hour the cached forecast was issued, not at the current
+    // wall-clock hour. The fix in home-content.tsx pre-slices
+    // `viewTimes` from `insightsStartIndex` (wall-clock offset) and
+    // passes the further-trimmed series as `times` together with a
+    // `viewStartIndex` (the offset within the original `viewTimes`).
+    // The InsightsTable must then render the first row label from
+    // `times[0]`, NOT from the un-trimmed series.
+    const WALL_CLOCK_HOUR = 17
+    const VIEW_START_INDEX = WALL_CLOCK_HOUR // = 17 hours into the data
+    // Build a 14-day series starting at hour 0 (the original
+    // `viewTimes` for the test), then slice the first 17 hours off
+    // so the further-trimmed array starts at the wall-clock hour.
+    // The first row label must be "Hoy 17h" — not "Hoy 00h" or any
+    // other hour from the trimmed-off prefix.
+    const baseTime = Date.UTC(2026, 6, 10, 0, 0, 0)
+    const fullTimes: Date[] = []
+    for (let i = 0; i < HOURS; i++) {
+      fullTimes.push(new Date(baseTime + i * 3600_000))
+    }
+    const wallClockTimes = fullTimes.slice(VIEW_START_INDEX)
+    // Sanity check: the further-trimmed array starts at the
+    // wall-clock hour, which the production path requires.
+    expect(wallClockTimes[0].getUTCHours()).toBe(WALL_CLOCK_HOUR)
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={wallClockTimes}
+        series={series}
+        bucket={1}
+        onBucketChange={() => {}}
+        // selectedHour is now in the further-trimmed-series coords
+        // (= URL-state hour - viewStartIndex, clamped to >= 0).
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={wallClockTimes.length}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+        viewStartIndex={VIEW_START_INDEX}
+      />
+    ))
+    // The first body row's first <td> is the "Cuándo" cell. We
+    // assert the label is "Hoy 17h" (the wall-clock hour), not
+    // "Hoy 00h" (the first hour of the un-trimmed series that the
+    // production bug exposed).
+    const tbody = document.querySelector('tbody')!
+    const firstLabelCell = tbody.querySelector('tr td:nth-child(1)')?.textContent ?? ''
+    expect(firstLabelCell).toMatch(/17h/)
+    // And it MUST NOT show the prefix hours we trimmed off.
+    expect(firstLabelCell).not.toMatch(/00h/)
+  })
+
+  it('onSelectHour adds viewStartIndex back so the URL state keeps the same coord system as the hour slider', () => {
+    // The parent's hour slider stores `selectedHour` in the
+    // trimmed-series coords (offset from `viewTimes[0]`, the
+    // forecast-issue hour). The InsightsTable row indices live in
+    // the further-trimmed coords (offset from `times[0]`, the
+    // wall-clock hour). The `onSelectHour` callback must add
+    // `viewStartIndex` back so a click on the first row (which
+    // is at the wall-clock hour) navigates to the matching hour
+    // on the slider (= viewStartIndex).
+    const VIEW_START_INDEX = 17 // 17 hours into the data
+    const baseTime = Date.UTC(2026, 6, 10, 0, 0, 0)
+    const fullTimes: Date[] = []
+    for (let i = 0; i < HOURS; i++) {
+      fullTimes.push(new Date(baseTime + i * 3600_000))
+    }
+    const wallClockTimes = fullTimes.slice(VIEW_START_INDEX)
+    let captured: number | null = null
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={wallClockTimes}
+        series={series}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={(h) => { captured = h }}
+        maxHours={wallClockTimes.length}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+        viewStartIndex={VIEW_START_INDEX}
+      />
+    ))
+    // Click the first body row. The row's `centerIdx` is 0
+    // (the further-trimmed series) and the callback must add
+    // `viewStartIndex` (17) so the URL state receives 17 (the
+    // matching hour in the original `viewTimes`).
+    const firstRow = document.querySelector('tbody tr') as HTMLElement
+    expect(firstRow).not.toBeNull()
+    firstRow.click()
+    expect(captured).toBe(VIEW_START_INDEX)
+  })
+
   it('does NOT show the chip when selectedHour points at a future day', () => {
     // selectedHour=24 means "tomorrow at the same hour"; in bucket=24
     // the active row is Mañ (tomorrow), not Hoy.

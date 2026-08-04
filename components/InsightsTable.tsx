@@ -28,11 +28,25 @@ interface InsightsTableProps {
   onSelectHour: (h: number) => void
   maxHours: number
   utcOffsetSeconds: number
-  /** Full (untrimmed) time/series for bucket=24 to scan back to 00:00. */
+  /** Full (untrimmed) time/series. The parent now passes the same
+   *  wall-clock-anchored series as `times`, so the `bucket=24` branch
+   *  no longer needs to scan back to 00:00 of a different array — the
+   *  first row of the further-trimmed series IS the wall-clock hour. Kept
+   *  optional for backwards compat with isolated tests that still pass
+   *  the untrimmed arrays. */
   fullTimes?: Date[]
   fullSeries?: Record<string, Record<string, (number | null)[]>>
-  /** Index in fullTimes of the current hour (used as iteration start for bucket=24). */
+  /** Wall-clock offset in the original (pre-trim) full data array. Kept
+   *  for the `bucket=24` `toMidnight` calculation (= hours from the
+   *  wall-clock hour to midnight). The loop itself starts at `i=0` over
+   *  `times` (the further-trimmed series). */
   startIndex?: number
+  /** Offset of `times[0]` in the parent `viewTimes` (the shared
+   *  trimmed series). The `onSelectHour` callback adds this back to
+   *  `r.centerIdx` so the URL state receives a coordinate in the same
+   *  system the hour slider uses. Defaults to 0 when the parent passes
+   *  the un-trimmed series (test fixtures). */
+  viewStartIndex?: number
   /** Number of days to show for bucket=24 (default 14). */
   weekDays?: 7 | 14
   showMarine?: boolean
@@ -355,6 +369,7 @@ export default function InsightsTable({
   fullTimes,
   fullSeries,
   startIndex = 0,
+  viewStartIndex = 0,
   weekDays = 14,
   /** Sprint 10 / B-10-1: which ensemble mode to use for the *current
    *  hour* (the row the user has selected). Defaults to `'wedai'` so the
@@ -488,9 +503,19 @@ export default function InsightsTable({
   )
 
   const rows = useMemo<Row[]>(() => {
-    // For bucket=24 use the full (untrimmed) arrays so min/max scans from 00:00.
-    const tt = bucket === 24 && fullTimes?.length ? fullTimes : times
-    const s = bucket === 24 && fullSeries ? fullSeries : series
+    // The parent now pre-slices `times`/`series` to the wall-clock
+    // current hour (see home-content.tsx — `insightsViewTimes` /
+    // `insightsViewSeries`). We therefore iterate the SAME array
+    // for every bucket. The legacy `fullTimes`/`fullSeries` props
+    // are kept optional for isolated tests that pass the untrimmed
+    // array, in which case they continue to behave as before
+    // (`fullTimes` is the un-trimmed reference and `times` is the
+    // further-trimmed view derived from it). When the parent does
+    // the slicing, both arrays are identical and either branch
+    // resolves to the same data.
+    const usingFullArrays = bucket === 24 && !!fullTimes?.length && fullTimes !== times
+    const tt = usingFullArrays && fullTimes ? fullTimes : times
+    const s = usingFullArrays && fullSeries ? fullSeries : series
     if (activeModels.length === 0 || tt.length === 0) return []
     // Sprint 10 / B-10-6: the previous 96 h cap on bucket=1 (4 days)
     // was a workaround for mobile paint cost. With `content-visibility:
@@ -509,12 +534,13 @@ export default function InsightsTable({
 
     const getWeightsForMetricAndHour = (metric: MetricId | string, hourIndex: number): number[] => {
       if (ensembleMode === 'models') return staticWeights
-      // `hourIndex` here is already offset by `startIndex` because
-      // the time series we receive is the trimmed `viewTimes`.
-      // Pass it as absolute to avoid the previous bucket
-      // mis-classification where rows past the first day were
-      // tagged with the 0-48h preset.
-      return weightsForAbsolute(metric as MetricId, hourIndex + startIndex, bucket, activeModels)
+      // `hourIndex` is the absolute offset in the data series the
+      // caller passed in (the further-trimmed `times` after the
+      // parent's wall-clock slice). Add the `viewStartIndex` to map
+      // it back to the full-series coord the preset classifier uses.
+      // Falls back to `hourIndex` (i.e. adds 0) when the test
+      // fixtures pass the un-trimmed array directly.
+      return weightsForAbsolute(metric as MetricId, hourIndex + viewStartIndex, bucket, activeModels)
     }
 
     const buckets: Row[] = []
@@ -535,10 +561,19 @@ export default function InsightsTable({
     if (bucket === 24) {
       let current: Row | null = null
       let currentKey = ''
-      // Iterate from startIndex until we have weekDays buckets or run out of data.
-      const rem = startIndex % 24
-      const toMidnight = rem === 0 ? 24 : 24 - rem
-      for (let i = startIndex; i < Math.min(tt.length, startIndex + toMidnight + (weekDays - 1) * 24); i++) {
+      // The loop ALWAYS starts at `i=0` over `tt` (the further-trimmed
+      // series from the parent). When `tt` is the parent's
+      // `insightsViewTimes`, `i=0` is the wall-clock current hour.
+      // When the test fixtures pass the un-trimmed `fullTimes` directly,
+      // the same `i=0` is the start of the un-trimmed array, matching
+      // the pre-fix behaviour.
+      // `startIndex` is only used to compute `toMidnight` (hours from
+      // the wall-clock hour to midnight) — `startIndex % 24` equals
+      // `times[0].getUTCHours()` for the production path and equals
+      // 0 for the test fixtures (which start at hour 0).
+      const startHour = times[0] instanceof Date ? times[0].getUTCHours() : (startIndex % 24)
+      const toMidnight = startHour === 0 ? 24 : 24 - startHour
+      for (let i = 0; i < Math.min(tt.length, toMidnight + (weekDays - 1) * 24); i++) {
         // Detect day boundary from the actual Date at position i.
         const ti = tt[i]
         const dayKey = ti instanceof Date
@@ -546,7 +581,9 @@ export default function InsightsTable({
           : ''
         if (!current || dayKey !== currentKey) {
           // Scan backwards to 00:00 of this day so min/max captures
-          // morning temperatures. Only scan if the back-index exists.
+          // morning temperatures. The scan is bounded by `tt` so for
+          // the current day (where `tt[0]` is already the wall-clock
+          // hour) the row starts at the wall-clock hour, not 00:00.
           let dayStart = i
           while (dayStart > 0) {
             const prev = tt[dayStart - 1]
@@ -555,7 +592,7 @@ export default function InsightsTable({
             if (prevKey !== dayKey) break
             dayStart--
           }
-          const labelT = tt[i] ?? tt[dayStart] ?? tt[startIndex]
+          const labelT = tt[i] ?? tt[dayStart] ?? tt[0]
           current = {
             label: labelT instanceof Date
               ? bucketLabel(labelT, labelT, bucket, locale, utcOffsetSeconds, nowMs)
@@ -779,14 +816,21 @@ export default function InsightsTable({
         // a defensive bounds check.
         const seriesLen = activeSeries[wedaiModels[0].id]?.['temperature']?.length ?? 0
         for (const b of buckets) {
-          // selectedHour is in view-relative space; rows are built
-          // over either `times` (trimmed) or `fullTimes` depending on
-          // the bucket. We shift by startIndex for bucket=24 to align.
-          const shiftedStart = bucket === 24 ? b.startIdx - startIndex : b.startIdx
-          const shiftedEnd = bucket === 24 ? b.endIdx - startIndex : b.endIdx
-          if (selectedHour < shiftedStart || selectedHour > shiftedEnd) continue
-          const absIdx = bucket === 24 ? startIndex + selectedHour : selectedHour
-          if (absIdx < 0 || absIdx >= seriesLen) continue
+          // `selectedHour` is already in the further-trimmed-series
+          // coords (the parent converts it from the URL state). Rows
+          // are built over the same array, so a direct comparison
+          // works for every bucket. The old `startIndex` shift only
+          // made sense when the bucket=24 branch was iterating
+          // `fullTimes` separately — that no longer happens in
+          // production, and the test fixtures pass `startIndex=0` so
+          // the `startIndex - startIndex` shift was a no-op anyway.
+          if (selectedHour < b.startIdx || selectedHour > b.endIdx) continue
+          if (selectedHour < 0 || selectedHour >= seriesLen) continue
+          // Map the further-trimmed-series coord back to the full-
+          // series coord that the preset weights use. When the test
+          // fixtures pass the un-trimmed array, `viewStartIndex=0`
+          // and `selectedHour` is already an absolute coord.
+          const absIdx = selectedHour + viewStartIndex
           // Use the central module so the formula matches
           // friendlyForecast.computeCurrentSnapshot byte-for-byte.
           const tWeights = weightsFor('temperature', absIdx, bucket, wedaiModels)
@@ -810,7 +854,7 @@ export default function InsightsTable({
     }
 
     return buckets
-  }, [activeModels, models, activeModelIds, currentHourMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, weekDays, selectedHour])
+  }, [activeModels, models, activeModelIds, allModels, currentHourMode, ensembleMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, viewStartIndex, weekDays, selectedHour, nowMs])
 
   const marineColIds = useMemo(
     () => new Set<MetricCellId>([
@@ -901,21 +945,28 @@ export default function InsightsTable({
   // on MOBILE_BUCKET_OPTIONS above), reset the bucket to 1h
   // via the parent's callback. Without this, the user would
   // see data for the old bucket but have no buttons to
-  // change it. We also force `compact` off: the hamburger
-  // menu that toggles compact is hidden on mobile portrait
-  // (see the toolbar block below) so a stale `compact=true`
-  // from a previous desktop session would lock out 4 of the
-  // 6 mobile columns (humidity, uv, pressure, dewpoint)
-  // without any way to bring them back.
+  // change it.
+  //
+  // Note: we used to also force `compact` off here. The
+  // hamburger that toggles compact is hidden on mobile
+  // portrait (see the toolbar block below) so a stale
+  // `compact=true` from a previous desktop session would
+  // lock out 4 of the 6 mobile columns (humidity, uv,
+  // pressure, dewpoint) without any way to bring them back.
+  // The reset is now a no-op because the mobile-portrait
+  // column filter is unconditional and doesn't honour the
+  // `compact` flag — every mobile row already shows the
+  // same 6 cols regardless of compact state. Dropping the
+  // `setCompact` call also clears a `react-hooks/set-state-
+  // in-effect` lint error (cascading renders) and avoids
+  // a visible flash on every mount where compact would
+  // briefly hold its desktop value before the effect fired.
   useEffect(() => {
     if (!isMobilePortrait) return
     if (bucket !== 1 && bucket !== 24) {
       onBucketChange(1)
     }
-    if (compact) {
-      setCompact(false)
-    }
-  }, [isMobilePortrait, bucket, compact, onBucketChange])
+  }, [isMobilePortrait, bucket, onBucketChange])
 
   // B-NEW-23 + B-NEW-26 (2026-07-28): compute the per-column
   // pixel widths from the measured container width. The when
@@ -1729,13 +1780,13 @@ export default function InsightsTable({
               </tr>
             ) : null}
             {visibleRows.map((r, i) => {
-              // selectedHour is view-relative; rows are built over the
-              // trimmed `times` series (i.e. view-relative too) except in
-              // the bucket=24 branch where they were originally computed
-              // using fullTimes. Shift by startIndex to align.
-              const shiftedStart = bucket === 24 ? r.startIdx - startIndex : r.startIdx
-              const shiftedEnd = bucket === 24 ? r.endIdx - startIndex : r.endIdx
-              const isActive = selectedHour >= shiftedStart && selectedHour <= shiftedEnd
+              // `selectedHour` and the row indices live in the same
+              // further-trimmed-series coord system the parent passes
+              // in (see the `viewStartIndex` prop). A direct comparison
+              // works for every bucket — the old `startIndex` shift was
+              // a holdover from the bucket=24 branch that iterated the
+              // un-trimmed `fullTimes` and is no longer needed.
+              const isActive = selectedHour >= r.startIdx && selectedHour <= r.endIdx
               const zebra = (pageStart + i) % 2 === 1
               const whenBg = isActive
                 ? 'bg-accent-soft/70 ring-1 ring-inset ring-accent/40'
@@ -1743,14 +1794,22 @@ export default function InsightsTable({
                   ? 'bg-surface-raised/30'
                   : 'bg-transparent'
               const rowCells = visibleCellsByRow[i] ?? []
+              // Map the further-trimmed-series coord of the row's
+              // centre back to the URL-state coord (offset from
+              // `viewTimes[0]`) so the hour slider can render the
+              // matching tick after the click. `viewStartIndex=0` for
+              // the test fixtures (which pass the un-trimmed series)
+              // makes the addition a no-op and preserves the original
+              // `r.centerIdx` value.
+              const callbackHour = r.centerIdx + viewStartIndex
               return (
                 <tr
                   key={i}
-                  onClick={() => onSelectHour(r.centerIdx - startIndex)}
+                  onClick={() => onSelectHour(callbackHour)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      onSelectHour(r.centerIdx - startIndex)
+                      onSelectHour(callbackHour)
                     }
                   }}
                   tabIndex={0}

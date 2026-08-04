@@ -108,11 +108,6 @@ interface FriendlyHomeProps {
    *  (e.g. "Costero"). `null` while the classifier is in flight, in
    *  which case the chip is hidden. */
   usageProfile?: UsageProfile | null
-  /** Sprint 13: number of backtest-recommended models that were
-   *  actually applied as a weight boost (intersection of the
-   *  recommendation with the user's active set). 0 means no boost
-   *  was applied — chip shows the neutral label. */
-  usageProfileBoostedCount?: number
   /** Sprint 13: full backtest recommendation set, threaded down to
    *  `computeCurrentSnapshot` so the snapshot's `meanAcrossModels`
    *  uses `weightsForProfile` and biases the recommended models.
@@ -154,7 +149,6 @@ export default function FriendlyHome({
   userLat = 0,
   userLon = 0,
   usageProfile = null,
-  usageProfileBoostedCount = 0,
   usageProfileRecommended = new Set(),
   europeanAqi = null,
   grassPollen = null,
@@ -242,16 +236,7 @@ export default function FriendlyHome({
         city={city}
         snapshot={snapshot}
         loading={cityIsLoading && snapshot === null}
-        fetchedAt={fetchedAt}
-        forecastAgeMs={forecastAgeMs}
-        liveUv={liveUvIndex ?? null}
-        liveUvValidAt={liveUvValidAt ?? null}
         nowcastTemperatureC={isLiveNow ? nowcastResult.temperatureC : null}
-        nowcastStationName={
-          isLiveNow && nowcastResult.station
-            ? `${nowcastResult.station.id} · ${nowcastResult.station.distanceKm.toFixed(1)} km`
-            : null
-        }
         // BUG FIX: wallClockMs was declared in the prop type but
         // never threaded down from the parent, so the weekday label
         // was always empty in production. Use the same wall-clock

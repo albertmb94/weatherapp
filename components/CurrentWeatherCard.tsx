@@ -15,23 +15,14 @@ interface CurrentWeatherCardProps {
   city: string
   snapshot: CurrentSnapshot | null
   loading?: boolean
-  /** Forecast fetched-at timestamp (ms) for the freshness indicator. */
-  fetchedAt?: number | null
-  /** Forecast age (ms) — used to flag the card when stale (>REFRESH_WINDOW_MS). */
-  forecastAgeMs?: number | null
-  /** Live UV reading from the provider's `current=uv_index`. */
-  liveUv?: number | null
-  /** Timestamp for the live UV reading. */
-  liveUvValidAt?: Date | null
   /** Optional nowcast result from `useNowcast`. The blended
-   *  temperature replaces the snapshot value when present, and
-   *  the closest-station id is shown in the nowcast's tooltip.
-   *  The previous build also surfaced a "vs ensemble" delta
-   *  line, but the user reported that the indicator felt
-   *  noisy and confusing — we removed it; the station name
-   *  tooltip still tells them a station is in play. */
+   *  temperature replaces the snapshot value when present. The
+   *  previous build also surfaced a "vs ensemble" delta line and
+   *  a nowcast station name tooltip, but the user reported those
+   *  indicators felt noisy and confusing — we removed them. The
+   *  nowcast blend itself is still active (see
+   *  `useNowcast`); we just don't surface extra metadata here. */
   nowcastTemperatureC?: number | null
-  nowcastStationName?: string | null
   /** Wall-clock timestamp (ms) used to compute the weekday label in
    *  the user's locale. The card deliberately does NOT call
    *  `new Date()` itself — that would break React 19 Strict Mode
@@ -63,7 +54,6 @@ export default function CurrentWeatherCard({
   snapshot,
   loading,
   nowcastTemperatureC = null,
-  nowcastStationName = null,
   wallClockMs,
 }: CurrentWeatherCardProps) {
   const { locale } = useLocale()

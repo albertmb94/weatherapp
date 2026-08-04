@@ -554,8 +554,14 @@ export default function HomeContent() {
     if (!arr || arr.length === 0) return null
     // Anchor the lookup on the forecast's `fetchedAt` so
     // server and client agree on the row (same trick the
-    // forecast uses via `startIndex`).
-    const referenceMs = data.fetchedAt ?? Date.now()
+    // forecast uses via `startIndex`). Fall back to the
+    // shared `currentTickMs` (the same wall-clock value
+    // every other consumer in this file reads) instead of
+    // `Date.now()` so the React purity rule is satisfied
+    // and SSR / hydration stay consistent — `currentTickMs`
+    // is 0 on the first client render and starts ticking
+    // once the `useClientNow` effect runs.
+    const referenceMs = data.fetchedAt ?? currentTickMs
     const referenceLocal = new Date(referenceMs + data.utcOffsetSeconds * 1000)
     const target = referenceLocal.getUTCHours()
     for (let i = 0; i < data.time.length; i++) {
@@ -564,7 +570,7 @@ export default function HomeContent() {
       if (t.getUTCHours() === target) return arr[i] ?? null
     }
     return arr[0] ?? null
-  }, [airQualityQuery.data])
+  }, [airQualityQuery.data, currentTickMs])
 
   // F5 (revised, second pass): same hour-aligned lookup for
   // the two pollen readings surfaced in the Métricas block.
@@ -936,17 +942,17 @@ export default function HomeContent() {
   // The number of recommendation entries that actually overlap with
   // the user's active model selection — surfaced in the chip so the
   // user can see whether the boost is taking effect (a coastal city
-  // with no marine-aware models active shows 0 even if the backtest
-  // returned a marine recommendation).
-  const usageProfileBoostedCount = useMemo(() => {
-    if (!effectiveProfile.profile) return 0
-    const active = new Set(displayActiveModelIds)
-    let count = 0
-    for (const id of recommendedSet) {
-      if (active.has(id)) count++
-    }
-    return count
-  }, [effectiveProfile.profile, displayActiveModelIds, recommendedSet])
+  // The number of recommendation entries that overlap with
+  // the user's active model selection used to be surfaced in
+  // a chip on FriendlyHome so the user could see whether the
+  // boost was taking effect (a coastal city with no marine-
+  // aware models active would show 0 even if the backtest
+  // returned a marine recommendation). The chip was dropped
+  // in F5 (the user reported it was an "FYI with no
+  // follow-up"), so the computation no longer needs to run
+  // here. The math is still in `useMemo` block of the parent
+  // so the recommendation set keeps driving the snapshot's
+  // `meanAcrossModels` via `usageProfileRecommended` below.
 
   const viewData = useMemo(() => {
     if (!effectiveData) return null
@@ -1329,7 +1335,6 @@ export default function HomeContent() {
                   // no boost is applied — the snapshot degrades
                   // to the pre-Sprint-13 behaviour byte-for-byte.
                   usageProfile={effectiveProfile.profile}
-                  usageProfileBoostedCount={usageProfileBoostedCount}
                   usageProfileRecommended={recommendedSet}
                   // F5 (revised): the EU AQI value is rendered
                   // inside the Métricas block (via AirConditionsGrid)
@@ -1734,15 +1739,53 @@ const AdvancedSection = memo(function AdvancedSection({
 }) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
-  // Pre-extract the dense props so the JSX below is readable.
-  const viewTimes = viewData?.time ?? []
-  const viewSeries = viewData?.series ?? {}
+  // Pre-extract the dense props so the JSX below is readable. Wrap
+  // them in `useMemo` so the `[]` fallbacks don't return a fresh
+  // array on every render — that would re-trigger the
+  // `insightsViewTimes` / `insightsViewSeries` memos below on every
+  // keystroke from a sibling state change.
+  const viewTimes = useMemo(() => viewData?.time ?? [], [viewData])
+  const viewSeries = useMemo(() => viewData?.series ?? {}, [viewData])
   const viewUtc = viewData?.utcOffsetSeconds ?? 0
   // Use full (untrimmed) data for DailySummary so it can show all 14 days
   // from the start of the forecast, not just from the current hour.
   const fullTimes = fullData?.time ?? []
   const fullSeries = fullData?.series ?? {}
   const fullUtc = fullData?.utcOffsetSeconds ?? 0
+
+  // Insights table anchor: the user wants the table to start at the
+  // *current wall-clock hour* (e.g. 17:00 when the wall clock reads
+  // 17:52), regardless of when the cached forecast was issued.
+  // `viewTimes` is trimmed from the shared `startIndex` (the hour the
+  // forecast was issued, anchored to `fetchedAt`), so we slice once
+  // more from the wall-clock offset within the view. The offset is
+  // clamped to 0 so a fresh forecast issued *after* the wall clock
+  // hour (rare clock skew) still starts at index 0.
+  const insightsViewStartIndex = Math.max(0, insightsStartIndex - startIndex)
+  const insightsViewTimes = useMemo(
+    () => viewTimes.slice(insightsViewStartIndex),
+    [viewTimes, insightsViewStartIndex],
+  )
+  const insightsViewSeries = useMemo(() => {
+    const out: Record<string, Record<string, (number | null)[]>> = {}
+    for (const modelId of Object.keys(viewSeries)) {
+      const metrics = viewSeries[modelId]
+      const sliced: Record<string, (number | null)[]> = {}
+      for (const metricId of Object.keys(metrics)) {
+        const arr = metrics[metricId]
+        sliced[metricId] = arr === null ? arr : arr.slice(insightsViewStartIndex)
+      }
+      out[modelId] = sliced
+    }
+    return out
+  }, [viewSeries, insightsViewStartIndex])
+  // Convert the URL-state hour (relative to `viewTimes[0]` = the
+  // shared `startIndex`) into the further-trimmed coordinates the
+  // InsightsTable now uses. Negative values are clamped to 0 because
+  // the user is looking at data from *before* the wall clock — the
+  // table simply snaps the active row to the first available row.
+  const insightsSelectedHour = Math.max(0, selectedHour - insightsViewStartIndex)
+  const insightsMaxHours = insightsViewTimes.length || effectiveMaxHours
 
   return (
     <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
@@ -1837,21 +1880,27 @@ const AdvancedSection = memo(function AdvancedSection({
           <InsightsTable
             models={displayModels}
             activeModelIds={displayActiveModelIds}
-            times={viewTimes}
-            series={viewSeries}
-            fullTimes={fullTimes}
-            fullSeries={fullSeries}
-            // Anchored to the current wall-clock hour so the table
-            // starts at the user's actual "now" row (e.g. 17:00 when
-            // the wall clock is 17:52) regardless of when the cached
-            // forecast was issued. DailySummary keeps `startIndex`.
+            // The Insights table is anchored to the *wall-clock current
+            // hour* (the user asked the data to always start at "now"),
+            // not the hour the cached forecast was issued. We pre-slice
+            // `viewTimes`/`viewSeries` by `insightsViewStartIndex` and
+            // pass the offset through so the `onSelectHour` callback
+            // can convert back to the URL-state coords (the hour slider
+            // still uses the shared `startIndex` coords). `startIndex` is
+            // kept as `insightsStartIndex` for the `bucket=24` `toMidnight`
+            // calculation (= hours from the wall-clock hour to midnight).
+            times={insightsViewTimes}
+            series={insightsViewSeries}
+            fullTimes={insightsViewTimes}
+            fullSeries={insightsViewSeries}
             startIndex={insightsStartIndex}
+            viewStartIndex={insightsViewStartIndex}
             weekDays={weekDays}
             bucket={bucket}
             onBucketChange={onBucketChange}
-            selectedHour={selectedHour}
+            selectedHour={insightsSelectedHour}
             onSelectHour={onHourChange}
-            maxHours={viewTimes.length || effectiveMaxHours}
+            maxHours={insightsMaxHours}
             utcOffsetSeconds={viewUtc}
             showMarine={marine}
             onMarineToggle={onMarineToggle}

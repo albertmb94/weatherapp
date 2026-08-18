@@ -265,6 +265,142 @@ describe('InsightsTable — day filter (B-NEW-32)', () => {
     ))
     expect(screen.getByText(/Page 1 \/ \d+|Pág. 1 \/ \d+/i)).toBeInTheDocument()
   })
+
+  /**
+   * Regression: the "Cuándo" column labels must follow the filtered
+   * slice, not the underlying `fullTimes`. The parent passes
+   * `times = fullTimes.slice(dayFilter.startIndex)` and the same
+   * reference as `fullTimes`, so the table uses `times[0]` as both
+   * the first row date AND the "today" anchor for bucketLabel. When
+   * the filter is on day 3, the first row label must be "Hoy 00h"
+   * (where "Hoy" is day 3, not the wall-clock today).
+   */
+  it('rebases the "Cuándo" labels on the filtered day, not the unfiltered series', () => {
+    const fullTimes = fakeTimes(0, HOURS)
+    const filter: InsightsDayFilter = {
+      startIndex: 24 * 3,
+      anchor: 24 * 3 + 12,
+      label: 'Day 3',
+    }
+    const slicedTimes = fullTimes.slice(filter.startIndex)
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={slicedTimes}
+        fullTimes={slicedTimes}
+        fullSeries={SERIES}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={filter.anchor - filter.startIndex}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+        dayFilter={filter}
+        onClearDayFilter={() => {}}
+      />
+    ))
+    const tbody = document.querySelector('tbody')!
+    // Bucket=1 paginates at 48 rows per page; tbody also contains the
+    // prev/next CTA rows, so we look at the first 48 entries which
+    // are the actual data rows.
+    const firstCells = tbody.querySelectorAll('tr td:nth-child(1)')
+    const firstLabel = firstCells[0]?.textContent ?? ''
+    const row24Label = firstCells[24]?.textContent ?? ''
+    const row47Label = firstCells[47]?.textContent ?? ''
+    // First row: the filtered day at 00:00 → "Hoy 00h".
+    expect(firstLabel).toMatch(/Hoy 00h/)
+    // Row 24: the filtered day + 1 at 00:00 → "Mañ 00h" (the day after the filter).
+    expect(row24Label).toMatch(/Mañ 00h/)
+    // Row 47: the filtered day + 1 at 23:00 → "Mañ 23h".
+    expect(row47Label).toMatch(/Mañ 23h/)
+  })
+
+  /**
+   * Regression for the bug reported on 2026-08-18: the labels
+   * `today`/`tomorrow` were computed via `nowMs + utcOffsetSeconds * 1000`,
+   * which is correct for +ve offsets (CEST) but off-by-one day for -ve
+   * offsets (EST). With `utcOffsetSeconds = 7200` (CEST) and the filter
+   * on the 3rd day, the first row must still read "Hoy 00h" (the
+   * filtered day, not the wall-clock today).
+   */
+  it('rebase the labels on the filtered day under CEST (utcOffsetSeconds = +7200)', () => {
+    const fullTimes = fakeTimes(0, HOURS)
+    const filter: InsightsDayFilter = {
+      startIndex: 24 * 3,
+      anchor: 24 * 3 + 12,
+      label: 'Day 3',
+    }
+    const slicedTimes = fullTimes.slice(filter.startIndex)
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={slicedTimes}
+        fullTimes={slicedTimes}
+        fullSeries={SERIES}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={filter.anchor - filter.startIndex}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={7200}
+        ensembleMode="wedai"
+        weekDays={14}
+        dayFilter={filter}
+        onClearDayFilter={() => {}}
+      />
+    ))
+    const tbody = document.querySelector('tbody')!
+    const firstCells = tbody.querySelectorAll('tr td:nth-child(1)')
+    expect(firstCells[0]?.textContent).toMatch(/Hoy 00h/)
+    expect(firstCells[24]?.textContent).toMatch(/Mañ 00h/)
+    expect(firstCells[47]?.textContent).toMatch(/Mañ 23h/)
+  })
+
+  /**
+   * The same regression under a -ve offset (EST). The buggy
+   * `nowMs + utcOffsetSeconds * 1000` formula computes `today` as
+   * `local - 5h`, which puts the UTC date on the previous day. The
+   * first row would then mislabel itself as "Mañ" instead of "Hoy".
+   */
+  it('rebase the labels on the filtered day under EST (utcOffsetSeconds = -18000)', () => {
+    const fullTimes = fakeTimes(0, HOURS)
+    const filter: InsightsDayFilter = {
+      startIndex: 24 * 3,
+      anchor: 24 * 3 + 12,
+      label: 'Day 3',
+    }
+    const slicedTimes = fullTimes.slice(filter.startIndex)
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={slicedTimes}
+        fullTimes={slicedTimes}
+        fullSeries={SERIES}
+        series={SERIES}
+        bucket={1}
+        onBucketChange={() => {}}
+        selectedHour={filter.anchor - filter.startIndex}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={-18000}
+        ensembleMode="wedai"
+        weekDays={14}
+        dayFilter={filter}
+        onClearDayFilter={() => {}}
+      />
+    ))
+    const tbody = document.querySelector('tbody')!
+    const firstCells = tbody.querySelectorAll('tr td:nth-child(1)')
+    expect(firstCells[0]?.textContent).toMatch(/Hoy 00h/)
+    expect(firstCells[24]?.textContent).toMatch(/Mañ 00h/)
+  })
 })
 
 describe('InsightsTable — autoscroll on pagination (B-NEW-32)', () => {

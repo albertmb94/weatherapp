@@ -257,7 +257,17 @@ function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' |
   // pre-hydration weekday label so the SSR and the first client render
   // are byte-identical. The `useEffect` then updates `nowMs` and the
   // table re-renders with the correct "Hoy"/"Mañ" tags.
-  const today = new Date(nowMs + utcOffsetSeconds * 1000)
+  //
+  // B-NEW-33 (2026-08-18): the previous `nowMs + utcOffsetSeconds * 1000`
+  // formula was wrong for -ve offsets. `nowMs` IS the local time
+  // expressed as UTC (UTC-fake-local), so its own `getUTCDate()` is
+  // the local date. Adding `utcOffsetSeconds` shifts the UTC date by
+  // ±offset hours, which is "accidentally correct" for CEST (a 2h
+  // shift doesn't cross midnight most of the time) but off by one
+  // day for EST (a 5h backward shift crosses midnight). The "today"
+  // anchor is just `nowMs` itself — that's the local date the call
+  // site cares about.
+  const today = new Date(nowMs)
   const isToday = start.getUTCFullYear() === today.getUTCFullYear() && start.getUTCMonth() === today.getUTCMonth() && start.getUTCDate() === today.getUTCDate()
   const isTomorrow = (() => {
     const t = new Date(today.getTime() + 24 * 60 * 60 * 1000)

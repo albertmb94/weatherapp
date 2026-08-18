@@ -272,8 +272,16 @@ describe('InsightsTable — day filter (B-NEW-32)', () => {
    * `times = fullTimes.slice(dayFilter.startIndex)` and the same
    * reference as `fullTimes`, so the table uses `times[0]` as both
    * the first row date AND the "today" anchor for bucketLabel. When
-   * the filter is on day 3, the first row label must be "Hoy 00h"
-   * (where "Hoy" is day 3, not the wall-clock today).
+   * the filter is active, the column is re-anchored on the filtered
+   * day so the labels read the actual weekday name ("Lun 13") rather
+   * than "Hoy" / "Mañ" — the user complained on 2026-08-18 that the
+   * "Hoy" / "Mañ" shortcuts persisted for a 5-days-ahead filter.
+   *
+   * `fakeTimes(0, HOURS)` anchors at `Date.UTC(2026, 6, 10, 0, 0, 0)`,
+   * which is Friday 10 Jul 2026 in UTC. The filter starts at hour
+   * 72 (00:00 of the 4th day, Monday 13 Jul). With bucket=1 the labels
+   * look like "Lun 13 00h", "Lun 13 01h", …, "Mar 14 00h", …,
+   * "Mar 14 23h".
    */
   it('rebases the "Cuándo" labels on the filtered day, not the unfiltered series', () => {
     const fullTimes = fakeTimes(0, HOURS)
@@ -311,21 +319,27 @@ describe('InsightsTable — day filter (B-NEW-32)', () => {
     const firstLabel = firstCells[0]?.textContent ?? ''
     const row24Label = firstCells[24]?.textContent ?? ''
     const row47Label = firstCells[47]?.textContent ?? ''
-    // First row: the filtered day at 00:00 → "Hoy 00h".
-    expect(firstLabel).toMatch(/Hoy 00h/)
-    // Row 24: the filtered day + 1 at 00:00 → "Mañ 00h" (the day after the filter).
-    expect(row24Label).toMatch(/Mañ 00h/)
-    // Row 47: the filtered day + 1 at 23:00 → "Mañ 23h".
-    expect(row47Label).toMatch(/Mañ 23h/)
+    // First row: the filtered day at 00:00 → "Lun 13 00h".
+    expect(firstLabel).toMatch(/Lun 13 00h/)
+    // Row 24: the filtered day + 1 at 00:00 → "Mar 14 00h".
+    expect(row24Label).toMatch(/Mar 14 00h/)
+    // Row 47: the filtered day + 1 at 23:00 → "Mar 14 23h".
+    expect(row47Label).toMatch(/Mar 14 23h/)
+    // No "Hoy" / "Mañ" shortcuts under the filter — the column is
+    // re-anchored on the filtered day and must use the weekday name.
+    expect(firstLabel).not.toMatch(/Hoy/)
+    expect(firstLabel).not.toMatch(/Mañ/)
+    expect(row24Label).not.toMatch(/Hoy/)
+    expect(row24Label).not.toMatch(/Mañ/)
   })
 
   /**
-   * Regression for the bug reported on 2026-08-18: the labels
-   * `today`/`tomorrow` were computed via `nowMs + utcOffsetSeconds * 1000`,
-   * which is correct for +ve offsets (CEST) but off-by-one day for -ve
-   * offsets (EST). With `utcOffsetSeconds = 7200` (CEST) and the filter
-   * on the 3rd day, the first row must still read "Hoy 00h" (the
-   * filtered day, not the wall-clock today).
+   * Same regression under CEST (utcOffsetSeconds = +7200). The
+   * combination of "today" rebasing + forceWeekdayName keeps the
+   * "Lun 13" / "Mar 14" labels correct (the previous `nowMs +
+   * utcOffsetSeconds * 1000` formula plus the Hoy/Mañ shortcuts was
+   * off-by-one day for -ve offsets and a stubborn stub for the
+   * filtered day itself).
    */
   it('rebase the labels on the filtered day under CEST (utcOffsetSeconds = +7200)', () => {
     const fullTimes = fakeTimes(0, HOURS)
@@ -357,15 +371,15 @@ describe('InsightsTable — day filter (B-NEW-32)', () => {
     ))
     const tbody = document.querySelector('tbody')!
     const firstCells = tbody.querySelectorAll('tr td:nth-child(1)')
-    expect(firstCells[0]?.textContent).toMatch(/Hoy 00h/)
-    expect(firstCells[24]?.textContent).toMatch(/Mañ 00h/)
-    expect(firstCells[47]?.textContent).toMatch(/Mañ 23h/)
+    expect(firstCells[0]?.textContent).toMatch(/Lun 13 00h/)
+    expect(firstCells[24]?.textContent).toMatch(/Mar 14 00h/)
+    expect(firstCells[47]?.textContent).toMatch(/Mar 14 23h/)
   })
 
   /**
-   * The same regression under a -ve offset (EST). The buggy
-   * `nowMs + utcOffsetSeconds * 1000` formula computes `today` as
-   * `local - 5h`, which puts the UTC date on the previous day. The
+   * Same regression under EST (utcOffsetSeconds = -18000). The buggy
+   * `nowMs + utcOffsetSeconds * 1000` formula computed `today` as
+   * `local - 5h`, which put the UTC date on the previous day. The
    * first row would then mislabel itself as "Mañ" instead of "Hoy".
    */
   it('rebase the labels on the filtered day under EST (utcOffsetSeconds = -18000)', () => {
@@ -398,8 +412,54 @@ describe('InsightsTable — day filter (B-NEW-32)', () => {
     ))
     const tbody = document.querySelector('tbody')!
     const firstCells = tbody.querySelectorAll('tr td:nth-child(1)')
-    expect(firstCells[0]?.textContent).toMatch(/Hoy 00h/)
-    expect(firstCells[24]?.textContent).toMatch(/Mañ 00h/)
+    expect(firstCells[0]?.textContent).toMatch(/Lun 13 00h/)
+    expect(firstCells[24]?.textContent).toMatch(/Mar 14 00h/)
+  })
+
+  /**
+   * The Cuándo column under the day filter must also rebase its
+   * weekday label under bucket=24 (the default 14-day view). The
+   * first row in the filtered window is the filtered day's midnight;
+   * the old `Hoy`/`Mañ` shortcut would have pinned it to the
+   * wall-clock today, which is the bug the user reported.
+   */
+  it('rebase the bucket=24 weekday labels on the filtered day', () => {
+    const fullTimes = fakeTimes(0, HOURS)
+    const filter: InsightsDayFilter = {
+      startIndex: 24 * 3,
+      anchor: 24 * 3 + 12,
+      label: 'Day 3',
+    }
+    const slicedTimes = fullTimes.slice(filter.startIndex)
+    render(wrap(
+      <InsightsTable
+        models={MODELS}
+        activeModelIds={['gfs_global', 'ecmwf_ifs']}
+        times={slicedTimes}
+        fullTimes={slicedTimes}
+        fullSeries={SERIES}
+        series={SERIES}
+        bucket={24}
+        onBucketChange={() => {}}
+        selectedHour={filter.anchor - filter.startIndex}
+        onSelectHour={() => {}}
+        maxHours={HOURS}
+        utcOffsetSeconds={0}
+        ensembleMode="wedai"
+        weekDays={14}
+        dayFilter={filter}
+        onClearDayFilter={() => {}}
+      />
+    ))
+    const tbody = document.querySelector('tbody')!
+    // bucket=24 emits one row per day, so the first three rows are
+    // the filtered day + the next two.
+    const dayLabels = tbody.querySelectorAll('tr td:nth-child(1)')
+    expect(dayLabels[0]?.textContent).toMatch(/Lun 13/)
+    expect(dayLabels[1]?.textContent).toMatch(/Mar 14/)
+    expect(dayLabels[2]?.textContent).toMatch(/Mié 15/)
+    expect(dayLabels[0]?.textContent).not.toMatch(/Hoy/)
+    expect(dayLabels[0]?.textContent).not.toMatch(/Mañ/)
   })
 })
 

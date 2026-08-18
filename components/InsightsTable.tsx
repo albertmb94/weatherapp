@@ -238,7 +238,15 @@ function WindArrow({ degrees }: { degrees: number | null }) {
   )
 }
 
-function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' | 'en', utcOffsetSeconds: number, nowMs: number): string {
+function bucketLabel(
+  start: Date,
+  end: Date,
+  bucket: BucketHours,
+  locale: 'es' | 'en',
+  utcOffsetSeconds: number,
+  nowMs: number,
+  forceWeekdayName: boolean = false,
+): string {
   // M5: compare the location's "today" (in the location's timezone) instead
   // of the browser's "today", otherwise the label flips between "Hoy" /
   // "Mañ" and a weekday at the wrong moment when the user is in a TZ
@@ -267,9 +275,16 @@ function bucketLabel(start: Date, end: Date, bucket: BucketHours, locale: 'es' |
   // day for EST (a 5h backward shift crosses midnight). The "today"
   // anchor is just `nowMs` itself — that's the local date the call
   // site cares about.
+  //
+  // B-NEW-34 (2026-08-18): when the day filter is active the table is
+  // re-anchored on the filtered day, so "Hoy"/"Mañ" don't make sense
+  // any more — the first row is the filtered day's 00:00, not "now".
+  // `forceWeekdayName` skips the Hoy/Mañ shortcuts and forces the full
+  // "Lun 13" / "Mar 14" weekday name, so the column keeps its own
+  // labelling consistent across the filtered horizon.
   const today = new Date(nowMs)
-  const isToday = start.getUTCFullYear() === today.getUTCFullYear() && start.getUTCMonth() === today.getUTCMonth() && start.getUTCDate() === today.getUTCDate()
-  const isTomorrow = (() => {
+  const isToday = !forceWeekdayName && start.getUTCFullYear() === today.getUTCFullYear() && start.getUTCMonth() === today.getUTCMonth() && start.getUTCDate() === today.getUTCDate()
+  const isTomorrow = !forceWeekdayName && (() => {
     const t = new Date(today.getTime() + 24 * 60 * 60 * 1000)
     return start.getUTCFullYear() === t.getUTCFullYear() && start.getUTCMonth() === t.getUTCMonth() && start.getUTCDate() === t.getUTCDate()
   })()
@@ -624,7 +639,7 @@ export default function InsightsTable({
           const labelT = tt[i] ?? tt[dayStart] ?? tt[0]
           current = {
             label: labelT instanceof Date
-              ? bucketLabel(labelT, labelT, bucket, locale, utcOffsetSeconds, nowMs)
+              ? bucketLabel(labelT, labelT, bucket, locale, utcOffsetSeconds, nowMs, Boolean(dayFilter))
               : dayKey,
             startIdx: dayStart,
             endIdx: i,
@@ -658,7 +673,15 @@ export default function InsightsTable({
         if (end < cursor) break
         const endT = times[end]
         buckets.push({
-          label: bucketLabel(new Date(startT.getTime() - startInBucket * 3600_000), endT, bucket, locale, utcOffsetSeconds, nowMs),
+          label: bucketLabel(
+            new Date(startT.getTime() - startInBucket * 3600_000),
+            endT,
+            bucket,
+            locale,
+            utcOffsetSeconds,
+            nowMs,
+            Boolean(dayFilter),
+          ),
           startIdx: cursor,
           endIdx: end,
           centerIdx: cursor + Math.floor((end - cursor) / 2),
@@ -883,7 +906,7 @@ export default function InsightsTable({
     }
 
     return buckets
-  }, [activeModels, models, activeModelIds, allModels, currentHourMode, ensembleMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, viewStartIndex, weekDays, selectedHour, nowMs])
+  }, [activeModels, models, activeModelIds, allModels, currentHourMode, ensembleMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, viewStartIndex, weekDays, selectedHour, dayFilter, nowMs])
 
   const marineColIds = useMemo(
     () => new Set<MetricCellId>([

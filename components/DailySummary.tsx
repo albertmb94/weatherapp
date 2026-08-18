@@ -26,6 +26,19 @@ interface DailySummaryProps {
   series: Record<string, Record<string, (number | null)[]>>
   selectedHour: number
   onSelectHour: (hour: number) => void
+  /** Optional day-filter callback. When provided, tapping a card
+   *  fires this instead of `onSelectHour`. The parent uses it to
+   *  slice the Insights table from the day's 00:00 without
+   *  changing the URL hour (the user wants `onSelectHour`'s
+   *  side-effects — slider/index changes — to be exclusive to
+   *  row clicks). When omitted, the click falls back to
+   *  `onSelectHour(noonIndex)` so existing tests/callers keep
+   *  working. */
+  onSelectDay?: (day: { startIndex: number; noonIndex: number; label: string }) => void
+  /** When set, the matching card uses this as the active
+   *  indicator instead of `selectedHour`. Lets the parent mark a
+   *  card as "filtered" without writing back to the URL. */
+  activeDayStartIndex?: number | null
   maxHours: number
   showMarine?: boolean
   showBasic?: boolean
@@ -84,6 +97,8 @@ export default function DailySummary({
   series,
   selectedHour,
   onSelectHour,
+  onSelectDay,
+  activeDayStartIndex = null,
   maxHours,
   showMarine = false,
   showBasic = true,
@@ -236,15 +251,41 @@ export default function DailySummary({
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
         {days.map((d, i) => {
-          const isCurrent = selectedHour >= d.startIndex && selectedHour <= d.endIndex
+          // The active state comes from two sources, in priority order:
+          //   1. `activeDayStartIndex` is set by the parent when the
+          //      user has filtered the Insights table to a single day.
+          //      We honor it so the active highlight follows the
+          //      filter, not the URL hour (which the filter does not
+          //      change).
+          //   2. Otherwise the card is "active" when the URL hour
+          //      falls inside the day's range — the legacy behaviour.
+          const isCurrent = activeDayStartIndex !== null
+            ? activeDayStartIndex === d.startIndex
+            : selectedHour >= d.startIndex && selectedHour <= d.endIndex
+          const handleClick = () => {
+            if (onSelectDay) {
+              onSelectDay({ startIndex: d.startIndex, noonIndex: d.noonIndex, label: d.label })
+            } else {
+              onSelectHour(d.noonIndex)
+            }
+          }
           return (
             <button
               key={i}
-              onClick={() => onSelectHour(d.noonIndex)}
-              className={`min-w-0 px-1.5 py-1.5 rounded border text-center transition-all cursor-pointer bg-gradient-to-br ${ICON_GRADIENTS[d.icon]} ${
+              type="button"
+              onClick={handleClick}
+              data-testid="daily-card"
+              data-day-start={d.startIndex}
+              aria-pressed={isCurrent}
+              aria-label={(onSelectDay
+                ? (locale === 'en' ? `Filter Insights to ${d.label}.` : `Filtrar Insights desde ${d.label}.`)
+                : (locale === 'en' ? `Jump to ${d.label} at 12:00.` : `Ir a ${d.label} a las 12:00.`))}
+              className={`min-w-0 px-1.5 py-1.5 rounded border text-center transition-all cursor-pointer bg-gradient-to-br ${ICON_GRADIENTS[d.icon]} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
                 isCurrent ? 'border-accent shadow-[0_0_8px_var(--accent-soft)]' : 'border-border hover:border-border-strong'
               }`}
-              title={`Jump to ${d.label} at 12:00`}
+              title={onSelectDay
+                ? (locale === 'en' ? `Filter Insights from ${d.label} (00:00)` : `Filtrar Insights desde ${d.label} (00:00)`)
+                : `Jump to ${d.label} at 12:00`}
             >
               <div className="text-[11px] font-semibold text-text-primary truncate">{d.label}</div>
               <div className="flex justify-center my-0.5"><WeatherConditionIcon icon={d.icon} /></div>

@@ -8,12 +8,15 @@ import CitySearch from '@/components/CitySearch'
 import MetricPills from '@/components/MetricPills'
 import ModelSelector from '@/components/ModelSelector'
 import DailySummary from '@/components/DailySummary'
-import InsightsTable, { type BucketHours } from '@/components/InsightsTable'
+import InsightsTable, { type BucketHours, type InsightsDayFilter } from '@/components/InsightsTable'
 import MobileTabBar from '@/components/MobileTabBar'
 import SavedLocations from '@/components/SavedLocations'
 import ColorLegend from '@/components/ColorLegend'
 import ErrorBoundary from '@/components/ErrorBoundary'
-import RefreshButton from '@/components/RefreshButton'
+// RefreshButton was removed from the search bar on 2026-08-18:
+// the per-location auto-refresh effect (data.fetchedAt > 2h) is
+// the single source of refresh now. The manual refresh still
+// lives in SettingsPanel and as the pull-to-refresh gesture.
 import FriendlyHome from '@/components/FriendlyHome'
 import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
@@ -48,6 +51,7 @@ import { useNearbyStations } from '@/lib/hooks/useNearbyStations'
 import { getLeadTimeBucket } from '@/lib/models'
 import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
 import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
+import { shouldAutoRefresh } from '@/lib/autoRefresh'
 import { computeInsightsStartIndex } from '@/lib/insightsTime'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
@@ -206,10 +210,13 @@ export default function HomeContent() {
   const scrollToStationsRef = useRef(false)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
-  // S6: shared refresh hook. RefreshButton in the secondary header is
-  // the single source of truth for the refresh action. The refresh
-  // outcome toast is disabled (see comment near the useEffect that
-  // previously set it) so we don't read `lastOutcome` here.
+  // Refresh hook: the per-location auto-refresh is the primary
+  // refresh path now (driven by `data.fetchedAt > 2h` below). The
+  // hook's `refresh` mutation is still wired to SettingsPanel and
+  // to the pull-to-refresh gesture as an escape hatch — the user
+  // asked for the buttons next to the search bar to be removed on
+  // 2026-08-18 because the auto-refresh is reliable enough that the
+  // manual button wasn't pulling its weight.
   const { refresh } = useRefresh()
   // Sprint 13: the auto-derived profile for the current location.
   // Resolved asynchronously from `classifyTerrain`; `null` until
@@ -450,7 +457,7 @@ export default function HomeContent() {
   // for 14 days regardless of range / weekDays state or past_days offset.
   const forecastDays = OPEN_METEO_MAX_DAYS
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['forecast', position[0], position[1], forecastDays, marine],
     queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine),
     staleTime: 10 * 60 * 1000,
@@ -499,18 +506,37 @@ export default function HomeContent() {
   const forecastAgeMs = lastFetchedAt
     ? Math.max(0, currentTickMs - lastFetchedAt)
     : null
-  const needsAutoRefresh = forecastAgeMs !== null && forecastAgeMs >= AUTO_REFRESH_AGE_MS
+  // B-NEW-31 (2026-08-18): throttle the auto-refresh so we don't
+  // hammer the upstream API if the same forecast payload keeps
+  // coming back stale (cache hit returning the same `fetchedAt`,
+  // network failure, etc.). `useClientNow` ticks every minute so
+  // the predicate above will keep re-firing as long as the data
+  // is older than 2h — that's correct, but without a debounce each
+  // tick would re-issue invalidateQueries, which React Query would
+  // then either ignore (in-flight) or schedule (back-to-back), and
+  // the user would see the cache lock in a stale state. The helper
+  // `shouldAutoRefresh` folds the throttle + in-flight + visibility
+  // checks into a single boolean; the ref tracks the last
+  // invalidation wall-clock so we don't refire within the throttle
+  // window.
+  const lastAutoRefreshAtRef = useRef(0)
+  const AUTO_REFRESH_THROTTLE_MS = 60_000
   useEffect(() => {
-    if (!needsAutoRefresh) return
-    // Sprint 10 / B-10-5 (E7): only refresh when the tab is visible.
-    // A hidden tab re-fetching wastes upstream calls and Vercel
-    // function invocations; the user won't see the result until they
-    // come back, at which point refetchOnWindowFocus handles it.
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
-    // Invalidate just the forecast for the current position; React Query
-    // will refetch because we're not actively focused on another city.
+    const isVisible = typeof document === 'undefined' || document.visibilityState !== 'hidden'
+    if (!shouldAutoRefresh({
+      forecastAgeMs,
+      refreshWindowMs: AUTO_REFRESH_AGE_MS,
+      isFetching,
+      lastRefreshAt: lastAutoRefreshAtRef.current,
+      now: currentTickMs || Date.now(),
+      isVisible,
+      throttleMs: AUTO_REFRESH_THROTTLE_MS,
+    })) {
+      return
+    }
+    lastAutoRefreshAtRef.current = currentTickMs || Date.now()
     queryClient.invalidateQueries({ queryKey: ['forecast', position[0], position[1], forecastDays, marine] })
-  }, [needsAutoRefresh, queryClient, position, forecastDays, marine])
+  }, [forecastAgeMs, isFetching, currentTickMs, queryClient, position, forecastDays, marine])
 
   // Live UV (provider `current=uv_index`, ~15 min cadence). Separate
   // query so its lifecycle is independent of the ensemble forecast and
@@ -1167,7 +1193,6 @@ export default function HomeContent() {
           >
             {locale === 'en' ? 'ES' : 'EN'}
           </button>
-          <RefreshButton />
           <button
             onClick={() => setMobileMenuOpen(o => !o)}
             className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary cursor-pointer ml-auto"
@@ -1267,7 +1292,6 @@ export default function HomeContent() {
                   </svg>
                   <CitySearch onSelect={handleCitySelect} />
                 </div>
-                <RefreshButton />
               </div>
               {/* B-NEW-29 (2026-07-30): saved-locations strip
                   sticks directly under the search input on
@@ -1537,6 +1561,10 @@ export default function HomeContent() {
                   ensembleMode={ensembleMode}
                   onEnsembleModeChange={handleEnsembleModeChange}
                   weekDays={weekDays}
+                  // Round-trip every coord change down to 2 decimals so
+                  // a fresh /api/forecast that re-issues the same cell
+                  // doesn't reset the user's day filter.
+                  locationKey={`${position[0].toFixed(2)}:${position[1].toFixed(2)}`}
                 />
               )}
 
@@ -1649,6 +1677,8 @@ export default function HomeContent() {
         <span>← → {STRINGS[locale].footerHours}</span>
         <span>/ {STRINGS[locale].footerSearch}</span>
         <span>m {STRINGS[locale].footerMap}</span>
+        <a href="/premium" className="ml-auto hover:text-text-primary">Premium</a>
+        <a href="/admin" className="hover:text-text-primary">Admin</a>
       </div>
 
       {toast && (
@@ -1710,6 +1740,7 @@ const AdvancedSection = memo(function AdvancedSection({
   ensembleMode,
   onEnsembleModeChange,
   weekDays,
+  locationKey,
 }: {
   expanded: boolean
   onToggle: () => void
@@ -1736,6 +1767,11 @@ const AdvancedSection = memo(function AdvancedSection({
   ensembleMode: 'wedai' | 'models'
   onEnsembleModeChange: (mode: 'wedai' | 'models') => void
   weekDays: 7 | 14
+  /** Stable per-location string used to reset the day filter when the
+   *  user navigates to a different city. Coordinates are rounded to 2
+   *  decimals (the same precision the cache key uses) so the same cell
+   *  re-issued by a fresh forecast doesn't destroy the filter. */
+  locationKey: string
 }) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -1753,39 +1789,83 @@ const AdvancedSection = memo(function AdvancedSection({
   const fullSeries = fullData?.series ?? {}
   const fullUtc = fullData?.utcOffsetSeconds ?? 0
 
-  // Insights table anchor: the user wants the table to start at the
-  // *current wall-clock hour* (e.g. 17:00 when the wall clock reads
-  // 17:52), regardless of when the cached forecast was issued.
-  // `viewTimes` is trimmed from the shared `startIndex` (the hour the
-  // forecast was issued, anchored to `fetchedAt`), so we slice once
-  // more from the wall-clock offset within the view. The offset is
-  // clamped to 0 so a fresh forecast issued *after* the wall clock
-  // hour (rare clock skew) still starts at index 0.
+  // Day filter: when the user taps a daily summary card we slice the
+  // Insights table from that day's 00:00 onwards. The filter is local
+  // to this component (it never touches the URL hour, the slider, the
+  // map, or the DailySummary's `selectedHour`) so a "Ver desde hoy"
+  // press is a pure view change. The filter clears automatically when
+  // the user navigates to a different location.
+  const [dayFilter, setDayFilter] = useState<InsightsDayFilter | null>(null)
+  const prevLocationKeyRef = useRef(locationKey)
+  useEffect(() => {
+    if (prevLocationKeyRef.current !== locationKey) {
+      prevLocationKeyRef.current = locationKey
+      setDayFilter(null)
+    }
+  }, [locationKey])
+
+  // When the filter is active the Insights table is sliced from the
+  // filter's 00:00 (taken from the *full* data, not `viewTimes`).
+  // That way the user can ask for "from today 00:00" even when the
+  // current wall clock is past midnight — the table re-anchors on
+  // the day at index `dayFilter.startIndex` in `fullTimes`.
+  //
+  // The wall-clock offset (no-filter branch) is the same
+  // `insightsViewStartIndex` the rest of the module has used since
+  // the wall-clock anchor was introduced; we keep the variable
+  // around so the no-filter branch stays a pure pass-through to the
+  // legacy behaviour.
   const insightsViewStartIndex = Math.max(0, insightsStartIndex - startIndex)
+  const activeSliceBase = dayFilter ? fullTimes : viewTimes
+  const activeSliceSeries = dayFilter ? fullSeries : viewSeries
+  const activeSliceStartIndex = dayFilter
+    ? dayFilter.startIndex
+    : insightsViewStartIndex
   const insightsViewTimes = useMemo(
-    () => viewTimes.slice(insightsViewStartIndex),
-    [viewTimes, insightsViewStartIndex],
+    () => activeSliceBase.slice(activeSliceStartIndex),
+    [activeSliceBase, activeSliceStartIndex],
   )
   const insightsViewSeries = useMemo(() => {
     const out: Record<string, Record<string, (number | null)[]>> = {}
-    for (const modelId of Object.keys(viewSeries)) {
-      const metrics = viewSeries[modelId]
+    for (const modelId of Object.keys(activeSliceSeries)) {
+      const metrics = activeSliceSeries[modelId]
       const sliced: Record<string, (number | null)[]> = {}
       for (const metricId of Object.keys(metrics)) {
         const arr = metrics[metricId]
-        sliced[metricId] = arr === null ? arr : arr.slice(insightsViewStartIndex)
+        sliced[metricId] = arr === null ? arr : arr.slice(activeSliceStartIndex)
       }
       out[modelId] = sliced
     }
     return out
-  }, [viewSeries, insightsViewStartIndex])
-  // Convert the URL-state hour (relative to `viewTimes[0]` = the
-  // shared `startIndex`) into the further-trimmed coordinates the
-  // InsightsTable now uses. Negative values are clamped to 0 because
-  // the user is looking at data from *before* the wall clock — the
-  // table simply snaps the active row to the first available row.
-  const insightsSelectedHour = Math.max(0, selectedHour - insightsViewStartIndex)
+  }, [activeSliceSeries, activeSliceStartIndex])
+  // When the filter is active the active row is the noonIndex inside
+  // the filtered window. Otherwise we keep the wall-clock → URL-state
+  // conversion the old logic used.
+  const insightsSelectedHour = dayFilter
+    ? Math.max(0, dayFilter.anchor - dayFilter.startIndex)
+    : Math.max(0, selectedHour - insightsViewStartIndex)
+  // `viewStartIndex` is the offset the table adds to `r.centerIdx`
+  // before calling `onSelectHour`, so the URL hour stays in the
+  // expected coord system. With the filter, the offset is back in
+  // the FULL data array (the table was sliced from `fullTimes`),
+  // so we subtract `startIndex` to convert back to `viewTimes`.
+  const effectiveViewStartIndex = dayFilter
+    ? dayFilter.startIndex - startIndex
+    : insightsViewStartIndex
   const insightsMaxHours = insightsViewTimes.length || effectiveMaxHours
+  const handleDayFilter = useCallback((day: { startIndex: number; noonIndex: number; label: string }) => {
+    setDayFilter({ startIndex: day.startIndex, anchor: day.noonIndex, label: day.label })
+  }, [])
+  const handleClearDayFilter = useCallback(() => setDayFilter(null), [])
+  // Row clicks exit the filter view: the user is intentionally
+  // picking a specific hour, which is a different intent than
+  // "show me the data from this day onwards". Pass the row's
+  // hour through to `onHourChange` (which clamps to >= 0) and
+  // drop the filter so the table re-renders at full horizon.
+  const handleInsightsRowSelect = useCallback((hour: number) => {
+    setDayFilter(null)
+    onHourChange(hour)
+  }, [onHourChange])
 
   return (
     <section className="rounded-2xl border border-border bg-surface-raised overflow-hidden">
@@ -1852,6 +1932,11 @@ const AdvancedSection = memo(function AdvancedSection({
             series={fullSeries}
             selectedHour={startIndex + selectedHour}
             onSelectHour={(hour) => onHourChange(hour - startIndex)}
+            onSelectDay={handleDayFilter}
+            // When the filter is active the active highlight follows
+            // the filter, not the URL hour. The user wants the
+            // filter to be the *only* change a card click triggers.
+            activeDayStartIndex={dayFilter?.startIndex ?? null}
             // Show exactly `weekDays` calendar days: remainder of the
             // current day + (weekDays - 1) full days. When startIndex falls
             // on midnight we count the full current day (24 h). Any indices
@@ -1882,24 +1967,22 @@ const AdvancedSection = memo(function AdvancedSection({
             activeModelIds={displayActiveModelIds}
             // The Insights table is anchored to the *wall-clock current
             // hour* (the user asked the data to always start at "now"),
-            // not the hour the cached forecast was issued. We pre-slice
-            // `viewTimes`/`viewSeries` by `insightsViewStartIndex` and
-            // pass the offset through so the `onSelectHour` callback
-            // can convert back to the URL-state coords (the hour slider
-            // still uses the shared `startIndex` coords). `startIndex` is
-            // kept as `insightsStartIndex` for the `bucket=24` `toMidnight`
-            // calculation (= hours from the wall-clock hour to midnight).
+            // not the hour the cached forecast was issued. When the day
+            // filter is active, the table is sliced from the FULL data
+            // array at `dayFilter.startIndex` instead. `viewStartIndex`
+            // is adjusted so the `onSelectHour` callback still produces
+            // a URL hour in the same coord system the slider uses.
             times={insightsViewTimes}
             series={insightsViewSeries}
             fullTimes={insightsViewTimes}
             fullSeries={insightsViewSeries}
-            startIndex={insightsStartIndex}
-            viewStartIndex={insightsViewStartIndex}
+            startIndex={dayFilter ? dayFilter.startIndex : insightsStartIndex}
+            viewStartIndex={effectiveViewStartIndex}
             weekDays={weekDays}
             bucket={bucket}
             onBucketChange={onBucketChange}
             selectedHour={insightsSelectedHour}
-            onSelectHour={onHourChange}
+            onSelectHour={handleInsightsRowSelect}
             maxHours={insightsMaxHours}
             utcOffsetSeconds={viewUtc}
             showMarine={marine}
@@ -1907,6 +1990,8 @@ const AdvancedSection = memo(function AdvancedSection({
             showBasic={showBasic}
             onBasicToggle={onBasicToggle}
             ensembleMode={ensembleMode}
+            dayFilter={dayFilter}
+            onClearDayFilter={handleClearDayFilter}
           />
         </div>
       ) : null}

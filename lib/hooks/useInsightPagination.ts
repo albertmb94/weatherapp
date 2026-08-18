@@ -14,6 +14,15 @@ export const INSIGHTS_PAGE_SIZE = 48
  * was. Centralising the state machine here plus the helper
  * `slice(rows)` for the visible window keeps the table component
  * to "render rows" without dragging in any visibility math.
+ *
+ * The scroll-to-top itself was previously inlined here. It only
+ * worked when the table had an internal scroll container (desktop
+ * and landscape phone); on mobile portrait the page is the scroll
+ * ancestor, so the table container is at `scrollTop = 0` already
+ * and the call was a silent no-op. The hook now only manages the
+ * page state — the component decides where to scroll the user
+ * (container vs section) so the behaviour is consistent on every
+ * viewport.
  */
 export function useInsightPagination(
   rowCount: number,
@@ -28,15 +37,8 @@ export function useInsightPagination(
   hasNext: boolean
   hasPrev: boolean
   remaining: number
-  /** `onNextClick` and `onPrevClick` are the JSX-friendly handlers
-   *  that scroll the container to the top of the table after
-   *  changing page. Pass the table ref into them. The ref type
-   *  matches what `useRef<HTMLDivElement | null>(null)` produces
-   *  (an initially-null mutable ref) because that's the shape
-   *  every call site uses; declaring it as `RefObject<HTMLDivElement>`
-   *  (non-nullable) would force callers to cast. */
-  onNextClick: (tableRef: React.RefObject<HTMLDivElement | null>) => void
-  onPrevClick: (tableRef: React.RefObject<HTMLDivElement | null>) => void
+  onNextClick: () => void
+  onPrevClick: () => void
 } {
   const [page, setPage] = useState(0)
   const prevBucketRef = useRef<number>(bucket)
@@ -58,21 +60,13 @@ export function useInsightPagination(
     [visibleStart, visibleEnd],
   )
 
-  const onNextClick = useCallback((tableRef: React.RefObject<HTMLDivElement | null>) => {
+  const onNextClick = useCallback(() => {
     if (visibleEnd >= rowCount) return
     setPage(p => p + 1)
-    requestAnimationFrame(() => {
-      const el = tableRef.current
-      if (el && typeof el.scrollTo === 'function') el.scrollTo({ top: 0, behavior: 'smooth' })
-    })
   }, [rowCount, visibleEnd])
 
-  const onPrevClick = useCallback((tableRef: React.RefObject<HTMLDivElement | null>) => {
+  const onPrevClick = useCallback(() => {
     setPage(p => Math.max(0, p - 1))
-    requestAnimationFrame(() => {
-      const el = tableRef.current
-      if (el && typeof el.scrollTo === 'function') el.scrollTo({ top: 0, behavior: 'smooth' })
-    })
   }, [])
 
   return {

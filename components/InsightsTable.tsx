@@ -17,6 +17,17 @@ import WeatherConditionIcon from './WeatherConditionIcon'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
 
+export interface InsightsDayFilter {
+  /** Index (in `fullTimes`) of the 00:00 of the day the user picked. */
+  startIndex: number
+  /** Index (in `fullTimes`) of the noon slot of the same day. The
+   *  Insights table uses this as the anchors for the active row so the
+   *  highlight lands on the card the user pressed. */
+  anchor: number
+  /** Localised label for the pill ("Mié 21"). */
+  label: string
+}
+
 interface InsightsTableProps {
   models: WeatherModel[]
   activeModelIds: string[]
@@ -60,6 +71,12 @@ interface InsightsTableProps {
    *  the "AHORA" slot of the hourly strip regardless of the user's
    *  `ensembleMode` toggle. Other rows still respect `ensembleMode`. */
   currentHourMode?: 'wedai' | 'models'
+  /** When set, the table slices its view from this day's 00:00 onwards
+   *  (filtering out earlier rows). The parent owns the filter state — the
+   *  table only renders the "Desde ahora" pill and asks for it to be
+   *  cleared. Filters do NOT change the URL hour. */
+  dayFilter?: InsightsDayFilter | null
+  onClearDayFilter?: () => void
 }
 
 interface Row {
@@ -377,6 +394,8 @@ export default function InsightsTable({
    *  the "AHORA" slot of the hourly strip regardless of the user's
    *  `ensembleMode` toggle. Other rows still respect `ensembleMode`. */
   currentHourMode = 'wedai',
+  dayFilter = null,
+  onClearDayFilter,
 }: InsightsTableProps) {
   const { locale } = useLocale()
 
@@ -1157,17 +1176,91 @@ export default function InsightsTable({
   // called AFTER `rows` is computed so the row count we hand it is
   // accurate (the hook uses it to clamp the page index).
   const pagination = useInsightPagination(rows.length, bucket)
-  const { visibleStart: pageStart, visibleEnd: pageEnd, visibleRows: paginateRows, hasNext, hasPrev, remaining, onNextClick, onPrevClick } = pagination
+  const { visibleStart: pageStart, visibleEnd: pageEnd, visibleRows: paginateRows, hasNext, hasPrev, remaining, onNextClick: rawOnNextClick, onPrevClick: rawOnPrevClick } = pagination
   const visibleRows = paginateRows(rows)
   const visibleCellsByRow = paginateRows(cellsByRow)
   const safePage = pagination.page
   const INSIGHTS_PAGE_SIZE = pagination.pageSize
 
+  // When the user clicks a daily summary card the parent sets a
+  // day filter and the table re-slices from the filter's 00:00
+  // index. The old page index is no longer meaningful (the row
+  // count changes), so we snap the paginator back to page 0.
+  // The ref compares the filter object by reference so the reset
+  // does not fire on every render — only on real filter changes.
+  const prevFilterRef = useRef<InsightsDayFilter | null>(dayFilter)
+  useEffect(() => {
+    if (prevFilterRef.current !== dayFilter) {
+      pagination.setPage(0)
+      prevFilterRef.current = dayFilter
+    }
+  }, [dayFilter, pagination])
+
+  // Section ref holds the outermost wrapper of the table so we
+  // can scroll the page to it on mobile portrait (where the page
+  // is the scroll ancestor). `scroll-margin-top` is set inline so
+  // the section lands below the sticky mobile header + bucket bar
+  // even when ResizeObserver hasn't published the height yet.
+  const sectionRef = useRef<HTMLDivElement | null>(null)
+  const scrollToTop = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const section = sectionRef.current
+    if (!section) return
+    // jsdom (used by isolated tests) doesn't ship `matchMedia`
+    // unless the test installs it. We swallow the missing API
+    // and default to smooth scrolling so the production behaviour
+    // is preserved and the test runner doesn't throw an
+    // unhandled error.
+    let reduceMotion = false
+    try {
+      reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    } catch {
+      reduceMotion = false
+    }
+    const behavior: ScrollBehavior = reduceMotion ? 'auto' : 'smooth'
+    if (isMobilePortrait) {
+      // `scrollIntoView` is also missing on jsdom HTML elements by
+      // default. Production always has it; tests that exercise it
+      // install a stub on the element directly.
+      if (typeof section.scrollIntoView === 'function') {
+        section.scrollIntoView({ behavior, block: 'start' })
+      }
+    } else {
+      const container = tableContainerRef.current
+      if (container && typeof container.scrollTo === 'function') {
+        container.scrollTo({ top: 0, behavior })
+      }
+    }
+  }, [isMobilePortrait])
+
+  const handleNextClick = useCallback(() => {
+    rawOnNextClick()
+    scrollToTop()
+  }, [rawOnNextClick, scrollToTop])
+
+  const handlePrevClick = useCallback(() => {
+    rawOnPrevClick()
+    scrollToTop()
+  }, [rawOnPrevClick, scrollToTop])
+
   if (activeModels.length === 0) return null
 
   return (
-    <div className="mb-4 animate-fadeIn">
-      <div className="flex items-center gap-2 mb-3">
+    <div
+      ref={sectionRef}
+      className="mb-4 animate-fadeIn"
+      // Mobile portrait: offset the section so the sticky header
+      // (--mobile-header-h) + bucket bar (~44 px) don't overlap the
+      // category label when the user paginates. The fallback 0px
+      // covers the desktop / landscape path where the global
+      // header isn't sticky.
+      style={{
+        scrollMarginTop: 'calc(var(--mobile-header-h, 0px) + 56px)',
+      }}
+      data-testid="insights-table"
+      data-day-filter={dayFilter ? 'active' : 'inactive'}
+    >
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
           <h3 className="text-[11px] uppercase tracking-widest text-text-tertiary font-semibold">
             {STRINGS[locale].insightsTitle}
             {(bucket === 1 || bucket === 2) && (
@@ -1185,6 +1278,33 @@ export default function InsightsTable({
               </span>
             )}
           </h3>
+          {/* When the user has filtered the table to a single day the
+              "Próximas Xh" suffix above becomes misleading (the count
+              is now "from this day onwards"). We replace it with the
+              filtered day's label and a "Desde ahora" pill that
+              restores the default view anchored to the current hour. */}
+          {dayFilter ? (
+            <span
+              className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal font-normal text-text-muted"
+              data-testid="insights-day-filter-label"
+            >
+              <span aria-hidden>·</span>
+              <span>{dayFilter.label}</span>
+              {onClearDayFilter ? (
+                <button
+                  type="button"
+                  onClick={onClearDayFilter}
+                  className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent text-white hover:bg-accent/90 transition-colors cursor-pointer"
+                  data-testid="clear-day-filter"
+                  aria-label={locale === 'en'
+                    ? `Clear the ${dayFilter.label} filter and return to the current hour.`
+                    : `Quitar el filtro de ${dayFilter.label} y volver a la hora actual.`}
+                >
+                  {locale === 'en' ? 'From now' : 'Desde ahora'}
+                </button>
+              ) : null}
+            </span>
+          ) : null}
           {/* Sprint 10 / B-10-7: page indicator for paginated buckets
               (1/2/6 h). Helps the user understand how many 48h
               "pages" remain without scrolling to the bottom CTA. */}
@@ -1758,11 +1878,11 @@ export default function InsightsTable({
                 key="__prev-page-cta__"
                 role="button"
                 tabIndex={0}
-                onClick={() => onPrevClick(tableContainerRef)}
+                onClick={handlePrevClick}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    onPrevClick(tableContainerRef)
+                    handlePrevClick()
                   }
                 }}
                 aria-label="Previous 48 hours"
@@ -1936,11 +2056,11 @@ export default function InsightsTable({
                 key="__next-page-cta__"
                 role="button"
                 tabIndex={0}
-                onClick={() => onNextClick(tableContainerRef)}
+                onClick={handleNextClick}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    onNextClick(tableContainerRef)
+                    handleNextClick()
                   }
                 }}
                 aria-label={

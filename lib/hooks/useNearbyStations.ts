@@ -30,7 +30,10 @@ import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
 interface UseNearbyStationsArgs {
   lat: number
   lon: number
-  /** km search radius; default 10 covers most cities' stations. */
+  /** km search radius; default 5 matches `StationDashboard`'s mobile
+   *  default (`MOBILE_DEFAULT_RADIUS_KM`) so the nowcast blend picks
+   *  up the same stations the user sees in the Estaciones tab. Callers
+   *  that need a wider net (e.g. desktop) can override explicitly. */
   radius?: number
   /** Disable fetching (e.g. when lat/lon are outside reasonable bounds). */
   enabled?: boolean
@@ -82,7 +85,7 @@ function cellKey(lat: number, lon: number): string {
 export function useNearbyStations({
   lat,
   lon,
-  radius = 10,
+  radius = 5,
   enabled = true,
 }: UseNearbyStationsArgs): StationObservation[] {
   // Round to ~1 km so the query key is stable when the user

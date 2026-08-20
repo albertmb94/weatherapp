@@ -11,7 +11,11 @@ import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours, type InsightsDayFilter } from '@/components/InsightsTable'
 import MobileTabBar from '@/components/MobileTabBar'
 import SavedLocations from '@/components/SavedLocations'
-import ColorLegend from '@/components/ColorLegend'
+// B-NEW-35: Heatmap/Radar are temporarily disabled in this build —
+// their upstream providers are rate-limiting or unreliable in production,
+// so we hide both the toggles and the canvas until the backend story is
+// fixed. The `ColorLegend` and the radar overlay imports stay in the
+// tree for a future re-enable, but no JSX reaches them right now.
 import ErrorBoundary from '@/components/ErrorBoundary'
 // RefreshButton was removed from the search bar on 2026-08-18:
 // the per-location auto-refresh effect (data.fetchedAt > 2h) is
@@ -231,10 +235,13 @@ export default function HomeContent() {
   // AEMET publishes every 10 min, so a 5-min staleTime plus a
   // 5-min refetchInterval keeps the list fresh without spamming
   // the API.
+  // `useNearbyStations` defaults to a 5-km radius (matching the
+  // mobile default of `StationDashboard`), so the nowcast blend uses
+  // the same stations the user sees in the Estaciones tab without
+  // passing an explicit radius here.
   const nearbyStations = useNearbyStations({
     lat: position[0],
     lon: position[1],
-    radius: 10,
   })
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
@@ -767,10 +774,6 @@ export default function HomeContent() {
     }
   }, [showMap, updateUrl])
 
-  const handleRadarToggle = useCallback(() => {
-    updateUrl({ showRadar: !showRadar, showMap: showRadar ? showMap : true })
-  }, [showRadar, showMap, updateUrl])
-
   const handleMarineToggle = useCallback(() => {
     const next = !marine
     const updates: Partial<typeof urlState> = { marine: next }
@@ -826,8 +829,6 @@ export default function HomeContent() {
       { enableHighAccuracy: false, timeout: 5000 }
     )
   }, [updateUrl, locale])
-
-  const legendMetric = selectedMetric
 
   // Filter out the virtual marine model only when the marine toggle is
   // *off*. With marine=on we keep every model so that the chart, the
@@ -1259,13 +1260,11 @@ export default function HomeContent() {
           onSelect={handleViewSelect}
           layers={{
             showMap,
-            showRadar,
             marine,
             showBasic,
           }}
           onLayerToggle={{
             map: handleMapToggle,
-            radar: handleRadarToggle,
             marine: handleMarineToggle,
             basic: handleBasicToggle,
           }}
@@ -1397,11 +1396,16 @@ export default function HomeContent() {
                   itself is rendered twice above (once for
                   mobile, once for desktop). */}
 
-              {showMap && selectedView === 'map' && (
+               {showMap && selectedView === 'map' && (
                 <section ref={mapSectionRef} className="space-y-2">
-                  {/* Layer toggles (Map / Radar / Marine / Basic) live just
-                      above the map so they're reachable in the same scroll
-                      viewport as the map itself on mobile. */}
+                  {/* B-NEW-35 (2026-08-18): Radar and Heatmap are
+                      temporarily disabled — the upstream providers are
+                      rate-limiting or unreliable in production, so we
+                      hide both the toggles and the canvas until the
+                      backend story is fixed. The button + JSX for the
+                      radar overlay is removed from the toolbar; the
+                      heatmap is hardcoded off via `showHeatmap={false}`
+                      below. Only Map / Marine / Basic remain. */}
                   <div
                     role="group"
                     aria-label={STRINGS[locale].layersTitle ?? 'Layers'}
@@ -1418,18 +1422,6 @@ export default function HomeContent() {
                       }`}
                     >
                       {STRINGS[locale].map}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRadarToggle}
-                      aria-pressed={showRadar}
-                      className={`min-h-[32px] px-3 rounded-full text-[11px] font-medium border transition-colors ${
-                        showRadar
-                          ? 'bg-sky-500 text-white border-sky-500'
-                          : 'bg-surface-popover text-text-secondary border-border'
-                      }`}
-                    >
-                      {STRINGS[locale].radar}
                     </button>
                     <button
                       type="button"
@@ -1473,17 +1465,20 @@ export default function HomeContent() {
                   position={position}
                   recenterToken={recenterToken}
                   onPositionChange={handlePositionChange}
-                  showHeatmap={showMap}
+                  // B-NEW-35: hard-off until the upstream providers are
+                  // fixed. The existing `if (!showHeatmap) return`
+                  // guard inside MapPicker short-circuits the
+                  // `fetchHeatmapGrid` API call.
+                  showHeatmap={false}
                   metric={selectedMetric}
                   selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
                   hourIndex={safeSelectedHour}
                   viewTimes={viewData?.time ?? []}
                   dataStartIndex={startIndex}
-                  showRadar={showRadar}
+                  // Same as above — the RainRadarOverlay component
+                  // won't fetch when `enabled` is false.
+                  showRadar={false}
                 />
-                    <div className="absolute bottom-2.5 left-2.5 z-[1050] bg-surface-raised/90 p-2 rounded-lg shadow-lg pointer-events-none">
-                      <ColorLegend metric={legendMetric} />
-                    </div>
                   </div>
                 </section>
               )}

@@ -7,13 +7,11 @@ function renderSidebar(active: 'weather' | 'cities' = 'weather') {
   const onSelect = vi.fn()
   const onLayerToggle = {
     map: vi.fn(),
-    radar: vi.fn(),
     marine: vi.fn(),
     basic: vi.fn(),
   }
   const layers: LayerState = {
     showMap: false,
-    showRadar: false,
     marine: false,
     showBasic: true,
   }

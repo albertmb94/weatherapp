@@ -7,7 +7,6 @@ export type SidebarSection = 'weather' | 'cities' | 'map' | 'stations' | 'settin
 
 export interface LayerState {
   showMap: boolean
-  showRadar: boolean
   marine: boolean
   showBasic: boolean
 }
@@ -18,7 +17,6 @@ interface DesktopSidebarProps {
   layers: LayerState
   onLayerToggle: {
     map: () => void
-    radar: () => void
     marine: () => void
     basic: () => void
   }
@@ -96,14 +94,11 @@ export default function DesktopSidebar({ active, onSelect, layers, onLayerToggle
   const { locale } = useLocale()
   const s = STRINGS[locale]
 
-  // The Mapa toggle was removed from the Capas panel: activating/deactivating
-  // the map belongs to the Mapa menu entry, not a layers toggle. Radar is
-  // only shown while the user is inside the Mapa section so it doesn't
-  // clutter the panel otherwise. Basic still hides when Marine is off.
+  // B-NEW-35: Radar is no longer toggleable. The Mapa toggle was removed
+  // from the Capas panel too: activating/deactivating the map belongs to
+  // the Mapa menu entry, not a layers toggle. Basic still hides when
+  // Marine is off.
   const toggles: ToggleSpec[] = []
-  if (active === 'map') {
-    toggles.push({ id: 'showRadar', labelKey: 'radar', accent: 'bg-sky-500', active: layers.showRadar, onClick: onLayerToggle.radar })
-  }
   toggles.push({ id: 'marine', labelKey: 'marine', accent: 'bg-cyan-500', active: layers.marine, onClick: onLayerToggle.marine })
   if (layers.marine) {
     toggles.push({ id: 'showBasic', labelKey: 'basic', accent: 'bg-emerald-500', active: layers.showBasic, onClick: onLayerToggle.basic })

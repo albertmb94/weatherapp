@@ -227,21 +227,28 @@ export default function HomeContent() {
   // the elevation API replies (or forever, if it never does).
   const effectiveProfile = useEffectiveProfile(position[0], position[1])
   const queryClient = useQueryClient()
-  // BUG FIX: this hook was added so the nowcast (closest-station
-  // blend) actually receives a non-empty list of stations. The
-  // previous build hard-coded `stations=[]` in `FriendlyHome`,
-  // so the nowcast hook always ran with an empty list and the
-  // "station + ensemble" temperature blend was silently disabled.
-  // AEMET publishes every 10 min, so a 5-min staleTime plus a
-  // 5-min refetchInterval keeps the list fresh without spamming
+  // BUG FIX (2026-08-18): this hook was added so the nowcast
+  // (closest-station blend) actually receives a non-empty list of
+  // stations. The previous build hard-coded `stations=[]` in
+  // `FriendlyHome`, so the nowcast hook always ran with an empty
+  // list and the "station + ensemble" temperature blend was silently
+  // disabled. AEMET publishes every 10 min, so a 5-min staleTime plus
+  // a 5-min refetchInterval keeps the list fresh without spamming
   // the API.
+  //
+  // We source the coords from `urlState.lat` / `urlState.lon`
+  // directly (not from the local `position` state) so the nowcast
+  // uses the URL-of-record the moment a deep link or back/forward
+  // changes the location. The local `position` state is only used
+  // for imperative moves (map drag, geolocation) and lags by one
+  // render when the URL changes.
   // `useNearbyStations` defaults to a 5-km radius (matching the
   // mobile default of `StationDashboard`), so the nowcast blend uses
   // the same stations the user sees in the Estaciones tab without
   // passing an explicit radius here.
   const nearbyStations = useNearbyStations({
-    lat: position[0],
-    lon: position[1],
+    lat: urlState.lat,
+    lon: urlState.lon,
   })
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
@@ -1450,16 +1457,21 @@ export default function HomeContent() {
                       </button>
                     )}
                   </div>
-                  {/* Metric pills drive what the heatmap shows. They live
-                      next to the layers on every layout. */}
-                  <div
-                    role="group"
-                    aria-label={STRINGS[locale].groupView}
-                    className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-0.5"
-                  >
-                    {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
-                    {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
-                  </div>
+                  {/* B-NEW-35 (2026-08-18): MetricPills were the row of
+                      heatmap metric icons (temp / rain / wind / etc.).
+                      They drove nothing useful now that the heatmap
+                      canvas is hard-coded off, so we hide them until
+                      the upstream providers are fixed. */}
+                  {false && (
+                    <div
+                      role="group"
+                      aria-label={STRINGS[locale].groupView}
+                      className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-0.5"
+                    >
+                      {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
+                      {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
+                    </div>
+                  )}
                   <div className="h-[40vh] min-h-[260px] max-h-[440px] rounded-2xl border border-border bg-surface-raised relative overflow-hidden">
 <MapPicker
                   position={position}
@@ -1608,7 +1620,14 @@ export default function HomeContent() {
                     </div>
                   }
                 >
-                  <StationDashboard position={position} placeName={cityName} />
+                   {/* B-NEW-35 (2026-08-18): feed the dashboard the URL
+                       coords, not the local `position` state, so the
+                       stations API and the nowcast above use the
+                       exact same source-of-truth as the URL bar. The
+                       local `position` is only used for imperative
+                       moves (map drag, geolocation) and lags one
+                       render when the URL changes. */}
+                   <StationDashboard position={[urlState.lat, urlState.lon]} placeName={cityName} />
                 </ErrorBoundary>
                 </section>
               )}

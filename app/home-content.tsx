@@ -202,17 +202,14 @@ export default function HomeContent() {
   // newer city name. Each call increments it; the reply only applies if
   // its counter matches the current one.
   const geocodeSeqRef = useRef(0)
-  // B-NEW-36 (2026-08-18): on first entry the app used to show the
-  // Badalona fallback (DEFAULT_POS) and wait for the user to press the
-  // geolocate button. With the nowcast/dashboard wired to `urlState`
-  // directly (see the previous commit) the consequence is that the 5-km
-  // mobile radius runs against Badalona instead of the user's real
-  // location, which is almost guaranteed to return zero stations and
-  // look "stuck on a random pin in central Spain". We auto-trigger the
-  // browser's geolocation prompt the first time the URL still carries
-  // the default coords — the user can always deny and the app keeps
-  // working with the fallback.
-  const autoGeolocatedRef = useRef(false)
+  // B-NEW-40 (2026-08-18): the auto-geolocate effect (B-NEW-36) has been
+  // REMOVED. It used `enableHighAccuracy: false`, which on desktop
+  // resolves to IP-based geolocation — often tens of km away from the
+  // user's real position. That silently rewrote `urlState.lat/lon` to
+  // a random spot, and with the 5-km mobile radius the Estaciones tab
+  // returned zero stations (the user's report: "antes salían muchas
+  // estaciones en Badalona y ahora ninguna"). The user can still
+  // geolocate explicitly via the button in the header.
   const [toast, setToast] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   // Avanzado default is open on both desktop and mobile per product spec.
@@ -299,37 +296,15 @@ export default function HomeContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlState.lat, urlState.lon, locale])
 
-  // B-NEW-36 (2026-08-18): auto-trigger geolocation the first time we
-  // render with the default coords. The ref makes the prompt happen
-  // exactly once per page load — the `useEffect` fires on every
-  // `urlState.lat/lon` change (back/forward, deep links, search
-  // results) so we have to gate it to avoid spamming the user.
-  useEffect(() => {
-    if (autoGeolocatedRef.current) return
-    const isDefault = urlState.lat === DEFAULT_POS[0] && urlState.lon === DEFAULT_POS[1]
-    if (!isDefault) return
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return
-    autoGeolocatedRef.current = true
-    setGeoLoading(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const next: [number, number] = [pos.coords.latitude, pos.coords.longitude]
-        updateUrl({ lat: next[0], lon: next[1] })
-        setGeoLoading(false)
-      },
-      () => {
-        // Permission denied / timeout / position unavailable — keep the
-        // Badalona fallback. The user can still geolocate manually via
-        // the button in the header.
-        setGeoLoading(false)
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 },
-    )
-    // We deliberately only depend on `urlState` here. `updateUrl` is
-    // referentially stable (returned from `useUrlState`) so it would
-    // just spam the deps list.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlState.lat, urlState.lon])
+  // B-NEW-40 (2026-08-18): the auto-geolocate effect (B-NEW-36) has been
+  // REMOVED. It used `enableHighAccuracy: false`, which on desktop
+  // resolves to IP-based geolocation — often tens of km away from the
+  // user's real position. That silently rewrote `urlState.lat/lon` to
+  // a random spot, and with the 5-km mobile radius the Estaciones tab
+  // returned zero stations (the user's report: "antes salían muchas
+  // estaciones en Badalona y ahora ninguna"). The user can still
+  // geolocate explicitly via the button in the header, which uses
+  // the same GPS-quality API but only fires on demand.
 
   // M-UI-6: persist the user's last view (metric, models, range, …)
   // so that returning later without a URL still restores their

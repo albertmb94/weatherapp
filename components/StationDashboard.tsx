@@ -450,15 +450,28 @@ export default function StationDashboard({ position = null, placeName }: Station
               <p className="text-xs text-gray-500 max-w-xs">
                 {STRINGS[locale].noStationsRadius.replace('{km}', String(radius))}
               </p>
-              {radius < 100 && (
-                <button
-                  type="button"
-                  onClick={() => setRadius(r => Math.min(100, r === 10 ? 30 : r === 30 ? 60 : 100))}
-                  className="mt-1 px-3 py-1.5 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer"
-                >
-                  {STRINGS[locale].expandRadius.replace('{km}', String(radius === 10 ? 30 : radius === 30 ? 60 : 100))}
-                </button>
-              )}
+              {/* B-NEW-40 (2026-08-18): the old handler used hardcoded
+                  `r === 10 ? 30 : r === 30 ? 60 : 100`, so a mobile user
+                  at the 5-km default jumped straight to 100 km — skipping
+                  every intermediate step and making it look like the
+                  station search was broken. Now we walk the active
+                  `radiusOptions` array so the next step is always the
+                  correct one for the current viewport. */}
+              {(() => {
+                const opts = radiusOptions as readonly number[]
+                const idx = opts.indexOf(radius)
+                const next = opts[Math.min(idx + 1, opts.length - 1)]
+                if (next <= radius) return null // already at max
+                return (
+                  <button
+                    type="button"
+                    onClick={() => { setRadius(next); setUserAdjustedRadius(true) }}
+                    className="mt-1 px-3 py-1.5 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer"
+                  >
+                    {STRINGS[locale].expandRadius.replace('{km}', String(next))}
+                  </button>
+                )
+              })()}
             </>
           ) : (
             <p className="text-xs text-gray-500">{STRINGS[locale].noStationsRegion}</p>

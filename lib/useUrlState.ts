@@ -8,8 +8,6 @@ interface UrlState {
   models: string[]
   hour: number
   range: number
-  showMap: boolean
-  showRadar: boolean
   bucket: number
   locale: string
   marine: boolean
@@ -56,10 +54,6 @@ function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   if (hour && !isNaN(Number(hour)) && Number(hour) >= 0) result.hour = Number(hour)
   const range = params.get('range')
   if (range && ALLOWED_RANGES.has(Number(range))) result.range = Number(range)
-  const showMap = params.get('map')
-  if (showMap !== null) result.showMap = showMap === '1'
-  const showRadar = params.get('radar')
-  if (showRadar !== null) result.showRadar = showRadar === '1'
   const bucket = params.get('bucket')
   if (bucket && ALLOWED_BUCKETS.has(Number(bucket))) result.bucket = Number(bucket)
   const locale = params.get('locale')
@@ -102,8 +96,6 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   // hour is intentionally NOT persisted to the URL so every fresh page load
   // starts at hour 0 (today) in the daily summary.
   if (state.range !== defaults.range) params.set('range', String(state.range))
-  if (state.showMap !== defaults.showMap) params.set('map', state.showMap ? '1' : '0')
-  if (state.showRadar !== defaults.showRadar) params.set('radar', state.showRadar ? '1' : '0')
   if (state.bucket !== defaults.bucket) params.set('bucket', String(state.bucket))
   if (state.locale !== defaults.locale) params.set('locale', state.locale)
   if (state.marine !== defaults.marine) params.set('marine', state.marine ? '1' : '0')

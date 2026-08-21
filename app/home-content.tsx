@@ -5,17 +5,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 
 import CitySearch from '@/components/CitySearch'
-import MetricPills from '@/components/MetricPills'
 import ModelSelector from '@/components/ModelSelector'
 import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours, type InsightsDayFilter } from '@/components/InsightsTable'
 import MobileTabBar from '@/components/MobileTabBar'
 import SavedLocations from '@/components/SavedLocations'
-// B-NEW-35: Heatmap/Radar are temporarily disabled in this build —
-// their upstream providers are rate-limiting or unreliable in production,
-// so we hide both the toggles and the canvas until the backend story is
-// fixed. The `ColorLegend` and the radar overlay imports stay in the
-// tree for a future re-enable, but no JSX reaches them right now.
 import ErrorBoundary from '@/components/ErrorBoundary'
 // RefreshButton was removed from the search bar on 2026-08-18:
 // the per-location auto-refresh effect (data.fetchedAt > 2h) is
@@ -143,7 +137,6 @@ function pickPollenAtHour(
   return series[0] ?? null
 }
 
-const MapPicker = dynamic(() => importWithChunkReload(() => import('@/components/MapPicker')), { ssr: false })
 const StationDashboard = dynamic(() => importWithChunkReload(() => import('@/components/StationDashboard')), {
   ssr: false,
   loading: () => (
@@ -174,8 +167,6 @@ export default function HomeContent() {
     models: DEFAULT_MODELS,
     hour: 0,
     range: DEFAULT_RANGE,
-    showMap: false,
-    showRadar: false,
     bucket: 24,
     locale: '',
     marine: false,
@@ -187,7 +178,6 @@ export default function HomeContent() {
   const [urlState, updateUrl] = useUrlState(defaults)
 
   const [position, setPosition] = useState<[number, number]>([urlState.lat, urlState.lon])
-  const [recenterToken, setRecenterToken] = useState(0)
   // If the user lands on a deep link (`?lat=..&lon=..`) the city name
   // used to default to "Badalona" (the Spanish fallback), so the header
   // showed the wrong name until the user manually searched. We now seed
@@ -323,8 +313,6 @@ export default function HomeContent() {
         metric: urlState.metric,
         models: urlState.models,
         range: urlState.range,
-        showMap: urlState.showMap,
-        showRadar: urlState.showRadar,
         bucket: (urlState.bucket === 1 || urlState.bucket === 2) ? 24 : urlState.bucket,
         marine: urlState.marine,
         basic: urlState.basic,
@@ -333,7 +321,7 @@ export default function HomeContent() {
     return () => window.clearTimeout(handle)
   }, [
     urlState.metric, urlState.models, urlState.range,
-    urlState.showMap, urlState.showRadar, urlState.bucket,
+    urlState.bucket,
     urlState.marine, urlState.basic,
   ])
 
@@ -356,8 +344,6 @@ export default function HomeContent() {
       metric: saved.metric,
       models: safeModels.length > 0 ? safeModels : DEFAULT_MODELS,
       range: saved.range,
-      showMap: saved.showMap,
-      showRadar: saved.showRadar,
       bucket: saved.bucket,
       marine: saved.marine,
       basic: saved.basic,
@@ -464,8 +450,6 @@ export default function HomeContent() {
   const selectedModels = urlState.models
   const selectedHour = urlState.hour
   const selectedRange = urlState.range
-  const showMap = urlState.showMap
-  const showRadar = urlState.showRadar
   const bucket = urlState.bucket as BucketHours
   const marine = urlState.marine
   const showBasic = urlState.basic
@@ -749,23 +733,8 @@ export default function HomeContent() {
   const handleCitySelect = useCallback((name: string, lat: number, lon: number) => {
     setCityName(name)
     setPosition([lat, lon])
-    setRecenterToken(t => t + 1)
     updateUrl({ lat, lon })
   }, [updateUrl])
-
-  const handlePositionChange = useCallback(async (pos: [number, number]) => {
-    const seq = ++geocodeSeqRef.current
-    setPosition(pos)
-    // Mark the move in progress so users with a slow reverse-geocoder
-    // still get immediate, correct coordinate display. The geocode reply
-    // is allowed to overwrite the placeholder only if no newer query
-    // started meanwhile.
-    setCityName(`${pos[0].toFixed(2)}, ${pos[1].toFixed(2)}`)
-    const name = await reverseGeocode(pos[0], pos[1], locale)
-    if (seq !== geocodeSeqRef.current) return
-    if (name) setCityName(name)
-    updateUrl({ lat: pos[0], lon: pos[1] })
-  }, [updateUrl, locale])
 
   const handleMetricChange = useCallback((id: MetricId) => {
     updateUrl({ metric: id })
@@ -816,7 +785,7 @@ export default function HomeContent() {
     // sidebar / mobile-tab union, so `section` can never be 'map' any
     // more. The `showMap` reset below remains so a stale ?showMap=1
     // saved view still tears down the (now-disabled) map state.
-    updateUrl({ view: section, showMap: false })
+    updateUrl({ view: section })
   }, [updateUrl])
 
   const handleGeolocate = useCallback(() => {
@@ -831,7 +800,6 @@ export default function HomeContent() {
         const name = await reverseGeocode(lat, lon, locale)
         if (seq !== geocodeSeqRef.current) return
         setCityName(name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`)
-        setRecenterToken(t => t + 1)
         updateUrl({ lat, lon })
         setGeoLoading(false)
       },

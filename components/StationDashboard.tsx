@@ -52,15 +52,16 @@ const METEOCLIMATIC_MAP: Record<string, string> = {
 const STATION_RETRY_COUNT = 5
 const STATION_RETRY_DELAY_MS = 1000
 
-// F1: mobile users prefer the tightest possible radius (their
-// thumb is on the screen, scrolling through 20 stations in 60
-// km is friction they don't want), while desktop users browse a
-// larger radius with a mouse. The breakpoint is the same one
-// that gates the "real-desktop" Tailwind variant in
-// `app/globals.css` (>=1024 px).
-const MOBILE_DEFAULT_RADIUS_KM = 5
+// B-NEW-41 (2026-08-18): the mobile default was 5 km, but for many
+// cities (Badalona included) the nearest AEMET conventional station is
+// >5 km away — the user saw "0 estaciones a 5 km" and assumed the
+// feature was broken. Both platforms now default to 10 km, which
+// returns results for every municipality in the Barcelona metro area.
+// The user can still dial down to 5 km via the selector if they want
+// a tighter view.
+const MOBILE_DEFAULT_RADIUS_KM = 10
 const DESKTOP_DEFAULT_RADIUS_KM = 10
-const MOBILE_RADIUS_OPTIONS = [5, 10, 30, 60] as const
+const MOBILE_RADIUS_OPTIONS = [5, 10, 30, 60, 100] as const
 const DESKTOP_RADIUS_OPTIONS = [10, 30, 60, 100] as const
 const REAL_DESKTOP_MQ = '(min-width: 1024px)'
 

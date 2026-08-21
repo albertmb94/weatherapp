@@ -1,11 +1,12 @@
 const STORAGE_KEY = 'weather-last-view'
 
+// B-NEW-41 (2026-08-18): `showMap` and `showRadar` removed from the
+// snapshot — the Mapa view, heatmap and radar are permanently disabled
+// in this build, so persisting them was dead weight.
 export interface LastViewSnapshot {
   metric: string
   models: string[]
   range: number
-  showMap: boolean
-  showRadar: boolean
   bucket: number
   marine: boolean
   basic: boolean

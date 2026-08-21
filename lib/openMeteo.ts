@@ -1,13 +1,11 @@
 import type { WeatherModel, Metric, MetricId } from './models'
 import { METRICS, MODELS } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
-import { fetchMarine, computeMarineDays, fetchMarineGrid } from './marine'
+import { fetchMarine, computeMarineDays } from './marine'
 import { parseOpenMeteoTimes } from './dateUtils'
-import { HEATMAP_MAX_MODELS } from './heatmapConfig'
 import { selectModelsForLocation } from './regionDetection'
 
 const MAX_FORECAST_MODELS = 10
-const MAX_HEATMAP_MODELS = HEATMAP_MAX_MODELS
 
 // Open-Meteo historically returned hourly `uv_index` only for horizons of
 // at least 7 days. The current provider catalogue answers `uv_index` for
@@ -321,143 +319,3 @@ export async function fetchCurrentUv(
   }
 }
 
-/**
- * Fetches a grid of forecast series in a single bulk call to Open-Meteo.
- *
- *
- * `modelIds` is the list of models to include. If the array contains a single
- * model, that model's series is returned per point. If it contains multiple,
- * a weighted mean (by WeatherModel.weight) is computed client-side using only
- * the listed models. If it is empty, the weighted mean uses every model in
- * MODELS (full ensemble).
- *
- * Returns one array per grid point, in the same order as the input latLngs.
- * Out-of-coverage positions return null entries.
- */
-export interface HeatmapGridResult {
-  series: (number | null)[][]
-  times: Date[]
-  /** B-NEW-5: when true, the user selected more models than
-   *  HEATMAP_MAX_MODELS and the heatmap only reflects the top-N by
-   *  weight. The UI should warn the user. */
-  modelCapExceeded: boolean
-  requestedModels: number
-  usedModels: number
-}
-
-export async function fetchHeatmapGrid(
-  latLngs: { lat: number; lng: number }[],
-  modelIds: string[],
-  metric: MetricId,
-  forecastDays: number,
-  signal?: AbortSignal
-): Promise<HeatmapGridResult> {
-  if (latLngs.length === 0) {
-    return { series: [], times: [], modelCapExceeded: false, requestedModels: 0, usedModels: 0 }
-  }
-
-  const metricDef = METRICS.find(m => m.id === metric)
-  if (!metricDef) throw new Error(`Unknown metric: ${metric}`)
-
-  // Sprint 14: marine metrics have a different upstream (the marine
-  // API, not /api/forecast). Routing them through the same code path
-  // used to silently return all-null series, which is why the
-  // marine pill in the map looked broken. We now dispatch to
-  // `fetchMarineGrid` which fans out per-cell `fetchMarine` calls
-  // with bounded concurrency. The model-set is irrelevant for
-  // marine (the marine API uses a single best-match model per
-  // request), so we report `requestedModels === 0` and no cap.
-  if (metricDef.group === 'marine') {
-    const grid = await fetchMarineGrid(latLngs, metric, forecastDays, signal)
-    return {
-      series: grid.series,
-      times: grid.times,
-      modelCapExceeded: false,
-      requestedModels: 0,
-      usedModels: 0,
-    }
-  }
-
-  const hourlyParam = metricDef.hourlyParam
-
-  const lats = latLngs.map(p => p.lat.toFixed(3)).join(',')
-  const lngs = latLngs.map(p => p.lng.toFixed(3)).join(',')
-
-  const requestedModels: WeatherModel[] = modelIds.length > 0
-    ? MODELS.filter(m => modelIds.includes(m.id) && m.id !== 'marine_global')
-    : MODELS.filter(m => m.id !== 'marine_global')
-  const heatmapModels = capModels(requestedModels, MAX_HEATMAP_MODELS, forecastDays)
-  const modelsParam = heatmapModels.map(m => m.id).join(',')
-
-  const params = new URLSearchParams({
-    latitude: lats,
-    longitude: lngs,
-    hourly: hourlyParam,
-    models: modelsParam,
-    forecast_days: forecastDays.toString(),
-    // past_days=1 makes the grid cover "yesterday → horizon" so the
-    // MapPicker can anchor the painted cell to the same UTC-fake-local
-    // timestamp the main forecast uses, instead of guessing on absolute
-    // hours.
-    past_days: '1',
-    timezone: 'auto',
-  })
-
-  const res = await fetchWithTimeout(`/api/forecast?${params}`, { signal, timeoutMs: 25_000 })
-  if (!res.ok) throw new Error(`Heatmap API error: ${res.status}`)
-  const data = await res.json()
-
-  const points: { hourly?: Record<string, (number | null)[] | string[]> }[] = Array.isArray(data) ? data : [data]
-
-  const firstWithTime = points.find(p => Array.isArray(p?.hourly?.time))
-  // Use `parseOpenMeteoTime` (not `new Date(t)`) so the grid honours
-  // the same UTC-fake-local trick as the rest of the app. Without it,
-  // non-standard offsets like IST +05:30 / NPT +05:45 misalign the
-  // painted cell vs the daily summary.
-  const times: Date[] = firstWithTime && Array.isArray(firstWithTime.hourly?.time)
-    ? parseOpenMeteoTimes(firstWithTime.hourly!.time as string[])
-    : []
-
-
-  const singleKey = hourlyParam
-  const isSingle = heatmapModels.length === 1
-
-  const series: (number | null)[][] = points.map(point => {
-    const hourly = point?.hourly
-    if (!hourly) return new Array(times.length).fill(null)
-
-    if (isSingle) {
-      const only = heatmapModels[0]
-      const suffixed = `${hourlyParam}_${only.id}`
-      const vals = (hourly[suffixed] ?? hourly[singleKey]) as (number | null)[] | undefined
-      return vals ?? new Array(times.length).fill(null)
-    }
-
-    // Weighted mean across the requested models.
-    const firstArr = (hourly[`${hourlyParam}_${heatmapModels[0].id}`] ?? hourly[singleKey]) as (number | null)[] | undefined
-    const len = firstArr?.length ?? times.length
-    const out: (number | null)[] = new Array(len).fill(null)
-    for (let i = 0; i < len; i++) {
-      let sum = 0
-      let wSum = 0
-      for (const m of heatmapModels) {
-        const arr = hourly[`${hourlyParam}_${m.id}`] as (number | null)[] | undefined
-        const v = arr?.[i]
-        if (v !== null && v !== undefined) {
-          sum += v * m.weight
-          wSum += m.weight
-        }
-      }
-      out[i] = wSum > 0 ? sum / wSum : null
-    }
-    return out
-  })
-
-  return {
-    series,
-    times,
-    modelCapExceeded: requestedModels.length > heatmapModels.length,
-    requestedModels: requestedModels.length,
-    usedModels: heatmapModels.length,
-  }
-}

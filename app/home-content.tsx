@@ -901,18 +901,23 @@ export default function HomeContent() {
   const startIndex = useMemo(() => {
     const effectiveData = data ?? offlineSnapshot?.data
     if (!effectiveData?.time?.length) return 0
-    // Prefer the upstream `fetchedAt`; fall back to the client clock
-    // only when the response didn't carry one (offline snapshot path).
-    // `currentTickMs` is the React-managed wall clock that ticks each
-    // minute, which lets `startIndex` "slide" with the wall clock —
-    // if the user leaves the tab open past midnight the startIndex
-    // advances to the new day without a refetch.
-    const referenceMs = effectiveData.fetchedAt ?? currentTickMs
+    // B-NEW-39 (2026-08-18): anchor `startIndex` on the client wall
+    // clock so the hourly forecast strip always starts at the current
+    // hour, not the hour the forecast was issued. The previous
+    // behaviour used `effectiveData.fetchedAt` as the anchor, which
+    // meant a forecast cached at 7h would still start at 7h when
+    // the user opens the app at 8:30h — visible as a "ghost hour"
+    // row that the user has to scroll past to reach the current hour.
+    // We still fall back to `fetchedAt` when the client clock isn't
+    // ready yet (SSR + first render before the `useClientNow` effect
+    // fires) so we don't trip React 19's hydration warning.
+    const referenceMs = currentTickMs || effectiveData.fetchedAt
+    if (!referenceMs) return 0
     // Convert the UTC reference timestamp into the location's
     // UTC-fake-local representation (same shape as the time[]
     // entries), then floor to the hour. `getLocationNow` does the
-    // same offset arithmetic; we just feed it the fetchedAt ms
-    // instead of `Date.now()`.
+    // same offset arithmetic; we just feed it the wall clock instead
+    // of the fetchedAt ms.
     const referenceLocal = new Date(referenceMs + effectiveData.utcOffsetSeconds * 1000)
     const nowFloor = floorHourLocation(referenceLocal)
     const nowTs = nowFloor.getTime()

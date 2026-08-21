@@ -814,15 +814,8 @@ export default function HomeContent() {
     updateUrl({ hour: safe })
   }, [updateUrl])
 
-  const handleMapToggle = useCallback(() => {
-    if (showMap) {
-      // Turning the map off — also switch back to models view so the
-      // bottom tab bar reflects Modelos as active.
-      updateUrl({ showMap: false, view: 'weather' })
-    } else {
-      updateUrl({ showMap: true })
-    }
-  }, [showMap, updateUrl])
+  // B-NEW-37 (2026-08-18): `handleMapToggle` removed — no UI flips
+  // `showMap` to true any more, so the toggle would be dead code.
 
   const handleMarineToggle = useCallback(() => {
     const next = !marine
@@ -844,17 +837,12 @@ export default function HomeContent() {
   }, [updateUrl])
 
   const handleViewSelect = useCallback((section: SidebarSection) => {
-    // The map is only visible while the user is on the Mapa nav entry.
-    // Selecting Mapa flips showMap on (and scrolls to the section);
-    // selecting any other view always flips it off, regardless of how
-    // it got turned on (keyboard shortcut, deep link, etc.).
-    if (section === 'map') {
-      if (!showMap) scrollToMapRef.current = true
-      updateUrl({ view: 'map', showMap: true })
-    } else {
-      updateUrl({ view: section, showMap: false })
-    }
-  }, [showMap, updateUrl])
+    // B-NEW-37 (2026-08-18): the Mapa nav entry is gone from the
+    // sidebar / mobile-tab union, so `section` can never be 'map' any
+    // more. The `showMap` reset below remains so a stale ?showMap=1
+    // saved view still tears down the (now-disabled) map state.
+    updateUrl({ view: section, showMap: false })
+  }, [updateUrl])
 
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) return
@@ -1090,30 +1078,18 @@ export default function HomeContent() {
       } else if (e.key === '/') {
         e.preventDefault()
         document.getElementById('city-search-input')?.focus()
-      } else if (e.key === 'm') {
-        // 'm' toggles the map: opens the Mapa view if closed, or returns
-        // to Tiempo if the map was already on. Keeps the keyboard shortcut
-        // in sync with the new "map only on Mapa view" rule.
-        if (showMap) {
-          handleViewSelect('weather')
-        } else {
-          handleViewSelect('map')
-        }
       }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [selectedHour, effectiveMaxHours, handleHourChange, showMap, handleViewSelect])
+    // B-NEW-37 (2026-08-18): dropped `showMap` from the deps — the
+    // 'm' shortcut that toggled the map is gone and the only thing
+    // that flipped `showMap` on is the (now-disabled) map section.
+  }, [selectedHour, effectiveMaxHours, handleHourChange, handleViewSelect])
 
-  // When the mobile tab bar enables the map, scroll the map section into
-  // view once it mounts.
-  useEffect(() => {
-    if (!showMap || !scrollToMapRef.current) return
-    scrollToMapRef.current = false
-    requestAnimationFrame(() => {
-      mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    })
-  }, [showMap])
+  // B-NEW-37 (2026-08-18): the scroll-to-map effect is gone — the
+  // map section is permanently disabled, so there's nothing to
+  // scroll into view.
 
   // When the mobile tab bar switches to stations, scroll the section into view
   // after a short delay so StationDashboard has time to render content and
@@ -1131,7 +1107,12 @@ export default function HomeContent() {
     return () => clearTimeout(timer)
   }, [selectedView])
 
-  const mobileTabFromView = selectedView === 'map' ? 'map' : selectedView === 'stations' ? 'stations' : (selectedView === 'weather' || selectedView === 'cities' ? 'models' : 'models')
+  // B-NEW-37 (2026-08-18): 'map' is no longer a valid MobileTab. If a
+  // saved URL still lands here we fall back to 'models' so the
+  // mobile tab bar never strands the user on a disabled tab.
+  const mobileTabFromView = selectedView === 'stations'
+    ? 'stations'
+    : 'models'
 
   // B-NEW-30 (2026-07-30): expose the mobile-header height as
   // a CSS custom property on `:root` so the InsightsTable's
@@ -1309,12 +1290,15 @@ export default function HomeContent() {
           active={selectedView}
           onSelect={handleViewSelect}
           layers={{
-            showMap,
+            // B-NEW-37 (2026-08-18): `showMap` dropped from the
+            // LayerState — the map section is permanently disabled
+            // and no UI flips it any more.
             marine,
             showBasic,
           }}
           onLayerToggle={{
-            map: handleMapToggle,
+            // B-NEW-37 (2026-08-18): `map` removed — `handleMapToggle`
+            // is gone and the map section no longer mounts.
             marine: handleMarineToggle,
             basic: handleBasicToggle,
           }}
@@ -1367,7 +1351,11 @@ export default function HomeContent() {
               ref={pullToRefreshRef.ref}
               className="p-3 real-desktop:p-4 real-desktop:space-y-4 space-y-3"
             >
-              {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'map' || selectedView === 'stations') && (
+              {/* B-NEW-37 (2026-08-18): removed 'map' from the render-guard
+                  union — no `selectedView === 'map'` path is reachable any
+                  more, so the conditional collapses to the three live
+                  views. */}
+              {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'stations') && (
                 <>
                 <FriendlyHome
                   city={cityName}
@@ -1446,148 +1434,15 @@ export default function HomeContent() {
                   itself is rendered twice above (once for
                   mobile, once for desktop). */}
 
-               {showMap && selectedView === 'map' && (
-                <section ref={mapSectionRef} className="space-y-2">
-                  {/* B-NEW-35 (2026-08-18): Radar and Heatmap are
-                      temporarily disabled — the upstream providers are
-                      rate-limiting or unreliable in production, so we
-                      hide both the toggles and the canvas until the
-                      backend story is fixed. The button + JSX for the
-                      radar overlay is removed from the toolbar; the
-                      heatmap is hardcoded off via `showHeatmap={false}`
-                      below. Only Map / Marine / Basic remain. */}
-                  <div
-                    role="group"
-                    aria-label={STRINGS[locale].layersTitle ?? 'Layers'}
-                    className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-0.5"
-                  >
-                    <button
-                      type="button"
-                      onClick={handleMapToggle}
-                      aria-pressed={showMap}
-                      className={`min-h-[32px] px-3 rounded-full text-[11px] font-medium border transition-colors ${
-                        showMap
-                          ? 'bg-accent text-white border-accent'
-                          : 'bg-surface-popover text-text-secondary border-border'
-                      }`}
-                    >
-                      {STRINGS[locale].map}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleMarineToggle}
-                      aria-pressed={marine}
-                      className={`min-h-[32px] px-3 rounded-full text-[11px] font-medium border transition-colors ${
-                        marine
-                          ? 'bg-cyan-500 text-white border-cyan-500'
-                          : 'bg-surface-popover text-text-secondary border-border'
-                      }`}
-                    >
-                      {STRINGS[locale].marine}
-                    </button>
-                    {marine && (
-                      <button
-                        type="button"
-                        onClick={handleBasicToggle}
-                        aria-pressed={showBasic}
-                        className={`min-h-[32px] px-3 rounded-full text-[11px] font-medium border transition-colors ${
-                          showBasic
-                            ? 'bg-emerald-500 text-white border-emerald-500'
-                            : 'bg-surface-popover text-text-secondary border-border'
-                        }`}
-                      >
-                        {STRINGS[locale].basic}
-                      </button>
-                    )}
-                  </div>
-                  {/* B-NEW-35 (2026-08-18): MetricPills were the row of
-                      heatmap metric icons (temp / rain / wind / etc.).
-                      They drove nothing useful now that the heatmap
-                      canvas is hard-coded off, so we hide them until
-                      the upstream providers are fixed. */}
-                  {false && (
-                    <div
-                      role="group"
-                      aria-label={STRINGS[locale].groupView}
-                      className="flex items-center gap-1.5 overflow-x-auto scrollbar-none px-0.5"
-                    >
-                      {(showBasic || !marine) && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="land" />}
-                      {marine && <MetricPills metrics={METRICS} selected={selectedMetric} onChange={handleMetricChange} group="marine" />}
-                    </div>
-                  )}
-                  <div className="h-[40vh] min-h-[260px] max-h-[440px] rounded-2xl border border-border bg-surface-raised relative overflow-hidden">
-<MapPicker
-                  position={position}
-                  recenterToken={recenterToken}
-                  onPositionChange={handlePositionChange}
-                  // B-NEW-35: hard-off until the upstream providers are
-                  // fixed. The existing `if (!showHeatmap) return`
-                  // guard inside MapPicker short-circuits the
-                  // `fetchHeatmapGrid` API call.
-                  showHeatmap={false}
-                  metric={selectedMetric}
-                  selectedModels={displayActiveModelIds.filter(id => id !== 'marine_global')}
-                  hourIndex={safeSelectedHour}
-                  viewTimes={viewData?.time ?? []}
-                  dataStartIndex={startIndex}
-                  // Same as above — the RainRadarOverlay component
-                  // won't fetch when `enabled` is false.
-                  showRadar={false}
-                />
-                  </div>
-                </section>
-              )}
+                {/* B-NEW-37 (2026-08-18): the Mapa view is gone entirely.
+                    The previous `{false && …}` wrapper that preserved the
+                    dead JSX has been deleted — `showMap`, `handleMapToggle`,
+                    `mapSectionRef`, `scrollToMapRef` and the MapPicker import
+                    are all gone with it. The URL state still carries
+                    `showMap` and `view: 'map'` for backwards compat with
+                    saved views, but no UI flips them on. */}
 
-              {showMap && selectedView === 'map' && (
-                <div className="rounded-2xl border border-border bg-surface-raised p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] text-text-secondary font-mono">{hourLabel}</span>
-                    <span className="text-[10px] text-text-tertiary">+{selectedHour}h</span>
-                    {utcOffsetLabel ? (
-                      <span className="text-[10px] text-text-tertiary ml-auto">{utcOffsetLabel}</span>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleHourChange(Math.max(0, selectedHour - 1))}
-                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors"
-                      aria-label="Previous hour"
-                    >−1h</button>
-                    <button
-                      onClick={() => handleHourChange(Math.max(0, selectedHour - 24))}
-                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors hidden sm:inline-flex"
-                      aria-label="Previous day"
-                    >−24h</button>
-                    <input
-                      type="range"
-                      min={0}
-                      max={Math.max(0, effectiveMaxHours - 1)}
-                      value={safeSelectedHour}
-                      onChange={e => handleHourChange(Number(e.target.value))}
-                      className="flex-1 min-w-0"
-                      aria-label="Forecast hour"
-                      aria-valuetext={hourLabel}
-                    />
-                    <button
-                      onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 24))}
-                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors hidden sm:inline-flex"
-                      aria-label="Next day"
-                    >+24h</button>
-                    <button
-                      onClick={() => handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1))}
-                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors"
-                      aria-label="Next hour"
-                    >+1h</button>
-                    <button
-                      onClick={jumpToNow}
-                      className="min-h-[36px] px-2.5 bg-surface-popover hover:bg-surface text-text-primary rounded text-xs cursor-pointer transition-colors"
-                      aria-label="Jump to current hour"
-                    >Now</button>
-                  </div>
-                </div>
-              )}
-
-              {selectedView === 'weather' && (
+                {selectedView === 'weather' && (
                 <AdvancedSection
                   expanded={advancedExpanded}
                   onToggle={() => setAdvancedExpanded(o => !o)}
@@ -1750,11 +1605,11 @@ export default function HomeContent() {
       <MobileTabBar
         active={mobileTabFromView}
         onChange={(next) => {
-          // handleViewSelect keeps showMap in sync with the Mapa nav —
-          // selecting Map enables it, any other view disables it.
-          if (next === 'map') {
-            handleViewSelect('map')
-          } else if (next === 'stations') {
+          // B-NEW-37 (2026-08-18): the Mapa tab is removed from
+          // MobileTabBar, so 'map' can never be passed in. Stations
+          // still scrolls into view on tap; everything else defaults
+          // back to the Tiempo view.
+          if (next === 'stations') {
             scrollToStationsRef.current = true
             handleViewSelect('stations')
           } else {

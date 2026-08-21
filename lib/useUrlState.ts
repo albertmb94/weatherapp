@@ -14,7 +14,11 @@ interface UrlState {
   locale: string
   marine: boolean
   basic: boolean
-  view: 'weather' | 'cities' | 'map' | 'stations' | 'settings'
+  // B-NEW-37 (2026-08-18): 'map' removed from the view union. Saved URLs
+  // still carrying `?view=map` fall back to 'weather' (see the parser
+  // below) so the type accurately reflects what the renderer can
+  // ever observe.
+  view: 'weather' | 'cities' | 'stations' | 'settings'
   weekDays: 7 | 14
   ensembleMode: 'wedai' | 'models'
 }
@@ -22,7 +26,9 @@ interface UrlState {
 const ALLOWED_BUCKETS = new Set([1, 2, 3, 4, 6, 12, 24])
 const ALLOWED_METRICS = new Set<string>(METRICS.map(m => m.id))
 const ALLOWED_RANGES = new Set([24, 48, 72, 168, 336])
-const ALLOWED_VIEWS = new Set(['weather', 'cities', 'map', 'stations', 'settings'])
+// B-NEW-37 (2026-08-18): 'map' removed — saved ?view=map URLs are
+// ignored by the parser, defaulting the view back to 'weather'.
+const ALLOWED_VIEWS = new Set(['weather', 'cities', 'stations', 'settings'])
 const ALLOWED_WEEK_DAYS = new Set([7, 14])
 const ALLOWED_ENSEMBLE_MODES = new Set(['wedai', 'models'])
 

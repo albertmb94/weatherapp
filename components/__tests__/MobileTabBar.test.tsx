@@ -15,11 +15,12 @@ function renderBar(active: MobileTab = 'models') {
 }
 
 describe('MobileTabBar', () => {
-  it('renders the three primary tabs (always present in any locale)', () => {
+  // B-NEW-37 (2026-08-18): 'map' tab removed from MobileTabBar in this
+  // build, so the assertion that mentions the Map button is gone too.
+  it('renders the two primary tabs (always present in any locale)', () => {
     renderBar()
     expect(screen.getByRole('button', { name: /Models/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Stations/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Map/i })).toBeInTheDocument()
   })
 
   it('marks the active tab as current', () => {
@@ -33,8 +34,8 @@ describe('MobileTabBar', () => {
   it('forwards the click to onChange with the right tab id', async () => {
     const user = userEvent.setup()
     const { onChange } = renderBar('models')
-    await user.click(screen.getByRole('button', { name: /Map/i }))
-    expect(onChange).toHaveBeenCalledWith('map')
+    await user.click(screen.getByRole('button', { name: /Stations/i }))
+    expect(onChange).toHaveBeenCalledWith('stations')
   })
 
   it('has a 44+ px min-height on each tab button', () => {

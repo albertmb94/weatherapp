@@ -3,10 +3,16 @@
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
 
-export type SidebarSection = 'weather' | 'cities' | 'map' | 'stations' | 'settings'
+// B-NEW-37 (2026-08-18): 'map' removed from the union. The dead state
+// is documented but no UI exposes it — `handleViewSelect` in
+// home-content falls back to 'weather' when an old URL still carries
+// ?view=map. Keeping 'map' in the type would leak the disabled
+// state back into the tab/sidebar renderer.
+export type SidebarSection = 'weather' | 'cities' | 'stations' | 'settings'
 
+// B-NEW-37 (2026-08-18): `showMap` removed from LayerState — the map
+// section is permanently disabled, so the prop never changes again.
 export interface LayerState {
-  showMap: boolean
   marine: boolean
   showBasic: boolean
 }
@@ -16,7 +22,8 @@ interface DesktopSidebarProps {
   onSelect: (section: SidebarSection) => void
   layers: LayerState
   onLayerToggle: {
-    map: () => void
+    // B-NEW-37 (2026-08-18): `map` removed — `handleMapToggle` is gone
+    // and the map section no longer mounts.
     marine: () => void
     basic: () => void
   }
@@ -24,7 +31,9 @@ interface DesktopSidebarProps {
 
 interface ItemDef {
   id: SidebarSection
-  labelKey: 'navWeather' | 'navCities' | 'navMap' | 'navStations' | 'navSettings'
+  // B-NEW-37 (2026-08-18): 'navMap' dropped from the union — the Mapa
+  // nav entry is no longer rendered.
+  labelKey: 'navWeather' | 'navCities' | 'navStations' | 'navSettings'
   icon: React.ReactNode
 }
 
@@ -48,13 +57,9 @@ function CitiesIcon() {
   )
 }
 
-function MapIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-      <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
-    </svg>
-  )
-}
+// B-NEW-37 (2026-08-18): `MapIcon` removed — the Mapa nav entry is no
+// longer rendered. The SVG was only referenced from the disabled
+// ITEMS row below.
 
 function StationsIcon() {
   return (
@@ -75,9 +80,10 @@ function SettingsIcon() {
 }
 
 const ITEMS: ItemDef[] = [
+  // B-NEW-37 (2026-08-18): 'map' entry removed from the sidebar so the
+  // user can't accidentally click into the disabled Mapa view.
   { id: 'weather', labelKey: 'navWeather', icon: <WeatherIcon /> },
   { id: 'cities', labelKey: 'navCities', icon: <CitiesIcon /> },
-  { id: 'map', labelKey: 'navMap', icon: <MapIcon /> },
   { id: 'stations', labelKey: 'navStations', icon: <StationsIcon /> },
   { id: 'settings', labelKey: 'navSettings', icon: <SettingsIcon /> },
 ]

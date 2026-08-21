@@ -4,9 +4,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { LocaleProvider } from '@/lib/LocaleContext'
 
-// Leaflet can't initialise in jsdom, so stub the map with a no-op component.
+// Leaflet can't initialise in jsdom, so stub the map with a forwarder
+// that records the props it receives so the tests can assert the
+// `position` prop is threaded through.
+const stationMapCalls: Array<{ stations?: unknown[]; position?: [number, number] | null }> = []
 vi.mock('@/components/StationMap', () => ({
-  default: () => null,
+  default: (props: { stations?: unknown[]; position?: [number, number] | null }) => {
+    stationMapCalls.push({
+      stations: props.stations as unknown[] | undefined,
+      position: props.position ?? null,
+    })
+    return null
+  },
 }))
 
 import StationDashboard from '@/components/StationDashboard'
@@ -36,6 +45,7 @@ function mockFailingFetch(detail = 'fail') {
 describe('StationDashboard retry behavior', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    stationMapCalls.length = 0
   })
 
   afterEach(() => {
@@ -142,6 +152,31 @@ describe('StationDashboard retry behavior', () => {
 
       expect(calls.some(u => u.includes('meteoclimatic') && u.includes('lat=41.4') && u.includes('lon=2.2'))).toBe(true)
       expect(calls.some(u => u.includes('meteoclimatic') && u.includes('station='))).toBe(false)
+    })
+
+    // B-NEW-38 (2026-08-18): the Estaciones map used to mount with a
+    // hard-coded Madrid fallback centre and only fit-to-bounds once
+    // the first station fetch landed. On a deep link or on the first
+    // entry after navigating to a city, the markers loaded at the
+    // user's location but the view stayed on Madrid until the user
+    // nudged the radius selector (which triggered a fresh fetch and
+    // finally re-keyed `AutoFitBounds`). Threading the URL coords
+    // through to the map's `center` mounts the map already centred
+    // on the right spot, so the first paint matches the chip.
+    it('forwards the URL position to StationMap so the map mounts on the user location, not Madrid', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ stations: [] }),
+      }))
+
+      render(<StationDashboard position={[40.42, -3.7]} placeName="Madrid" />, { wrapper: createWrapper() })
+
+      // The StationMap mock records every render's props so we can
+      // confirm the URL coords reach the map even before the first
+      // query resolves.
+      const lastCall = stationMapCalls[stationMapCalls.length - 1]
+      expect(lastCall?.position).toEqual([40.42, -3.7])
     })
   })
 

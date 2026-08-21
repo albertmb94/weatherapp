@@ -153,7 +153,9 @@ describe('useUrlState pure functions', () => {
     interface DS {
       lat: number; lon: number; metric: string; models: string[]; hour: number; range: number
       showMap: boolean; showRadar: boolean; bucket: number; locale: string; marine: boolean; basic: boolean;
-      view: 'weather' | 'cities' | 'map' | 'stations' | 'settings';
+      // B-NEW-37 (2026-08-18): 'map' removed from the UrlState.view
+      // union, so the test fixture mirrors the new shape.
+      view: 'weather' | 'cities' | 'stations' | 'settings';
       weekDays: 7 | 14;
       ensembleMode: 'wedai' | 'models';
     }

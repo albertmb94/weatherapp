@@ -5,13 +5,12 @@ import { LocaleProvider } from '@/lib/LocaleContext'
 
 function renderSidebar(active: 'weather' | 'cities' = 'weather') {
   const onSelect = vi.fn()
+  // B-NEW-37 (2026-08-18): `map` removed from LayerState/onLayerToggle.
   const onLayerToggle = {
-    map: vi.fn(),
     marine: vi.fn(),
     basic: vi.fn(),
   }
   const layers: LayerState = {
-    showMap: false,
     marine: false,
     showBasic: true,
   }
@@ -62,6 +61,6 @@ describe('DesktopSidebar', () => {
     act(() => {
       fireEvent.click(mapBtn!)
     })
-    expect(onLayerToggle.map).toBeDefined()
+    expect(onLayerToggle.marine).toBeDefined()
   })
 })

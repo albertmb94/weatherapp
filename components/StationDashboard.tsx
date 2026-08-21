@@ -422,7 +422,7 @@ export default function StationDashboard({ position = null, placeName }: Station
       </div>
 
       <div className="w-full aspect-[2/1] min-h-[180px] max-h-[320px] rounded-lg overflow-hidden">
-        <StationMap stations={filtered} />
+        <StationMap stations={filtered} position={position} />
       </div>
 
       {showLoading && (

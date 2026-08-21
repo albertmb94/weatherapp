@@ -2,7 +2,10 @@
 
 import { useLocale } from '@/lib/LocaleContext'
 
-export type MobileTab = 'models' | 'stations' | 'map'
+// B-NEW-37 (2026-08-18): 'map' removed from MobileTab. The Mapa view is
+// disabled in this build, so the bottom tab bar exposes only the live
+// views (Models / Stations).
+export type MobileTab = 'models' | 'stations'
 
 interface TabDef {
   id: MobileTab
@@ -37,18 +40,6 @@ const TABS: TabDef[] = [
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'map',
-    labelEn: 'Map',
-    labelEs: 'Mapa',
-    ariaEn: 'Map',
-    ariaEs: 'Mapa',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0022 18.882V8.118a1 1 0 00-1.447-.894L15 10m0 7V10m0 0L9 7" />
       </svg>
     ),
   },

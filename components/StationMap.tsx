@@ -78,15 +78,31 @@ function StationMarker({ station }: { station: MeteoclimaticObservation }) {
   )
 }
 
-function AutoFitBounds({ stations }: { stations: MeteoclimaticObservation[] }) {
+function AutoFitBounds({
+  stations,
+  position,
+}: {
+  stations: MeteoclimaticObservation[]
+  /** User's current location (URL of record). Used as a fallback
+   *  anchor when there are no stations to fit yet — otherwise the
+   *  map stays on its Madrid fallback until the first station fetch
+   *  lands. */
+  position?: [number, number] | null
+}) {
   const map = useMap()
 
   // M11: only re-fit bounds when the SET of station codes actually changes
   // (not on every refetch which produces a new array identity every 5 min).
   // This avoids the map yanking the zoom/encuadre on every refresh.
   const stationKey = stations.map(s => s.code).sort().join('|')
+  const positionKey = position ? position.join(',') : ''
   useEffect(() => {
-    if (stations.length === 0) return
+    // No stations yet — center on the user's position so the map
+    // doesn't sit on the Madrid fallback while the query is in flight.
+    if (stations.length === 0) {
+      if (position) map.setView(position, 10)
+      return
+    }
     if (stations.length === 1) {
       map.setView([stations[0].lat, stations[0].lon], 10)
       return
@@ -98,25 +114,33 @@ function AutoFitBounds({ stations }: { stations: MeteoclimaticObservation[] }) {
     // We intentionally only key on `stationKey`; adding `stations` would
     // re-fire on every refetch (the array identity changes every 5 min).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stationKey, map])
+  }, [stationKey, positionKey, map])
 
   return null
 }
 
 interface StationMapProps {
   stations: MeteoclimaticObservation[]
+  /** User's current location. Used as the initial `center` so the map
+   *  mounts already centred on the user's location (the URL-of-record
+   *  coordinates) instead of the static Madrid fallback that was the
+   *  root cause of the "centred on some random place in Spain" bug. */
+  position?: [number, number] | null
 }
 
-export default function StationMap({ stations }: StationMapProps) {
+export default function StationMap({ stations, position = null }: StationMapProps) {
   const hasStations = stations.length > 0
-  const center: [number, number] = hasStations
-    ? [stations[0].lat, stations[0].lon]
-    : [40.4168, -3.7038]
+  // Mount the map already centred on the user's location at zoom 10 so
+  // the first frame matches the Estaciones tab's "Near {city}" chip.
+  // When the stations fetch returns, AutoFitBounds takes over and fits
+  // the map to the station set.
+  const center: [number, number] = position ?? [40.4168, -3.7038]
+  const zoom = position ? 10 : 6
 
   return (
     <MapContainer
       center={center}
-      zoom={6}
+      zoom={zoom}
       className="w-full h-full rounded-lg z-0"
       zoomControl={true}
       scrollWheelZoom={true}
@@ -125,7 +149,7 @@ export default function StationMap({ stations }: StationMapProps) {
         attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
-      {hasStations && <AutoFitBounds stations={stations} />}
+      <AutoFitBounds stations={stations} position={position} />
       {stations.map(s => (
         <StationMarker key={s.code} station={s} />
       ))}

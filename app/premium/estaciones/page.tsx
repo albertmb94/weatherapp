@@ -1,10 +1,20 @@
 import Link from 'next/link'
 import { listPlans, PLAN_FEATURES } from '@/lib/plans'
 import { getFeature } from '@/lib/features'
+import { listAffiliateProducts } from '@/lib/affiliate'
+import CheckoutButton from '@/components/CheckoutButton'
 
 export default async function StationsPage() {
   const flag = await getFeature('feature.stations_checkout')
+  const stripe = await getFeature('feature.stripe')
+  const checkoutEnabled = flag.enabled && stripe.enabled
+  const affiliates = await getFeature('feature.affiliates')
   const plan = (await listPlans(true)).find(p => p.id === 'stations')
+  // B-NBT-10: while subscriptions are OFF, recommended-station affiliate
+  // products are the live monetization path for this page.
+  const products = affiliates.enabled
+    ? await listAffiliateProducts({ trigger: 'stations', locale: 'es' })
+    : []
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -24,6 +34,29 @@ export default async function StationsPage() {
               <strong>Suscripciones desactivadas.</strong> El checkout de Estaciones aún no está activo.
             </p>
           </div>
+        )}
+
+        {products.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Estaciones meteorológicas recomendadas</h2>
+            <p className="text-xs text-text-tertiary">
+              Enlaces de afiliado: apoyas el proyecto sin pagar más.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {products.map((p) => (
+                <a
+                  key={p.id}
+                  href={`/api/affiliate/redirect?program=amazon&product_id=${encodeURIComponent(p.id)}&trigger=stations&to=${encodeURIComponent(p.affiliateUrl)}`}
+                  className="rounded-2xl border border-border bg-surface-raised p-4 hover:border-accent/60 transition-colors"
+                >
+                  <div className="text-sm font-medium">{p.title}</div>
+                  {p.priceLabel ? (
+                    <div className="text-xs text-text-tertiary mt-0.5">{p.priceLabel}</div>
+                  ) : null}
+                </a>
+              ))}
+            </div>
+          </section>
         )}
 
         {plan && (
@@ -51,9 +84,13 @@ export default async function StationsPage() {
                 ) : null
               })}
             </ul>
-            <button disabled className="w-full py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50">
-              Próximamente
-            </button>
+            <CheckoutButton
+              kind="stations"
+              endpoint="/api/stations/checkout"
+              label="Contratar Estaciones (anual)"
+              enabled={checkoutEnabled}
+              disabledLabel="Próximamente"
+            />
           </article>
         )}
       </div>

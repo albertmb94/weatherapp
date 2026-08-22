@@ -7,11 +7,12 @@
  */
 
 import { runWeeklyBacktest } from '../lib/backtest/runWeeklyBacktest'
-import { computeDynamicWeights, mergeWeights } from '../lib/backtest/computeDynamicWeights'
-import { insertDynamicWeights, getModelAccuracy } from '../lib/backtest/db'
-import { ensureBacktestSchema } from '../lib/backtest/db'
-import { BACKTEST_LOCATIONS, BACKTEST_METRICS, LEAD_TIME_BUCKETS } from '../lib/backtest/config'
-import type { DynamicWeightRow } from '../lib/backtest/db'
+import { storeDynamicWeights } from '../lib/backtest/storeDynamicWeights'
+import {
+  BACKTEST_LOCATIONS,
+  BACKTEST_METRICS,
+  LEAD_TIME_BUCKETS,
+} from '../lib/backtest/config'
 
 async function main() {
   console.log('=== Weather App Backtest ===')
@@ -22,6 +23,7 @@ async function main() {
 
   // Step 1: Ensure DB schema
   console.log('[1/3] Ensuring database schema...')
+  const { ensureBacktestSchema } = await import('../lib/backtest/db')
   await ensureBacktestSchema()
 
   // Step 2: Run the weekly backtest
@@ -39,46 +41,20 @@ async function main() {
     }
   }
 
-  // Step 3: Compute and store dynamic weights
+  // Step 3: Compute and store dynamic weights. B-NBT-6: each
+  // location × metric × bucket cell is retried/isolated inside
+  // storeDynamicWeights so a transient SQLITE_BUSY can no longer
+  // abort the whole run.
   console.log('')
   console.log('[3/3] Computing dynamic weights...')
-  let totalWeightRows = 0
-
-  for (const location of BACKTEST_LOCATIONS) {
-    for (const metric of BACKTEST_METRICS) {
-      for (const bucket of LEAD_TIME_BUCKETS) {
-        const accuracyRecords = await getModelAccuracy(
-          location.lat,
-          location.lon,
-          location.terrain,
-          metric,
-          bucket
-        )
-
-        if (accuracyRecords.length === 0) continue
-
-        const dynamicWeights = computeDynamicWeights(accuracyRecords)
-        if (Object.keys(dynamicWeights).length === 0) continue
-
-        const weightRows: DynamicWeightRow[] = Object.entries(dynamicWeights).map(
-          ([modelId, weight]) => ({
-            lat: location.lat,
-            lon: location.lon,
-            terrain_type: location.terrain,
-            model_id: modelId,
-            metric,
-            weight,
-            lead_time_bucket: bucket,
-          })
-        )
-
-        await insertDynamicWeights(weightRows)
-        totalWeightRows += weightRows.length
-      }
+  const { stored, failedCells } = await storeDynamicWeights()
+  console.log(`  Stored ${stored} dynamic weight rows`)
+  if (failedCells.length > 0) {
+    console.log(`  Failed cells: ${failedCells.length}`)
+    for (const cell of failedCells) {
+      console.log(`    - ${cell}`)
     }
   }
-
-  console.log(`  Stored ${totalWeightRows} dynamic weight rows`)
   console.log('')
   console.log('=== Backtest Complete ===')
 }

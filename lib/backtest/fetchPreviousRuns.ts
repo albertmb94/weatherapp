@@ -95,14 +95,15 @@ export async function fetchPreviousRuns(
           const modelKey = `${prevParam}_${modelId}`
           const value = hourly[modelKey]?.[i] ?? null
           if (value !== null) {
-            // The "init_time" for a previous_dayN forecast is N days before valid_time
-            const initDate = new Date(validTime)
-            initDate.setDate(initDate.getDate() - day)
+            // The "init_time" for a previous_dayN forecast is N calendar
+            // days before valid_time. B-NBT-1: shifted on the wall-clock
+            // string (see shiftWallClockDays) — the old Date round-trip
+            // skewed every init_time by the host UTC offset.
             rows.push({
               model_id: modelId,
               lat: location.lat,
               lon: location.lon,
-              init_time: initDate.toISOString().slice(0, 16),
+              init_time: shiftWallClockDays(validTime, -day),
               valid_time: validTime,
               lead_time_hours: day * 24,
               metric,
@@ -115,6 +116,31 @@ export async function fetchPreviousRuns(
   }
 
   return rows
+}
+
+/**
+ * Shift a wall-clock stamp ('YYYY-MM-DDTHH:mm' as returned by the
+ * provider's `hourly.time`, timezone=auto) by whole calendar days.
+ *
+ * B-NBT-1 (2026-08-22): the previous implementation round-tripped the
+ * string through `new Date(...)` + `toISOString()`, which interprets
+ * the wall-clock in the HOST timezone and re-emits it as UTC. On a
+ * CEST machine every `previous_dayN` init_time landed 2 h off the
+ * observation grid, so the verifier paired forecasts with observations
+ * from the wrong hour (and, for edge hours, dropped them entirely).
+ * Calendar math on the date part keeps the wall-clock semantics: the
+ * result stays on the same 'YYYY-MM-DDTHH:mm' grid the ERA5 rows use.
+ *
+ * Exported for unit tests.
+ */
+export function shiftWallClockDays(stamp: string, days: number): string {
+  const datePart = stamp.slice(0, 10)
+  const timePart = stamp.slice(10)
+  const [y, m, d] = datePart.split('-').map(Number)
+  // Date.UTC over pure Y/M/D numbers is a safe calendar shift: no host
+  // timezone ever touches the wall-clock value.
+  const shifted = new Date(Date.UTC(y, m - 1, d + days))
+  return `${shifted.toISOString().slice(0, 10)}${timePart}`
 }
 
 /**

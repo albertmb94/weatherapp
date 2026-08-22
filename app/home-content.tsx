@@ -47,9 +47,11 @@ import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
 import { useNearbyStations } from '@/lib/hooks/useNearbyStations'
 import { getLeadTimeBucket } from '@/lib/models'
+import { uiBucketToBacktestBuckets } from '@/lib/backtest/config'
 import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
 import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
 import { shouldAutoRefresh } from '@/lib/autoRefresh'
+import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { computeInsightsStartIndex } from '@/lib/insightsTime'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
@@ -235,6 +237,8 @@ export default function HomeContent() {
   const scrollToStationsRef = useRef(false)
   const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
+  // B-NBT-5: SSR-safe online flag for the offline banner (see hook).
+  const isOnline = useOnlineStatus()
   // Refresh hook: the per-location auto-refresh is the primary
   // refresh path now (driven by `data.fetchedAt > 2h` below). The
   // hook's `refresh` mutation is still wired to SettingsPanel and
@@ -953,14 +957,18 @@ export default function HomeContent() {
       return
     }
     // The lead-time bucket for the recommendation comes from the
-    // current "now" hour (lead time 0). We only query one bucket
-    // (0-24h) — the recommendation is stable enough across lead
-    // times that we don't need to refetch on every hour tick. If
-    // the backtest eventually ships per-bucket recommendations,
-    // this is the place to extend.
-    const leadBucket = getLeadTimeBucket(0)
+    // current "now" hour (lead time 0). B-NBT-3: `model_accuracy`
+    // stores the FINE backtest buckets ('0-24h', '24-48h', ...), so
+    // the UI preset bucket must be mapped before querying — querying
+    // with '0-48h' verbatim never matched and silently disabled the
+    // profile boost forever.
+    const backtestBuckets = uiBucketToBacktestBuckets(getLeadTimeBucket(0))
+    if (backtestBuckets.length === 0) {
+      setRecommendedSet(new Set())
+      return
+    }
     let cancelled = false
-    void getModelAccuracyByTerrain(terrain.type, selectedMetric, leadBucket, { topN: 5 })
+    void getModelAccuracyByTerrain(terrain.type, selectedMetric, backtestBuckets, { topN: 5 })
       .then(rows => {
         if (cancelled) return
         setRecommendedSet(new Set(rows.map(r => r.model_id)))
@@ -1315,8 +1323,13 @@ export default function HomeContent() {
               <SavedLocations onSelect={handleCitySelect} />
             </div>
 
-            {/* F-5: offline banner — visible only when navigator.onLine is false. */}
-            {typeof navigator !== 'undefined' && !navigator.onLine && (
+            {/* F-5: offline banner — visible only while the browser reports
+                offline. B-NBT-5: driven by the useOnlineStatus hook; the
+                previous inline `typeof navigator !== 'undefined' &&
+                !navigator.onLine` check evaluated TRUE on the server
+                (Node >= 21 exposes a navigator global without .onLine)
+                and produced a hydration mismatch on every load. */}
+            {!isOnline && (
               <div className="mx-4 md:mx-6 mt-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs">
                 {offlineSnapshot
                   ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`

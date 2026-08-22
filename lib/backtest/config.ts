@@ -130,3 +130,28 @@ export const BACKTEST_MODEL_IDS = [
   'meteofrance_arome_france_hd',
   'gem_global',
 ] as const
+
+/**
+ * B-NBT-3 (2026-08-22): map a UI ensemble-preset bucket
+ * (lib/models.ts `getLeadTimeBucket`: '0-48h', '48-96h', ...) onto the
+ * FINER backtest verification buckets stored in `model_accuracy`
+ * ('0-24h' ... '120-168h'). The profile-boost query used to filter on
+ * the UI bucket string verbatim, which NEVER exists in the table — so
+ * `recommendedSet` was permanently empty and the Sprint-13 boost never
+ * fired. Buckets beyond the Previous Runs horizon (7 days) have no
+ * backtest data and map to an empty list (the caller degrades to "no
+ * recommendation").
+ */
+export function uiBucketToBacktestBuckets(uiBucket: string): string[] {
+  switch (uiBucket) {
+    case '0-48h':
+      return ['0-24h', '24-48h']
+    case '48-96h':
+      return ['48-72h', '72-96h']
+    case '96-168h':
+      return ['96-120h', '120-168h']
+    default:
+      // '168-240h' / '240-360h': beyond the previous-runs horizon.
+      return []
+  }
+}

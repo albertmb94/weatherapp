@@ -109,6 +109,7 @@ export default function ModelSelector({ models, selected, onChange, ensembleMode
                     <button
                       key={m.id}
                       type="button"
+                      data-testid="model-option"
                       onClick={() => selectOnly(m.id)}
                       className={`w-full text-left px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-colors flex items-center gap-2 ${
                         active

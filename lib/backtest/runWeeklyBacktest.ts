@@ -19,11 +19,7 @@ import { leadTimeBucket } from './fetchPreviousRuns'
 import { computeMetrics } from './computeMetrics'
 import {
   BACKTEST_LOCATIONS,
-  BACKTEST_METRICS,
-  LEAD_TIME_BUCKETS,
-  BACKTEST_MODEL_IDS,
   type BacktestLocation,
-  type TerrainType,
 } from './config'
 
 interface BacktestProgress {
@@ -35,12 +31,19 @@ interface BacktestProgress {
 /**
  * Run the weekly backtest for all reference locations.
  * Fetches the last 7 days of forecasts and observations.
+ *
+ * `locations` defaults to the full BACKTEST_LOCATIONS set; passing a
+ * subset lets callers retry individual failures (B-NBT-6) without
+ * re-fetching the whole grid.
  */
-export async function runWeeklyBacktest(signal?: AbortSignal): Promise<BacktestProgress> {
+export async function runWeeklyBacktest(
+  signal?: AbortSignal,
+  locations: readonly BacktestLocation[] = BACKTEST_LOCATIONS,
+): Promise<BacktestProgress> {
   await ensureBacktestSchema()
 
   const progress: BacktestProgress = {
-    total: BACKTEST_LOCATIONS.length,
+    total: locations.length,
     completed: 0,
     errors: [],
   }
@@ -56,7 +59,7 @@ export async function runWeeklyBacktest(signal?: AbortSignal): Promise<BacktestP
 
   console.log(`[backtest] Starting weekly backtest: ${startDateStr} to ${endDateStr}`)
 
-  for (const location of BACKTEST_LOCATIONS) {
+  for (const location of locations) {
     try {
       // Fetch forecasts and observations in parallel
       const [forecastRows, observationRows] = await Promise.all([
@@ -93,8 +96,20 @@ export async function runWeeklyBacktest(signal?: AbortSignal): Promise<BacktestP
 
 /**
  * Compute accuracy metrics from raw forecast and observation data.
+ *
+ * B-NBT-2 (2026-08-22): verification pairs every forecast row with the
+ * observation recorded at the forecast's VALID time — predicted(valid)
+ * vs observed(valid). The previous implementation paired against the
+ * observation at `init_time` (when the forecast was issued), which does
+ * not measure forecast skill at all: it compares "what the model
+ * predicted for hour H" with "the weather that was happening when the
+ * run started". That deflated every bucket and made long leads look
+ * arbitrarily bad. There is no leakage concern in pairing at valid
+ * time: leakage would only arise if we *selected* rows using future
+ * information, which we don't — the previous_dayN payload is fixed by
+ * the provider.
  */
-function computeAccuracyFromRaw(
+export function computeAccuracyFromRaw(
   location: BacktestLocation,
   forecastRows: { model_id: string; init_time: string; valid_time: string; metric: string; predicted_value: number | null; lead_time_hours: number }[],
   observationRows: { valid_time: string; metric: string; observed_value: number | null }[],
@@ -112,17 +127,12 @@ function computeAccuracyFromRaw(
   }
 
   // Group forecasts by model, metric, and lead time bucket.
-  // Pair each forecast row with the observation recorded at the
-  // forecast's *init_time* (when it was issued). Pairing at
-  // `valid_time` instead would credit a forecast with the
-  // ground truth it could not have known, inflating accuracy
-  // for short lead times and producing "skill" for long ones.
   const grouped = new Map<string, { predicted: number[]; observed: number[] }>()
   for (const row of forecastRows) {
     if (row.predicted_value === null) continue
     const bucket = leadTimeBucket(row.lead_time_hours)
     const key = `${row.model_id}|${row.metric}|${bucket}`
-    const obsKey = `${row.init_time}|${row.metric}`
+    const obsKey = `${row.valid_time}|${row.metric}`
     const observed = obsMap.get(obsKey)
     if (observed === undefined) continue
 

@@ -91,45 +91,72 @@ describe('getModelAccuracyByTerrain', () => {
     expect(out[1].model_id).toBe('icon_global')
   })
 
-  it('passes the terrain, metric, lead_time and a recent cutoff to the DB', async () => {
+  it('passes the terrain, metric, lead-time bucket(s) and a recent cutoff to the DB', async () => {
     executeMock.mockResolvedValueOnce({ rows: [] })
     await getModelAccuracyByTerrain('mountain', 'precipitation', '48-72h')
     expect(executeMock).toHaveBeenCalledTimes(1)
     const call = executeMock.mock.calls[0][0] as { sql: string; args: unknown[] }
+    // B-NBT-3: aggregated terrain-wide query.
+    expect(call.sql).toContain('GROUP BY model_id')
+    expect(call.sql).toContain('AVG(rmse)')
     expect(call.sql).toContain('terrain_type = ?')
     expect(call.sql).toContain('metric = ?')
-    expect(call.sql).toContain('lead_time_bucket = ?')
+    expect(call.sql).toContain('lead_time_bucket IN (?)')
+    expect(call.sql).not.toContain('lead_time_bucket = ?')
     expect(call.sql).toContain('rmse IS NOT NULL')
     expect(call.sql).toContain('ORDER BY rmse ASC')
     expect(call.args[0]).toBe('mountain')
-    expect(call.args[1]).toBe('precipitation')
-    expect(call.args[2]).toBe('48-72h')
-    // args[3] is the cutoff ISO string; we don't pin the exact
+    expect(call.args[1]).toBe('mountain')
+    expect(call.args[2]).toBe('precipitation')
+    expect(call.args[3]).toBe('48-72h')
+    // args[4] is the cutoff ISO string; we don't pin the exact
     // value (it depends on `Date.now()`), only that it parses and
     // is within the last 90 days.
-    const cutoffIso = call.args[3] as string
+    const cutoffIso = call.args[4] as string
     expect(Number.isNaN(Date.parse(cutoffIso))).toBe(false)
     const cutoffAgeDays = (Date.now() - Date.parse(cutoffIso)) / (24 * 60 * 60 * 1000)
     expect(cutoffAgeDays).toBeGreaterThan(0)
     // Allow a tiny floating-point margin so we don't flake when the
     // test happens to run on the exact 90-day boundary.
     expect(cutoffAgeDays).toBeLessThan(90 + 1e-6)
-    // args[4] is the LIMIT topN — default 5.
-    expect(call.args[4]).toBe(5)
+    // args[5] is the LIMIT topN — default 5.
+    expect(call.args[5]).toBe(5)
+  })
+
+  it('expands an array of buckets into an IN clause (UI preset mapping)', async () => {
+    executeMock.mockResolvedValueOnce({ rows: [] })
+    await getModelAccuracyByTerrain('coastal', 'temperature', ['0-24h', '24-48h'])
+    const call = executeMock.mock.calls[0][0] as { sql: string; args: unknown[] }
+    expect(call.sql).toContain('lead_time_bucket IN (?, ?)')
+    // args: [terrain_type alias, terrain filter, metric, ...buckets, cutoff, limit]
+    expect(call.args[0]).toBe('coastal')
+    expect(call.args[1]).toBe('coastal')
+    expect(call.args[2]).toBe('temperature')
+    expect(call.args[3]).toBe('0-24h')
+    expect(call.args[4]).toBe('24-48h')
+    // args[5] is the cutoff ISO string.
+    expect(Number.isNaN(Date.parse(call.args[5] as string))).toBe(false)
+    expect(call.args[6]).toBe(5)
+  })
+
+  it('returns [] without querying when the bucket list is empty', async () => {
+    const out = await getModelAccuracyByTerrain('coastal', 'temperature', [])
+    expect(out).toEqual([])
+    expect(executeMock).not.toHaveBeenCalled()
   })
 
   it('honours the topN option when passed', async () => {
     executeMock.mockResolvedValueOnce({ rows: [] })
     await getModelAccuracyByTerrain('coastal', 'temperature', '0-24h', { topN: 2 })
     const call = executeMock.mock.calls[0][0] as { args: unknown[] }
-    expect(call.args[4]).toBe(2)
+    expect(call.args[call.args.length - 1]).toBe(2)
   })
 
   it('honours the windowDays option when passed', async () => {
     executeMock.mockResolvedValueOnce({ rows: [] })
     await getModelAccuracyByTerrain('coastal', 'temperature', '0-24h', { windowDays: 30 })
     const call = executeMock.mock.calls[0][0] as { args: unknown[] }
-    const cutoffIso = call.args[3] as string
+    const cutoffIso = call.args[call.args.length - 2] as string
     const cutoffAgeDays = (Date.now() - Date.parse(cutoffIso)) / (24 * 60 * 60 * 1000)
     expect(cutoffAgeDays).toBeLessThanOrEqual(30)
   })

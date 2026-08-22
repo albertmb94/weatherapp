@@ -259,32 +259,98 @@ export async function getModelAccuracy(
  *     matters; we don't synthesise recommendations.
  *   - This function is read-only and side-effect-free.
  */
+/**
+ * Sprint 13: fetch the most-accurate models for a given terrain
+ * type, regardless of which exact (lat, lon) we have. The previous
+ * `getModelAccuracy` query pinned the location to a single
+ * reference point; for the profile boost we want a *terrain-wide*
+ * ranking because (a) the user's location may not be one of the
+ * backtest locations and (b) the recommendation is supposed to
+ * be the model's average accuracy for the same *kind* of place
+ * (coastal cities share the same preferred models regardless of
+ * which coast they're on).
+ *
+ * B-NBT-3 (2026-08-22): two fixes.
+ *
+ *   1. `leadTimeBucket` now also accepts an ARRAY of buckets. The
+ *      table stores the fine backtest buckets ('0-24h', '24-48h', ...)
+ *      while the UI queries with preset buckets ('0-48h', ...); callers
+ *      map via `uiBucketToBacktestBuckets` and pass the list. A plain
+ *      string is still accepted for backwards compatibility. Buckets
+ *      beyond the previous-runs horizon simply have no rows, so an
+ *      over-wide list degrades gracefully to fewer matches.
+ *
+ *   2. The query aggregates with GROUP BY model_id / AVG(rmse).
+ *      Previously `LIMIT topN` returned the top-N individual ROWS,
+ *      which could be the SAME model repeated across reference
+ *      locations — collapsing `recommendedSet` to 1-2 distinct models
+ *      and skewing the boost. Now every returned row IS one model,
+ *      ranked by its terrain-wide mean RMSE.
+ *
+ * Behavioural notes:
+ *   - When no DB is configured (production without Turso) or the
+ *     table is empty, this returns an empty array. The caller is
+ *     expected to treat that as "no boost available" and skip the
+ *     profile weight adjustment. The system degrades gracefully —
+ *     the user sees the un-boosted ensemble rather than a broken
+ *     page.
+ *   - When `terrainType` doesn't match any row (the weekly
+ *     backtest hasn't yet written rows for that terrain), the
+ *     function also returns []. We don't synthesise recommendations.
+ *   - This function is read-only and side-effect-free.
+ */
 export async function getModelAccuracyByTerrain(
   terrainType: string,
   metric: string,
-  leadTimeBucket: string,
+  leadTimeBucket: string | readonly string[],
   options: { topN?: number; windowDays?: number } = {}
 ): Promise<ModelAccuracyRow[]> {
   const { topN = 5, windowDays = 90 } = options
   const db = getDb()
   if (!db) return []
+  const bucketList = Array.isArray(leadTimeBucket)
+    ? leadTimeBucket.filter(b => typeof b === 'string' && b.length > 0)
+    : [leadTimeBucket]
+  if (bucketList.length === 0) return []
   // The 90-day cutoff is the rolling window we expect the
   // weekly-backtest to refresh; older rows are still valid for
   // historical analysis but for a *recommendation* we want
   // recency.
   const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString()
+  const placeholders = bucketList.map(() => '?').join(', ')
+  // Aggregated rows only populate model_id / rmse / sample_count /
+  // window fields; lat/lon/bias/lead_time_bucket are not meaningful
+  // for a terrain-wide mean (callers read model_id + rmse).
   const result = await db.execute({
-    sql: `SELECT model_id, lat, lon, terrain_type, metric, lead_time_bucket,
-                 mae, rmse, bias, sample_count, window_start, window_end, computed_at
+    sql: `SELECT model_id,
+                 NULL AS lat,
+                 NULL AS lon,
+                 ? AS terrain_type,
+                 metric,
+                 'aggregated' AS lead_time_bucket,
+                 AVG(rmse) AS rmse,
+                 NULL AS bias,
+                 SUM(sample_count) AS sample_count,
+                 MIN(window_start) AS window_start,
+                 MAX(window_end) AS window_end,
+                 MAX(computed_at) AS computed_at
           FROM model_accuracy
           WHERE terrain_type = ?
             AND metric = ?
-            AND lead_time_bucket = ?
+            AND lead_time_bucket IN (${placeholders})
             AND computed_at >= ?
             AND rmse IS NOT NULL
+          GROUP BY model_id
           ORDER BY rmse ASC
           LIMIT ?`,
-    args: [terrainType, metric, leadTimeBucket, cutoff, topN],
+    args: [
+      terrainType,
+      terrainType,
+      metric,
+      ...bucketList,
+      cutoff,
+      topN,
+    ],
   })
   return result.rows as unknown as ModelAccuracyRow[]
 }

@@ -62,18 +62,21 @@ self.addEventListener('fetch', (event) => {
 
   // Stale-while-revalidate for static assets so chunk URLs (whose hashes
   // change every build) are fetched fresh once they exist.
-  event.respondWith(
-    caches.open(RUNTIME_CACHE).then((cache) =>
-      cache.match(request).then((cached) => {
-        const fetchPromise = fetch(request).then((res) => {
-          if (res.ok) {
-            const clone = res.clone()
-            event.waitUntil(cache.put(request, clone))
-          }
-          return res
-        }).catch(() => cached)
-        return cached || fetchPromise
-      })
-    )
+  //
+  // B-NBT-9 (2026-08-22): the revalidation promise AND its `waitUntil`
+  // registration both happen synchronously while the fetch event is
+  // still dispatching. The previous shape called `event.waitUntil(...)`
+  // from inside the fetch continuation — after `respondWith(cached)`
+  // had already settled — which throws InvalidStateError once the event
+  // has terminated, so updated responses were silently never persisted.
+  const cachedPromise = caches.match(request)
+  const networkResponsePromise = fetch(request)
+  event.waitUntil(
+    networkResponsePromise.then((res) => {
+      if (!res || !res.ok) return undefined
+      const clone = res.clone()
+      return caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone))
+    }).catch(() => undefined)
   )
+  event.respondWith(cachedPromise.then((cached) => cached || networkResponsePromise))
 })

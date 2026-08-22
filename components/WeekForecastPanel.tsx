@@ -15,6 +15,15 @@ interface WeekForecastPanelProps {
   series: Record<string, Record<string, (number | null)[]>>
   /** Index in `time` of the current local hour — drives which day is "today". */
   nowIndex: number
+  /** B-NBT-9 (2026-08-22): index in `time` that `onSelectHour` treats as
+   *  its origin. The production caller passes `startIndex`, because
+   *  `handleHourChange` expects a coordinate relative to the sliced
+   *  view — NOT relative to the current hour. Day clicks used to
+   *  subtract `nowIndex` (which includes the selected-hour offset) and
+   *  landed `selectedHour` hours early, clamping to 0 whenever noon had
+   *  already passed. Defaults to 0 for test fixtures where both are
+   *  identical anyway. */
+  baseIndex?: number
   maxHours: number
   /** Selected range (7 | 14) and the setter so the panel can drive its own toggle. */
   weekDays: 7 | 14
@@ -40,6 +49,7 @@ export default function WeekForecastPanel({
   time,
   series,
   nowIndex,
+  baseIndex = 0,
   maxHours,
   weekDays,
   onWeekDaysChange,
@@ -98,14 +108,13 @@ export default function WeekForecastPanel({
       </div>
       <ol className="space-y-2.5">
         {days.map((d, i) => {
-          // The panel now receives full-day noon indices from
-          // computeWeekSummaries. The caller still expects a view-relative
-          // hour offset, so subtract `nowIndex` (which itself is the absolute
-          // "current hour" in `time`, not the noon anchor).
-          const absoluteTarget = (d as unknown as { noonIndex?: number }).noonIndex
-          const target = typeof absoluteTarget === 'number'
-            ? absoluteTarget - nowIndex
-            : i
+          // `noonIndex` is an absolute index into `time`; the caller
+          // expects a coordinate relative to `baseIndex` (the origin of
+          // its hour state), so the conversion is noon − base. It used
+          // to subtract `nowIndex`, which additionally contains the
+          // user's selected-hour offset and landed every click that
+          // many hours early (clamped to 0 after noon).
+          const target = d.noonIndex - baseIndex
           return (
             <li key={d.fullDate}>
               <button

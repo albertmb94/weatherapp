@@ -8,7 +8,12 @@ import type { ForecastResult } from './openMeteo'
 
 const DB_NAME = 'weather-offline'
 const STORE_NAME = 'forecasts'
-const VERSION = 2
+// v3 (B-NBT-9, 2026-08-22): ForecastResult gained required fields
+// (`dailyTime`, `modelsWithNoData`). Snapshots written by v2 builds are
+// structurally incompatible — hydrating one crashed `rotateDailyToToday`
+// on the missing `dailyTime`. The upgrade drops the store so the next
+// successful fetch repopulates it with the current shape.
+const VERSION = 3
 
 export interface ForecastSnapshot {
   position: [number, number]
@@ -27,16 +32,24 @@ function openDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, VERSION)
-      req.onupgradeneeded = () => {
+      req.onupgradeneeded = (ev) => {
         const db = req.result
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME)
-        }
+        const previousVersion = ev.oldVersion
         // Migration from v1: the old "latest" key stored a single snapshot
         // regardless of location, which made the app show stale data for
         // the current city when the cached snapshot was from a previous one.
         if (db.objectStoreNames.contains('lastForecast')) {
           db.deleteObjectStore('lastForecast')
+        }
+        // Migration from v1/v2 (B-NBT-9): snapshots persisted before
+        // ForecastResult gained `dailyTime`/`modelsWithNoData` crash the
+        // offline hydration path. Drop them wholesale — they are stale by
+        // definition and self-heal on the next successful fetch.
+        if (previousVersion > 0 && previousVersion < 3 && db.objectStoreNames.contains(STORE_NAME)) {
+          db.deleteObjectStore(STORE_NAME)
+          db.createObjectStore(STORE_NAME)
+        } else if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME)
         }
       }
       req.onsuccess = () => resolve(req.result)
@@ -79,7 +92,19 @@ export async function loadLastForecast(position?: [number, number]): Promise<For
     return await new Promise<ForecastSnapshot | null>((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly')
       const req = tx.objectStore(STORE_NAME).get(targetKey)
-      req.onsuccess = () => resolve((req.result as ForecastSnapshot) ?? null)
+      req.onsuccess = () => {
+        const snapshot = req.result as ForecastSnapshot | undefined
+        // B-NBT-9 defensive check: a snapshot missing the current
+        // ForecastResult shape (e.g. written by an older build and
+        // restored from a backup, or a partially-written row) must be
+        // treated as absent rather than handed to the render path.
+        if (!snapshot || !snapshot.data || !Array.isArray(snapshot.data.time) ||
+            !Array.isArray(snapshot.data.dailyTime)) {
+          resolve(null)
+          return
+        }
+        resolve(snapshot)
+      }
       req.onerror = () => resolve(null)
     })
   } catch {

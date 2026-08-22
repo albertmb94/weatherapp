@@ -2,7 +2,7 @@ import type { WeatherModel, Metric, MetricId } from './models'
 import { METRICS, MODELS } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { fetchMarine, computeMarineDays } from './marine'
-import { parseOpenMeteoTimes } from './dateUtils'
+import { parseOpenMeteoTimes, getLocationNow } from './dateUtils'
 import { selectModelsForLocation } from './regionDetection'
 import { weightedAvg } from './ensemble'
 import { detectModelsWithNoData } from './api/openMeteoProxy'
@@ -146,6 +146,34 @@ export function aggregateDailySeries(
  * importing the whole client fetch module.
  */
 export { detectModelsWithNoData } from './api/openMeteoProxy'
+
+/**
+ * B-NBT-9 (2026-08-22): `AirConditionsGrid` renders "Total lluvia hoy"
+ * from `dailyPrecipitationSum[0]`. The raw array is aligned with
+ * `dailyTime`, which starts `past_days` days ago — index 0 therefore
+ * pointed 2-3 days BEFORE today. Rotate so index 0 is always the
+ * location's current local day, falling back to the raw array when the
+ * day can't be located.
+ *
+ * Snapshots persisted by pre-B-NEW-41 builds lack `dailyTime` entirely;
+ * those are returned as-is (the tile then shows the unrotated value)
+ * instead of throwing inside a render-path useMemo — hydrating such a
+ * snapshot used to white-screen the whole offline/error fallback.
+ */
+export function rotateDailyToToday(data: ForecastResult | null): (number | null)[] {
+  const arr = data?.dailyPrecipitationSum
+  if (!arr || arr.length === 0) return arr ?? []
+  if (!Array.isArray(data.dailyTime)) return arr
+  const nowLocal = getLocationNow(data.utcOffsetSeconds)
+  const key = `${nowLocal.getUTCFullYear()}-${nowLocal.getUTCMonth()}-${nowLocal.getUTCDate()}`
+  for (let i = 0; i < data.dailyTime.length; i++) {
+    const t = data.dailyTime[i]
+    if (!(t instanceof Date)) continue
+    const k = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
+    if (k === key) return arr.slice(i)
+  }
+  return arr
+}
 
 export async function fetchForecast(
   lat: number,

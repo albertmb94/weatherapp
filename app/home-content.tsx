@@ -27,7 +27,7 @@ import CitiesList from '@/components/CitiesList'
 // component file is still in the repo in case we want to
 // re-introduce the 10-tile grid in a future iteration.
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
-import { fetchForecast, fetchCurrentUv, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
+import { fetchForecast, fetchCurrentUv, rotateDailyToToday, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
 import { fetchAirQuality, type AirQualityResult } from '@/lib/airQuality'
 import { useUrlState } from '@/lib/useUrlState'
 import { useLocale } from '@/lib/LocaleContext'
@@ -95,25 +95,6 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
     dailyPrecipitationHours: sliceArr(data.dailyPrecipitationHours),
     modelsWithNoData: data.modelsWithNoData,
   }
-}
-
-// B-NEW-41: `AirConditionsGrid` renders "Total lluvia hoy" from
-// `dailyPrecipitationSum[0]`. The raw array is aligned with `dailyTime`,
-// which starts `past_days` days ago — index 0 therefore pointed 2-3 days
-// BEFORE today. Rotate so index 0 is always the location's current local
-// day (falling back to the raw array when the day can't be located).
-function rotateDailyToToday(data: ForecastResult | null): (number | null)[] {
-  const arr = data?.dailyPrecipitationSum
-  if (!arr || arr.length === 0) return arr ?? []
-  const nowLocal = getLocationNow(data.utcOffsetSeconds)
-  const key = `${nowLocal.getUTCFullYear()}-${nowLocal.getUTCMonth()}-${nowLocal.getUTCDate()}`
-  for (let i = 0; i < data.dailyTime.length; i++) {
-    const t = data.dailyTime[i]
-    if (!(t instanceof Date)) continue
-    const k = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
-    if (k === key) return arr.slice(i)
-  }
-  return arr
 }
 
 // A new deploy changes the hashed chunk filenames. A browser tab that was
@@ -687,11 +668,20 @@ export default function HomeContent() {
   // a snapshot for a different city can no longer be presented under the
   // current city's name.
   const [offlineSnapshot, setOfflineSnapshot] = useState<Awaited<ReturnType<typeof loadLastForecast>>>(null)
+  // B-NBT-9: sequence guard for the offline hydration. The load is
+  // keyed to `position` but resolves asynchronously; without the
+  // counter, switching cities while offline let the SLOWER older load
+  // win and presented the previous city's forecast under the new
+  // city's header (same out-of-order class as the geocode counter
+  // above, which does have this guard).
+  const offlineLoadSeqRef = useRef(0)
   useEffect(() => {
     if (typeof navigator === 'undefined') return
     if (error || !navigator.onLine) {
+      const seq = ++offlineLoadSeqRef.current
       // Async hydrate; the cleanup effect below clears it on next success.
       void loadLastForecast([position[0], position[1]]).then(s => {
+        if (seq !== offlineLoadSeqRef.current) return
         if (s) setOfflineSnapshot(s)
       })
     }
@@ -824,10 +814,15 @@ export default function HomeContent() {
         const lon = pos.coords.longitude
         const seq = ++geocodeSeqRef.current
         setPosition([lat, lon])
+        // B-NBT-9 fix: the URL must be updated BEFORE the async geocode.
+        // The render-time sync reverts `position` to the URL coords on
+        // the next render, so deferring `updateUrl` until the reverse
+        // geocode resolved (up to ~6 s) made the GPS position bounce
+        // back and the forecast/map never move until the name arrived.
+        updateUrl({ lat, lon })
         const name = await reverseGeocode(lat, lon, locale)
         if (seq !== geocodeSeqRef.current) return
         setCityName(name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`)
-        updateUrl({ lat, lon })
         setGeoLoading(false)
       },
       () => {
@@ -1551,6 +1546,9 @@ export default function HomeContent() {
                 time={effectiveData?.time ?? []}
                 series={effectiveData?.series ?? {}}
                 nowIndex={startIndex + safeSelectedHour}
+                // B-NBT-9: day clicks must land relative to the sliced
+                // view's origin, not to the current-hour index.
+                baseIndex={startIndex}
                 maxHours={Math.max(startIndex + safeSelectedHour, 0) + weekDays * 24}
                 weekDays={weekDays}
                 onWeekDaysChange={(d) => {

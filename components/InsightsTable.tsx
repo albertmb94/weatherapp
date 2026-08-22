@@ -878,16 +878,20 @@ export default function InsightsTable({
           // the `startIndex - startIndex` shift was a no-op anyway.
           if (selectedHour < b.startIdx || selectedHour > b.endIdx) continue
           if (selectedHour < 0 || selectedHour >= seriesLen) continue
-          // Map the further-trimmed-series coord back to the full-
-          // series coord that the preset weights use. When the test
-          // fixtures pass the un-trimmed array, `viewStartIndex=0`
-          // and `selectedHour` is already an absolute coord.
-          const absIdx = selectedHour + viewStartIndex
-          // Use the central module so the formula matches
-          // friendlyForecast.computeCurrentSnapshot byte-for-byte.
-          const tWeights = weightsFor('temperature', absIdx, bucket, wedaiModels)
+          // B-NBT-9 fix (2026-08-22): the DATA lookup must use plain
+          // `selectedHour` — `s` is the same further-trimmed array the
+          // aggregation rows iterate, so its valid index for the
+          // highlighted hour IS `selectedHour`. Adding `viewStartIndex`
+          // here read a value Δ hours away whenever the day filter was
+          // active (`viewStartIndex = dayFilter.startIndex −
+          // startIndex ≠ 0`). Only the PRESET lead time maps back to
+          // full-series coordinates, and it must go through
+          // `weightsForAbsolute`: `weightsFor(hourIndex, bucket)`
+          // multiplies lead by the bucket size, which sent today's
+          // row (bucket=24) to the '240-360h' preset.
+          const tWeights = weightsForAbsolute('temperature', selectedHour + viewStartIndex, bucket, wedaiModels)
           const tVals = wedaiModels.map(
-            m => activeSeries[m.id]?.['temperature']?.[absIdx] ?? null
+            m => activeSeries[m.id]?.['temperature']?.[selectedHour] ?? null
           )
           const tEns = weightedAvg(tVals, tWeights)
           if (tEns !== null) {

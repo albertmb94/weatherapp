@@ -7,6 +7,10 @@ import type { HourlySlot } from '@/lib/friendlyForecast'
 import { computeHourlySlots } from '@/lib/friendlyForecast'
 import WeatherConditionIcon from './WeatherConditionIcon'
 
+/** Stable empty-set singleton so the default prop doesn't create a new
+ *  Set identity per render (which would invalidate the slots memo). */
+const EMPTY_SET: ReadonlySet<string> = new Set()
+
 interface HourlyForecastStripProps {
   models: WeatherModel[]
   activeIds: string[]
@@ -26,6 +30,11 @@ interface HourlyForecastStripProps {
    *  ensemble. Defaults to `'models'` to preserve the previous
    *  behaviour for callers that haven't been updated yet. */
   ensembleMode?: 'wedai' | 'models'
+  /** B-NBT-9b (2026-08-22): Sprint-13 profile boost, threaded to every
+   *  slot so the AHORA number matches the big card and the active
+   *  InsightsTable row (B-10-1 invariant). */
+  usageProfile?: import('@/lib/profiles').UsageProfile | null
+  usageProfileRecommended?: ReadonlySet<string>
 }
 
 function fmtTemp(value: number | null): string {
@@ -41,12 +50,18 @@ export default function HourlyForecastStrip({
   isViewingToday = true,
   title,
   ensembleMode = 'models',
+  usageProfile = null,
+  usageProfileRecommended,
 }: HourlyForecastStripProps) {
   const { locale } = useLocale()
+  const recommendedRef = usageProfileRecommended ?? EMPTY_SET
 
   const slots = useMemo<HourlySlot[]>(
-    () => computeHourlySlots({ time, series }, models, activeIds, nowIndex, locale, 7, 4, isViewingToday, ensembleMode),
-    [models, activeIds, time, series, nowIndex, locale, isViewingToday, ensembleMode]
+    () => computeHourlySlots(
+      { time, series }, models, activeIds, nowIndex, locale, 7, 4, isViewingToday, ensembleMode,
+      usageProfile, recommendedRef,
+    ),
+    [models, activeIds, time, series, nowIndex, locale, isViewingToday, ensembleMode, usageProfile, recommendedRef]
   )
 
   if (slots.length === 0) return null

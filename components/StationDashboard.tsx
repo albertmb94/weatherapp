@@ -59,8 +59,11 @@ const STATION_RETRY_DELAY_MS = 1000
 // returns results for every municipality in the Barcelona metro area.
 // The user can still dial down to 5 km via the selector if they want
 // a tighter view.
-const MOBILE_DEFAULT_RADIUS_KM = 10
-const DESKTOP_DEFAULT_RADIUS_KM = 10
+// B-NBT-9b: single source of truth shared with useNearbyStations so
+// the nowcast blend and this tab always query the same radius.
+import { NEARBY_STATIONS_DEFAULT_RADIUS_KM } from '@/lib/hooks/useNearbyStations'
+const MOBILE_DEFAULT_RADIUS_KM = NEARBY_STATIONS_DEFAULT_RADIUS_KM
+const DESKTOP_DEFAULT_RADIUS_KM = NEARBY_STATIONS_DEFAULT_RADIUS_KM
 const MOBILE_RADIUS_OPTIONS = [5, 10, 30, 60, 100] as const
 const DESKTOP_RADIUS_OPTIONS = [10, 30, 60, 100] as const
 const REAL_DESKTOP_MQ = '(min-width: 1024px)'

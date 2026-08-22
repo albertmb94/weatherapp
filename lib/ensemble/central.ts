@@ -289,7 +289,14 @@ export function ensembleWithFallback(
   index: number,
   activeModels: WeatherModel[],
   allLandModels: WeatherModel[],
-  weights: number[]
+  weights: number[],
+  /** B-NBT-9b: explicit lead time for the FALLBACK weight lookup. The
+   *  primary weights come from the caller; the fallback used to reuse
+   *  `index` verbatim, which is only correct when `index` already IS
+   *  hours-since-now. Callers iterating absolute indices (DailySummary
+   *  over fullTimes) pass their relative lead so both tiers land in
+   *  the same preset bucket. */
+  fallbackLeadTimeHours?: number
 ): number | null {
   if (activeModels.length === 0) return null
   const v = meanAtHourFromSeries(series, metric as MetricId, index, activeModels, weights)
@@ -303,7 +310,8 @@ export function ensembleWithFallback(
   // user's weight re-applied to the first fallback model and
   // 0.01 to the rest — wrong AND identical across selections.
   if (allLandModels.length === 0) return null
-  const fallbackWeights = weightsFor(metric as MetricId, index, 1, allLandModels)
+  const lead = Math.max(0, fallbackLeadTimeHours ?? index)
+  const fallbackWeights = weightsFor(metric as MetricId, lead, 1, allLandModels)
   return meanAtHourFromSeries(series, metric as MetricId, index, allLandModels, fallbackWeights)
 }
 

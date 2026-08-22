@@ -6,7 +6,7 @@ import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE } from '@/lib/models'
 import { getColor, SCALES } from '@/lib/colorScales'
 import type { ScaleMetric } from '@/lib/colorScales'
 import { weightedAvg } from '@/lib/ensemble'
-import { resolveActiveModels, weightsFor, weightsForAbsolute, ensembleWithFallback } from '@/lib/ensemble/central'
+import { resolveActiveModels, weightsFor, weightsForAbsolute, weightsForProfile, ensembleWithFallback } from '@/lib/ensemble/central'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
@@ -77,6 +77,11 @@ interface InsightsTableProps {
    *  cleared. Filters do NOT change the URL hour. */
   dayFilter?: InsightsDayFilter | null
   onClearDayFilter?: () => void
+  /** B-NBT-9b (2026-08-22): Sprint-13 profile boost, applied to the
+   *  active row's WedAI override so the card / AHORA slot / active row
+   *  all agree (B-10-1 invariant). */
+  usageProfile?: import('@/lib/profiles').UsageProfile | null
+  usageProfileRecommended?: ReadonlySet<string>
 }
 
 interface Row {
@@ -110,6 +115,8 @@ interface Row {
 }
 
 const BUCKET_OPTIONS: BucketHours[] = [1, 2, 6, 12, 24]
+/** Stable empty-set singleton (see usageProfileRecommended default). */
+const EMPTY_RECOMMENDED: ReadonlySet<string> = new Set()
 const BUCKET_LABELS: Record<BucketHours, string> = {
   1: '1h', 2: '2h', 3: '3h', 4: '4h', 6: '6h', 12: '12h', 24: '1d',
 }
@@ -421,8 +428,13 @@ export default function InsightsTable({
   currentHourMode = 'wedai',
   dayFilter = null,
   onClearDayFilter,
+  usageProfile = null,
+  usageProfileRecommended,
 }: InsightsTableProps) {
   const { locale } = useLocale()
+  // Stable identity for the default empty recommendation set so the
+  // rows memo doesn't invalidate every render.
+  const recommendedRef = usageProfileRecommended ?? EMPTY_RECOMMENDED
 
   // B-NEW-9 (2026-07-24, hotfix over 808752d): WedAI is ALWAYS the
   // full calibrated ensemble, regardless of what the user has
@@ -572,20 +584,22 @@ export default function InsightsTable({
 
     // Build per-metric, per-hour weight arrays.
     // WedAI mode: use ensemble presets (per-metric, per-horizon weights)
-    // Models mode: use each model's static weight
-    const modelIds = activeModels.map(m => m.id)
-    const staticWeights = activeModels.map(m => m.weight)
+    // Models mode: B-NBT-9b — ALSO the calibrated presets, restricted to
+    // the user's selection. The old branch used the legacy static
+    // `m.weight` values, so the same selection+hour produced different
+    // numbers here than in Resumen diario / the friendly cards. The
+    // preset lookup keeps the lead-time bucketing consistent across
+    // surfaces; `weightedAvg` renormalizes over whichever selected
+    // models have data at that hour.
 
-    const getWeightsForMetricAndHour = (metric: MetricId | string, hourIndex: number): number[] => {
-      if (ensembleMode === 'models') return staticWeights
+    const getWeightsForMetricAndHour = (metric: MetricId | string, hourIndex: number): number[] =>
       // `hourIndex` is the absolute offset in the data series the
       // caller passed in (the further-trimmed `times` after the
       // parent's wall-clock slice). Add the `viewStartIndex` to map
       // it back to the full-series coord the preset classifier uses.
       // Falls back to `hourIndex` (i.e. adds 0) when the test
       // fixtures pass the un-trimmed array directly.
-      return weightsForAbsolute(metric as MetricId, hourIndex + viewStartIndex, bucket, activeModels)
-    }
+      weightsForAbsolute(metric as MetricId, hourIndex + viewStartIndex, bucket, activeModels)
 
     const buckets: Row[] = []
     let cursor = 0
@@ -889,7 +903,13 @@ export default function InsightsTable({
           // `weightsForAbsolute`: `weightsFor(hourIndex, bucket)`
           // multiplies lead by the bucket size, which sent today's
           // row (bucket=24) to the '240-360h' preset.
-          const tWeights = weightsForAbsolute('temperature', selectedHour + viewStartIndex, bucket, wedaiModels)
+          //
+          // B-NBT-9b: weights go through `weightsForProfile` so the
+          // Sprint-13 boost applies here exactly like on the big card
+          // and the AHORA slot (B-10-1 invariant). The mid-bucket lead
+          // mirrors `weightsForAbsolute`'s math.
+          const activeLead = selectedHour + viewStartIndex + (bucket - 1) / 2
+          const tWeights = weightsForProfile('temperature', activeLead, 1, wedaiModels, recommendedRef, usageProfile)
           const tVals = wedaiModels.map(
             m => activeSeries[m.id]?.['temperature']?.[selectedHour] ?? null
           )
@@ -910,7 +930,7 @@ export default function InsightsTable({
     }
 
     return buckets
-  }, [activeModels, models, activeModelIds, allModels, currentHourMode, ensembleMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, viewStartIndex, weekDays, selectedHour, dayFilter, nowMs])
+  }, [activeModels, models, activeModelIds, allModels, currentHourMode, ensembleMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, viewStartIndex, weekDays, selectedHour, dayFilter, nowMs, usageProfile, recommendedRef])
 
   const marineColIds = useMemo(
     () => new Set<MetricCellId>([

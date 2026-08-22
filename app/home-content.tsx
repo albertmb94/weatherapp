@@ -34,7 +34,7 @@ import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
 import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
-import { floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset, getLocationNow } from '@/lib/dateUtils'
+import { formatLocationTime, formatLocationDate, formatUtcOffset, getLocationNow } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation } from '@/lib/localStorageLocations'
 import { useRefresh } from '@/lib/useRefresh'
@@ -848,76 +848,33 @@ export default function HomeContent() {
     [marine, selectedModels]
   )
 
-  // B-NEW-8 (2026-07-24): anchor the "current hour" on the forecast's
-  // `fetchedAt` timestamp instead of `Date.now()`. Without this, the
-  // same city shows different values on mobile vs desktop because each
-  // device's `Date.now()` is different (a phone refreshed at 12:30
-  // would land on a different row than a laptop refreshed at 13:00,
-  // even though they're looking at the *same* forecast). The fix
-  // uses the timestamp the server stamped on the response
-  // (`X-Forecast-Fetched-At` → `data.fetchedAt`), so the same
-  // cached response always resolves to the same `startIndex`
-  // regardless of which device reads it. The trade-off is that
-  // "ahora" is now "the hour the forecast was issued" rather than
-  // the actual wall-clock hour — within the 4-hour auto-refresh
-  // window this is at most a few hours stale, and the URL state's
-  // `hour` param still lets the user navigate to the actual
-  // current hour if they want a specific future time.
+  // B-NBT-9b (2026-08-22): both anchors now share ONE implementation
+  // (`computeInsightsStartIndex` in lib/insightsTime.ts). Since B-NEW-39
+  // the shared `startIndex` is ALSO wall-clock anchored, so the two were
+  // numerically identical post-hydration while their comments claimed
+  // opposite contracts ("fetchedAt" vs "wall clock") — a guaranteed
+  // desync the next time someone "fixes" one of them. The fallback to
+  // `fetchedAt` before hydration is preserved inside the helper's
+  // caller via `currentTickMs || fetchedAt`.
+  //
+  // Known limitation (documented, accepted): Open-Meteo returns ONE
+  // utc_offset_seconds per request. Across a DST transition inside the
+  // 16-day window the fake-local timeline drifts ±1 h until the next
+  // refetch; day-boundary scans degrade gracefully (one duplicated or
+  // skipped hour) instead of misbehaving.
   const startIndex = useMemo(() => {
     const effectiveData = data ?? offlineSnapshot?.data
     if (!effectiveData?.time?.length) return 0
-    // B-NEW-39 (2026-08-18): anchor `startIndex` on the client wall
-    // clock so the hourly forecast strip always starts at the current
-    // hour, not the hour the forecast was issued. The previous
-    // behaviour used `effectiveData.fetchedAt` as the anchor, which
-    // meant a forecast cached at 7h would still start at 7h when
-    // the user opens the app at 8:30h — visible as a "ghost hour"
-    // row that the user has to scroll past to reach the current hour.
-    // We still fall back to `fetchedAt` when the client clock isn't
-    // ready yet (SSR + first render before the `useClientNow` effect
-    // fires) so we don't trip React 19's hydration warning.
     const referenceMs = currentTickMs || effectiveData.fetchedAt
     if (!referenceMs) return 0
-    // Convert the UTC reference timestamp into the location's
-    // UTC-fake-local representation (same shape as the time[]
-    // entries), then floor to the hour. `getLocationNow` does the
-    // same offset arithmetic; we just feed it the wall clock instead
-    // of the fetchedAt ms.
-    const referenceLocal = new Date(referenceMs + effectiveData.utcOffsetSeconds * 1000)
-    const nowFloor = floorHourLocation(referenceLocal)
-    const nowTs = nowFloor.getTime()
-    for (let i = 0; i < effectiveData.time.length; i++) {
-      const t = effectiveData.time[i]
-      if (t instanceof Date && t.getTime() >= nowTs) return i
-    }
-    return effectiveData.time.length
-  }, [data, offlineSnapshot, currentTickMs])
-
-  // The Insights table has its own, stricter "current hour" anchor.
-  // The shared `startIndex` above is intentionally tied to
-  // `fetchedAt` so a cached response always resolves to the same row
-  // across devices — but the user asked the Insights table to start
-  // at the *current wall-clock hour* (e.g. 17:00 when it's 17:52),
-  // regardless of when the cached forecast was issued. We compute
-  // that here against `currentTickMs` and only fall back to
-  // `startIndex` (the `fetchedAt`-anchored value) before the client
-  // has hydrated, so the SSR / first-paint output stays consistent
-  // with the rest of the UI and we don't introduce a hydration
-  // mismatch.
-  const insightsStartIndex = useMemo(() => {
-    const effectiveData = data ?? offlineSnapshot?.data
-    if (!effectiveData?.time?.length) return startIndex
-    // `currentTickMs` is 0 until the client effect fires (see the
-    // useClientNow comment in lib/hooks/useClientNow.ts). Use the
-    // shared `startIndex` in that case so the first render and the
-    // hydrated render produce the same value.
-    if (!currentTickMs) return startIndex
     return computeInsightsStartIndex(
       effectiveData.time,
       effectiveData.utcOffsetSeconds,
-      currentTickMs,
+      referenceMs,
     )
-  }, [data, offlineSnapshot, currentTickMs, startIndex])
+  }, [data, offlineSnapshot, currentTickMs])
+
+  const insightsStartIndex = startIndex
 
   // Use live data if available, otherwise fall back to offline snapshot
   const effectiveData = data ?? offlineSnapshot?.data ?? null
@@ -1456,6 +1413,8 @@ export default function HomeContent() {
                   // a fresh /api/forecast that re-issues the same cell
                   // doesn't reset the user's day filter.
                   locationKey={`${position[0].toFixed(2)}:${position[1].toFixed(2)}`}
+                  usageProfile={effectiveProfile.profile}
+                  usageProfileRecommended={recommendedSet}
                 />
               )}
 
@@ -1642,6 +1601,8 @@ const AdvancedSection = memo(function AdvancedSection({
   onEnsembleModeChange,
   weekDays,
   locationKey,
+  usageProfile,
+  usageProfileRecommended,
 }: {
   expanded: boolean
   onToggle: () => void
@@ -1652,9 +1613,10 @@ const AdvancedSection = memo(function AdvancedSection({
   viewData: ReturnType<typeof sliceForecast> | NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
   fullData: NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
   startIndex: number
-  /** Insights-only anchor, computed against the wall clock. DailySummary
-   *  and the slider keep using `startIndex` so the shared "now" contract
-   *  (anchored to `fetchedAt`) is preserved everywhere else. */
+  /** B-NBT-9b: identical to `startIndex` — both anchors share the same
+   *  wall-clock implementation since the dedupe. Kept as a separate
+   *  prop so the InsightsTable call-site stays explicit about which
+   *  anchor feeds it. */
   insightsStartIndex: number
   effectiveMaxHours: number
   bucket: BucketHours
@@ -1673,6 +1635,9 @@ const AdvancedSection = memo(function AdvancedSection({
    *  decimals (the same precision the cache key uses) so the same cell
    *  re-issued by a fresh forecast doesn't destroy the filter. */
   locationKey: string
+  /** B-NBT-9b: Sprint-13 boost threading for the InsightsTable active row. */
+  usageProfile: import('@/lib/profiles').UsageProfile | null
+  usageProfileRecommended: ReadonlySet<string>
 }) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -1893,6 +1858,10 @@ const AdvancedSection = memo(function AdvancedSection({
             ensembleMode={ensembleMode}
             dayFilter={dayFilter}
             onClearDayFilter={handleClearDayFilter}
+            // B-NBT-9b: the Sprint-13 boost applies to the active row
+            // too, so card / AHORA / active row always agree.
+            usageProfile={usageProfile}
+            usageProfileRecommended={usageProfileRecommended}
           />
         </div>
       ) : null}

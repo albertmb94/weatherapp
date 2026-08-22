@@ -111,6 +111,10 @@ export const STRINGS: Record<Locale, {
   dailyLow: string
   precipTotal: string
   hourlyTitle: string
+  /** B-NBT-9b: badge shown on the headline card when the temperature
+   *  comes from the nearby-station nowcast blend instead of the pure
+   *  ensemble. */
+  liveStationBadge: string
   metricsTitle: string
   weekTitle: string
   weekOption7: string
@@ -271,6 +275,7 @@ export const STRINGS: Record<Locale, {
     dailyLow: 'Mín',
     precipTotal: 'Lluvia',
     hourlyTitle: 'Previsión de hoy',
+    liveStationBadge: 'en vivo · estación cercana',
     metricsTitle: 'Métricas',
     weekTitle: 'Próximos días',
     weekOption7: '7 días',
@@ -420,6 +425,7 @@ export const STRINGS: Record<Locale, {
     dailyLow: 'Low',
     precipTotal: 'Rain',
     hourlyTitle: "Today’s forecast",
+    liveStationBadge: 'live · nearby station',
     metricsTitle: 'Metrics',
     weekTitle: 'Upcoming days',
     weekOption7: '7 days',

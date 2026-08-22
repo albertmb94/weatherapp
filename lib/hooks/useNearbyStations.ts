@@ -30,14 +30,18 @@ import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
 interface UseNearbyStationsArgs {
   lat: number
   lon: number
-  /** km search radius; default 5 matches `StationDashboard`'s mobile
-   *  default (`MOBILE_DEFAULT_RADIUS_KM`) so the nowcast blend picks
-   *  up the same stations the user sees in the Estaciones tab. Callers
-   *  that need a wider net (e.g. desktop) can override explicitly. */
+  /** km search radius. B-NBT-9b (2026-08-22): default is now 10 km,
+   *  matching StationDashboard's mobile/desktop default — the old 5 km
+   *  default silently excluded the nearest station for cities like
+   *  Badalona, so the nowcast blend never fired while the Estaciones
+   *  tab showed stations fine. Single source of truth: StationDashboard
+   *  imports THIS constant. */
   radius?: number
   /** Disable fetching (e.g. when lat/lon are outside reasonable bounds). */
   enabled?: boolean
 }
+
+export const NEARBY_STATIONS_DEFAULT_RADIUS_KM = 10
 
 const STATION_RETRY_COUNT = 2
 const STATION_RETRY_DELAY_MS = 1000
@@ -85,7 +89,7 @@ function cellKey(lat: number, lon: number): string {
 export function useNearbyStations({
   lat,
   lon,
-  radius = 5,
+  radius = NEARBY_STATIONS_DEFAULT_RADIUS_KM,
   enabled = true,
 }: UseNearbyStationsArgs): StationObservation[] {
   // Round to ~1 km so the query key is stable when the user

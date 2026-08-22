@@ -123,10 +123,14 @@ export default function DailySummary({
     const modelIds = activeModels.map(m => m.id)
 
     // Build per-metric, per-hour weight arrays using ensemble presets.
-    // Use the canonical helper so InsightsTable, DailySummary and the
-    // comparison chart always classify horizons identically.
+    // B-NBT-9b (2026-08-22): the preset lookup now runs on the
+    // hours-since-now lead (`hourIndex − startIndex`) so today's chips
+    // land in '0-48h' exactly like the InsightsTable row for the same
+    // hour — previously the absolute index over fullTimes (which starts
+    // past_days=3 days ago) pushed today into '48-96h' and tomorrow
+    // into '96-168h', diverging from every other surface.
     const getWeightsForMetricAndHour = (metric: MetricId, hourIndex: number): number[] =>
-      weightsForAbsolute(metric, hourIndex, 1, activeModels)
+      weightsForAbsolute(metric, Math.max(0, hourIndex - startIndex), 1, activeModels)
 
     const limit = Math.min(times.length, maxHours)
     const buckets: DayBucket[] = []
@@ -193,20 +197,24 @@ export default function DailySummary({
       let waveSum = 0
       let waveCount = 0
       for (let i = bucket.startIndex; i <= bucket.endIndex; i++) {
+        // B-NBT-9b: the WedAI fallback must use the SAME relative lead
+        // as the primary weights, otherwise a null hour silently swaps
+        // the preset bucket for the fallback mean.
+        const lead = Math.max(0, i - startIndex)
         const tWeights = getWeightsForMetricAndHour('temperature', i)
-        const t = ensembleWithFallback(series, 'temperature', i, activeModels, wedaiModels, tWeights)
+        const t = ensembleWithFallback(series, 'temperature', i, activeModels, wedaiModels, tWeights, lead)
         if (t !== null) {
           if (bucket.tMin === null || t < bucket.tMin) bucket.tMin = t
           if (bucket.tMax === null || t > bucket.tMax) bucket.tMax = t
         }
         const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const p = ensembleWithFallback(series, 'precipitation', i, activeModels, wedaiModels, pWeights)
+        const p = ensembleWithFallback(series, 'precipitation', i, activeModels, wedaiModels, pWeights, lead)
         if (p !== null) bucket.precipTotal = (bucket.precipTotal ?? 0) + p
         const wWeights = getWeightsForMetricAndHour('wind_gusts', i)
-        const w = ensembleWithFallback(series, 'wind_gusts', i, activeModels, wedaiModels, wWeights)
+        const w = ensembleWithFallback(series, 'wind_gusts', i, activeModels, wedaiModels, wWeights, lead)
         if (w !== null && (bucket.windMax === null || w > bucket.windMax)) bucket.windMax = w
         const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
-        const c = ensembleWithFallback(series, 'cloud_cover', i, activeModels, wedaiModels, cWeights)
+        const c = ensembleWithFallback(series, 'cloud_cover', i, activeModels, wedaiModels, cWeights, lead)
         if (c !== null) {
           cloudSum += c
           cloudCount += 1

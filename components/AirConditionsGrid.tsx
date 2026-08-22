@@ -324,6 +324,15 @@ export default function AirConditionsGrid({
           icon={<DropIcon />}
           accent="rose"
           onClick={() => setRainMode(m => m === 'chance' ? 'intensity' : m === 'intensity' ? 'day' : 'chance')}
+          // B-NBT-9b: the "Total hoy" figure is the provider's daily
+          // aggregate (weighted across models), NOT the hourly-ensemble
+          // sum the daily chips show — surface the source so the two
+          // numbers don't look like a bug when they differ slightly.
+          extraTitle={rainMode === 'day'
+            ? (locale === 'en'
+              ? 'Provider daily total, weighted across models — may differ slightly from the hourly ensemble sum in the daily chips'
+              : 'Total diario del proveedor, ponderado entre modelos — puede diferir ligeramente de la suma horaria del ensemble de los chips diarios')
+            : undefined}
         />
         <ToggleCard
           // The mode label (Live/Peak) already tells the user which

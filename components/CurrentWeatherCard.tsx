@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
-import { CONDITION_LABEL } from '@/lib/i18n'
+import { CONDITION_LABEL, STRINGS } from '@/lib/i18n'
 import type { WeatherIconId } from '@/lib/weatherIcon'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
 // ConfidenceChip + classifySpread used to render the "±X°" spread
@@ -57,9 +57,14 @@ export default function CurrentWeatherCard({
   wallClockMs,
 }: CurrentWeatherCardProps) {
   const { locale } = useLocale()
+  const s = STRINGS[locale]
   const iconId: WeatherIconId = snapshot ? snapshot.icon : 'sunny'
   const condition = snapshot ? CONDITION_LABEL[locale][snapshot.icon] : ''
   const showHighLow = snapshot && snapshot.dailyHighC !== null && snapshot.dailyLowC !== null
+  // B-NBT-9b (2026-08-22): when the headline temperature comes from the
+  // nearby-station blend, SAY SO. The number used to silently replace
+  // the ensemble value with no indication of its source.
+  const isLiveStation = nowcastTemperatureC !== null
   // Weekday label: derive from a stable wall-clock provided by the
   // parent. We never call `new Date()` here so the SSR render and the
   // first client render produce the same string (otherwise the
@@ -129,6 +134,17 @@ export default function CurrentWeatherCard({
             <span className="mt-1 text-[10px] uppercase tracking-widest text-text-muted">
               {weekdayLabel}
             </span>
+            {isLiveStation ? (
+              <span
+                className="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-300"
+                title={locale === 'en'
+                  ? 'Blended with the closest fresh weather station reading'
+                  : 'Mezclado con la lectura de la estación más cercana'}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                {s.liveStationBadge}
+              </span>
+            ) : null}
           </div>
           <BigWeatherIcon id={iconId} />
         </div>

@@ -4,8 +4,15 @@ import { fetchWithTimeout } from './fetchWithTimeout'
 import { fetchMarine, computeMarineDays } from './marine'
 import { parseOpenMeteoTimes } from './dateUtils'
 import { selectModelsForLocation } from './regionDetection'
+import { weightedAvg } from './ensemble'
+import { detectModelsWithNoData } from './api/openMeteoProxy'
 
-const MAX_FORECAST_MODELS = 10
+// v4-mixed-models: the previous cap of 10 dropped European regional
+// models once `selectModelsForLocation` returned 15 candidates
+// (7 regionals + 5 globals + 3 AI). 16 covers the worst-case regional
+// set (Europe) plus headroom so every selectable model is actually
+// fetched and can contribute to the ensemble.
+const MAX_FORECAST_MODELS = 16
 
 // Open-Meteo historically returned hourly `uv_index` only for horizons of
 // at least 7 days. The current provider catalogue answers `uv_index` for
@@ -63,6 +70,12 @@ export interface ForecastResult {
   /** Daily counter for hours with measurable precipitation
    *  (hours of rain). */
   dailyPrecipitationHours: (number | null)[]
+  /** B-NEW-41: requested models whose payload came back entirely null.
+   *  The provider currently serves some catalogue entries (aifs025,
+   *  graphcast025 on 2026-08-22) as empty rows; the ensemble skips
+   *  them automatically, but exposing the list lets the UI/debug
+   *  explain why a model column is all dashes. */
+  modelsWithNoData: string[]
 }
 
 /** "Live" UV reading sourced from Open-Meteo `current=uv_index`. Comes
@@ -78,6 +91,61 @@ export interface CurrentConditions {
    *  models/locations the provider does not cover with current UV. */
   hasCurrent: boolean
 }
+
+/**
+ * B-NEW-41: with a multi-model request (`models=a,b,c`) Open-Meteo
+ * returns every DAILY variable keyed per model — e.g.
+ * `precipitation_sum_ecmwf_ifs` — instead of a plain
+ * `precipitation_sum`. The previous parser read only the unsuffixed
+ * key, so `dailyPrecipitationSum` / `precipitation_hours` /
+ * `precipitation_probability_max` were silently empty and the
+ * "Total lluvia hoy" tile rendered null for weeks. This helper
+ * aggregates the suffixed series across contributing models using
+ * each model's static weight (the same weighting philosophy as the
+ * hourly ensemble), tolerating ragged arrays: some models return an
+ * empty array or a shorter one, in which case they simply don't
+ * contribute to those rows. Falls back to the unsuffixed key when no
+ * suffixed key exists (single-model responses).
+ */
+export function aggregateDailySeries(
+  daily: Record<string, unknown>,
+  variable: string,
+  models: WeatherModel[],
+): (number | null)[] {
+  const perModel: { arr: (number | null)[]; weight: number }[] = []
+  let maxLen = 0
+  for (const m of models) {
+    const raw = daily[`${variable}_${m.id}`]
+    if (!Array.isArray(raw)) continue
+    const arr = raw.map((v: unknown) =>
+      typeof v === 'number' && Number.isFinite(v) ? v : null)
+    if (arr.length === 0) continue
+    perModel.push({ arr, weight: m.weight > 0 ? m.weight : 1 })
+    if (arr.length > maxLen) maxLen = arr.length
+  }
+  if (perModel.length === 0) {
+    // Single-model / best-match responses keep the plain key.
+    const plain = daily[variable]
+    if (!Array.isArray(plain)) return []
+    return plain.map((v: unknown) =>
+      typeof v === 'number' && Number.isFinite(v) ? v : null)
+  }
+  const weights = perModel.map(p => p.weight)
+  const out: (number | null)[] = []
+  for (let i = 0; i < maxLen; i++) {
+    const vals = perModel.map(p => (i < p.arr.length ? p.arr[i] : null))
+    out.push(weightedAvg(vals, weights))
+  }
+  return out
+}
+
+/**
+ * B-NEW-41: detect requested models whose entire payload is empty.
+ * Implementation lives in `lib/api/openMeteoProxy.ts` so the server
+ * route can reuse it for the `X-Forecast-Models-Empty` header without
+ * importing the whole client fetch module.
+ */
+export { detectModelsWithNoData } from './api/openMeteoProxy'
 
 export async function fetchForecast(
   lat: number,
@@ -98,45 +166,28 @@ export async function fetchForecast(
   // to the long-range globals (ecmwf_ifs, icon_global, gfs_global) for
   // the day buckets beyond the regional horizons.
   const regionSelected = selectModelsForLocation(landModels, lat, lon, forecastDays)
-  // B-NEW-3: the Open-Meteo `/v1/forecast` endpoint truncates the
-  // `hourly.*` series arrays to the SHORTEST model's advertised range
-  // when the request mixes short-range regionals (e.g. arome_france_hd
-  // at 48h, dwd_icon_d2 at 48h) with long-range globals (gfs_global at
-  // 384h). The `hourly.time` array still spans the full window the
-  // caller asked for, but every per-model series is padded with `null`
-  // after the shortest model's horizon — so the ensemble silently
-  // collapses to ~2 days of data on the Insights table and the
-  // DailySummary only computes tMin/tMax for the first 3 day buckets.
-  // We verified this in production on 2026-07-24: Badalona's
-  // DailySummary showed 3 valid days (Vie 24 / Sáb 25 / Dom 26) and
-  // "–°" for Lun 27 onward. We therefore restrict the API request to
-  // long-range models (maxHours ≥ 336, i.e. ≥ 14 days) so every
-  // requested model can cover the full horizon. The DailySummary
-  // ensemble still receives any short-range models the user selected
-  // (via `displayActiveModelIds`); they just contribute null for the
-  // hours the API didn't return, which `weightedAvg` already skips.
-  //
-  // B-NEW-4: bump `CACHE_KEY_VERSION` whenever the model-selection
-  // logic or any other request-shaping parameter changes. The server
-  // route hashes the URL into a cache key, so a stale entry from
-  // before this fix would keep serving the truncated response for up
-  // to the 4-hour TTL. The version stamp is included in the URL so
-  // every prior entry is automatically invalidated and the user sees
-  // the long-range payload on the next refresh. The route strips `v`
-  // before forwarding to Open-Meteo so the upstream URL stays clean.
-  const CACHE_KEY_VERSION = 'v3-long-range-2026-07-24'
-  const MIN_HOURS_FOR_FORECAST = 336
-  const longRange = regionSelected.filter(m => m.maxHours >= MIN_HOURS_FOR_FORECAST)
-  // BUG FIX: `selectModelsForLocation` returns models in
-  // (regional-by-resolution, then global-by-weight, then AI-by-weight)
-  // order. The previous build then sliced the first N without
-  // re-sorting, which could drop high-weight globals (ECMWF, GFS)
-  // if a future catalogue adds enough long-range regional models
-  // to overflow the cap. We re-sort by `weight DESC` here so the
-  // most-accurate long-range models always survive the cap.
-  const capped = [...longRange]
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, MAX_FORECAST_MODELS)
+  // B-NEW-41 (2026-08-22): the previous build restricted the request to
+  // long-range models (maxHours >= 336) because we believed Open-Meteo
+  // truncated every per-model series to the shortest requested model's
+  // horizon when mixing short-range regionals with long-range globals.
+  // Live verification against the provider (2026-08-22, Badalona +
+  // Berlin, forecast_days=16 & past_days=3) shows that behaviour no
+  // longer exists: each model returns a full-length array null-padded
+  // past its own horizon (arome_france_hd → h~128, icon_eu → h~194,
+  // ecmwf_ifs → h~422, gfs_global → h455), and `weightedAvg` already
+  // skips null entries. The restriction silently removed every
+  // high-resolution regional model (AROME-FR HD 1.3km, ICON-D2 2km,
+  // ICON-EU, ARPEGE-EU...) from the ensemble, which collapsed the
+  // short-lead temperature/precipitation forecast onto coarse globals —
+  // the regression the user reported. We restore the mixed selection:
+  // regionals first (highest resolution for the location), then
+  // globals + AI by weight, capped so a pathological catalogue can't
+  // blow up the payload. `capModels` re-sorts by weight DESC and, when
+  // `forecastDays` is given, appends any long-range model not already
+  // picked so far horizons keep at least one full-coverage model.
+  const CACHE_KEY_VERSION = 'v4-mixed-models-2026-08-22'
+  const sorted = [...regionSelected].sort((a, b) => b.weight - a.weight)
+  const capped = capModels(sorted, MAX_FORECAST_MODELS, forecastDays)
   const modelIds = capped.map(m => m.id).join(',')
   // Only send land metrics to the forecast API. Marine metrics are
   // fetched separately via fetchMarine and merged in later.
@@ -253,16 +304,20 @@ export async function fetchForecast(
   // The daily block is optional in the response — older provider
   // versions or single-day requests omit it. Fall back to empty arrays
   // so callers can still index into them without runtime guards.
-  const daily = data.daily ?? {}
-  const dailyTimeStrings: string[] = Array.isArray(daily.time) ? daily.time : []
+  // B-NEW-41: with `models=` the provider keys every daily variable per
+  // model (`precipitation_sum_ecmwf_ifs`, ...). `aggregateDailySeries`
+  // re-assembles a single weighted series across contributing models;
+  // the old unsuffixed read left these arrays permanently empty.
+  const daily = (data.daily ?? {}) as Record<string, unknown>
+  const dailyTimeStrings: string[] = Array.isArray(daily.time) ? (daily.time as string[]) : []
   const dailyTime = parseOpenMeteoTimes(dailyTimeStrings)
-  const precipSumRaw = Array.isArray(daily.precipitation_sum) ? daily.precipitation_sum : []
-  const precipProbRaw = Array.isArray(daily.precipitation_probability_max)
-    ? daily.precipitation_probability_max
-    : []
-  const precipHoursRaw = Array.isArray(daily.precipitation_hours)
-    ? daily.precipitation_hours
-    : []
+  const modelsWithNoData = detectModelsWithNoData(data, capped.map(m => m.id))
+  if (modelsWithNoData.length > 0) {
+    console.warn(
+      `[openMeteo] provider returned all-null payload for model(s): ${modelsWithNoData.join(', ')}; ` +
+      'the ensemble renormalizes onto the remaining models'
+    )
+  }
 
   return {
     time,
@@ -270,16 +325,11 @@ export async function fetchForecast(
     series,
     utcOffsetSeconds: data.utc_offset_seconds ?? 0,
     fetchedAt,
-    dailyPrecipitationSum: precipSumRaw.map((v: unknown) =>
-      Number.isFinite(Number(v)) ? Number(v) : null,
-    ),
-    dailyPrecipitationProbabilityMax: precipProbRaw.map((v: unknown) =>
-      Number.isFinite(Number(v)) ? Number(v) : null,
-    ),
+    dailyPrecipitationSum: aggregateDailySeries(daily, 'precipitation_sum', capped),
+    dailyPrecipitationProbabilityMax: aggregateDailySeries(daily, 'precipitation_probability_max', capped),
     dailyTime,
-    dailyPrecipitationHours: precipHoursRaw.map((v: unknown) =>
-      Number.isFinite(Number(v)) ? Number(v) : null,
-    ),
+    dailyPrecipitationHours: aggregateDailySeries(daily, 'precipitation_hours', capped),
+    modelsWithNoData,
   }
 }
 

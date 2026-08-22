@@ -62,17 +62,19 @@ describe('weightsFor', () => {
   it('uses the 0-48h preset bucket at hour 0', () => {
     const active = resolveActiveModels(MODELS, [], 'wedai')
     const w = weightsFor('temperature', 0, 1, active)
-    // First bucket's ecmwf_ifs weight is 0.30
+    // First bucket's ecmwf_ifs weight is 0.30 rescaled by the AI share
+    // (B-NEW-41): 0.30 × (1 - 0.20) = 0.24.
     const ecmwfIdx = active.findIndex(m => m.id === 'ecmwf_ifs')
-    expect(w[ecmwfIdx]).toBeCloseTo(0.3, 5)
+    expect(w[ecmwfIdx]).toBeCloseTo(0.24, 5)
   })
 
   it('switches to the 96-168h bucket past hour 168', () => {
     const active = resolveActiveModels(MODELS, [], 'wedai')
     const w = weightsFor('temperature', 168, 1, active)
-    // At >= 96h we use the 96-168h bucket (ecmwf_ifs = 0.40)
+    // At >= 96h we use the 96-168h bucket; ecmwf_ifs 0.40 rescaled by
+    // that bucket's AI share of 0.30 → 0.40 × 0.70 = 0.28.
     const ecmwfIdx = active.findIndex(m => m.id === 'ecmwf_ifs')
-    expect(w[ecmwfIdx]).toBeCloseTo(0.4, 5)
+    expect(w[ecmwfIdx]).toBeCloseTo(0.28, 5)
   })
 
   it('multiplies hour index by bucketHours for the lead time', () => {
@@ -80,14 +82,15 @@ describe('weightsFor', () => {
     // hourIndex=10 with bucketHours=3 → leadTimeHours = 30 (0-48h bucket)
     const wShort = weightsFor('temperature', 10, 3, active)
     const ecmwfIdx = active.findIndex(m => m.id === 'ecmwf_ifs')
-    expect(wShort[ecmwfIdx]).toBeCloseTo(0.3, 5)
+    expect(wShort[ecmwfIdx]).toBeCloseTo(0.24, 5)
     // hourIndex=60 with bucketHours=3 → leadTimeHours = 180 (168-240h bucket).
     // The 96-168h preset used to handle anything above 96h; S1 added
     // dedicated buckets above 168h so this assertion pins the new
     // behaviour rather than silently rolling the new lead time into
-    // the 96-168h preset.
+    // the 96-168h preset. ecmwf_ifs 0.42 rescaled by that bucket's AI
+    // share of 0.32 → 0.42 × 0.68 = 0.2856.
     const wFar = weightsFor('temperature', 60, 3, active)
-    expect(wFar[ecmwfIdx]).toBeCloseTo(0.42, 5)
+    expect(wFar[ecmwfIdx]).toBeCloseTo(0.42 * 0.68, 5)
   })
 
   it('falls back to 0.01 for models not in the preset', () => {

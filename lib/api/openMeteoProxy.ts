@@ -124,3 +124,47 @@ export function parseOpenMeteoResponse(text: string): { parsed: unknown; bodyTex
     return { parsed: JSON.parse(bodyText), bodyText }
   }
 }
+
+/**
+ * B-NEW-41 (2026-08-22): detect requested models whose entire payload
+ * is empty. Open-Meteo currently serves some catalogue entries (e.g.
+ * `ecmwf_aifs025`, `gfs_graphcast025` on 2026-08-22) as all-null rows:
+ * the request succeeds (HTTP 200) but the model contributes nothing.
+ * The old pipeline had no way to notice — the ensemble silently
+ * renormalized onto whichever models did have data. The forecast route
+ * uses this to emit the `X-Forecast-Models-Empty` header and log a
+ * warning; the client parser reuses it to populate
+ * `ForecastResult.modelsWithNoData`.
+ *
+ * A model counts as "empty" only when at least one suffixed key exists
+ * (`<var>_<id>`) but none of its arrays contain a finite number.
+ * Models with NO keys at all are simply out of the provider's coverage
+ * footprint for that location (e.g. `dwd_icon_d2` in Barcelona) — a
+ * different situation we must not flag.
+ */
+export function detectModelsWithNoData(
+  parsed: unknown,
+  modelIds: string[],
+): string[] {
+  if (!modelIds.length) return []
+  const hourly = (parsed as { hourly?: Record<string, unknown> } | null)?.hourly
+  if (!hourly || typeof hourly !== 'object') return []
+  const empty: string[] = []
+  for (const id of modelIds) {
+    let sawKey = false
+    let sawValue = false
+    for (const [key, arr] of Object.entries(hourly)) {
+      if (!key.endsWith(`_${id}`) || !Array.isArray(arr)) continue
+      sawKey = true
+      for (const v of arr) {
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          sawValue = true
+          break
+        }
+      }
+      if (sawValue) break
+    }
+    if (sawKey && !sawValue) empty.push(id)
+  }
+  return empty
+}

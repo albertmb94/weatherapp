@@ -134,6 +134,71 @@ export const MARINE_METRIC_IDS: MetricId[] = METRICS.filter(m => m.group === 'ma
  *
  * Each horizon tier uses only models available at that lead time.
  */
+/**
+ * B-NEW-41 (2026-08-22): explicit AI-model weights. The presets below
+ * were authored before the AI catalogue entries existed, so
+ * `weightsFor()` fell back to 0.01 for `ecmwf_aifs025`,
+ * `gfs_graphcast025` and `ncep_aigfs025` — effectively muting the very
+ * models the "WedAI" ensemble advertises (after renormalization over
+ * the live model set, ECMWF IFS ended up carrying ~77% of the
+ * temperature ensemble). We now reserve an explicit share of every
+ * lead-time bucket for the three AI models, distributed in proportion
+ * to their declared static weights (22 / 12 / 10), and rescale the
+ * legacy entries so each bucket keeps summing to 1.
+ *
+ * The AI share grows with lead time: at hour 0 the high-resolution
+ * regional models are hard to beat, while from day ~4 onward the AI
+ * models' large-scale pattern skill carries relatively more signal.
+ */
+const AI_MODEL_WEIGHTS: Record<string, number> = {
+  ecmwf_aifs025: 22,
+  gfs_graphcast025: 12,
+  ncep_aigfs025: 10,
+}
+
+const AI_SHARE_BY_BUCKET: Record<string, number> = {
+  '0-48h': 0.2,
+  '48-96h': 0.24,
+  '96-168h': 0.3,
+  '168-240h': 0.32,
+  '240-360h': 0.34,
+}
+
+/**
+ * Rescale one hand-authored bucket to make room for the AI share and
+ * append the AI entries (proportional to their declared weights).
+ * Legacy models that are not currently fetched (icon_global, gem_global,
+ * ...) keep their relative weight — `weightedAvg` simply skips them
+ * while they have no data, and they slot straight back in if the
+ * provider repopulates them.
+ */
+function blendAiWeights(
+  bucketKey: string,
+  bucket: Record<string, number>,
+): Record<string, number> {
+  const aiShare = AI_SHARE_BY_BUCKET[bucketKey] ?? 0.2
+  const legacySum = Object.values(bucket).reduce((a, b) => a + b, 0) || 1
+  const aiDeclaredSum = Object.values(AI_MODEL_WEIGHTS).reduce((a, b) => a + b, 0)
+  const out: Record<string, number> = {}
+  for (const [id, w] of Object.entries(bucket)) {
+    out[id] = (w / legacySum) * (1 - aiShare)
+  }
+  for (const [id, declared] of Object.entries(AI_MODEL_WEIGHTS)) {
+    out[id] = (out[id] ?? 0) + (declared / aiDeclaredSum) * aiShare
+  }
+  return out
+}
+
+function blendAllBuckets(
+  buckets: Record<string, Record<string, number>>
+): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {}
+  for (const [key, bucket] of Object.entries(buckets)) {
+    out[key] = blendAiWeights(key, bucket)
+  }
+  return out
+}
+
 export type EnsemblePreset = 'temperature' | 'precipitation' | 'precipitation_probability'
 
 export interface EnsembleDefinition {
@@ -149,7 +214,7 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     id: 'temperature',
     label: 'Temperature',
     description: 'Optimized for temperature accuracy (MAE, RMSE)',
-    weights: {
+    weights: blendAllBuckets({
       '0-48h': {
         ecmwf_ifs: 0.30, icon_eu: 0.22, icon_global: 0.15,
         meteofrance_arpege_europe: 0.12, gfs_global: 0.08, gem_global: 0.07,
@@ -168,13 +233,13 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
       '240-360h': {
         ecmwf_ifs: 0.40, gfs_global: 0.28, icon_global: 0.20, gem_global: 0.12,
       },
-    },
+    }),
   },
   {
     id: 'precipitation',
     label: 'Precipitation',
     description: 'Optimized for precipitation amount accuracy (mm/h)',
-    weights: {
+    weights: blendAllBuckets({
       '0-48h': {
         icon_eu: 0.25, meteofrance_arpege_europe: 0.20, ecmwf_ifs: 0.18,
         icon_global: 0.12, gem_global: 0.10, gfs_global: 0.08,
@@ -193,13 +258,13 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
       '240-360h': {
         gfs_global: 0.36, ecmwf_ifs: 0.28, icon_global: 0.22, gem_global: 0.14,
       },
-    },
+    }),
   },
   {
     id: 'precipitation_probability',
     label: 'Rain Probability',
     description: 'Optimized for rain detection accuracy (POD, FAR, CSI)',
-    weights: {
+    weights: blendAllBuckets({
       '0-48h': {
         icon_eu: 0.25, ecmwf_ifs: 0.22, meteofrance_arpege_europe: 0.18,
         icon_global: 0.12, gem_global: 0.10, gfs_global: 0.06,
@@ -218,7 +283,7 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
       '240-360h': {
         ecmwf_ifs: 0.34, gfs_global: 0.28, icon_global: 0.22, gem_global: 0.16,
       },
-    },
+    }),
   },
 ]
 

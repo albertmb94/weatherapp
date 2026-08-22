@@ -41,8 +41,16 @@ function makeRow(overrides: Partial<ModelAccuracyRow> = {}): ModelAccuracyRow {
 describe('getMetricWeights', () => {
   it('returns the temperature preset when no accuracy records exist', () => {
     const w = getMetricWeights('temperature', [], 0.95, '0-48h')
-    expect(w.ecmwf_ifs).toBeCloseTo(0.3, 5)
-    expect(w.gfs_global).toBeCloseTo(0.08, 5)
+    // B-NEW-41: the 0-48h bucket reserves a 0.20 share for the AI
+    // models, so the legacy entries are rescaled by (1 - 0.2):
+    // ecmwf_ifs 0.30 → 0.24, gfs_global 0.08 → 0.064.
+    expect(w.ecmwf_ifs).toBeCloseTo(0.24, 5)
+    expect(w.gfs_global).toBeCloseTo(0.064, 5)
+    // The AI entries must be present with their proportional share
+    // of the 0.20 AI budget: AIFS carries 22/44 of it → 0.10.
+    expect(w.ecmwf_aifs025).toBeCloseTo(0.1, 5)
+    const sum = Object.values(w).reduce((a, b) => a + b, 0)
+    expect(sum).toBeCloseTo(1, 5)
   })
 
   it('blends the dynamic weights in when records exist', () => {

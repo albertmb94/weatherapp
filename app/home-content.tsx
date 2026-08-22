@@ -34,7 +34,7 @@ import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
 import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
-import { floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
+import { floorHourLocation, formatLocationTime, formatLocationDate, formatUtcOffset, getLocationNow } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation } from '@/lib/localStorageLocations'
 import { useRefresh } from '@/lib/useRefresh'
@@ -71,12 +71,15 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
     }
     series[modelId] = out
   }
-  // The daily arrays are aligned with the hourly series by construction
-  // (every 24th hourly entry shares an index with the corresponding day),
-  // so the same `.slice(startIndex)` produces a view that's still
-  // aligned with the trimmed hourly series.
+  // B-NEW-41: the daily arrays are indexed by DAY, not by hour. The
+  // previous `.slice(startIndex)` applied the hourly offset to a
+  // day-length array (with past_days=3 that dropped exactly the first
+  // three days), silently desynchronizing them from `dailyTime`. Slice
+  // whole days instead so index 0 keeps pointing at the same local date
+  // as `time[0]`.
   function sliceArr<T>(arr: T[] | undefined): T[] {
-    return (arr ?? []).slice(startIndex)
+    const dayOffset = Math.floor(startIndex / 24)
+    return (arr ?? []).slice(dayOffset)
   }
   return {
     time,
@@ -88,7 +91,27 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
     dailyPrecipitationSum: sliceArr(data.dailyPrecipitationSum),
     dailyPrecipitationProbabilityMax: sliceArr(data.dailyPrecipitationProbabilityMax),
     dailyPrecipitationHours: sliceArr(data.dailyPrecipitationHours),
+    modelsWithNoData: data.modelsWithNoData,
   }
+}
+
+// B-NEW-41: `AirConditionsGrid` renders "Total lluvia hoy" from
+// `dailyPrecipitationSum[0]`. The raw array is aligned with `dailyTime`,
+// which starts `past_days` days ago — index 0 therefore pointed 2-3 days
+// BEFORE today. Rotate so index 0 is always the location's current local
+// day (falling back to the raw array when the day can't be located).
+function rotateDailyToToday(data: ForecastResult | null): (number | null)[] {
+  const arr = data?.dailyPrecipitationSum
+  if (!arr || arr.length === 0) return arr ?? []
+  const nowLocal = getLocationNow(data.utcOffsetSeconds)
+  const key = `${nowLocal.getUTCFullYear()}-${nowLocal.getUTCMonth()}-${nowLocal.getUTCDate()}`
+  for (let i = 0; i < data.dailyTime.length; i++) {
+    const t = data.dailyTime[i]
+    if (!(t instanceof Date)) continue
+    const k = `${t.getUTCFullYear()}-${t.getUTCMonth()}-${t.getUTCDate()}`
+    if (k === key) return arr.slice(i)
+  }
+  return arr
 }
 
 // A new deploy changes the hashed chunk filenames. A browser tab that was
@@ -973,6 +996,13 @@ export default function HomeContent() {
     return sliceForecast(effectiveData, startIndex)
   }, [effectiveData, startIndex])
 
+  // B-NEW-41: rotate the daily precipitation array so index 0 is the
+  // location's current local day (see `rotateDailyToToday` above).
+  const dailyPrecipitationSumTodayFirst = useMemo(
+    () => rotateDailyToToday(effectiveData),
+    [effectiveData],
+  )
+
   const hourLabel = useMemo(() => {
     const t = viewData?.time?.[selectedHour]
     if (!(t instanceof Date)) return `+${selectedHour}h`
@@ -1319,7 +1349,7 @@ export default function HomeContent() {
                   liveUvValidAt={liveUv?.uvIndexValidAt ?? null}
                   fetchedAt={data?.fetchedAt ?? null}
                   forecastAgeMs={forecastAgeMs}
-                  dailyPrecipitationSum={effectiveData?.dailyPrecipitationSum}
+                  dailyPrecipitationSum={dailyPrecipitationSumTodayFirst}
                   userLat={position[0]}
                   userLon={position[1]}
                   // BUG FIX: previously the parent never passed

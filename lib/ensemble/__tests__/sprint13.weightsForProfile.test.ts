@@ -102,19 +102,25 @@ describe('weightsForProfile', () => {
     }
   })
 
-  it('boost never exceeds MAX_BOOST_RATIO × original', () => {
+  it('boost never exceeds MAX_BOOST_RATIO × original (pre-normalisation)', () => {
     const active = threeActive()
     const base = weightsFor('temperature', 0, 1, active)
     const recommended = new Set(['ecmwf_ifs'])
     const out = weightsForProfile('temperature', 0, 1, active, recommended, 'coastal')
     const idx = active.findIndex(m => m.id === 'ecmwf_ifs')
-    // The pre-normalisation cap is base[idx] × max(1+BOOST, MAX_BOOST_RATIO).
-    // Renormalisation may shrink the visible ratio slightly, but it
-    // can never exceed the cap. We assert against the cap applied
-    // to the raw boosted value (i.e. base × MAX_BOOST_RATIO) since
-    // the renormalised value may be slightly smaller due to mass
-    // redistribution across the unchanged weights.
-    expect(out[idx]).toBeLessThanOrEqual(base[idx] * MAX_BOOST_RATIO + 1e-9)
+    const iconIdx = active.findIndex(m => m.id === 'icon_global')
+    // The renormalised output divides every weight by the same factor,
+    // so we can recover the pre-normalisation scale from any
+    // non-boosted model: pre_i = out_i × (base_ref / out_ref). The
+    // documented contract is about the PRE-normalisation lift, which
+    // must stay under MAX_BOOST_RATIO regardless of how much total
+    // mass the active subset carries.
+    const scaleFactor = base[iconIdx] / out[iconIdx]
+    const preNormalisedBoosted = out[idx] * scaleFactor
+    expect(preNormalisedBoosted).toBeLessThanOrEqual(base[idx] * MAX_BOOST_RATIO + 1e-9)
+    // And it must be at least the plain 5% boost (the 2x cap only
+    // bites for fallback-weight models).
+    expect(preNormalisedBoosted).toBeCloseTo(base[idx] * (1 + BOOST_PER_MODEL), 9)
   })
 
   it('does not boost models whose original weight is zero', () => {

@@ -3,6 +3,7 @@ import { buildForecastCacheKey, buildUpstreamParams } from '@/lib/cacheKey'
 import { getCachedForecast, getCachedForecastStale, setCachedForecast } from '@/lib/forecastCache'
 import { rateLimit } from '@/lib/rateLimit'
 import {
+  detectModelsWithNoData,
   fetchOpenMeteoWithModelFallback,
   parseOpenMeteoResponse,
 } from '@/lib/api/openMeteoProxy'
@@ -113,6 +114,16 @@ export async function GET(request: Request) {
     if (modelsRejected.length > 0) {
       headers['X-Forecast-Models-Rejected'] = modelsRejected.join(',')
       console.warn(`forecast: Open-Meteo rejected models=${modelsRejected.join(',')}; served remainder`)
+    }
+    // B-NEW-41: some catalogue entries come back as all-null rows (HTTP
+    // 200 but zero usable data — ecmwf_aifs025 / gfs_graphcast025 on
+    // 2026-08-22). Surface them so operators can spot a degraded
+    // ensemble instead of debugging "why is the forecast just ECMWF".
+    const requestedModels = upstreamParams.get('models')?.split(',').filter(Boolean) ?? []
+    const emptyModels = detectModelsWithNoData(parsed, requestedModels)
+    if (emptyModels.length > 0) {
+      headers['X-Forecast-Models-Empty'] = emptyModels.join(',')
+      console.warn(`forecast: provider returned all-null payload for models=${emptyModels.join(',')}`)
     }
     return NextResponse.json(parsed, { headers })
   } catch {

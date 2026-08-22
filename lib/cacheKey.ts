@@ -79,8 +79,11 @@ export function buildForecastCacheKey(params: URLSearchParams): string {
 /**
  * Build a cache key for the marine API. Same canonicalization rules as the
  * forecast key: lat/lon rounded to 2 decimals, multi-location pairs sorted
- * as a set, `timezone` dropped, other params sorted alphabetically. The
- * marine API does not accept `models=`, so that param is also skipped.
+ * as a set, other params sorted alphabetically. `timezone` IS part of the
+ * key (same M6 rationale as the forecast route — responses differ between
+ * timezone modes). The marine API does not accept `models=`, so that param
+ * is skipped from the key AND from what the client ever sends; if a caller
+ * ever starts sending it, add it to this key to avoid collisions.
  */
 export function buildMarineCacheKey(params: URLSearchParams): string {
   const entries: [string, string][] = []

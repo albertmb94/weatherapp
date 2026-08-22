@@ -28,6 +28,12 @@ async function ensureSchema(): Promise<boolean> {
 // reads return null. The caller falls back to the original URL.
 export async function saveShortLink(id: string, snapshot: string): Promise<boolean> {
   if (!(await ensureSchema())) return false
+  // B-NBT-9c: the 90-day TTL was only enforced at READ time, so expired
+  // rows accumulated forever. Purge opportunistically on every write
+  // (writes are capped at ~10/min/IP by /api/shorten, so this keeps the
+  // table bounded without a cron).
+  void db.execute('DELETE FROM short_links WHERE created_at < ?', [Date.now() - TTL_MS])
+    .catch(() => undefined)
   return db.execute(
     'INSERT OR REPLACE INTO short_links (id, snapshot, created_at) VALUES (?, ?, ?)',
     [id, snapshot, Date.now()],

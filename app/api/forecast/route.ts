@@ -7,6 +7,7 @@ import {
   fetchOpenMeteoWithModelFallback,
   parseOpenMeteoResponse,
 } from '@/lib/api/openMeteoProxy'
+import { validateLatLon } from '@/lib/api/params'
 
 // Cacheable responses get a generous TTL; stale fallbacks must NOT be
 // cacheable in any shared layer (the staleness window is per-instance
@@ -36,6 +37,13 @@ export async function GET(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (!rateLimit(`forecast:${ip}`, 60)) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+  }
+
+  // B-NBT-9c: reject junk coordinates before they burn provider quota
+  // or pollute the cache-key space.
+  const coordError = validateLatLon(searchParams.get('latitude'), searchParams.get('longitude'))
+  if (coordError) {
+    return NextResponse.json({ error: coordError }, { status: 400 })
   }
 
   if (searchParams.get('timezone') !== 'auto') {

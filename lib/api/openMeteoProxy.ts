@@ -24,17 +24,14 @@ function parseRetryAfterMs(header: string | null): number | null {
   return null
 }
 
-/** Try to extract an offending model id from an Open-Meteo 400 body. */
+/** Try to extract an offending model id from an Open-Meteo 400 body.
+ *  B-NBT-9c: the old "fallback" loop was dead logic — it returned null
+ *  as soon as ANY requested model wasn't mentioned in the error body,
+ *  which duplicated the no-match outcome while looking like it did
+ *  something. Simplified to a single regex match + explicit null. */
 function extractRejectedModel(body: string, requestedModels: string[]): string | null {
-  // The provider returns messages like
-  //   "unknown model: gfs_graphcast" or
-  //   "Bad request: Model gfs_graphcast is not supported".
   const match = body.match(/[Mm]odel\s+([a-z0-9_]+)/) || body.match(/unknown model:\s*([a-z0-9_]+)/)
   if (match && requestedModels.includes(match[1])) return match[1]
-  // Fallback: drop the first model that the provider doesn't know about.
-  for (const m of requestedModels) {
-    if (!new RegExp(`\\b${m}\\b`).test(body) && body.toLowerCase().includes('model')) return null
-  }
   return null
 }
 

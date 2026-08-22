@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/cacheKey', async () => {
   const actual = await vi.importActual<typeof import('@/lib/cacheKey')>('@/lib/cacheKey')
@@ -36,7 +36,7 @@ describe('/api/marine GET', () => {
 
   it('returns 429 when rate limited', async () => {
     vi.mocked(rateLimit).mockReturnValue(false)
-    const req = createRequest('http://localhost/api/marine?hourly=wave_height')
+    const req = createRequest('http://localhost/api/marine?hourly=wave_height&latitude=41.39&longitude=2.17')
     const res = await GET(req)
     expect(res.status).toBe(429)
   })
@@ -48,7 +48,7 @@ describe('/api/marine GET', () => {
       ageMs: 1000,
     })
 
-    const req = createRequest('http://localhost/api/marine?hourly=wave_height')
+    const req = createRequest('http://localhost/api/marine?hourly=wave_height&latitude=41.39&longitude=2.17')
     const res = await GET(req)
     expect(res.status).toBe(200)
     expect(res.headers.get('X-Marine-Cache')).toBe('hit')
@@ -68,7 +68,7 @@ describe('/api/marine GET', () => {
       text: () => Promise.resolve('Service unavailable'),
     }))
 
-    const req = createRequest('http://localhost/api/marine?hourly=wave_height')
+    const req = createRequest('http://localhost/api/marine?hourly=wave_height&latitude=41.39&longitude=2.17')
     const res = await GET(req)
     expect(res.status).toBe(200)
     expect(res.headers.get('X-Marine-Cache')).toBe('stale')
@@ -96,7 +96,7 @@ describe('/api/marine GET', () => {
       text: () => Promise.resolve('{"hourly":{"time":["2026-01-01"],"wave_height":[0.5]}}'),
     }))
 
-    const req = createRequest('http://localhost/api/marine?hourly=wave_height')
+    const req = createRequest('http://localhost/api/marine?hourly=wave_height&latitude=41.39&longitude=2.17')
     await GET(req)
     expect(setCachedMarine).toHaveBeenCalled()
   })
@@ -108,7 +108,7 @@ describe('/api/marine GET', () => {
       text: () => Promise.resolve('{"hourly":{"time":["2026-01-01"],"wave_height":[0.5,0.6]}}'),
     }))
 
-    const req = createRequest('http://localhost/api/marine?hourly=wave_height')
+    const req = createRequest('http://localhost/api/marine?hourly=wave_height&latitude=41.39&longitude=2.17')
     const res = await GET(req)
     expect(res.status).toBe(200)
     const data = await res.json()
@@ -122,7 +122,7 @@ describe('/api/marine GET', () => {
       text: () => Promise.resolve('{"hourly":{"time":["2026-01-01"],"wave_height": nan}}'),
     }))
 
-    const req = createRequest('http://localhost/api/marine?hourly=wave_height')
+    const req = createRequest('http://localhost/api/marine?hourly=wave_height&latitude=41.39&longitude=2.17')
     const res = await GET(req)
     expect(res.status).toBe(200)
     const data = await res.json()

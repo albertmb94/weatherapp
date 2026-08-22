@@ -1,7 +1,7 @@
-// SW version is injected at build time by `next.config.ts` so a new
-// deployment can purge the previous cache deterministically. The
-// placeholder below is replaced before bundling; if you see this
-// comment in a deployed bundle the build pipeline is broken.
+// SW version substitution happens at SERVE time: app/api/sw/route.ts
+// replaces the placeholders below using lib/serviceWorkerVersion.ts
+// (next.config.ts only sets headers). A new deployment therefore purges
+// the previous cache deterministically on first fetch of /sw.js.
 //
 // `__SW_BUILD_ID__` will be a short hash like `weather-2026-07-26.abc1234`.
 // Older deployments that lack the hash will keep their existing cache.

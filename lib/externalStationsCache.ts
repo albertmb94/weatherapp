@@ -103,8 +103,8 @@ export async function getFreshCachedStations(
 ): Promise<CachedStations | null> {
   const entry = await getCachedStations(source, now)
   if (!entry) return null
-  // >= (not >) so a 4 h 0 m 0 s entry is treated as stale: the
-  // caller refetches rather than serving the very edge of TTL.
+  // >= (not >) so an entry at exactly FRESH_TTL_MS (2 h) is treated as
+  // stale: the caller refetches rather than serving the very edge of TTL.
   if (now - entry.fetchedAt >= FRESH_TTL_MS) return null
   return entry
 }

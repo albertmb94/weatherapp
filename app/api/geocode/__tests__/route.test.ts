@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/rateLimit', () => ({
   rateLimit: vi.fn(() => true),
@@ -37,11 +37,11 @@ describe('/api/geocode GET', () => {
     expect(data.results).toHaveLength(1)
   })
 
-  it('returns 500 on network error', async () => {
+  it('returns 502 on network error (upstream/gateway failure)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
 
     const req = createRequest('http://localhost/api/geocode?name=Madrid')
     const res = await GET(req)
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(502)
   })
 })

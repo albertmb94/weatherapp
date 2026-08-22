@@ -10,9 +10,10 @@
  *   - The auto-refresh in `app/home-content.tsx` invalidates the
  *     React Query forecast after the cached payload gets older than
  *     this window.
- *   - The manual refresh cooldown in `lib/appState.ts` and the
- *     badges in `RefreshButton` / `AirConditionsGrid` /
- *     `CurrentWeatherCard` use the same constant.
+  *   - The manual refresh cooldown in `lib/appState.ts` and the
+ *     badges in `AirConditionsGrid` / `CurrentWeatherCard` use the
+ *     same constant. (`RefreshButton` was removed in F-9; the age
+ *     badge lives in `AirConditionsGrid`.)
  *
  * Keep this in sync with the docs/ESQUEMA_DATOS.md table — the user
  * asked for a 2 h window across the whole stack.

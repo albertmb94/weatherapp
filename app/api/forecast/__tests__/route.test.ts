@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock dependencies before importing the route.
 // `buildUpstreamParams` is left un-mocked so it strips `v` like the
@@ -40,7 +40,7 @@ describe('/api/forecast GET', () => {
 
   it('returns 429 when rate limited', async () => {
     vi.mocked(rateLimit).mockReturnValue(false)
-    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m')
+    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&latitude=41.45&longitude=2.25')
     const res = await GET(req)
     expect(res.status).toBe(429)
   })
@@ -52,7 +52,7 @@ describe('/api/forecast GET', () => {
       ageMs: 1000,
     })
 
-    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m')
+    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&latitude=41.45&longitude=2.25')
     const res = await GET(req)
     expect(res.status).toBe(200)
     const header = res.headers.get('X-Forecast-Cache')
@@ -74,7 +74,7 @@ describe('/api/forecast GET', () => {
       text: () => Promise.resolve('Service unavailable'),
     }))
 
-    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m')
+    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&latitude=41.45&longitude=2.25')
     const res = await GET(req)
     expect(res.status).toBe(200)
     const header = res.headers.get('X-Forecast-Cache')
@@ -90,7 +90,7 @@ describe('/api/forecast GET', () => {
       text: () => Promise.resolve('{"hourly":{"time":["2025-01-01"],"temperature_2m":[10]}}'),
     }))
 
-    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m')
+    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&latitude=41.45&longitude=2.25')
     await GET(req)
     expect(setCachedForecast).toHaveBeenCalled()
   })
@@ -117,13 +117,13 @@ describe('/api/forecast GET', () => {
       text: () => Promise.resolve('{"hourly":{"time":["2025-01-01"],"temperature_2m":[10]}}'),
     }))
 
-    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m')
+    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&latitude=41.45&longitude=2.25')
     let response: Response | null = null
     const responsePromise = GET(req).then((res) => {
       response = res
     })
 
-    // Yield once so the route starts but does not finish — the
+    // Yield once so the route starts but does not finish â€” the
     // `setCachedForecast` mock is parked on `writePromise`.
     await new Promise<void>((r) => setTimeout(r, 0))
     expect(response, 'response must wait for the Turso write').toBeNull()
@@ -149,7 +149,7 @@ describe('/api/forecast GET', () => {
     })
     vi.stubGlobal('fetch', fetchSpy)
 
-    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&v=v3-long-range-2026-07-24')
+    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&latitude=41.45&longitude=2.25&v=v3-long-range-2026-07-24')
     await GET(req)
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     const calledUrl = fetchSpy.mock.calls[0]?.[0] as string

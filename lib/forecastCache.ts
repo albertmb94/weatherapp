@@ -4,10 +4,12 @@ import { REFRESH_WINDOW_MS } from './refreshWindow'
 const store = createCacheStore({
   tableName: 'forecast_cache',
   ttlMs: REFRESH_WINDOW_MS,
-  // Purge anything older than the fresh window + a 2h grace so a row
-  // that just turned stale still gets a chance to be served as a
-  // fallback before being deleted.
-  purgeOlderThanMs: REFRESH_WINDOW_MS + 2 * 60 * 60 * 1000,
+  // B-NBT-9c: purge horizon now MATCHES maxStaleMs. The old value
+  // (fresh + 2h = 4h) deleted rows long before the documented 24h
+  // stale ceiling, making `getStale`'s guard unreachable — during an
+  // outage the fallback silently degraded from "up to 24h" to
+  // "at most ~4h". Rows are small; a day of retention per cell is cheap.
+  purgeOlderThanMs: 24 * 60 * 60 * 1000,
   // Beyond 24h the forecast is too stale to ever serve as a "fallback" —
   // the routes return 503 instead of feeding an arbitrary snapshot to a CDN.
   maxStaleMs: 24 * 60 * 60 * 1000,

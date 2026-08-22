@@ -4,7 +4,9 @@ import { REFRESH_WINDOW_MS } from './refreshWindow'
 const store = createCacheStore({
   tableName: 'marine_cache',
   ttlMs: REFRESH_WINDOW_MS,
-  purgeOlderThanMs: REFRESH_WINDOW_MS + 2 * 60 * 60 * 1000,
+  // B-NBT-9c: matches maxStaleMs (was fresh+2h, which made the 24h
+  // stale ceiling unreachable). Same rationale as lib/forecastCache.ts.
+  purgeOlderThanMs: 24 * 60 * 60 * 1000,
   maxStaleMs: 24 * 60 * 60 * 1000,
 })
 

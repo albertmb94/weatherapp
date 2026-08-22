@@ -3,6 +3,7 @@ import { buildMarineCacheKey, buildUpstreamParams } from '@/lib/cacheKey'
 import { getCachedMarine, getCachedMarineStale, setCachedMarine } from '@/lib/marineCache'
 import { rateLimit } from '@/lib/rateLimit'
 import { fetchWithRetry, parseOpenMeteoResponse } from '@/lib/api/openMeteoProxy'
+import { validateLatLon } from '@/lib/api/params'
 
 // BUG FIX: same rationale as `app/api/forecast/route.ts` — the
 // previous s-maxage=14400 (4h) coupled with the marine request
@@ -23,6 +24,13 @@ export async function GET(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (!rateLimit(`marine:${ip}`, 60)) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+  }
+
+  // B-NBT-9c: reject junk coordinates before they burn provider quota
+  // or pollute the cache-key space.
+  const coordError = validateLatLon(searchParams.get('latitude'), searchParams.get('longitude'))
+  if (coordError) {
+    return NextResponse.json({ error: coordError }, { status: 400 })
   }
 
   if (searchParams.get('timezone') !== 'auto') {

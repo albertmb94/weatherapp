@@ -137,7 +137,18 @@ export async function GET(request: Request) {
         { headers: CACHE_HEADERS }
       )
     }
-    const status = /\b4\d\d\b/.test(message) ? 502 : 504
+    // B-NBT-9c: map the upstream outcome faithfully instead of the old
+    // inverted heuristic (upstream 4xx → 502, everything else → 504).
+    // lib/meteocat throws `Meteocat <status>` for HTTP errors and
+    // fetchWithTimeout throws "Request timed out after Nms".
+    const embedded = /Meteocat (\d{3})/.exec(message)?.[1]
+    const upstreamStatus = embedded ? Number(embedded) : null
+    let status = 502
+    if (/timed out|aborted/i.test(message)) {
+      status = 504
+    } else if (upstreamStatus !== null && upstreamStatus >= 400 && upstreamStatus <= 599) {
+      status = upstreamStatus
+    }
     return NextResponse.json(
       { error: 'Failed to fetch Meteocat data', detail: message },
       { status }

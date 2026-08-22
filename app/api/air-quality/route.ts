@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
+import { validateLatLon } from '@/lib/api/params'
 
 // F5: air-quality + pollen via the dedicated Open-Meteo
 // air-quality endpoint. Kept as a separate route so we can
@@ -21,6 +22,12 @@ export async function GET(request: Request) {
   // global quota than the main forecast endpoint.
   if (!rateLimit(`air-quality:${ip}`, 30)) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+  }
+
+  // B-NBT-9c: reject junk coordinates before they burn provider quota.
+  const coordError = validateLatLon(searchParams.get('latitude'), searchParams.get('longitude'))
+  if (coordError) {
+    return NextResponse.json({ error: coordError }, { status: 400 })
   }
 
   if (searchParams.get('timezone') !== 'auto') {

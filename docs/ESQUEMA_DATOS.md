@@ -63,6 +63,29 @@ Ubicaciones guardadas por el usuario.
 - Longitud: -180 a 180
 - name no puede estar vacío
 
+### 1.5 `short_links`
+
+Enlaces cortos compartibles (`/s/[id]`). Snapshot = JSON de params de
+URL (sin `locale` ni `basic`, que son locales del dispositivo).
+
+| Campo | Tipo | Nullable | Descripción |
+|-------|------|----------|-------------|
+| `id` | TEXT | NO | PK. 8 chars aleatorios criptográficos |
+| `snapshot` | TEXT | NO | Querystring serializado |
+| `created_at` | INTEGER | NO | Unix ms |
+
+**Reglas:** TTL 90 días — se purgan filas expiradas oportunísticamente
+en cada escritura (`saveShortLink`). Sin BD, escrituras no-op y lecturas
+null (el llamante cae a la URL original).
+
+### 1.6 Tablas de admin/monetización
+
+`feature_flags`, `admin_users`, `admin_sessions`, `admin_magic_links`,
+`subscriptions`, `user_grants`, `email_templates`, `email_log`,
+`affiliate_products` — gestionadas por el panel `/admin`; esquema en
+`docs/ADMIN.md`. Los valores operativos de Stripe/Push viven en
+`feature_flags.config` (JSON), no en variables de entorno.
+
 ---
 
 ## 1.5 Datos en URL (estado de UI)
@@ -75,12 +98,15 @@ Parámetros sincronizados con la URL mediante `useUrlState`:
 | `metric` | string | `temperature` | ID de métrica activa |
 | `models` | string | todos | Lista separada por comas (`none` para vacío) |
 | `hour` | int | 0 | Índice de hora seleccionada en el slider |
-| `range` | int | 168 | Horizonte en horas |
-| `map` | 0/1 | auto | Mapa visible |
-| `radar` | 0/1 | 0 | Overlay de radar RainViewer |
-| `bucket` | int | 4 | Bucket de la tabla insights (1, 2, 3, 4, 6, 12, 24) |
+| `range` | int | 336 | Horizonte en horas |
+| `bucket` | int | 24 | Bucket de la tabla insights (1, 2, 6, 12, 24; 3/4 aceptados por compatibilidad) |
+| `week` | 7/14 | 14 | Días del panel Próximos días y del Resumen diario |
+| `emode` | wedai/models | wedai | Modo del ensemble en la tabla Insights |
 | `locale` | en/es | auto | Idioma |
 | `marine` | 0/1 | 0 | **Toggle de la funcionalidad de olas** |
+
+(El parámetro `map` / overlay de radar se eliminó en B-NEW-37 / 97868dd;
+las URLs antiguas que lo incluyan hacen fallback a `view=weather`.)
 
 Cuando `marine=1`, el cliente hace un fetch adicional a
 `/api/marine` y lo fusiona en `series['marine_global']` con las
@@ -122,37 +148,42 @@ No hay relaciones FK entre tablas. Las tres tablas son independientes:
 ## 4. Reglas de integridad y derivación
 
 ### Cálculo de `cache_key` (ver `lib/cacheKey.ts`)
-1. Redondear lat/lon a 1 decimal
-2. Ordenar IDs de modelos como set (sin duplicados)
-3. Ordenar IDs de métricas alfabéticamente
-4. Concatenar: `${lat},${lon}_${modelIds.join(',')}_${metricIds.join(',')}_${timeframe}`
-5. Excluir timezone de la clave
+1. Redondear lat/lon a **2 decimales** (~1.1 km) y ordenar los pares como set
+2. Añadir el resto de params tal cual (incluye `timezone` y el sello `v`)
+3. Ordenar entradas alfabéticamente
+4. Concatenar: `k1=v1|k2=v2|…`
 
 ### Cálculo de media ponderada (`lib/ensemble.ts`)
 ```
-weightedAvg(values, weights) = Σ(value[i] * weight[i]) / Σ(weight[i])
+weightedAvg(values, weights, dynamicWeights?, modelIds?, biasCorrection?)
+             = Σ(value[i] * weight[i]) / Σ(weight[i])
 ```
-- Ignora valores null/undefined
+- Ignora valores null/undefined y renormaliza sobre los modelos con datos
 - Si todos son null, devuelve null
-- Pesos definidos en `lib/models.ts` por modelo
+- Pesos por métrica × bucket de lead time en `ENSEMBLE_PRESETS`
+  (lib/models.ts): **calibrados por backtest** con Borda win-rate sobre
+  `model_accuracy` — regenerar con
+  `npm run backtest && npx tsx scripts/calibrateEnsemble.ts`.
+  Los regionales de alta resolución lideran corto plazo dentro de su
+  huella de cobertura; los globales toman el relevo desde 96h.
+- La reserva IA explícita solo cubre modelos aún no verificables
+  (ecmwf_aifs025 / gfs_graphcast025); ncep_aigfs025 ya es calibrado.
 
 ### Determinación de icono meteorológico (`lib/weatherIcon.ts`)
 ```
 snowy: precip ≥ 1mm/h AND temperatura ≤ 1°C
 stormy: precip ≥ 8mm/h OR wind_gusts ≥ 80 km/h
 rainy: precip ≥ 1mm/h (resto)
-cloudy: cloud_cover > 70%
-partly: 30% < cloud_cover ≤ 70%
-sunny: cloud_cover ≤ 30%
+cloudy: cloud_cover ≥ 75%
+partly: cloud_cover ≥ 30% (resto)
+sunny: cloud_cover < 30%
 ```
 
-### Contraste de texto (`lib/ensemble.ts`)
+### Contraste de texto (`lib/colorScales.ts`, `contrastText(rgbString)`)
 ```
-contrastText(hexColor):
-  - Extraer RGB de hex
-  - Calcular luminancia: 0.299*R + 0.587*G + 0.114*B
-  - Si luminancia > 186 → #0a0a0a (texto oscuro)
-  - Si no → #ffffff (texto claro)
+- Extraer RGB del color en formato rgb(r,g,b)
+- Luminancia = 0.299*R + 0.587*G + 0.114*B
+- Si luminancia > 186 → texto oscuro; si no → blanco
 ```
 
 ---
@@ -162,7 +193,7 @@ contrastText(hexColor):
 ### `forecast_cache`
 ```json
 {
-  "cache_key": "48.8,9.2_icon_eu,gfs_global,temperature_24",
+  "cache_key": "hourly=temperature_2m|latitude=41.45|longitude=2.25|models=ecmwf_ifs,…|timezone=auto|v=v4-mixed-models-2026-08-22",
   "body": "{\"latitude\":48.8,\"longitude\":9.2,\"hourly\":{\"temperature_2m\":[15,16,17,...]}}",
   "fetched_at": 1748438400000
 }

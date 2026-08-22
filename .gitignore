@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # local sqlite (dev only — production uses Turso)
 local.db
@@ -56,9 +57,14 @@ next-env.d.ts
 # dev artifacts
 dev.log
 dev.err.log
+*.log
 *.html
 *.jpeg
 *.png
+
+# playwright artifacts
+/test-results/
+/playwright-report/
 
 # opencode
 .opencode/

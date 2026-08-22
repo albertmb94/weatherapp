@@ -107,11 +107,9 @@ describe('weightsForAbsolute', () => {
     const active = resolveActiveModels(MODELS, [], 'wedai')
     const weights = weightsFor('temperature', 0, 1, active)
     const aromeIdx = active.findIndex(m => m.id === 'meteofrance_arome_france_hd')
-    // B-NEW-41: every bucket reserves an explicit share for the AI
-    // models and rescales the legacy entries by (1 - aiShare). For the
-    // temperature 0-48h bucket aiShare is 0.20, so AROME's hand-authored
-    // 0.02 becomes 0.02 × 0.8 = 0.016.
-    expect(weights[aromeIdx]).toBeCloseTo(0.02 * 0.8)
+    // B-NBT-8: calibrated bucket (AROME-FR HD normalised win-rate
+    // 0.064 in temperature 0-48h) rescaled by the AI share of 0.20.
+    expect(weights[aromeIdx]).toBeCloseTo(0.064 * 0.8)
   })
 })
 

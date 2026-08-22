@@ -118,7 +118,22 @@ export const BACKTEST_METRICS = ['temperature', 'wind_speed', 'precipitation'] a
 /** Lead time buckets for verification */
 export const LEAD_TIME_BUCKETS = ['0-24h', '24-48h', '48-72h', '72-96h', '96-120h', '120-168h'] as const
 
-/** Models to evaluate (only those supported by Previous Runs API) */
+/**
+ * Models to evaluate via the Previous Runs API.
+ *
+ * B-NBT-7 (2026-08-22): extended with every regional model the
+ * endpoint actually serves — dwd_icon_d2, both HARMONIEs, UKMO and
+ * AIGFS were verified live against the provider before adding them.
+ * This matters because the ensemble calibration is derived from these
+ * verification rows: without the high-resolution regionals in the
+ * backtest, short-lead weights stay biased towards globals even where
+ * regionals measure better.
+ *
+ * Deliberately EXCLUDED: ecmwf_aifs025 / gfs_graphcast025 — the
+ * provider currently serves those catalogue entries as all-null rows
+ * (verified 2026-08-22 on both /v1/forecast and previous-runs), so
+ * they would only produce empty groups.
+ */
 export const BACKTEST_MODEL_IDS = [
   'ecmwf_ifs',
   'icon_global',
@@ -129,6 +144,12 @@ export const BACKTEST_MODEL_IDS = [
   'meteofrance_arome_france',
   'meteofrance_arome_france_hd',
   'gem_global',
+  // B-NBT-7 additions (verified supported by Previous Runs API).
+  'dwd_icon_d2',
+  'dmi_harmonie_arome_europe',
+  'knmi_harmonie_arome_europe',
+  'ukmo_global_deterministic_10km',
+  'ncep_aigfs025',
 ] as const
 
 /**

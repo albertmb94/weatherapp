@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Regression tests for S3 (dead-export removal + contract fixes):
  *  - `getMetricWeights` now returns the blended preset/dynamic
  *    weight map (was previously returning `{}`).
@@ -41,14 +41,14 @@ function makeRow(overrides: Partial<ModelAccuracyRow> = {}): ModelAccuracyRow {
 describe('getMetricWeights', () => {
   it('returns the temperature preset when no accuracy records exist', () => {
     const w = getMetricWeights('temperature', [], 0.95, '0-48h')
-    // B-NEW-41: the 0-48h bucket reserves a 0.20 share for the AI
-    // models, so the legacy entries are rescaled by (1 - 0.2):
-    // ecmwf_ifs 0.30 → 0.24, gfs_global 0.08 → 0.064.
-    expect(w.ecmwf_ifs).toBeCloseTo(0.24, 5)
-    expect(w.gfs_global).toBeCloseTo(0.064, 5)
-    // The AI entries must be present with their proportional share
-    // of the 0.20 AI budget: AIFS carries 22/44 of it → 0.10.
-    expect(w.ecmwf_aifs025).toBeCloseTo(0.1, 5)
+    // B-NBT-8: calibrated bucket (backtest 2026-08-15..22) rescaled by
+    // the AI reserve of 0.20: ecmwf_ifs 0.102 â†’ 0.0816, gfs_global
+    // 0.062 â†’ 0.0496. The AI reserve now only holds the unverifiable
+    // models (aifs025 22/34, graphcast025 12/34): aifs gets
+    // (22/34) Ã— 0.20 â‰ˆ 0.1294.
+    expect(w.ecmwf_ifs).toBeCloseTo(0.102 * 0.8, 3)
+    expect(w.gfs_global).toBeCloseTo(0.062 * 0.8, 3)
+    expect(w.ecmwf_aifs025).toBeCloseTo((22 / 34) * 0.2, 5)
     const sum = Object.values(w).reduce((a, b) => a + b, 0)
     expect(sum).toBeCloseTo(1, 5)
   })
@@ -70,7 +70,7 @@ describe('getMetricWeights', () => {
 })
 
 describe('computeDynamicWeights', () => {
-  it('is no longer the public API surface — covered by getMetricWeights', () => {
+  it('is no longer the public API surface â€” covered by getMetricWeights', () => {
     expect(typeof computeDynamicWeights).toBe('function')
   })
 })
@@ -80,7 +80,7 @@ describe('weightedAvg bias correction (S3/S10 groundwork)', () => {
     const values = [10, 20]
     const weights = [1, 1]
     const modelIds = ['a', 'b']
-    // Bias of +5 on `a` shifts its contribution from 10 → 5.
+    // Bias of +5 on `a` shifts its contribution from 10 â†’ 5.
     const bias = { a: 5, b: 0 }
     expect(weightedAvg(values, weights, null, modelIds, bias)).toBe(12.5)
   })

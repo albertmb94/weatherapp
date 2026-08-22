@@ -135,25 +135,23 @@ export const MARINE_METRIC_IDS: MetricId[] = METRICS.filter(m => m.group === 'ma
  * Each horizon tier uses only models available at that lead time.
  */
 /**
- * B-NEW-41 (2026-08-22): explicit AI-model weights. The presets below
- * were authored before the AI catalogue entries existed, so
- * `weightsFor()` fell back to 0.01 for `ecmwf_aifs025`,
- * `gfs_graphcast025` and `ncep_aigfs025` — effectively muting the very
- * models the "WedAI" ensemble advertises (after renormalization over
- * the live model set, ECMWF IFS ended up carrying ~77% of the
- * temperature ensemble). We now reserve an explicit share of every
- * lead-time bucket for the three AI models, distributed in proportion
- * to their declared static weights (22 / 12 / 10), and rescale the
- * legacy entries so each bucket keeps summing to 1.
+ * B-NBT-8 (2026-08-22): explicit AI-model weights, reserved ONLY for
+ * models the backtest cannot verify yet. `ncep_aigfs025` moved out of
+ * this reserve once the Previous Runs API proved to serve it: it is
+ * now calibrated from measured RMSE like every other model (mixing a
+ * declared share on top of a measured one would double-count it).
+ * `ecmwf_aifs025` / `gfs_graphcast025` stay here because the provider
+ * currently serves those catalogue entries empty (verified live on
+ * both /v1/forecast and previous-runs); when they come back with data,
+ * move them to the calibrated set.
  *
- * The AI share grows with lead time: at hour 0 the high-resolution
+ * The share grows with lead time: at hour 0 the high-resolution
  * regional models are hard to beat, while from day ~4 onward the AI
  * models' large-scale pattern skill carries relatively more signal.
  */
 const AI_MODEL_WEIGHTS: Record<string, number> = {
   ecmwf_aifs025: 22,
   gfs_graphcast025: 12,
-  ncep_aigfs025: 10,
 }
 
 const AI_SHARE_BY_BUCKET: Record<string, number> = {
@@ -209,6 +207,34 @@ export interface EnsembleDefinition {
   weights: Record<string, Record<string, number>>
 }
 
+/**
+ * B-NBT-8 (2026-08-22): these buckets are CALIBRATED from the backtest
+ * database (`local.db` → `model_accuracy`, window 2026-08-15..22,
+ * 78-90 reference locations) instead of hand-authored. Regenerate with
+ *
+ *   npm run backtest && npx tsx scripts/calibrateEnsemble.ts
+ *
+ * Method — per-location Borda win-rate: at every reference location the
+ * present models are ranked by verification RMSE and awarded linear
+ * points (winner 1.0, last 1/N); each model's weight is its mean score
+ * over its own coverage footprint, with NO cross-model renormalization
+ * (`weightedAvg` renormalizes over whichever models have data at the
+ * user's cell). Consequences that matter:
+ *
+ *   - Short leads reward the high-resolution regionals exactly where
+ *     they run: ICON-EU tops temperature 0-48h/48-96h (win-rate share
+ *     0.114 vs ECMWF 0.102 after normalisation), ICON-D2 scores 0.107
+ *     inside its Central-European footprint, and AROME-FR / ARPEGE
+ *     lead short-lead precipitation (regionals carry ~55% of the
+ *     precipitation 0-48h mass).
+ *   - Beyond the regionals' horizon only globals remain and ECMWF
+ *     takes over (96-168h leader), which matches both the measured
+ *     ranking and the null-skipping in `weightedAvg`.
+ *
+ * The 168-240h / 240-360h buckets have no Previous Runs verification
+ * (the provider archives 7 days); they keep the previous hand-authored
+ * structure as an unmeasured extrapolation of the same ranking.
+ */
 export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
   {
     id: 'temperature',
@@ -216,22 +242,26 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     description: 'Optimized for temperature accuracy (MAE, RMSE)',
     weights: blendAllBuckets({
       '0-48h': {
-        ecmwf_ifs: 0.30, icon_eu: 0.22, icon_global: 0.15,
-        meteofrance_arpege_europe: 0.12, gfs_global: 0.08, gem_global: 0.07,
-        meteofrance_arome_france: 0.04, meteofrance_arome_france_hd: 0.02,
+        icon_eu: 0.114, dwd_icon_d2: 0.107, ecmwf_ifs: 0.102,
+        icon_global: 0.097, ncep_aigfs025: 0.075, meteofrance_arpege_europe: 0.075,
+        gem_global: 0.074, meteofrance_arome_france: 0.07, meteofrance_arome_france_hd: 0.064,
+        gfs_global: 0.062, ukmo_global_deterministic_10km: 0.061,
+        dmi_harmonie_arome_europe: 0.052, knmi_harmonie_arome_europe: 0.048,
       },
       '48-96h': {
-        ecmwf_ifs: 0.35, icon_eu: 0.25, icon_global: 0.18,
-        meteofrance_arpege_europe: 0.10, gfs_global: 0.07, gem_global: 0.05,
+        icon_eu: 0.169, ecmwf_ifs: 0.159, icon_global: 0.139,
+        ncep_aigfs025: 0.117, gem_global: 0.111, meteofrance_arpege_europe: 0.108,
+        ukmo_global_deterministic_10km: 0.103, gfs_global: 0.095,
       },
       '96-168h': {
-        ecmwf_ifs: 0.40, icon_global: 0.28, gfs_global: 0.18, gem_global: 0.14,
+        ecmwf_ifs: 0.19, icon_global: 0.187, gem_global: 0.165,
+        ncep_aigfs025: 0.162, ukmo_global_deterministic_10km: 0.161, gfs_global: 0.135,
       },
       '168-240h': {
         ecmwf_ifs: 0.42, icon_global: 0.28, gfs_global: 0.18, gem_global: 0.12,
       },
       '240-360h': {
-        ecmwf_ifs: 0.40, gfs_global: 0.28, icon_global: 0.20, gem_global: 0.12,
+        ecmwf_ifs: 0.4, gfs_global: 0.28, icon_global: 0.2, gem_global: 0.12,
       },
     }),
   },
@@ -241,16 +271,20 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     description: 'Optimized for precipitation amount accuracy (mm/h)',
     weights: blendAllBuckets({
       '0-48h': {
-        icon_eu: 0.25, meteofrance_arpege_europe: 0.20, ecmwf_ifs: 0.18,
-        icon_global: 0.12, gem_global: 0.10, gfs_global: 0.08,
-        meteofrance_arome_france: 0.05, meteofrance_arome_france_hd: 0.02,
+        ncep_aigfs025: 0.093, meteofrance_arome_france: 0.089, icon_eu: 0.082,
+        meteofrance_arpege_europe: 0.081, meteofrance_arome_france_hd: 0.08,
+        gfs_global: 0.078, dmi_harmonie_arome_europe: 0.078, icon_global: 0.075,
+        ecmwf_ifs: 0.074, gem_global: 0.073, dwd_icon_d2: 0.072,
+        knmi_harmonie_arome_europe: 0.067, ukmo_global_deterministic_10km: 0.057,
       },
       '48-96h': {
-        icon_eu: 0.28, meteofrance_arpege_europe: 0.22, ecmwf_ifs: 0.20,
-        icon_global: 0.15, gem_global: 0.08, gfs_global: 0.07,
+        ncep_aigfs025: 0.148, meteofrance_arpege_europe: 0.143, gem_global: 0.129,
+        ecmwf_ifs: 0.126, icon_eu: 0.124, gfs_global: 0.115,
+        icon_global: 0.113, ukmo_global_deterministic_10km: 0.103,
       },
       '96-168h': {
-        gfs_global: 0.30, ecmwf_ifs: 0.28, icon_global: 0.24, gem_global: 0.18,
+        ncep_aigfs025: 0.194, gem_global: 0.178, gfs_global: 0.167,
+        icon_global: 0.157, ecmwf_ifs: 0.156, ukmo_global_deterministic_10km: 0.149,
       },
       '168-240h': {
         gfs_global: 0.32, ecmwf_ifs: 0.28, icon_global: 0.24, gem_global: 0.16,
@@ -264,18 +298,25 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     id: 'precipitation_probability',
     label: 'Rain Probability',
     description: 'Optimized for rain detection accuracy (POD, FAR, CSI)',
+    // Calibrated with the same precipitation verification signal (there
+    // is no direct observation of "probability"); the ordering is what
+    // matters, not the absolute scale.
     weights: blendAllBuckets({
       '0-48h': {
-        icon_eu: 0.25, ecmwf_ifs: 0.22, meteofrance_arpege_europe: 0.18,
-        icon_global: 0.12, gem_global: 0.10, gfs_global: 0.06,
-        meteofrance_arome_france: 0.05, meteofrance_arome_france_hd: 0.02,
+        ncep_aigfs025: 0.093, meteofrance_arome_france: 0.089, icon_eu: 0.082,
+        meteofrance_arpege_europe: 0.081, meteofrance_arome_france_hd: 0.08,
+        gfs_global: 0.078, dmi_harmonie_arome_europe: 0.078, icon_global: 0.075,
+        ecmwf_ifs: 0.074, gem_global: 0.073, dwd_icon_d2: 0.072,
+        knmi_harmonie_arome_europe: 0.067, ukmo_global_deterministic_10km: 0.057,
       },
       '48-96h': {
-        icon_eu: 0.28, ecmwf_ifs: 0.25, meteofrance_arpege_europe: 0.18,
-        icon_global: 0.15, gem_global: 0.08, gfs_global: 0.06,
+        ncep_aigfs025: 0.148, meteofrance_arpege_europe: 0.143, gem_global: 0.129,
+        ecmwf_ifs: 0.126, icon_eu: 0.124, gfs_global: 0.115,
+        icon_global: 0.113, ukmo_global_deterministic_10km: 0.103,
       },
       '96-168h': {
-        ecmwf_ifs: 0.30, icon_global: 0.28, gfs_global: 0.24, gem_global: 0.18,
+        ncep_aigfs025: 0.194, gem_global: 0.178, gfs_global: 0.167,
+        icon_global: 0.157, ecmwf_ifs: 0.156, ukmo_global_deterministic_10km: 0.149,
       },
       '168-240h': {
         ecmwf_ifs: 0.32, icon_global: 0.28, gfs_global: 0.24, gem_global: 0.16,

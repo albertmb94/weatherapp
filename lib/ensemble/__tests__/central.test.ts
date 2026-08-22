@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit tests for the central ensemble module. These exercise the
  * helpers in isolation; the regression test in
  * `centralEnsemble.test.ts` exercises the integration with the
@@ -62,33 +62,40 @@ describe('weightsFor', () => {
   it('uses the 0-48h preset bucket at hour 0', () => {
     const active = resolveActiveModels(MODELS, [], 'wedai')
     const w = weightsFor('temperature', 0, 1, active)
-    // First bucket's ecmwf_ifs weight is 0.30 rescaled by the AI share
-    // (B-NEW-41): 0.30 × (1 - 0.20) = 0.24.
+    // B-NBT-8: calibrated bucket (backtest window 2026-08-15..22,
+    // normalised win-rate shares). ecmwf_ifs carries 0.102 which the
+    // AI share rescales by (1 - 0.20) â†’ 0.0816.
     const ecmwfIdx = active.findIndex(m => m.id === 'ecmwf_ifs')
-    expect(w[ecmwfIdx]).toBeCloseTo(0.24, 5)
+    expect(w[ecmwfIdx]).toBeCloseTo(0.102 * 0.8, 3)
+    // The high-resolution regional must outrank every global in the
+    // calibrated short-lead bucket â€” this is the whole point of the
+    // backtest-driven calibration.
+    const iconEuIdx = active.findIndex(m => m.id === 'icon_eu')
+    expect(w[iconEuIdx]).toBeGreaterThan(w[ecmwfIdx])
   })
 
   it('switches to the 96-168h bucket past hour 168', () => {
     const active = resolveActiveModels(MODELS, [], 'wedai')
     const w = weightsFor('temperature', 168, 1, active)
-    // At >= 96h we use the 96-168h bucket; ecmwf_ifs 0.40 rescaled by
-    // that bucket's AI share of 0.30 → 0.40 × 0.70 = 0.28.
+    // At >= 96h only globals remain measurable; ecmwf_ifs leads with
+    // 0.19 rescaled by that bucket's AI share of 0.30 â†’ Ã—0.70.
     const ecmwfIdx = active.findIndex(m => m.id === 'ecmwf_ifs')
-    expect(w[ecmwfIdx]).toBeCloseTo(0.28, 5)
+    expect(w[ecmwfIdx]).toBeCloseTo(0.19 * 0.7, 5)
   })
 
   it('multiplies hour index by bucketHours for the lead time', () => {
     const active = resolveActiveModels(MODELS, [], 'wedai')
-    // hourIndex=10 with bucketHours=3 → leadTimeHours = 30 (0-48h bucket)
+    // hourIndex=10 with bucketHours=3 â†’ leadTimeHours = 30 (0-48h bucket)
     const wShort = weightsFor('temperature', 10, 3, active)
     const ecmwfIdx = active.findIndex(m => m.id === 'ecmwf_ifs')
-    expect(wShort[ecmwfIdx]).toBeCloseTo(0.24, 5)
-    // hourIndex=60 with bucketHours=3 → leadTimeHours = 180 (168-240h bucket).
+    expect(wShort[ecmwfIdx]).toBeCloseTo(0.102 * 0.8, 3)
+    // hourIndex=60 with bucketHours=3 â†’ leadTimeHours = 180 (168-240h bucket).
     // The 96-168h preset used to handle anything above 96h; S1 added
     // dedicated buckets above 168h so this assertion pins the new
     // behaviour rather than silently rolling the new lead time into
-    // the 96-168h preset. ecmwf_ifs 0.42 rescaled by that bucket's AI
-    // share of 0.32 → 0.42 × 0.68 = 0.2856.
+    // the 96-168h preset. That bucket is still hand-authored
+    // (unmeasured extrapolation): ecmwf_ifs 0.42 rescaled by its AI
+    // share of 0.32 â†’ 0.42 Ã— 0.68.
     const wFar = weightsFor('temperature', 60, 3, active)
     expect(wFar[ecmwfIdx]).toBeCloseTo(0.42 * 0.68, 5)
   })
@@ -122,7 +129,7 @@ describe('meanAtHour', () => {
       w
     )
     expect(v).not.toBeNull()
-    // 11, 21, null → weighted mean over the two non-null models
+    // 11, 21, null â†’ weighted mean over the two non-null models
     const ecmwf = active.find(m => m.id === 'ecmwf_ifs')!
     const icon = active.find(m => m.id === 'icon_global')!
     const wE = w[active.indexOf(ecmwf)]
@@ -247,7 +254,7 @@ describe('meanOverBucket', () => {
       active,
       () => weightsFor('temperature', 0, 1, active)
     )
-    // Only hour 0 and hour 2 contribute (10 and 12) → 11
+    // Only hour 0 and hour 2 contribute (10 and 12) â†’ 11
     expect(v).toBeCloseTo(11, 5)
   })
 })

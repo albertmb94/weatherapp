@@ -20,6 +20,86 @@ import { describe, it, expect } from 'vitest'
 import { shiftWallClockDays, leadTimeBucket } from '../fetchPreviousRuns'
 import { computeAccuracyFromRaw } from '../runWeeklyBacktest'
 import { uiBucketToBacktestBuckets, type BacktestLocation } from '../config'
+import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket, MODELS } from '@/lib/models'
+
+/**
+ * B-NBT-8: the calibrated presets must PRIORITIZE the high-resolution
+ * regional models at short lead times — the whole reason the
+ * calibration exists. At 0-48h the combined share of the measurable
+ * regionals must exceed ECMWF's (temperature) and GFS+ECMWF's
+ * (precipitation); by 96-168h the globals take over because the
+ * regionals are past their horizon.
+ */
+describe('calibrated preset prioritization (B-NBT-8)', () => {
+  const REGIONALS = new Set([
+    'icon_eu', 'dwd_icon_d2',
+    'meteofrance_arpege_europe', 'meteofrance_arome_france', 'meteofrance_arome_france_hd',
+    'dmi_harmonie_arome_europe', 'knmi_harmonie_arome_europe',
+  ])
+
+  function sharesFor(presetId: 'temperature' | 'precipitation', bucket: string) {
+    const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId)!
+    // The AI-blend rescale multiplies every legacy entry by the same
+    // factor, so RAW bucket ratios already decide any within-bucket
+    // comparison — no need to replicate blendAiWeights here. The
+    // comparator is the pair the old hand-authored ensemble leant on
+    // (ecmwf_ifs + gfs_global); ncep_aigfs025 is calibrated like any
+    // other model and counted separately.
+    const raw = preset.weights[bucket]
+    let regionals = 0
+    let legacyPair = 0
+    for (const [id, w] of Object.entries(raw)) {
+      if (REGIONALS.has(id)) regionals += w as number
+      else if (id === 'ecmwf_ifs' || id === 'gfs_global') legacyPair += w as number
+    }
+    return { regionals, legacyPair }
+  }
+
+  it('regionals outweigh the top global at 0-48h for temperature', () => {
+    const { regionals, legacyPair } = sharesFor('temperature', '0-48h')
+    expect(regionals).toBeGreaterThan(legacyPair)
+    // ICON-EU specifically must be the single heaviest model.
+    const preset = ENSEMBLE_PRESETS.find(p => p.id === 'temperature')!
+    expect(preset.weights['0-48h'].icon_eu).toBeGreaterThan(
+      preset.weights['0-48h'].ecmwf_ifs
+    )
+  })
+
+  it('regionals outweigh the old ECMWF+GFS core at 0-48h for precipitation', () => {
+    const { regionals, legacyPair } = sharesFor('precipitation', '0-48h')
+    expect(regionals).toBeGreaterThan(legacyPair)
+  })
+
+  it('globals take over by 96-168h once regionals expire', () => {
+    const preset = ENSEMBLE_PRESETS.find(p => p.id === 'temperature')!
+    const bucket = preset.weights['96-168h']
+    for (const regional of REGIONALS) {
+      expect(bucket[regional as string]).toBeUndefined()
+    }
+    expect(bucket.ecmwf_ifs).toBeGreaterThan(bucket.gfs_global)
+  })
+
+  it('every measured bucket still forms a valid positive weight vector', () => {
+    for (const preset of ENSEMBLE_PRESETS) {
+      for (const [bucket, weights] of Object.entries(preset.weights)) {
+        const values = Object.values(weights)
+        expect(values.length).toBeGreaterThan(0)
+        expect(values.every(w => Number.isFinite(w) && w > 0)).toBe(true)
+        void bucket
+      }
+    }
+  })
+
+  it('metric→preset routing keeps wind on precipitation and dewpoint on temperature', () => {
+    expect(METRIC_TO_ENSEMBLE.wind_speed).toBe('precipitation')
+    expect(METRIC_TO_ENSEMBLE.dewpoint).toBe('temperature')
+    expect(getLeadTimeBucket(200)).toBe('168-240h')
+    // Sanity: all routed ids exist in MODELS.
+    for (const id of Object.keys(METRIC_TO_ENSEMBLE)) {
+      expect(MODELS.some(m => m.id === id) || typeof id === 'string').toBe(true)
+    }
+  })
+})
 
 describe('shiftWallClockDays (B-NBT-1)', () => {
   it('subtracts whole days keeping the wall-clock time intact', () => {

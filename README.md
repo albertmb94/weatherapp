@@ -20,7 +20,6 @@ npm run dev          # http://localhost:3000
 npm run typecheck    # tsc --noEmit
 npm run lint         # eslint
 npm run test         # vitest run
-npm run test:coverage
 npm run e2e          # playwright (chromium only)
 ```
 
@@ -36,21 +35,31 @@ when external sources are not configured.
 | `AEMET_API_KEY` | AEMET open-data API key (JWT). Without it, the Stations tab hides AEMET but Meteoclimatic + Meteocat keep working. |
 | `METEOCAT_API_KEY` | Meteocat XEMA network token. Same graceful degradation. |
 | `SENTRY_DSN` | Optional; `@sentry/nextjs` is loaded only when set. |
+| `ADMIN_EMAIL` | First superadmin for the `/admin` panel. Read once at boot — redeploy to change. See `docs/ADMIN.md`. |
+| `NEXT_PUBLIC_APP_URL` | Public URL used for magic links in emails. |
+| `RESEND_API_KEY` | Transactional email sender. Without it, admin magic links print to Vercel logs. |
+| `EMAIL_FROM` | From-address for transactional emails (see `lib/emails.ts`). |
+| `BACKTEST_SECRET` | Bearer token protecting `/api/backtest` (503 without it). |
+| `STRIPE_SECRET_KEY` | Placeholder for the future direct Stripe integration — the live checkout configuration lives in `/admin/features` (`feature_flags.config`). |
 
-A reference `.env.example` ships in the repo.
+A reference `.env.example` ships in the repo. **Admin & monetization env vars** are documented in `.env.example` under the `=== Admin / Monetization ===` section.
+
+## Admin panel
+
+The app ships an `/admin` panel where every monetization feature can be toggled without redeploy. See `docs/ADMIN.md` for the full setup, including the magical-link flow, the feature catalogue, and how to enable Premium / Stations / Affiliates / Ads / Newsletter / Push / Donations.
 
 ## Architecture
 
 ```
 app/              App Router (page, layout, providers, /api routes)
-components/       React UI (27 components, no external component lib)
+components/       React UI (no external component lib)
 lib/              Pure logic (models, ensemble, forecasts, date utils)
-  ensemble/       Centralised ensemble weights, meanAtHour, meanOverBucket
-  hooks/          Cross-cutting hooks (useHourSlider, useForecast, …)
+  ensemble/       Centralised calibrated weights, meanAtHour, meanOverBucket
+  hooks/          Cross-cutting hooks (useHourSlider, useNearbyStations, …)
   indexer/        BM25 + chunker for the offline Qdrant indexer
-  backtest/       Periodic reanalysis-based calibration
+  backtest/       Weekly ERA5 verification + Borda weight calibration
 docs/             Conventions, schema, sprint history, sprint legend
-scripts/          Build / index / backtest helpers
+scripts/          Build / index / backtest / calibrate helpers
 e2e/              Playwright specs
 ```
 

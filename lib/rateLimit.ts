@@ -1,6 +1,6 @@
 const buckets = new Map<string, { tokens: number; lastRefill: number }>()
 
-const WINDOW_MS = 60_000
+const DEFAULT_WINDOW_MS = 60_000
 const MAX_TOKENS = 30
 const PURGE_TTL_MS = 10 * 60_000
 
@@ -15,7 +15,12 @@ function purgeBuckets() {
 
 let purgeTimer: ReturnType<typeof setInterval> | null = null
 
-export function rateLimit(key: string, maxTokens = MAX_TOKENS): boolean {
+/** Token-bucket rate limiter used by every admin / API route.
+ *  @param key          Per-bucket identifier (e.g. `admin:auth:1.2.3.4`).
+ *  @param maxTokens    Max tokens per window. Defaults to 30/min.
+ *  @param windowMs     Window length in milliseconds. Defaults to 60_000.
+ *  @returns true if the request is allowed, false if the bucket is empty. */
+export function rateLimit(key: string, maxTokens = MAX_TOKENS, windowMs = DEFAULT_WINDOW_MS): boolean {
   if (!purgeTimer) {
     purgeTimer = setInterval(purgeBuckets, PURGE_TTL_MS)
     // BUG FIX: the previous build leaked a Node `setInterval` on
@@ -38,7 +43,7 @@ export function rateLimit(key: string, maxTokens = MAX_TOKENS): boolean {
   }
 
   const elapsed = now - bucket.lastRefill
-  const refill = (elapsed / WINDOW_MS) * maxTokens
+  const refill = (elapsed / windowMs) * maxTokens
   bucket.tokens = Math.min(maxTokens, bucket.tokens + refill)
   bucket.lastRefill = now
 

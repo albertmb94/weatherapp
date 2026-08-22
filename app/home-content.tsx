@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -21,7 +21,7 @@ import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar
 import SettingsPanel from '@/components/SettingsPanel'
 import CitiesList from '@/components/CitiesList'
 // AirQualityCard was removed in the F5 second pass (2026-07-27):
-// the air-quality and pollen tiles now live inside the Métricas
+// the air-quality and pollen tiles now live inside the MÃ©tricas
 // block (see <AirQualityTile> in `AirConditionsGrid.tsx`), so
 // the standalone section is no longer rendered anywhere. The
 // component file is still in the repo in case we want to
@@ -200,10 +200,10 @@ export default function HomeContent() {
   const geocodeSeqRef = useRef(0)
   // B-NEW-40 (2026-08-18): the auto-geolocate effect (B-NEW-36) has been
   // REMOVED. It used `enableHighAccuracy: false`, which on desktop
-  // resolves to IP-based geolocation — often tens of km away from the
+  // resolves to IP-based geolocation â€” often tens of km away from the
   // user's real position. That silently rewrote `urlState.lat/lon` to
   // a random spot, and with the 5-km mobile radius the Estaciones tab
-  // returned zero stations (the user's report: "antes salían muchas
+  // returned zero stations (the user's report: "antes salÃ­an muchas
   // estaciones en Badalona y ahora ninguna"). The user can still
   // geolocate explicitly via the button in the header.
   const [toast, setToast] = useState<string | null>(null)
@@ -223,7 +223,7 @@ export default function HomeContent() {
   // Refresh hook: the per-location auto-refresh is the primary
   // refresh path now (driven by `data.fetchedAt > 2h` below). The
   // hook's `refresh` mutation is still wired to SettingsPanel and
-  // to the pull-to-refresh gesture as an escape hatch — the user
+  // to the pull-to-refresh gesture as an escape hatch â€” the user
   // asked for the buttons next to the search bar to be removed on
   // 2026-08-18 because the auto-refresh is reliable enough that the
   // manual button wasn't pulling its weight.
@@ -268,7 +268,7 @@ export default function HomeContent() {
   // so we don't need a state-update-in-effect for the common case; the
   // reverseGeocode effect below fills in the city name asynchronously.
   if (position[0] !== urlState.lat || position[1] !== urlState.lon) {
-    // Update lazily on the next render — React lets us call a state setter
+    // Update lazily on the next render â€” React lets us call a state setter
     // during render to derive state from a prop, which is the documented
     // pattern for "props into state".
     setPosition([urlState.lat, urlState.lon])
@@ -296,22 +296,22 @@ export default function HomeContent() {
 
   // B-NEW-40 (2026-08-18): the auto-geolocate effect (B-NEW-36) has been
   // REMOVED. It used `enableHighAccuracy: false`, which on desktop
-  // resolves to IP-based geolocation — often tens of km away from the
+  // resolves to IP-based geolocation â€” often tens of km away from the
   // user's real position. That silently rewrote `urlState.lat/lon` to
   // a random spot, and with the 5-km mobile radius the Estaciones tab
-  // returned zero stations (the user's report: "antes salían muchas
+  // returned zero stations (the user's report: "antes salÃ­an muchas
   // estaciones en Badalona y ahora ninguna"). The user can still
   // geolocate explicitly via the button in the header, which uses
   // the same GPS-quality API but only fires on demand.
 
-  // M-UI-6: persist the user's last view (metric, models, range, …)
+  // M-UI-6: persist the user's last view (metric, models, range, â€¦)
   // so that returning later without a URL still restores their
-  // preferences. Position is intentionally NOT persisted — it's tied
+  // preferences. Position is intentionally NOT persisted â€” it's tied
   // to the city the user picked and they can re-pick it. We save
   // whenever the state changes after the first paint.
   // M-UI-6: persist the user's last view (metric, models, range, ...)
   // so that returning later without a URL still restores their
-  // preferences. Position is intentionally NOT persisted — it's tied
+  // preferences. Position is intentionally NOT persisted â€” it's tied
   // to the city the user picked and they can re-pick it. We save with a
   // 500ms debounce so a flurry of URL state changes (e.g. dragging the
   // hour slider) doesn't fire a localStorage write on every frame.
@@ -446,7 +446,7 @@ export default function HomeContent() {
     return () => clearTimeout(t)
   }, [toast])
 
-  // M-UI-4: refresh outcome toast is disabled — every URL state change
+  // M-UI-4: refresh outcome toast is disabled â€” every URL state change
   // re-renders home-content and the `lastOutcome` ref check would re-fire
   // (we re-created the ref each time) which caused the toast to re-appear
   // whenever the user scrolled the page. The refresh button itself gives
@@ -466,9 +466,9 @@ export default function HomeContent() {
   const ensembleMode = urlState.ensembleMode
 
   // Keep `range` in sync with `weekDays` so the forecast fetch covers
-  // enough hours for the Próximos días panel regardless of which URL
+  // enough hours for the PrÃ³ximos dÃ­as panel regardless of which URL
   // params the user landed on. Without this, a deep link like
-  // ?range=168&week=14 silently caps Próximos días to 7 days because the
+  // ?range=168&week=14 silently caps PrÃ³ximos dÃ­as to 7 days because the
   // API only returned 7 days of data.
   useEffect(() => {
     const required = weekDays * 24
@@ -504,25 +504,25 @@ export default function HomeContent() {
   // REFRESH_WINDOW_MS (2h), kick off a silent background refresh. The user
   // requested this explicitly so a fresh /api/forecast response lands
   // before the Turso cache turns stale, and we surface it through the
-  // refresh badge too — see useQuery refetch(). React Query's
+  // refresh badge too â€” see useQuery refetch(). React Query's
   // `staleTime` only marks stale; the actual fire happens via
   // refetchOnWindowFocus and the explicit invalidation here.
   const lastFetchedAt = data?.fetchedAt
   // `forecastAgeMs` and the auto-refresh trigger rely on `Date.now()`,
   // which is impure. We compute it once on mount + every refresh, then
-  // tick it forward via `currentTickMs` (updated 1× per minute by an
+  // tick it forward via `currentTickMs` (updated 1Ã— per minute by an
   // effect below) so the "Refresh due" badge actually ticks.
   //
   // B-NEW-20 (2026-07-27): the previous `useState(() => Date.now())`
   // initializer captured the server's clock on SSR and the
-  // client's clock on hydration — even if the tick interval
+  // client's clock on hydration â€” even if the tick interval
   // re-syncs them every 60s, the *initial* value differed
   // between renders and React aborted with hydration error
-  // #418 on the "Updated 5m ago" / "Recarga pendiente 4h"
+  // #418 on the "Updated 5m ago" / "Recarga pendiente 2h"
   // text node rendered from `forecastAgeMs`. We start the
   // state at `null` (matches the SSR render and the first
   // client render) and set the actual `currentTickMs` in the
-  // same `useEffect` that starts the tick interval — that
+  // same `useEffect` that starts the tick interval â€” that
   // Reuses `useClientNow` so the pattern (server-time on the SSR
   // pass, ticking every 1 min thereafter) lives in one place. Drives
   // the `forecastAgeMs` calculation that powers auto-refresh below.
@@ -535,7 +535,7 @@ export default function HomeContent() {
   // coming back stale (cache hit returning the same `fetchedAt`,
   // network failure, etc.). `useClientNow` ticks every minute so
   // the predicate above will keep re-firing as long as the data
-  // is older than 2h — that's correct, but without a debounce each
+  // is older than 2h â€” that's correct, but without a debounce each
   // tick would re-issue invalidateQueries, which React Query would
   // then either ignore (in-flight) or schedule (back-to-back), and
   // the user would see the cache lock in a stale state. The helper
@@ -579,14 +579,14 @@ export default function HomeContent() {
   // F5: air quality + pollen. The Open-Meteo air-quality endpoint
   // exposes a separate forecast (5-day max) so it lives in its
   // own query. F5 (revised): we ALWAYS run this query now because
-  // the EU AQI tile is rendered inside the Métricas block on
+  // the EU AQI tile is rendered inside the MÃ©tricas block on
   // every viewport (mobile included). The full tile card above
   // is still gated to desktop / mobile landscape, but the
   // headline value must be available everywhere.
   const airQualityQuery = useQuery<AirQualityResult>({
     queryKey: ['air-quality', position[0], position[1]],
     queryFn: ({ signal }) => fetchAirQuality(position[0], position[1], { signal }),
-    staleTime: 60 * 60 * 1000, // 1h — air quality changes on the order of hours
+    staleTime: 60 * 60 * 1000, // 1h â€” air quality changes on the order of hours
     refetchOnWindowFocus: true,
   })
 
@@ -595,8 +595,8 @@ export default function HomeContent() {
   // local time (the API honours `timezone=auto`), so we find
   // the index whose UTC-fake-local `hour` matches the current
   // wall clock floored to the hour. When the data hasn't
-  // arrived yet we return `null` so the Métricas tile stays
-  // hidden rather than showing a misleading "—".
+  // arrived yet we return `null` so the MÃ©tricas tile stays
+  // hidden rather than showing a misleading "â€”".
   const currentEuropeanAqi = useMemo<number | null>(() => {
     const data = airQualityQuery.data
     if (!data) return null
@@ -608,7 +608,7 @@ export default function HomeContent() {
     // shared `currentTickMs` (the same wall-clock value
     // every other consumer in this file reads) instead of
     // `Date.now()` so the React purity rule is satisfied
-    // and SSR / hydration stay consistent — `currentTickMs`
+    // and SSR / hydration stay consistent â€” `currentTickMs`
     // is 0 on the first client render and starts ticking
     // once the `useClientNow` effect runs.
     const referenceMs = data.fetchedAt ?? currentTickMs
@@ -623,7 +623,7 @@ export default function HomeContent() {
   }, [airQualityQuery.data, currentTickMs])
 
   // F5 (revised, second pass): same hour-aligned lookup for
-  // the two pollen readings surfaced in the Métricas block.
+  // the two pollen readings surfaced in the MÃ©tricas block.
   // Each tile consumes its own value so the parent stays a
   // pure view; the toggle state lives inside
   // `AirConditionsGrid`.
@@ -636,11 +636,11 @@ export default function HomeContent() {
     [airQualityQuery.data],
   )
 
-  // F5: viewport detection — desktop or mobile landscape.
+  // F5: viewport detection â€” desktop or mobile landscape.
   // F5 (revised, second pass): the standalone `AirQualityCard`
   // is gone, so the viewport gate is no longer needed. The
   // air-quality query still runs on every viewport because the
-  // Métricas block now consumes the EU AQI and pollen values
+  // MÃ©tricas block now consumes the EU AQI and pollen values
   // on mobile too.
 
   // F-5: persist every successful forecast to IndexedDB so the user
@@ -703,7 +703,7 @@ export default function HomeContent() {
     mutationFn: async () => {
       // Cities are private to this device: stored in localStorage only.
       // The old /api/locations endpoint was a public, anonymous list shared
-      // across every visitor — a privacy bug for what should be personal
+      // across every visitor â€” a privacy bug for what should be personal
       // bookmarks. We write locally and announce success on failure only
       // when the local storage write actually succeeded.
       try {
@@ -775,7 +775,7 @@ export default function HomeContent() {
     updateUrl({ hour: safe })
   }, [updateUrl])
 
-  // B-NEW-37 (2026-08-18): `handleMapToggle` removed — no UI flips
+  // B-NEW-37 (2026-08-18): `handleMapToggle` removed â€” no UI flips
   // `showMap` to true any more, so the toggle would be dead code.
 
   const handleMarineToggle = useCallback(() => {
@@ -827,7 +827,7 @@ export default function HomeContent() {
       },
       () => {
         setGeoLoading(false)
-        setToast(locale === 'en' ? 'Location access denied' : 'Acceso a ubicación denegado')
+        setToast(locale === 'en' ? 'Location access denied' : 'Acceso a ubicaciÃ³n denegado')
       },
       { enableHighAccuracy: false, timeout: 5000 }
     )
@@ -836,7 +836,7 @@ export default function HomeContent() {
   // Filter out the virtual marine model only when the marine toggle is
   // *off*. With marine=on we keep every model so that the chart, the
   // Insights table and the friendly cards still compute proper averages
-  // and gradients — the InsightsTable hides the basic land columns on
+  // and gradients â€” the InsightsTable hides the basic land columns on
   // its own when `showBasic=false`, so the user keeps the marine view
   // without losing land-model coverage.
   const displayModels = useMemo(
@@ -852,14 +852,14 @@ export default function HomeContent() {
   // (`computeInsightsStartIndex` in lib/insightsTime.ts). Since B-NEW-39
   // the shared `startIndex` is ALSO wall-clock anchored, so the two were
   // numerically identical post-hydration while their comments claimed
-  // opposite contracts ("fetchedAt" vs "wall clock") — a guaranteed
+  // opposite contracts ("fetchedAt" vs "wall clock") â€” a guaranteed
   // desync the next time someone "fixes" one of them. The fallback to
   // `fetchedAt` before hydration is preserved inside the helper's
   // caller via `currentTickMs || fetchedAt`.
   //
   // Known limitation (documented, accepted): Open-Meteo returns ONE
   // utc_offset_seconds per request. Across a DST transition inside the
-  // 16-day window the fake-local timeline drifts ±1 h until the next
+  // 16-day window the fake-local timeline drifts Â±1 h until the next
   // refetch; day-boundary scans degrade gracefully (one duplicated or
   // skipped hour) instead of misbehaving.
   const startIndex = useMemo(() => {
@@ -890,7 +890,7 @@ export default function HomeContent() {
   // computed exactly as before.
   //
   // We initialise the state with an empty Set and update it via
-  // setState inside the effect — the cascading-update lint that
+  // setState inside the effect â€” the cascading-update lint that
   // synchronous setState-in-effect would trigger is intentional
   // here because the alternative (deriving `recommendedSet` from
   // props) is impossible: the backtest result is async by design.
@@ -898,8 +898,8 @@ export default function HomeContent() {
   // The setState calls below are inside a useEffect that synchronises
   // the backtest result (async by design) with the React state. The
   // `react-hooks/set-state-in-effect` rule flags this pattern but
-  // it is correct here because the alternative — deriving
-  // `recommendedSet` from props — is impossible: the backtest is
+  // it is correct here because the alternative â€” deriving
+  // `recommendedSet` from props â€” is impossible: the backtest is
   // async, runs once per terrain, and the result must be cached.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -911,7 +911,7 @@ export default function HomeContent() {
     // The lead-time bucket for the recommendation comes from the
     // current "now" hour (lead time 0). B-NBT-3: `model_accuracy`
     // stores the FINE backtest buckets ('0-24h', '24-48h', ...), so
-    // the UI preset bucket must be mapped before querying — querying
+    // the UI preset bucket must be mapped before querying â€” querying
     // with '0-48h' verbatim never matched and silently disabled the
     // profile boost forever.
     const backtestBuckets = uiBucketToBacktestBuckets(getLeadTimeBucket(0))
@@ -936,7 +936,7 @@ export default function HomeContent() {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // The number of recommendation entries that actually overlap with
-  // the user's active model selection — surfaced in the chip so the
+  // the user's active model selection â€” surfaced in the chip so the
   // user can see whether the boost is taking effect (a coastal city
   // The number of recommendation entries that overlap with
   // the user's active model selection used to be surfaced in
@@ -1020,12 +1020,12 @@ export default function HomeContent() {
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-    // B-NEW-37 (2026-08-18): dropped `showMap` from the deps — the
+    // B-NEW-37 (2026-08-18): dropped `showMap` from the deps â€” the
     // 'm' shortcut that toggled the map is gone and the only thing
     // that flipped `showMap` on is the (now-disabled) map section.
   }, [selectedHour, effectiveMaxHours, handleHourChange, handleViewSelect])
 
-  // B-NEW-37 (2026-08-18): the scroll-to-map effect is gone — the
+  // B-NEW-37 (2026-08-18): the scroll-to-map effect is gone â€” the
   // map section is permanently disabled, so there's nothing to
   // scroll into view.
 
@@ -1159,7 +1159,7 @@ export default function HomeContent() {
           <button
             onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
             className="min-h-[36px] px-2 rounded text-[11px] font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer tracking-wider"
-            title={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
+            title={locale === 'en' ? 'Cambiar a espaÃ±ol' : 'Switch to English'}
           >
             {locale === 'en' ? 'ES' : 'EN'}
           </button>
@@ -1229,13 +1229,13 @@ export default function HomeContent() {
           onSelect={handleViewSelect}
           layers={{
             // B-NEW-37 (2026-08-18): `showMap` dropped from the
-            // LayerState — the map section is permanently disabled
+            // LayerState â€” the map section is permanently disabled
             // and no UI flips it any more.
             marine,
             showBasic,
           }}
           onLayerToggle={{
-            // B-NEW-37 (2026-08-18): `map` removed — `handleMapToggle`
+            // B-NEW-37 (2026-08-18): `map` removed â€” `handleMapToggle`
             // is gone and the map section no longer mounts.
             marine: handleMarineToggle,
             basic: handleBasicToggle,
@@ -1245,7 +1245,7 @@ export default function HomeContent() {
         <main className="flex-1 min-w-0 min-h-0 flex">
           <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
             {/* Sticky search + range on tablet/desktop, sitting at the top of
-                the main column. The metric pills are NOT rendered here — they
+                the main column. The metric pills are NOT rendered here â€” they
                 live next to the Map view (which is what they drive). */}
             <div className="hidden real-desktop:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border">
               <div className="flex items-center gap-2 px-4 real-desktop:px-6 py-3">
@@ -1275,7 +1275,7 @@ export default function HomeContent() {
               <SavedLocations onSelect={handleCitySelect} />
             </div>
 
-            {/* F-5: offline banner — visible only while the browser reports
+            {/* F-5: offline banner â€” visible only while the browser reports
                 offline. B-NBT-5: driven by the useOnlineStatus hook; the
                 previous inline `typeof navigator !== 'undefined' &&
                 !navigator.onLine` check evaluated TRUE on the server
@@ -1284,8 +1284,8 @@ export default function HomeContent() {
             {!isOnline && (
               <div className="mx-4 md:mx-6 mt-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs">
                 {offlineSnapshot
-                  ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
-                  : (STRINGS[locale].offlineBanner ?? 'Offline — no cached data')}
+                  ? `${STRINGS[locale].offlineBanner ?? 'Offline'} Â· ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
+                  : (STRINGS[locale].offlineBanner ?? 'Offline â€” no cached data')}
               </div>
             )}
 
@@ -1295,7 +1295,7 @@ export default function HomeContent() {
               className="p-3 real-desktop:p-4 real-desktop:space-y-4 space-y-3"
             >
               {/* B-NEW-37 (2026-08-18): removed 'map' from the render-guard
-                  union — no `selectedView === 'map'` path is reachable any
+                  union â€” no `selectedView === 'map'` path is reachable any
                   more, so the conditional collapses to the three live
                   views. */}
               {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'stations') && (
@@ -1329,24 +1329,24 @@ export default function HomeContent() {
                   // through to FriendlyHome so the AHORA + future
                   // slots in the hourly strip respect the toggle.
                   // Default 'wedai' keeps the friendly overview on
-                  // the calibrated ensemble — the user expects
-                  // "Previsión de hoy" to follow whatever the Avanzado
+                  // the calibrated ensemble â€” the user expects
+                  // "PrevisiÃ³n de hoy" to follow whatever the Avanzado
                   // toggle says.
                   ensembleMode={ensembleMode}
                   // Sprint 13: the auto-derived profile (or null
                   // while the classifier is in flight) and the
                   // backtest recommendation set. Empty set means
-                  // no boost is applied — the snapshot degrades
+                  // no boost is applied â€” the snapshot degrades
                   // to the pre-Sprint-13 behaviour byte-for-byte.
                   usageProfile={effectiveProfile.profile}
                   usageProfileRecommended={recommendedSet}
                   // F5 (revised): the EU AQI value is rendered
-                  // inside the Métricas block (via AirConditionsGrid)
+                  // inside the MÃ©tricas block (via AirConditionsGrid)
                   // so it shows on every viewport including mobile
                   // portrait.
                   europeanAqi={currentEuropeanAqi}
                   // F5 (revised, second pass): pollen values feed
-                  // the toggle tile inside the Métricas block.
+                  // the toggle tile inside the MÃ©tricas block.
                   grassPollen={currentGrassPollen}
                   birchPollen={currentBirchPollen}
                 />
@@ -1356,12 +1356,12 @@ export default function HomeContent() {
               {/* F5 (revised, second pass): the standalone
                   `AirQualityCard` is gone. Air quality and
                   pollen now live exclusively inside the
-                  Métricas block (EU AQI tile + Pollen toggle
+                  MÃ©tricas block (EU AQI tile + Pollen toggle
                   tile) on every viewport, so the user gets
                   the headline values without scrolling past
                   a 10-tile grid. The data is still fetched
                   (see `airQualityQuery` above) because the
-                  Métricas tiles depend on it. */}
+                  MÃ©tricas tiles depend on it. */}
 
               {/* B-NEW-29 (2026-07-30): the saved-locations
                   strip used to live HERE, below the offline
@@ -1378,8 +1378,8 @@ export default function HomeContent() {
                   mobile, once for desktop). */}
 
                 {/* B-NEW-37 (2026-08-18): the Mapa view is gone entirely.
-                    The previous `{false && …}` wrapper that preserved the
-                    dead JSX has been deleted — `showMap`, `handleMapToggle`,
+                    The previous `{false && â€¦}` wrapper that preserved the
+                    dead JSX has been deleted â€” `showMap`, `handleMapToggle`,
                     `mapSectionRef`, `scrollToMapRef` and the MapPicker import
                     are all gone with it. The URL state still carries
                     `showMap` and `view: 'map'` for backwards compat with
@@ -1522,7 +1522,7 @@ export default function HomeContent() {
                 }}
                 onSelectHour={handleHourChange}
                 // B-NEW-10 (2026-07-25): thread the ensemble toggle
-                // through to Próximos días so the daily highs/lows
+                // through to PrÃ³ximos dÃ­as so the daily highs/lows
                 // use the calibrated ensemble when the Avanzado
                 // toggle is on WedAI.
                 ensembleMode={ensembleMode}
@@ -1534,7 +1534,7 @@ export default function HomeContent() {
 
       {/* F-9: footer keyboard hints, hidden on mobile (mobile tab bar lives at the bottom). */}
       <div className="hidden real-desktop:flex real-desktop:mt-auto px-3 py-0.5 bg-surface/50 border-t border-border text-[9px] text-text-tertiary gap-3 shrink-0">
-        <span>← → {STRINGS[locale].footerHours}</span>
+        <span>â† â†’ {STRINGS[locale].footerHours}</span>
         <span>/ {STRINGS[locale].footerSearch}</span>
         <span>m {STRINGS[locale].footerMap}</span>
         <a href="/premium" className="ml-auto hover:text-text-primary">Premium</a>
@@ -1575,7 +1575,7 @@ export default function HomeContent() {
  * its actual props changes. Without this memo, every URL state change
  * (e.g. toggling a model) re-runs the DailySummary and InsightsTable
  * tree, which is the dominant cost on slow mobile. The model
- * comparison chart was removed (2026-07-28) — see comment above.
+ * comparison chart was removed (2026-07-28) â€” see comment above.
  */
 const AdvancedSection = memo(function AdvancedSection({
   expanded,
@@ -1613,7 +1613,7 @@ const AdvancedSection = memo(function AdvancedSection({
   viewData: ReturnType<typeof sliceForecast> | NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
   fullData: NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
   startIndex: number
-  /** B-NBT-9b: identical to `startIndex` — both anchors share the same
+  /** B-NBT-9b: identical to `startIndex` â€” both anchors share the same
    *  wall-clock implementation since the dedupe. Kept as a separate
    *  prop so the InsightsTable call-site stays explicit about which
    *  anchor feeds it. */
@@ -1643,7 +1643,7 @@ const AdvancedSection = memo(function AdvancedSection({
   const s = STRINGS[locale]
   // Pre-extract the dense props so the JSX below is readable. Wrap
   // them in `useMemo` so the `[]` fallbacks don't return a fresh
-  // array on every render — that would re-trigger the
+  // array on every render â€” that would re-trigger the
   // `insightsViewTimes` / `insightsViewSeries` memos below on every
   // keystroke from a sibling state change.
   const viewTimes = useMemo(() => viewData?.time ?? [], [viewData])
@@ -1673,7 +1673,7 @@ const AdvancedSection = memo(function AdvancedSection({
   // When the filter is active the Insights table is sliced from the
   // filter's 00:00 (taken from the *full* data, not `viewTimes`).
   // That way the user can ask for "from today 00:00" even when the
-  // current wall clock is past midnight — the table re-anchors on
+  // current wall clock is past midnight â€” the table re-anchors on
   // the day at index `dayFilter.startIndex` in `fullTimes`.
   //
   // The wall-clock offset (no-filter branch) is the same
@@ -1705,7 +1705,7 @@ const AdvancedSection = memo(function AdvancedSection({
     return out
   }, [activeSliceSeries, activeSliceStartIndex])
   // When the filter is active the active row is the noonIndex inside
-  // the filtered window. Otherwise we keep the wall-clock → URL-state
+  // the filtered window. Otherwise we keep the wall-clock â†’ URL-state
   // conversion the old logic used.
   const insightsSelectedHour = dayFilter
     ? Math.max(0, dayFilter.anchor - dayFilter.startIndex)

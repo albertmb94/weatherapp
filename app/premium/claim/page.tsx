@@ -8,8 +8,8 @@
 
 import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { ENTITLEMENT_COOKIE_NAME, ENTITLEMENT_TOKEN_TTL_MS } from '@/lib/entitlements'
-import { resolveEntitlements } from '@/lib/entitlements'
+import { ENTITLEMENT_COOKIE_NAME, ENTITLEMENT_TOKEN_TTL_MS, findEmailByToken, resolveEntitlements } from '@/lib/entitlements'
+import { linkVisitorIdentity } from '@/lib/analytics'
 
 export default async function PremiumClaimPage({
   searchParams,
@@ -28,6 +28,16 @@ export default async function PremiumClaimPage({
       path: '/',
     })
     const ent = await resolveEntitlements(token)
+    // B-NBT-10: this is the only moment where an anonymous device id and
+    // a real email are known together — link them so the admin Users
+    // view can show a real lastSeen.
+    if (ent.premium || ent.stations) {
+      const email = await findEmailByToken(token)
+      const anonId = cookieStore.get('wthr_anon')?.value
+      if (email && anonId) {
+        await linkVisitorIdentity(anonId, email)
+      }
+    }
     return (
       <div className="max-w-md mx-auto px-4 py-10 space-y-4 text-center">
         <div className="text-4xl">✅</div>

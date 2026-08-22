@@ -115,6 +115,8 @@ export const STRINGS: Record<Locale, {
    *  comes from the nearby-station nowcast blend instead of the pure
    *  ensemble. */
   liveStationBadge: string
+  /** B-NBT-10: reserved ad inventory label (free tier). */
+  adPlaceholder: string
   metricsTitle: string
   weekTitle: string
   weekOption7: string
@@ -276,6 +278,7 @@ export const STRINGS: Record<Locale, {
     precipTotal: 'Lluvia',
     hourlyTitle: 'Previsión de hoy',
     liveStationBadge: 'en vivo · estación cercana',
+    adPlaceholder: 'Publicidad',
     metricsTitle: 'Métricas',
     weekTitle: 'Próximos días',
     weekOption7: '7 días',
@@ -426,6 +429,7 @@ export const STRINGS: Record<Locale, {
     precipTotal: 'Rain',
     hourlyTitle: "Today’s forecast",
     liveStationBadge: 'live · nearby station',
+    adPlaceholder: 'Advertisement',
     metricsTitle: 'Metrics',
     weekTitle: 'Upcoming days',
     weekOption7: '7 days',

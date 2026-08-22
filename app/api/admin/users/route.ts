@@ -63,14 +63,29 @@ export async function GET(req: NextRequest) {
       map.set(key, prev)
     }
 
-    // Enrich with last_seen from page_views (best-effort, 50 emails max)
+    // Enrich with last_seen from visitor_identity (B-NBT-10: the
+    // anon_id ↔ email link is created at premium-claim time).
     const users = [...map.values()].slice(0, 50)
-    // We don't currently have anon_id → email mapping; placeholder for
-    // future enrichment (e.g. when the user logs in via magic link and
-    // we start tracking email on page_views). Keep the loop so the
-    // shape stays consistent.
-    for (const u of users) {
-      u.lastSeen = null
+    if (users.length > 0) {
+      try {
+        const placeholders = users.map(() => '?').join(', ')
+        const vi = await db.select<{ email: string; last_seen_at: number }>(
+          `SELECT email, MAX(last_seen_at) AS last_seen_at
+           FROM visitor_identity
+           WHERE email IN (${placeholders})
+           GROUP BY email`,
+          users.map(u => u.email),
+        )
+        const byEmail = new Map<string, number>()
+        for (const r of vi) {
+          byEmail.set(r.email, Number(r.last_seen_at))
+        }
+        for (const u of users) {
+          u.lastSeen = byEmail.get(u.email) ?? null
+        }
+      } catch {
+        for (const u of users) u.lastSeen = null
+      }
     }
 
     return NextResponse.json({

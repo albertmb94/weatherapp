@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { db } from '@/lib/db'
+import { touchVisitorIdentity } from '@/lib/analytics'
+import { isTrackingAllowed, CONSENT_COOKIE } from '@/lib/trackingConsent'
 
 interface PageviewPayload {
   path: string
@@ -82,6 +84,11 @@ export async function POST(req: NextRequest) {
   if (!anonId || !body.path) {
     return NextResponse.json({ ok: false }, { status: 400 })
   }
+  // B-NBT-10 defense in depth: the proxy already gates on consent, but
+  // this route is publicly reachable — re-verify before persisting.
+  if (!isTrackingAllowed(req.cookies.get(CONSENT_COOKIE)?.value)) {
+    return NextResponse.json({ ok: false, reason: 'consent_denied' }, { status: 202 })
+  }
   const id = randomBytes(10).toString('hex')
   const ts = body.ts || Date.now()
   try {
@@ -121,6 +128,9 @@ export async function POST(req: NextRequest) {
         /* ignore */
       }
     }
+    // B-NBT-10: keep visitor_identity last_seen fresh for the Users
+    // admin view. Best-effort; never blocks the response.
+    void touchVisitorIdentity(anonId, ts)
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })

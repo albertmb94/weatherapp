@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CONSENT_COOKIE, consentCookieOptions } from '@/lib/trackingConsent'
 
 /** Lightweight consent banner that activates when feature.cookiebot is
  *  disabled and the admin needs a stop-gap. When Cookiebot is enabled
@@ -8,9 +9,10 @@ import { useState } from 'react'
  *  suppressed in that case to avoid double-prompts. The banner writes
  *  a single localStorage flag so we don't pester returning visitors.
  *
- *  We read the localStorage value during initial render (browsers
- *  only, since `typeof window` is checked) so the user doesn't see
- *  the banner flash if they've already answered. */
+ *  B-NBT-10: the choice is ALSO mirrored to the `wthr_consent` cookie
+ *  so the Edge proxy can honour it server-side — localStorage is
+ *  invisible to middleware, and until this mirror existed the proxy
+ *  tracked every visitor pre-consent. */
 function readConsent(): 'accept' | 'reject' | null {
   if (typeof window === 'undefined') return null
   // Bail out if Cookiebot is loaded
@@ -22,6 +24,21 @@ function readConsent(): 'accept' | 'reject' | null {
   }
 }
 
+/** Mirror the choice into a cookie readable by proxy.ts. */
+function writeConsentCookie(value: 'accept' | 'reject'): void {
+  try {
+    const opts = consentCookieOptions()
+    document.cookie = `${CONSENT_COOKIE}=${value};max-age=${opts.maxAge};path=${opts.path};samesite=${opts.sameSite}`
+  } catch { /* ignore */ }
+}
+
+// Sync any PREVIOUSLY stored answer on first mount so returning visitors
+// are honoured without re-showing the banner.
+if (typeof window !== 'undefined') {
+  const stored = readConsent()
+  if (stored) writeConsentCookie(stored)
+}
+
 export default function ConsentBanner() {
   const [show, setShow] = useState<boolean>(() => readConsent() === null)
 
@@ -30,6 +47,7 @@ export default function ConsentBanner() {
       localStorage.setItem('wthr_consent', value)
       localStorage.setItem('wthr_consent_ts', String(Date.now()))
     } catch { /* ignore */ }
+    writeConsentCookie(value)
     setShow(false)
   }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { CONSENT_COOKIE, isTrackingAllowed } from '@/lib/trackingConsent'
 
 const ANON_COOKIE = 'wthr_anon'
 const SESSION_COOKIE = 'wthr_session'
@@ -126,16 +127,27 @@ export async function proxy(req: NextRequest) {
     // edge runtime contract).
   }
 
-  // anon-id (2-year persistent cookie)
-  let anonId = req.cookies.get(ANON_COOKIE)?.value
+  // B-NBT-10 (2026-08-22): consent gate. The banner mirrors the
+  // visitor's choice into the `wthr_consent` cookie; when it is not
+  // explicitly 'granted' we generate NO identity cookies and fire NO
+  // pageview. Missing = not chosen yet = OFF (the first-ever request of
+  // a new visitor goes untracked; after accepting, the next navigation
+  // is measured). Security headers + admin gate are unaffected.
+  const trackingAllowed = isTrackingAllowed(req.cookies.get(CONSENT_COOKIE)?.value)
+
+  let anonId: string | undefined
   let isNewAnon = false
-  if (!anonId) {
-    anonId = toHex(randomBytes(16))
-    isNewAnon = true
+  if (trackingAllowed) {
+    anonId = req.cookies.get(ANON_COOKIE)?.value
+    if (!anonId) {
+      anonId = toHex(randomBytes(16))
+      isNewAnon = true
+    }
   }
 
-  // session-id (sliding 30-min window)
-  const sessionId = req.cookies.get(SESSION_COOKIE)?.value ?? toHex(randomBytes(12))
+  const sessionId = trackingAllowed
+    ? (req.cookies.get(SESSION_COOKIE)?.value ?? toHex(randomBytes(12)))
+    : undefined
   const lastSeen = Number(req.cookies.get(SESSION_SEEN_COOKIE)?.value ?? '0')
   const isNewSession = !req.cookies.get(SESSION_COOKIE)?.value || Date.now() - lastSeen > 30 * 60 * 1000
 
@@ -155,59 +167,53 @@ export async function proxy(req: NextRequest) {
   // Build response, attach cookies + headers
   const res = NextResponse.next()
   applySecurityHeaders(res)
-  if (isNewAnon) {
-    res.cookies.set(ANON_COOKIE, anonId, {
-      maxAge: 60 * 60 * 24 * 730,
+  if (trackingAllowed) {
+    const cookieBase = {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-    })
+    } as const
+    if (isNewAnon && anonId) {
+      res.cookies.set(ANON_COOKIE, anonId, { ...cookieBase, maxAge: 60 * 60 * 24 * 730 })
+    }
+    if (sessionId) {
+      res.cookies.set(SESSION_COOKIE, sessionId, { ...cookieBase, maxAge: 60 * 60 * 24 })
+      res.cookies.set(SESSION_SEEN_COOKIE, String(Date.now()), { ...cookieBase, maxAge: 60 * 60 * 24 })
+    }
+    if (anonId) res.headers.set('x-anon-id', anonId)
+    if (sessionId) res.headers.set('x-session-id', sessionId)
+    res.headers.set('x-is-new-session', isNewSession ? '1' : '0')
   }
-  res.cookies.set(SESSION_COOKIE, sessionId, {
-    maxAge: 60 * 60 * 24,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-  })
-  res.cookies.set(SESSION_SEEN_COOKIE, String(Date.now()), {
-    maxAge: 60 * 60 * 24,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-  })
-  res.headers.set('x-anon-id', anonId)
-  res.headers.set('x-session-id', sessionId)
-  res.headers.set('x-is-new-session', isNewSession ? '1' : '0')
 
-  // Fire-and-forget pageview tracking. The track endpoint is in the
-  // matcher exclusion list above so this fetch doesn't recursively
-  // hit the proxy.
-  const fullPath = pathname + req.nextUrl.search
-  const origin = req.nextUrl.origin
-  void fetch(`${origin}/api/track/pageview`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-anon-id': anonId,
-      'x-session-id': sessionId,
-    },
-    body: JSON.stringify({
-      path: fullPath,
-      referrer,
-      utm_source: utm.source,
-      utm_medium: utm.medium,
-      utm_campaign: utm.campaign,
-      country,
-      device,
-      browser,
-      os,
-      ts: Date.now(),
-    }),
-    keepalive: true,
-  }).catch(() => {})
+  // Fire-and-forget pageview tracking — only with consent. The track
+  // endpoint is in the matcher exclusion list above so this fetch
+  // doesn't recursively hit the proxy.
+  if (trackingAllowed && anonId && sessionId) {
+    const fullPath = pathname + req.nextUrl.search
+    const origin = req.nextUrl.origin
+    void fetch(`${origin}/api/track/pageview`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-anon-id': anonId,
+        'x-session-id': sessionId,
+      },
+      body: JSON.stringify({
+        path: fullPath,
+        referrer,
+        utm_source: utm.source,
+        utm_medium: utm.medium,
+        utm_campaign: utm.campaign,
+        country,
+        device,
+        browser,
+        os,
+        ts: Date.now(),
+      }),
+      keepalive: true,
+    }).catch(() => {})
+  }
 
   return res
 }

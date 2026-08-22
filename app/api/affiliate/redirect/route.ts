@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { db } from '@/lib/db'
 import { getFeature } from '@/lib/features'
+import { isTrackingAllowed, CONSENT_COOKIE } from '@/lib/trackingConsent'
 
 /** Allowlist of affiliate marketplaces. Anything outside this list is
  *  rejected so a malicious caller can't proxy any URL via our 302. */
@@ -45,7 +46,15 @@ export async function GET(req: NextRequest) {
   if (!isAllowedMarketplace(target)) {
     return NextResponse.json({ ok: false, error: 'marketplace_not_allowed' }, { status: 400 })
   }
-  const anonId = req.headers.get('x-anon-id') ?? 'unknown'
+  // B-NBT-10 fix: this route is excluded from the proxy matcher, so
+  // `x-anon-id` never arrives and every click used to log anon_id
+  // 'unknown'. Read the cookie directly instead — and honour the same
+  // consent gate (a declined visitor still gets redirected; we just
+  // don't attribute the click).
+  const trackingAllowed = isTrackingAllowed(req.cookies.get(CONSENT_COOKIE)?.value)
+  const anonId = trackingAllowed
+    ? (req.cookies.get('wthr_anon')?.value ?? 'unknown')
+    : 'consent_denied'
   const id = randomBytes(10).toString('hex')
   try {
     await db.execute(

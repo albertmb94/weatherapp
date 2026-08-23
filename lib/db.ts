@@ -77,8 +77,12 @@ export const db: DbAdapter = {
       await client.execute('SELECT 1')
       available = true
     } catch (err) {
+      // B-NBT-10 fix: loguear el motivo y NO cachear el fallo para
+      // siempre (un lock transitorio de local.db dejaba al proceso
+      // muerto para todo el ciclo de vida).
       console.error('[db] ensure failed:', err instanceof Error ? err.message : err)
-      available = false
+      available = null
+      return false
     }
     return available
   },
@@ -88,12 +92,11 @@ export const db: DbAdapter = {
     try {
       const result = await client.execute({ sql, args })
       return (result.rows as unknown as T[]) ?? []
-    } catch {
-      // Once a query fails the SDK may be in a permanent blocked state
-      // (we've seen this on Vercel when reads are disabled at the plan
-      // level). Mark the adapter unavailable so subsequent calls skip
-      // the DB entirely instead of paying round-trip costs.
-      available = false
+    } catch (err) {
+      // B-NBT-10: reintentable en la siguiente llamada (antes se
+      // deshabilitaba el adaptador para siempre).
+      console.error('[db] select failed:', sql.slice(0, 60), err instanceof Error ? err.message : err)
+      available = null
       return []
     }
   },
@@ -103,8 +106,11 @@ export const db: DbAdapter = {
     try {
       await client.execute({ sql, args })
       return true
-    } catch {
-      available = false
+    } catch (err) {
+      // B-NBT-10: igual que select — fallo ⇒ reintento en la próxima
+      // llamada en vez de muerte permanente del adaptador.
+      console.error('[db] execute failed:', sql.slice(0, 60), err instanceof Error ? err.message : err)
+      available = null
       return false
     }
   },

@@ -1,10 +1,30 @@
-﻿import { createHmac, randomBytes } from 'crypto'
+﻿import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
 
 const COOKIE_NAME = 'wthr_admin'
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+export const ADMIN_COOKIE_NAME = COOKIE_NAME
+export const ADMIN_SESSION_TTL_MS = SESSION_TTL_MS
+
+/**
+ * B-NBT-11 (2026-08-22): magic link DESACTIVADO por completo a petición
+ * del owner. El acceso al panel es usuario + contraseña clásicos contra
+ * la tabla `admin_credentials` (hash scrypt con salt aleatorio).
+ *
+ * Credenciales sembradas en el primer arranque (si la tabla está vacía):
+ *   usuario:  admin
+ *   contraseña: la constante DEFAULT_ADMIN_PASSWORD de más abajo
+ * (puede sobreescribirse con la env ADMIN_PASSWORD antes del primer
+ *  arranque; después cámbiala desde la BD o borrando la fila).
+ */
+
+export const DEFAULT_ADMIN_USERNAME = 'admin'
+
+/** ⚠️ SOLO STAGING — cambiar tras el primer login si procede. */
+const DEFAULT_ADMIN_PASSWORD = 'Wx-Staging-2026!k7Q'
 
 let schemaReady: Promise<boolean> | null = null
 
@@ -30,8 +50,15 @@ async function ensureSchema(): Promise<boolean> {
       )`,
     )).then(() => db.execute(
       `CREATE INDEX IF NOT EXISTS idx_admin_sessions_email ON admin_sessions(email)`,
+    )).then(() => db.execute(
+      `CREATE TABLE IF NOT EXISTS admin_credentials (
+        username TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )`,
     )).then(async () => {
-      // Seed initial admin from env var
+      // Seed initial admin identity from env var
       const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
       if (adminEmail) {
         await db.execute(
@@ -39,18 +66,56 @@ async function ensureSchema(): Promise<boolean> {
           [adminEmail, 'Owner', 'superadmin', Date.now()],
         )
       }
+      // Seed default username/password ONLY when the table is empty so
+      // future password rotations are never silently reverted.
+      const count = await db.select<{ n: number }>('SELECT COUNT(*) AS n FROM admin_credentials')
+      if (Number(count[0]?.n ?? 0) === 0) {
+        const email = adminEmail ?? 'admin@local'
+        await db.execute(
+          `INSERT OR IGNORE INTO admin_credentials (username, email, password_hash, created_at)
+           VALUES (?, ?, ?, ?)`,
+          [
+            process.env.ADMIN_USERNAME?.toLowerCase().trim() || DEFAULT_ADMIN_USERNAME,
+            email,
+            hashPassword(process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD),
+            Date.now(),
+          ],
+        )
+      }
       return true
+    }).catch((err) => {
+      console.error('[admin] ensureSchema failed:', err instanceof Error ? err.message : err)
+      // B-NBT-10 fix: NO cachear el fallo permanentemente (lock
+      // transitorio de SQLite dejaría el admin muerto para siempre).
+      schemaReady = null
+      return false
     })
-  }).then((ok) => ok).catch((err) => {
-    console.error('[admin] ensureSchema failed:', err instanceof Error ? err.message : err)
-    // B-NBT-10 fix: NO cachear el fallo permanentemente. Si el primer
-    // intento chocó con un lock transitorio (otro proceso escribiendo
-    // local.db), el proceso entero quedaba muerto para admin para
-    // siempre. Reset para permitir reintento en la siguiente llamada.
-    schemaReady = null
-    return false
   })
   return schemaReady
+}
+
+// ---------------------------------------------------------------------------
+// Password hashing (scrypt nativo de Node — sin dependencias nuevas)
+// ---------------------------------------------------------------------------
+
+const SCRYPT_KEYLEN = 64
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16)
+  const hash = scryptSync(password, salt, SCRYPT_KEYLEN)
+  return `s1$${salt.toString('hex')}$${hash.toString('hex')}`
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  try {
+    const [version, saltHex, hashHex] = stored.split('$')
+    if (version !== 's1' || !saltHex || !hashHex) return false
+    const expected = Buffer.from(hashHex, 'hex')
+    const actual = scryptSync(password, Buffer.from(saltHex, 'hex'), SCRYPT_KEYLEN)
+    return timingSafeEqual(expected, actual)
+  } catch {
+    return false
+  }
 }
 
 function generateToken(): string {
@@ -58,18 +123,36 @@ function generateToken(): string {
 }
 
 export { generateToken }
+
 /**
  * B-NBT-10 — TEMPORARY direct-admin token (magic link desactivado por
  * petición del owner). Deriva un token determinista de ADMIN_EMAIL para
- * que el acceso al panel no dependa de la tabla admin_sessions (ni del
- * estado de la DB). Nivel de confianza: equivalente a "quien conozca el
- * ADMIN_EMAIL entra" — eliminar junto con el bypass del request route
- * cuando se reactive los magic links.
+ * que el acceso al panel no dependa del estado de la DB. Nivel de
+ * confianza: "quien conozca el ADMIN_EMAIL entra". Eliminar junto con
+ * el bypass del request route cuando se reactivén los magic links.
  */
 export function directAdminToken(): string | null {
   const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
   if (!adminEmail) return null
   return createHmac('sha256', `wthr-direct-admin::${adminEmail}`).update('direct-session').digest('hex')
+}
+
+/** Usuario + contraseña correctos → el email asociado (o null). */
+export async function verifyAdminLogin(
+  username: string,
+  password: string,
+): Promise<string | null> {
+  if (!(await ensureSchema())) return null
+  const normalized = username.toLowerCase().trim()
+  if (!normalized || !password) return null
+  const rows = await db.select<{ email: string; password_hash: string }>(
+    'SELECT email, password_hash FROM admin_credentials WHERE username = ?',
+    [normalized],
+  )
+  const row = rows[0]
+  if (!row) return null
+  if (!verifyPassword(password, row.password_hash)) return null
+  return row.email.toLowerCase()
 }
 
 export async function isAdmin(email: string): Promise<boolean> {
@@ -81,58 +164,13 @@ export async function isAdmin(email: string): Promise<boolean> {
   return rows.length > 0
 }
 
-export async function requestMagicLink(email: string): Promise<{ token: string; isNew: boolean } | null> {
-  if (!(await ensureSchema())) return null
-  const normalized = email.toLowerCase().trim()
-  if (!normalized || !normalized.includes('@')) return null
-  const exists = await isAdmin(normalized)
-  if (!exists) return { token: '', isNew: false }
-  const token = generateToken()
-  const now = Date.now()
-  await db.execute(
-    'INSERT INTO admin_sessions (token, email, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
-    [token, normalized, 'magic_link', now + SESSION_TTL_MS, now],
-  )
-  return { token, isNew: true }
-}
-
-export async function consumeMagicLink(token: string): Promise<string | null> {
-  if (!(await ensureSchema())) return null
-  const rows = await db.select<{ email: string; expires_at: number; kind: string | null }>(
-    'SELECT email, expires_at, kind FROM admin_sessions WHERE token = ?',
-    [token],
-  )
-  const row = rows[0]
-  if (!row) return null
-  if (Number(row.expires_at) < Date.now()) {
-    await db.execute('DELETE FROM admin_sessions WHERE token = ?', [token])
-    return null
-  }
-  // One-time use for magic-link tokens. Active session tokens (set
-  // by /api/admin/auth/verify after a successful magic-link exchange)
-  // keep their row so the user stays logged in across reloads.
-  if (row.kind === 'magic_link') {
-    await db.execute('DELETE FROM admin_sessions WHERE token = ?', [token])
-  }
-  // Touch last_login_at
-  await db.execute('UPDATE admin_users SET last_login_at = ? WHERE email = ?', [
-    Date.now(),
-    (row.email as string).toLowerCase(),
-  ])
-  return row.email as string
-}
-
 export async function validateAdminSession(token: string): Promise<string | null> {
-  // B-NBT-10 TEMPORARY: el token del bypass valida sin DB.
+  // B-NBT-10 TEMPORARY: el token determinista del bypass valida sin DB.
   const dt = directAdminToken()
   if (dt && token === dt) {
     return process.env.ADMIN_EMAIL!.toLowerCase().trim()
   }
-  const schemaOk = await ensureSchema()
-  if (!schemaOk) {
-    console.log('[validateAdminSession] ensureSchema FALSE')
-    return null
-  }
+  if (!(await ensureSchema())) return null
   const rows = await db.select<{ email: string; expires_at: number }>(
     'SELECT email, expires_at FROM admin_sessions WHERE token = ?',
     [token],
@@ -154,11 +192,6 @@ export const getCurrentAdmin = cache(async (): Promise<string | null> => {
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
   if (!token) return null
-  // B-NBT-10 TEMPORARY: token determinista del bypass (sin DB).
-  const directToken = directAdminToken()
-  if (directToken && token === directToken) {
-    return process.env.ADMIN_EMAIL!.toLowerCase().trim()
-  }
   return validateAdminSession(token)
 })
 
@@ -185,10 +218,35 @@ export async function setAdminCookie(token: string): Promise<void> {
   })
 }
 
+/** B-NBT-11: adjunta la cookie de sesión a una respuesta EXPLÍCITA
+ *  (p.ej. NextResponse.redirect del login con formulario nativo),
+ *  donde cookies().set de next/headers no siempre se fusiona. */
+export function applyAdminCookieToResponse(
+  res: { cookies: { set: (options: {
+    name: string
+    value: string
+    httpOnly?: boolean
+    sameSite?: boolean | 'strict' | 'lax' | 'none'
+    secure?: boolean
+    maxAge?: number
+    path?: string
+  }) => void } },
+  token: string,
+): void {
+  const selfHostedHttp =
+    process.env.DB_ALLOW_FILE_IN_PRODUCTION === '1' ||
+    process.env.DB_ALLOW_FILE_IN_PRODUCTION === 'true'
+  res.cookies.set({
+    name: ADMIN_COOKIE_NAME,
+    value: token,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production' && !selfHostedHttp,
+    maxAge: SESSION_TTL_MS / 1000,
+    path: '/',
+  })
+}
 export async function clearAdminCookie(): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.delete(COOKIE_NAME)
 }
-
-export const ADMIN_COOKIE_NAME = COOKIE_NAME
-export const ADMIN_SESSION_TTL_MS = SESSION_TTL_MS

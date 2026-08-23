@@ -1,72 +1,61 @@
-'use client'
+﻿import { getFeature } from '@/lib/features'
 
-import { useState, type FormEvent } from 'react'
+/**
+ * B-NBT-11: login clásico con FORMULARIO NATIVO (method=post sin JS).
+ * El magic link está DESACTIVADO; los errores llegan como ?error=…
+ */
+const ERRORS: Record<string, string> = {
+  credentials: 'Credenciales incorrectas.',
+  missing: 'Rellena usuario y contraseña.',
+  invalid: 'Petición inválida.',
+  rate: 'Demasiados intentos. Espera un minuto.',
+  storage: 'Base de datos no disponible.',
+}
 
-export default function AdminLoginPage() {
-  const [email, setEmail] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<{ kind: 'idle' | 'sent' | 'error'; message?: string }>({ kind: 'idle' })
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!email.includes('@')) {
-      setResult({ kind: 'error', message: 'Email inválido' })
-      return
-    }
-    setSubmitting(true)
-    setResult({ kind: 'idle' })
-    try {
-      const r = await fetch('/api/admin/auth/request', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await r.json()
-      if (data.ok && data.sent) {
-        setResult({ kind: 'sent', message: data.delivered ? 'Te hemos enviado un magic link.' : 'Magic link generado. Revisa la consola del servidor.' })
-      } else if (data.ok && !data.sent) {
-        setResult({ kind: 'sent', message: 'Si el email está registrado, te enviaremos un magic link.' })
-      } else {
-        setResult({ kind: 'error', message: data.error ?? 'Error desconocido' })
-      }
-    } catch (err) {
-      setResult({ kind: 'error', message: err instanceof Error ? err.message : 'Error de red' })
-    } finally {
-      setSubmitting(false)
-    }
-  }
+export default async function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const sp = await searchParams
+  const errorMsg = sp.error ? (ERRORS[sp.error] ?? 'Error desconocido.') : null
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-4">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface-raised p-6 space-y-4">
         <div>
           <h1 className="text-lg font-semibold">Weather Admin</h1>
-          <p className="text-xs text-text-tertiary mt-1">Introduce tu email para recibir un magic link.</p>
+          <p className="text-xs text-text-tertiary mt-1">Acceso restringido al panel de administración.</p>
         </div>
-        <form onSubmit={onSubmit} className="space-y-3">
+        {errorMsg && (
+          <p role="alert" className="text-xs text-red-400">{errorMsg}</p>
+        )}
+        {/* method=post nativo: funciona incluso si la hidratación falla */}
+        <form action="/api/admin/auth/login" method="post" className="space-y-3">
           <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="tu-email@dominio.com"
+            type="text"
+            name="username"
+            placeholder="Usuario"
+            autoComplete="username"
             required
             autoFocus
             className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm"
           />
+          <input
+            type="password"
+            name="password"
+            placeholder="Contraseña"
+            autoComplete="current-password"
+            required
+            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm"
+          />
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+            className="w-full py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
           >
-            {submitting ? 'Enviando…' : 'Enviar magic link'}
+            Acceder
           </button>
         </form>
-        {result.kind === 'sent' && (
-          <p className="text-xs text-emerald-400">{result.message}</p>
-        )}
-        {result.kind === 'error' && (
-          <p className="text-xs text-red-400">{result.message}</p>
-        )}
       </div>
     </div>
   )

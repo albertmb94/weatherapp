@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { db } from '@/lib/db'
 import { touchVisitorIdentity } from '@/lib/analytics'
@@ -45,6 +45,14 @@ async function ensureSchema(): Promise<boolean> {
       )
       await db.execute('CREATE INDEX IF NOT EXISTS idx_pv_ts ON page_views(ts)')
       await db.execute('CREATE INDEX IF NOT EXISTS idx_pv_anon ON page_views(anon_id, ts)')
+      // B-NBT-12: celda geogrÃ¡fica (~5 km) derivada de los params
+      // lat/lon del path. NULL para visitas sin coordenadas.
+      try {
+        await db.execute('ALTER TABLE page_views ADD COLUMN geo_cell TEXT')
+      } catch {
+        /* la columna ya existe */
+      }
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_pv_geo ON page_views(geo_cell, ts)')
       await db.execute(
         `CREATE TABLE IF NOT EXISTS sessions (
           id TEXT PRIMARY KEY,
@@ -85,20 +93,56 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 })
   }
   // B-NBT-10 defense in depth: the proxy already gates on consent, but
-  // this route is publicly reachable — re-verify before persisting.
+  // this route is publicly reachable â€” re-verify before persisting.
   if (!isTrackingAllowed(req.cookies.get(CONSENT_COOKIE)?.value)) {
     return NextResponse.json({ ok: false, reason: 'consent_denied' }, { status: 202 })
   }
   const id = randomBytes(10).toString('hex')
   const ts = body.ts || Date.now()
+
+  // B-NBT-12 (2026-08-22): limpiar el path ANTES de persistir.
+  //   - Las rutas internas (/api/*, manifest, iconos) no son "pÃ¡ginas":
+  //     se descartan para no contaminar "PÃ¡ginas mÃ¡s vistas".
+  //   - A las pÃ¡ginas reales se les guarda SOLO el pathname (sin query),
+  //     que era lo que metÃ­a URLs kilomÃ©tricas de /api/forecast en la
+  //     tabla y en el dashboard.
+  //   - Se extrae la celda geogrÃ¡fica (~5 km) de los params lat/lon del
+  //     query â€” el URL state siempre los lleva cuando hay ciudad
+  //     seleccionada â€” para el desglose por zonas del dashboard.
+  let pathname = body.path.slice(0, 300)
+  let search = ''
+  const qIdx = pathname.indexOf('?')
+  if (qIdx >= 0) {
+    search = pathname.slice(qIdx + 1)
+    pathname = pathname.slice(0, qIdx)
+  }
+  if (
+    pathname.startsWith('/api/') ||
+    pathname === '/manifest.json' ||
+    pathname.startsWith('/icon-') ||
+    pathname.startsWith('/_next')
+  ) {
+    return NextResponse.json({ ok: true, skipped: 'non_page' })
+  }
+
+  let geoCell: string | null = null
+  if (search) {
+    const sp = new URLSearchParams(search)
+    const lat = Number(sp.get('lat') ?? sp.get('latitude'))
+    const lon = Number(sp.get('lon') ?? sp.get('longitude'))
+    if (Number.isFinite(lat) && Math.abs(lat) <= 90 && Number.isFinite(lon) && Math.abs(lon) <= 180) {
+      geoCell = `${lat.toFixed(2)},${lon.toFixed(2)}`
+    }
+  }
+
   try {
     await db.execute(
-      `INSERT INTO page_views (id, anon_id, path, referrer, utm_source, utm_medium, utm_campaign, country, locale, user_agent_browser, user_agent_os, device_type, ts, session_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO page_views (id, anon_id, path, referrer, utm_source, utm_medium, utm_campaign, country, locale, user_agent_browser, user_agent_os, device_type, ts, session_id, geo_cell)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         anonId,
-        body.path.slice(0, 500),
+        pathname,
         body.referrer?.slice(0, 500) ?? null,
         body.utm_source?.slice(0, 64) ?? null,
         body.utm_medium?.slice(0, 64) ?? null,
@@ -110,6 +154,7 @@ export async function POST(req: NextRequest) {
         body.device ?? null,
         ts,
         sessionId || null,
+        geoCell,
       ],
     )
     // Upsert session

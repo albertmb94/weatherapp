@@ -108,6 +108,8 @@ export interface AdminMetrics {
   devices: BreakdownRow[]
   browsers: BreakdownRow[]
   countries: BreakdownRow[]
+  zones: { label: string; devices: number; views: number }[]
+  sessionsToday: number
   generatedAt: number
 }
 
@@ -115,6 +117,80 @@ function dayStartUtcMs(dayOffsetFromToday: number, now: number): number {
   const d = new Date(now)
   d.setUTCHours(0, 0, 0, 0)
   return d.getTime() + dayOffsetFromToday * 86_400_000
+}
+
+// ---------------------------------------------------------------------------
+// Resolución de nombres de zona (reverse-geocode con cache permanente)
+// ---------------------------------------------------------------------------
+
+const geoNameCache = new Map<string, string>()
+
+/** Resuelve el nombre de una celda "lat,lon" (2 decimales ≈ 1.1 km)
+ *  vía BigDataCloud (el mismo endpoint público que usa
+ *  /api/reverse-geocode). Cachea en memoria Y en la tabla geo_names
+ *  para no gastar cuota: máx 5 lookups por invocación. */
+async function resolveZoneNames(cells: string[]): Promise<Map<string, string>> {
+  await ensureAnalyticsSchema()
+  const out = new Map<string, string>()
+  const missing: string[] = []
+  for (const cell of cells) {
+    const cached = geoNameCache.get(cell)
+    if (cached) { out.set(cell, cached); continue }
+    try {
+      const rows = await db.select<{ name: string }>(
+        'SELECT name FROM geo_names WHERE cell = ?', [cell],
+      )
+      if (rows[0]) {
+        const name = String(rows[0].name)
+        geoNameCache.set(cell, name)
+        out.set(cell, name)
+        continue
+      }
+    } catch { /* la tabla puede no existir aún — se crea abajo */ }
+    missing.push(cell)
+  }
+  try {
+    await db.execute(
+      `CREATE TABLE IF NOT EXISTS geo_names (
+        cell TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )`,
+    )
+  } catch { /* best-effort */ }
+
+  let lookups = 0
+  for (const cell of missing.slice(0, 5)) {
+    if (lookups >= 5) break
+    const parts = cell.split(',')
+    const lat = Number(parts[0])
+    const lon = Number(parts[1])
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
+    try {
+      const res = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`,
+        { signal: AbortSignal.timeout(4000) },
+      )
+      lookups++
+      if (!res.ok) continue
+      const data = (await res.json()) as { city?: string; locality?: string; principalSubdivision?: string; countryName?: string }
+      const name = [data.city || data.locality, data.principalSubdivision]
+        .filter(Boolean).join(' · ') || data.countryName || cell
+      geoNameCache.set(cell, name)
+      out.set(cell, name)
+      try {
+        await db.execute(
+          'INSERT OR REPLACE INTO geo_names (cell, name, created_at) VALUES (?, ?, ?)',
+          [cell, name, Date.now()],
+        )
+      } catch { /* best-effort */ }
+    } catch { /* timeout/red → dejamos la celda cruda */ }
+  }
+  // Celdas sin resolver → etiqueta cruda
+  for (const cell of cells) {
+    if (!out.has(cell)) out.set(cell, cell)
+  }
+  return out
 }
 
 /** Full dashboard payload. `now` injectable for tests. */
@@ -179,7 +255,6 @@ export async function getAdminMetrics(rangeDays = 30, now = Date.now()): Promise
     const week = sumRange(iso(todayStart - 6 * 86_400_000))
     const month = sumRange(iso(rangeStart))
     // Distinct uniques over the whole window need DISTINCT, not sums.
-    // Distinct uniques over the whole window need DISTINCT, not sums.
     const distinctWeek = await db.select<{ n: number }>(
       'SELECT COUNT(DISTINCT anon_id) AS n FROM page_views WHERE ts >= ?',
       [todayStart - 6 * 86_400_000],
@@ -198,14 +273,58 @@ export async function getAdminMetrics(rangeDays = 30, now = Date.now()): Promise
         .slice(0, 8)
     }
 
+    // B-NBT-12: "Páginas" solo con páginas reales — las rutas internas
+    // (/api/*, manifest, iconos) ya ni se insertan (pageview route), y
+    // este filtro adicional protege el histórico viejo que sí las lleva.
+    const PAGE_FILTER = " AND path NOT LIKE '/api/%' AND path NOT LIKE '/manifest.json%' AND path NOT LIKE '/_next%' AND path NOT LIKE '/icon-%'"
+
     const [topPaths, referrers, utmSources, devices, browsers, countries] = await Promise.all([
-      breakdown('SELECT path AS label, COUNT(*) AS count FROM page_views WHERE ts >= ? GROUP BY path ORDER BY count DESC LIMIT 10', [rangeStart]),
+      breakdown(`SELECT path AS label, COUNT(*) AS count FROM page_views WHERE ts >= ?${PAGE_FILTER} GROUP BY path ORDER BY count DESC LIMIT 10`, [rangeStart]),
       breakdown("SELECT COALESCE(referrer, '') AS label, COUNT(*) AS count FROM page_views WHERE ts >= ? GROUP BY referrer", [rangeStart]),
       breakdown("SELECT COALESCE(utm_source, '') AS label, COUNT(*) AS count FROM page_views WHERE ts >= ? AND utm_source IS NOT NULL GROUP BY utm_source", [rangeStart]),
       breakdown("SELECT COALESCE(device_type, '') AS label, COUNT(DISTINCT anon_id) AS count FROM page_views WHERE ts >= ? GROUP BY device_type", [rangeStart]),
       breakdown("SELECT COALESCE(user_agent_browser, '') AS label, COUNT(DISTINCT anon_id) AS count FROM page_views WHERE ts >= ? GROUP BY user_agent_browser", [rangeStart]),
       breakdown("SELECT COALESCE(country, '') AS label, COUNT(DISTINCT anon_id) AS count FROM page_views WHERE ts >= ? GROUP BY country", [rangeStart]),
     ])
+
+    // B-NBT-12: zonas — celdas geográficas ~1-5 km derivadas del URL
+    // state. Dispositivos ÚNICOS por celda (COUNT DISTINCT anon_id), no
+    // sesiones: un mismo dispositivo con 50 sesiones cuenta una vez.
+    let zones: { label: string; devices: number; views: number }[] = []
+    try {
+      const cellRows = await db.select<{ cell: string; devices: number; views: number }>(
+        `SELECT geo_cell AS cell,
+                COUNT(DISTINCT anon_id) AS devices,
+                COUNT(*) AS views
+         FROM page_views
+         WHERE ts >= ? AND geo_cell IS NOT NULL
+         GROUP BY geo_cell
+         ORDER BY devices DESC, views DESC
+         LIMIT 6`,
+        [rangeStart],
+      )
+      if (cellRows.length > 0) {
+        const names = await resolveZoneNames(cellRows.map(r => String(r.cell)))
+        zones = cellRows.map(r => ({
+          label: names.get(String(r.cell)) ?? String(r.cell),
+          devices: Number(r.devices),
+          views: Number(r.views),
+        })).sort((a, b) => b.devices - a.devices)
+      }
+    } catch {
+      /* zonas best-effort */
+    }
+
+    // B-NBT-12: sesiones de HOY — métrica separada de dispositivos para
+    // dejar explícito que un dispositivo genera N sesiones.
+    let sessionsToday = 0
+    try {
+      const st = await db.select<{ n: number }>(
+        'SELECT COUNT(*) AS n FROM sessions WHERE started_at >= ?',
+        [todayStart],
+      )
+      sessionsToday = Number(st[0]?.n ?? 0)
+    } catch { /* best-effort */ }
 
     return {
       rangeDays,
@@ -214,6 +333,8 @@ export async function getAdminMetrics(rangeDays = 30, now = Date.now()): Promise
       weekDevices: distinct(distinctWeek),
       monthDevices: distinct(distinctMonth),
       series,
+      zones,
+      sessionsToday,
       topPaths,
       referrers,
       utmSources,

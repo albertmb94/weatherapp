@@ -17,20 +17,74 @@ function Kpi({ label, value, sub }: { label: string; value: string | number; sub
   )
 }
 
+/** B-NBT-12: gráfico SVG con matemática de píxeles explícita. La
+ *  versión CSS (alturas % apiladas en flex) colapsaba a 0px según el
+ *  viewport y se veía vacío aunque hubiera datos. */
 function Bars({ series }: { series: { date: string; devices: number; views: number }[] }) {
+  const W = 720
+  const H = 160
+  const PAD = 2
   const max = Math.max(1, ...series.map(s => s.views))
+  const n = Math.max(1, series.length)
+  const slot = W / n
+  const barW = Math.max(3, Math.floor(slot * 0.62))
+
+  const hasAny = series.some(s => s.views > 0)
+  if (!hasAny) {
+    return (
+      <p className="text-xs text-text-muted h-40 mt-2 flex items-center justify-center">
+        Sin visitas registradas en los últimos 30 días.
+      </p>
+    )
+  }
+
   return (
-    <div className="flex items-end gap-[3px] h-40 mt-2" role="img" aria-label="Dispositivos únicos por día (30 días)">
-      {series.map((s) => {
-        const vh = Math.round((s.views / max) * 100)
-        const dh = Math.max(4, Math.round((s.devices / Math.max(1, s.views)) * vh))
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="w-full h-40 mt-2"
+      role="img"
+      aria-label="Dispositivos únicos por día (30 días)"
+    >
+      {series.map((s, i) => {
+        const vh = Math.max(2, Math.round((s.views / max) * (H - PAD)))
+        const dh = Math.max(2, Math.round((s.devices / Math.max(1, s.views)) * vh))
+        const x = i * slot + (slot - barW) / 2
         return (
-          <div key={s.date} className="flex-1 flex flex-col justify-end items-stretch group relative" title={`${s.date}: ${s.devices} dispositivos / ${s.views} vistas`}>
-            <div className="rounded-t bg-accent/25" style={{ height: `${Math.max(vh - dh, 0)}%` }} />
-            <div className="bg-accent" style={{ height: `${dh}%` }} />
-          </div>
+          <g key={s.date}>
+            <title>{`${s.date}: ${s.devices} dispositivos / ${s.views} vistas`}</title>
+            {/* resto de vistas (gris claro) detrás */}
+            <rect x={x} y={H - vh} width={barW} height={vh - dh} rx={1} fill="rgba(148,163,184,0.35)" />
+            {/* dispositivos únicos (acento) delante */}
+            <rect x={x} y={H - dh} width={barW} height={dh} rx={1} fill="var(--accent, #0a7aff)" />
+          </g>
         )
       })}
+    </svg>
+  )
+}
+
+function ZoneTable({ zones }: { zones: { label: string; devices: number; views: number }[] }) {
+  return (
+    <div className="rounded-2xl border border-border bg-surface-raised p-4">
+      <h3 className="text-xs uppercase tracking-widest text-text-tertiary mb-2">Zonas / ciudades</h3>
+      {zones.length === 0 ? (
+        <p className="text-xs text-text-muted">
+          Sin datos de zona todavía — se registran cuando la visita lleva
+          coordenadas en la URL (ciudad seleccionada).
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {zones.map((z) => (
+            <li key={z.label} className="flex items-center gap-2 text-xs">
+              <span className="truncate flex-1 text-text-secondary">📍 {z.label}</span>
+              <span className="tabular-nums font-medium" title={`${z.views} vistas`}>
+                {z.devices.toLocaleString('es-ES')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -76,13 +130,14 @@ export default async function MetricsPage() {
         </p>
       </header>
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Kpi label="Dispositivos hoy" value={m.today.devices} sub={`${m.today.views.toLocaleString('es-ES')} vistas`} />
         <Kpi
           label="Ayer"
           value={m.yesterday.devices}
           sub={delta === 0 ? '= ayer' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)} vs ayer`}
         />
+        <Kpi label="Sesiones hoy" value={m.sessionsToday} sub="un dispositivo ≈ N sesiones" />
         <Kpi label="Únicos 7 días" value={m.weekDevices} />
         <Kpi label="Únicos 30 días" value={m.monthDevices} />
       </section>
@@ -96,7 +151,7 @@ export default async function MetricsPage() {
           </span>
         </div>
         <Bars series={m.series} />
-        <div className="grid grid-cols-2 mt-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 mt-3 gap-3">
           <Table
             title="Nuevos vs recurrentes"
             rows={[
@@ -104,7 +159,8 @@ export default async function MetricsPage() {
               { label: 'Recurrentes (30d)', count: Math.max(0, m.monthDevices - m.series.reduce((a, s) => a + s.newDevices, 0)) },
             ]}
           />
-          <Table title="Páginas más vistas" rows={m.topPaths} />
+          <Table title="Páginas más vistas" rows={m.topPaths} empty="Sin páginas (solo tráfico de API)" />
+          <ZoneTable zones={m.zones} />
         </div>
       </section>
 

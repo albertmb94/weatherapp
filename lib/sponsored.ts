@@ -1,29 +1,32 @@
 ﻿/**
- * B-NBT-13 (2026-08-22): sponsored product matching.
- * Evalua el snapshot contra los triggers del catalogo.
+ * B-NBT-15 (2026-08-22): evaluación de los 3 slots patrocinados.
+ *
+ * Un solo anuncio simultáneo. Se evalúan las condiciones en orden de
+ * prioridad y se devuelve el PRIMER slot que cumpla. Si ninguno cumple,
+ * devuelve null.
+ *
+ *   - slot_uv: el pico de UV del día alcanzó ≥ 4.
+ *   - slot_rain: se espera ≥ 1 mm de precipitación hoy.
+ *   - slot_sunset: faltan ≤ 2 horas para la puesta de sol.
  */
-import type { CurrentSnapshot } from './friendlyForecast'
+export type SponsoredSlotKey = 'slot_uv' | 'slot_rain' | 'slot_sunset'
 
-export interface TriggerMatch {
-  key: string
-  priority: number
+export interface SlotConditions {
+  /** Pico diario de índice UV (del ensemble). */
+  uvPeak: number
+  /** Precipitación total esperada HOY (mm). */
+  maxPrecipMm: number
+  /** Ahora mismo (ms epoch). */
+  nowMs: number
+  /** Timestamp de la puesta de sol de HOY (ms), o null. */
+  sunsetMs: number | null
 }
 
-export function evaluateTriggers(snap: CurrentSnapshot | null): TriggerMatch[] {
-  if (!snap) return []
-  const matches: TriggerMatch[] = []
-  const uv = snap.uvIndex ?? 0
-  const uvPeak = snap.uvIndexPeak ?? 0
-  if (uv >= 2 || uvPeak >= 4) matches.push({ key: 'uv_high', priority: 1 })
-  const rainProb = snap.chanceOfRainPct ?? 0
-  const rainMm = snap.precipitationMm ?? 0
-  if (rainProb >= 55 || rainMm >= 0.3) matches.push({ key: 'rain_24h', priority: 1 })
-  const feel = snap.feelsLikeC ?? snap.temperatureC ?? 0
-  if (feel >= 33) matches.push({ key: 'heat', priority: 2 })
-  const gusts = snap.windGustsKmh ?? 0
-  if (gusts >= 45) matches.push({ key: 'wind_strong', priority: 2 })
-  const temp = snap.temperatureC ?? 99
-  if (temp <= 2) matches.push({ key: 'frost', priority: 1 })
-  if (snap.icon === 'snowy') matches.push({ key: 'snow', priority: 1 })
-  return matches.sort((a, b) => a.priority - b.priority)
+const SUNSET_WINDOW_MS = 2 * 60 * 60 * 1000
+
+export function pickActiveSlot(c: SlotConditions): SponsoredSlotKey | null {
+  if (c.uvPeak >= 4) return 'slot_uv'
+  if (c.maxPrecipMm >= 1) return 'slot_rain'
+  if (c.sunsetMs !== null && c.sunsetMs > c.nowMs && c.sunsetMs - c.nowMs <= SUNSET_WINDOW_MS) return 'slot_sunset'
+  return null
 }

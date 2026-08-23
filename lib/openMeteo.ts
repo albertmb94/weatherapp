@@ -76,6 +76,9 @@ export interface ForecastResult {
    *  them automatically, but exposing the list lets the UI/debug
    *  explain why a model column is all dashes. */
   modelsWithNoData: string[]
+  /** B-NBT-15: timestamp (ms) de la puesta de sol de HOY en la
+   *  ubicación consultada. Null si el provider no la devuelve. */
+  todaySunsetTs: number | null
 }
 
 /** "Live" UV reading sourced from Open-Meteo `current=uv_index`. Comes
@@ -183,6 +186,30 @@ export function rotateDailyToToday(data: ForecastResult | null): (number | null)
 // before forwarding to Open-Meteo.
 const CACHE_KEY_VERSION = 'v4-mixed-models-2026-08-22'
 
+/** B-NBT-15: extrae el timestamp de la puesta de sol de HOY desde el
+ *  bloque daily.sunset del provider (ISO strings en hora local). */
+function parseTodaySunset(daily: Record<string, unknown> | undefined): number | null {
+  if (!daily) return null
+  const arr = daily.sunset
+  if (!Array.isArray(arr)) return null
+  const now = Date.now()
+  for (const s of arr) {
+    if (typeof s !== 'string') continue
+    // Los ISO sin offset son hora local — tratarlos como UTC-fake-local
+    const ts = new Date(s + 'Z').getTime()
+    if (Number.isFinite(ts) && ts >= now - 86_400_000 && ts >= now - 12 * 3600_000) {
+      // Buscar la puesta de sol más cercana a ahora que aún no ha pasado hoy
+      continue
+    }
+  }
+  // Simplemente devolver el primer sunset cuyo día sea hoy o mañana
+  for (const s of arr) {
+    if (typeof s !== 'string') continue
+    const ts = new Date(s + 'Z').getTime()
+    if (Number.isFinite(ts) && ts > now - 12 * 3600_000) return ts
+  }
+  return null
+}
 export async function fetchForecast(
   lat: number,
   lon: number,
@@ -246,7 +273,7 @@ export async function fetchForecast(
     // `CurrentWeatherCard` previously displayed as "total"); `*_max` lets
     // us show the daily peak probability of precipitation without
     // re-deriving it from the hourly stream.
-    daily: 'precipitation_sum,precipitation_hours,precipitation_probability_max',
+    daily: 'precipitation_sum,precipitation_hours,precipitation_probability_max,sunset',
     models: modelIds,
     past_days: pastDays,
     forecast_days: forecastDays.toString(),
@@ -365,6 +392,7 @@ export async function fetchForecast(
     dailyTime,
     dailyPrecipitationHours: aggregateDailySeries(daily, 'precipitation_hours', capped),
     modelsWithNoData,
+    todaySunsetTs: parseTodaySunset(data.daily),
   }
 }
 

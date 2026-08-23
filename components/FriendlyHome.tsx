@@ -24,6 +24,7 @@ import HourlyForecastStrip from './HourlyForecastStrip'
 import AirConditionsGrid from './AirConditionsGrid'
 import AdSlot from './AdSlot'
 import SponsoredSection from './SponsoredSection'
+import { pickActiveSlot, type SponsoredSlotKey } from '@/lib/sponsored'
 
 /**
  * Build a per-hour "mean across contributing models" series for a
@@ -109,6 +110,7 @@ interface FriendlyHomeProps {
   /** Daily accumulated precipitation aligned with `time` by index 0.
    *  Surfaced in the AirConditionsGrid "Total hoy" tile. */
   dailyPrecipitationSum?: (number | null)[]
+  sunsetTs?: number | null
   /** Stations within the user's radius. The friendly cards blend the
    *  ensemble reading at the current hour with the closest fresh
    *  station so the "now" reading carries real-world anchoring. */
@@ -162,6 +164,7 @@ export default function FriendlyHome({
   forecastAgeMs = null,
   ensembleMode = 'wedai',
   dailyPrecipitationSum,
+  sunsetTs,
   stations = [],
   userLat = 0,
   userLon = 0,
@@ -238,6 +241,20 @@ export default function FriendlyHome({
     stations,
   })
 
+  // B-NBT-15: evalúa los 3 slots patrocinados y devuelve el primero
+  // cuyas condiciones se cumplen (sunset > lluvia > UV).
+  const activeSlot = useMemo<SponsoredSlotKey | null>(() => {
+    if (!snapshot) return null
+    const uvPeak = snapshot.uvIndexPeak ?? snapshot.uvIndex ?? 0
+    const precip = dailyPrecipitationSum?.[0] ?? 0
+    return pickActiveSlot({
+      uvPeak,
+      maxPrecipMm: precip,
+      nowMs: currentTickMs || Date.now(),
+      sunsetMs: sunsetTs ?? null,
+    })
+  }, [snapshot, dailyPrecipitationSum, currentTickMs, sunsetTs])
+
   return (
     <div className="space-y-3 md:space-y-4">
       {/* The auto-derived profile chip ("Perfil: costero", "sin
@@ -294,12 +311,9 @@ export default function FriendlyHome({
         grassPollen={grassPollen}
         birchPollen={birchPollen}
       />
-      {/* B-NBT-13: sponsored product contextual al forecast. Solo
-          aparece cuando las condiciones disparan un trigger del
-          catÃ¡logo de afiliados y feature.affiliates estÃ¡ activo. */}
-      <SponsoredSection
-        snapshot={snapshot}
-      />
+      {/* B-NBT-15: sponsored slot — UN anuncio simultáneo. Evalúa
+          UV ≥ 4, lluvia ≥ 1 mm o atardecer próximo (en ese orden). */}
+      <SponsoredSection slotKey={activeSlot} />
       {/* B-NBT-10: reserved ad inventory for free-tier visitors. The
           component self-gates on showAds + feature.ads.adsense. */}
       <AdSlot placement="inline" />

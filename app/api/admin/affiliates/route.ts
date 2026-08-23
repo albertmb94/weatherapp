@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomBytes } from 'crypto'
 import { getCurrentAdmin } from '@/lib/admin/auth'
-import { listAffiliateProducts, ensureAffiliateSchema } from '@/lib/affiliate'
+import {
+  listAffiliateProducts,
+  ensureAffiliateSchema,
+  upsertAffiliateProduct,
+  extractAsinFromAmazonUrl,
+} from '@/lib/affiliate'
 
 export async function GET(_req: NextRequest) {
   const admin = await getCurrentAdmin()
@@ -12,14 +16,22 @@ export async function GET(_req: NextRequest) {
 }
 
 interface CreatePayload {
-  trigger: string
-  locale: 'es' | 'en'
-  asin: string
-  title: string
+  trigger?: string
+  locale?: 'es' | 'en'
+  /** ASIN de 10 caracteres, o una URL completa de producto de Amazon
+   *  (/dp/ASIN) — el ASIN se extrae automáticamente. */
+  asin?: string
+  amazonUrl?: string
+  title?: string
+  description?: string
   priceLabel?: string
   imageUrl?: string
+  enabled?: boolean
 }
 
+/** B-NBT-13: acepta `asin` directo O `amazonUrl` completa (extrae el
+ *  ASIN), y construye el enlace final con el tracking ID configurado en
+ *  feature.affiliates.amazon cuando existe. */
 export async function POST(req: NextRequest) {
   const admin = await getCurrentAdmin()
   if (!admin) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
@@ -29,22 +41,44 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid_body' }, { status: 400 })
   }
-  if (!body.trigger || !body.locale || !body.asin || !body.title) {
+
+  // Resolver ASIN: del campo directo o extrayéndolo de la URL completa.
+  let asin = (body.asin ?? '').trim().toUpperCase()
+  if (!asin && body.amazonUrl) {
+    asin = extractAsinFromAmazonUrl(body.amazonUrl) ?? ''
+    if (!asin) {
+      return NextResponse.json(
+        { ok: false, error: 'invalid_amazon_url', message: 'La URL no contiene un /dp/ASIN válido.' },
+        { status: 400 },
+      )
+    }
+  }
+  if (!body.trigger || !body.locale || !asin || !body.title) {
     return NextResponse.json({ ok: false, error: 'missing_fields' }, { status: 400 })
   }
+
   await ensureAffiliateSchema()
-  const id = randomBytes(8).toString('hex')
-  const now = Date.now()
-  const affiliateUrl = `https://www.amazon.es/dp/${body.asin}`
+
+  // Construir el enlace con tag de afiliado si hay tracking config; si
+  // no, enlace limpio (mejor que rechazar: el admin puede añadir el
+  // tracking_id después y re-guardar).
+  let affiliateUrl = `https://www.amazon.es/dp/${asin}`
   try {
-    const { db } = await import('@/lib/db')
-    await db.execute(
-      `INSERT INTO affiliate_products (id, trigger, asin, locale, title, price_label, image_url, affiliate_url, enabled, sort_order, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)`,
-      [id, body.trigger, body.asin, body.locale, body.title, body.priceLabel ?? null, body.imageUrl ?? null, affiliateUrl, now],
-    )
-    return NextResponse.json({ ok: true, id })
-  } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
-  }
+    const { getAmazonAffiliateConfig, buildAffiliateUrl } = await import('@/lib/affiliate')
+    const cfg = await getAmazonAffiliateConfig()
+    if (cfg) affiliateUrl = buildAffiliateUrl(asin, cfg)
+  } catch { /* fallback a URL limpia */ }
+
+  const id = await upsertAffiliateProduct({
+    trigger: body.trigger,
+    locale: body.locale,
+    asin,
+    title: body.title,
+    description: body.description ?? null,
+    priceLabel: body.priceLabel ?? null,
+    imageUrl: body.imageUrl ?? null,
+    affiliateUrl,
+    enabled: body.enabled ?? true,
+  })
+  return NextResponse.json({ ok: true, id, affiliateUrl })
 }

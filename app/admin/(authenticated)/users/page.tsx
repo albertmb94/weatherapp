@@ -65,6 +65,7 @@ export default function UsersPage() {
               <th className="px-3 py-2 font-medium">Premium</th>
               <th className="px-3 py-2 font-medium">Estaciones</th>
               <th className="px-3 py-2 font-medium">Activas</th>
+              <th className="px-3 py-2 font-medium">Últ. visita</th>
               <th className="px-3 py-2 font-medium"></th>
             </tr>
           </thead>
@@ -75,6 +76,11 @@ export default function UsersPage() {
                 <td className="px-3 py-2">{u.premium ? '✅' : '—'}</td>
                 <td className="px-3 py-2">{u.stations ? '✅' : '—'}</td>
                 <td className="px-3 py-2">{u.active} / {u.totalSubscriptions}</td>
+                <td className="px-3 py-2 tabular-nums">
+                  {u.lastSeen
+                    ? new Date(Number(u.lastSeen)).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+                    : '—'}
+                </td>
                 <td className="px-3 py-2">
                   <Link
                     href={`/admin/users/${encodeURIComponent(u.email)}`}
@@ -87,7 +93,7 @@ export default function UsersPage() {
             ))}
             {(data?.users ?? []).length === 0 && !isLoading && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-text-tertiary">
+                <td colSpan={6} className="px-3 py-6 text-center text-text-tertiary">
                   Sin resultados.
                 </td>
               </tr>

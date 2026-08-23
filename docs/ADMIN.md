@@ -1,4 +1,4 @@
-# Admin & Monetization
+﻿# Admin & Monetization
 
 The `/admin` panel is the single source of truth for every monetization feature. Each feature is gated by a row in the `feature_flags` table and can be enabled/disabled without a redeploy.
 
@@ -8,12 +8,12 @@ These env vars **must** be present in Vercel for the admin to work:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `TURSO_DATABASE_URL` | ✅ | `libsql://your-db.turso.io` |
-| `TURSO_AUTH_TOKEN` | ✅ | Turso token |
-| `ADMIN_EMAIL` | ✅ | First superadmin. Read once at boot → redeploy to change. |
-| `NEXT_PUBLIC_APP_URL` | recommended | Used to build magic-link URLs in emails. Defaults to `req.nextUrl.origin`. |
+| `TURSO_DATABASE_URL` | âœ… | `libsql://your-db.turso.io` |
+| `TURSO_AUTH_TOKEN` | âœ… | Turso token |
+| `ADMIN_EMAIL` | âœ… | First superadmin. Read once at boot â†’ redeploy to change. |
+| `NEXT_PUBLIC_APP_URL` | optional | Base URL for Stripe success/cancel redirects. Defaults to request origin. |
 | `APP_URL` | optional | Fallback for `NEXT_PUBLIC_APP_URL`. |
-| `RESEND_API_KEY` | optional | Without it, magic links are printed to Vercel logs. |
+| `RESEND_API_KEY` | optional | Transactional email sender. |
 | `EMAIL_FROM` | optional | Required for transactional emails. Defaults to `Weather <hello@example.com>`. |
 | `STRIPE_SECRET_KEY` | optional | Required for Premium/Stations checkout. |
 | `STRIPE_WEBHOOK_SECRET` | optional | Required for webhook signature verification. |
@@ -22,47 +22,46 @@ These env vars **must** be present in Vercel for the admin to work:
 ## Architecture
 
 ```
-Browser ── proxy.ts (Edge) ──> App routes (Node.js)
-                    │                │
-                    │                ├─> Admin pages (/admin/*)
-                    │                │     └─> lib/admin/auth.ts (DB session check)
-                    │                │
-                    │                ├─> /api/admin/* (magic link, features, etc.)
-                    │                │
-                    │                └─> /api/track/* (fire-and-forget pageviews)
-                    │
-                    └─> Sets anon-id + session-id cookies on every request
+Browser â”€â”€ proxy.ts (Edge) â”€â”€> App routes (Node.js)
+                    â”‚                â”‚
+                    â”‚                â”œâ”€> Admin pages (/admin/*)
+                    â”‚                â”‚     â””â”€> lib/admin/auth.ts (DB session check)
+                    â”‚                â”‚
+                    â”‚                â”œâ”€> /api/admin/* (login, features, etc.)
+                    â”‚                â”‚
+                    â”‚                â””â”€> /api/track/* (fire-and-forget pageviews)
+                    â”‚
+                    â””â”€> Sets anon-id + session-id cookies on every request
 ```
 
 ## Boot sequence
 
-1. **First request to any admin route** → `lib/admin/auth.ts` ensures `admin_users` + `admin_sessions` tables exist, seeds `ADMIN_EMAIL` as superadmin.
-2. **First request to `/premium` or `/admin/plans`** → `lib/plans.ts` seeds the three default plans (Premium, Stations, Bundle) with `enabled=0`.
-3. **First request to `/admin/emails`** → `lib/emails.ts` seeds the four default templates (welcome, cross-sell, newsletter confirm, receipt).
-4. **First request to `/api/features/[key]`** for any known key → `lib/features.ts` seeds the catalogue row (enabled=0).
-5. **First request to `/api/track/pageview`** → `lib/affiliate.ts` (or the route itself) creates `page_views` + `sessions`.
-6. **First request to `/api/affiliate/redirect`** → `lib/affiliate.ts` creates `affiliate_products` + `affiliate_clicks`.
+1. **First request to any admin route** â†’ `lib/admin/auth.ts` ensures `admin_users` + `admin_sessions` tables exist, seeds `ADMIN_EMAIL` as superadmin.
+2. **First request to `/premium` or `/admin/plans`** â†’ `lib/plans.ts` seeds the three default plans (Premium, Stations, Bundle) with `enabled=0`.
+3. **First request to `/admin/emails`** â†’ `lib/emails.ts` seeds the four default templates (welcome, cross-sell, newsletter confirm, receipt).
+4. **First request to `/api/features/[key]`** for any known key â†’ `lib/features.ts` seeds the catalogue row (enabled=0).
+5. **First request to `/api/track/pageview`** â†’ `lib/affiliate.ts` (or the route itself) creates `page_views` + `sessions`.
+6. **First request to `/api/affiliate/redirect`** â†’ `lib/affiliate.ts` creates `affiliate_products` + `affiliate_clicks`.
 
 All the above use `CREATE TABLE IF NOT EXISTS` so the schema is idempotent and safe to re-run.
 
-## Magic-link auth flow
+## Acceso: usuario y contraseña (B-NBT-11)
 
-1. User goes to `/admin/login`, enters email.
-2. `POST /api/admin/auth/request`:
-   - Per-IP rate limit (5/min).
-   - Validates email is in `admin_users`.
-   - Inserts a `kind='magic_link'` row in `admin_sessions` (TTL 7 days).
-   - Sends email via Resend (if enabled) or logs to console.
-3. User clicks the link → `GET /api/admin/auth/verify?token=...`:
-   - `consumeMagicLink` deletes the magic-link row (one-time use).
-   - Creates a fresh `kind='session'` row.
-   - Sets `wthr_admin` cookie with the new token.
-4. Admin `(authenticated)/layout.tsx` calls `getCurrentAdmin()` — `React.cache` memoises the look-up so multiple server components share one DB query.
+El magic link está DESACTIVADO. El acceso es clásico:
 
-To get the magic link in Vercel without Resend configured, filter logs for:
-```
-[admin] magic link | email=... | url=https://... | resend=skipped
-```
+1. Define en el entorno (antes del primer arranque):
+   - `ADMIN_EMAIL` — identidad del owner en `admin_users`.
+   - Opcional: `ADMIN_USERNAME` (default `admin`) y `ADMIN_PASSWORD`
+     para personalizar las credenciales sembradas.
+2. Si la tabla `admin_credentials` está vacía, el primer arranque siembra:
+   - usuario `admin` · contraseña `Wx-Staging-2026!k7Q` (cámbiala).
+3. Entra en `/admin/login` con usuario y contraseña.
+   - Errores genéricos (no revela si falló usuario o contraseña).
+   - Rate limit 5 intentos/min/IP.
+
+Rotar contraseña: UPDATE en `admin_credentials.password_hash`
+(formato `s1$salt$hash`, scrypt) o borra la fila y reinicia para
+re-sembrar desde `ADMIN_PASSWORD`.
 
 ## Feature flags
 
@@ -91,9 +90,9 @@ All features default to OFF. The admin enables them via `/admin/features`. Each 
 
 ## Performance notes
 
-- `getFeature` uses React `cache` so multiple consumers in the same render share one DB query. **Cross-request caching is not implemented** — every page load triggers 2 DB queries (`feature.cookiebot` + `feature.plausible`) on the root layout. For high-traffic deploys, lift these to `unstable_cache` with a 60s TTL.
+- `getFeature` uses React `cache` so multiple consumers in the same render share one DB query. **Cross-request caching is not implemented** â€” every page load triggers 2 DB queries (`feature.cookiebot` + `feature.plausible`) on the root layout. For high-traffic deploys, lift these to `unstable_cache` with a 60s TTL.
 - `proxy.ts` fires a `fetch` to `/api/track/pageview` on every request. The fetch is `keepalive: true` so it doesn't block response flushing. For very high traffic, batch these writes.
-- Magic links are one-time use (deleted on first verify). TTL is 7 days. Sessions are persistent (TTL 7 days, sliding — the cookie is re-issued on every validate).
+- Magic links are one-time use (deleted on first verify). TTL is 7 days. Sessions are persistent (TTL 7 days, sliding â€” the cookie is re-issued on every validate).
 
 ## Security
 
@@ -109,7 +108,7 @@ All features default to OFF. The admin enables them via `/admin/features`. Each 
 - Web Push not installed. The push handlers will be added when `feature.push` is enabled.
 - Vercel cron runs need to be set up in `vercel.json` (not present yet). The cron endpoints all live under `/api/cron/*` and accept a bearer token.
 - Cross-request caching for `getFeature` (mentioned above).
-- Cohorts, funnels, and anomaly detection — the dashboard stubs are in place but the analytics queries are not built.
+- Cohorts, funnels, and anomaly detection â€” the dashboard stubs are in place but the analytics queries are not built.
 
 ## Local development
 

@@ -206,6 +206,21 @@ export async function findEntitlementTokenByEmail(
   }
 }
 
+/** B-NBT-10: the email behind an entitlement token (or null). Used at
+ *  claim time to link the anonymous device id with a known user. */
+export async function findEmailByToken(token: string): Promise<string | null> {
+  await ensureSchema()
+  try {
+    const rows = await db.select<{ email: string }>(
+      'SELECT email FROM subscriptions WHERE entitlement_token = ? LIMIT 1',
+      [token],
+    )
+    return rows[0]?.email ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function upsertSubscription(input: {
   email: string
   kind: 'premium' | 'stations'

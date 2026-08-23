@@ -27,6 +27,26 @@ export default function FeaturesPage() {
 
   const byKey = new Map<string, FlagRow>(features.map(f => [f.key, f]))
 
+  // B-NBT-10: activation checklist for the Stripe payment path. Warn
+  // BEFORE the admin flips the flags — checkout answers 503 with a
+  // clear reason when any of these is missing.
+  const stripe = byKey.get('feature.stripe')
+  const premiumCheckout = byKey.get('feature.premium_checkout')
+  const stationsCheckout = byKey.get('feature.stations_checkout')
+  const wantsStripe =
+    stripe?.enabled || premiumCheckout?.enabled || stationsCheckout?.enabled
+  const cfg = (stripe?.config ?? {}) as Record<string, unknown>
+  const missingStripe: string[] = []
+  if (typeof cfg.secret_key !== 'string' || !(cfg.secret_key as string).startsWith('sk_')) {
+    missingStripe.push('Secret Key (sk_…)')
+  }
+  if (typeof cfg.webhook_secret !== 'string' || (cfg.webhook_secret as string).length < 8) {
+    missingStripe.push('Webhook Signing Secret')
+  }
+  if (wantsStripe && missingStripe.length > 0) {
+    console.warn('[features] stripe config incomplete', missingStripe)
+  }
+
   // Group by category
   const grouped = FEATURE_CATALOG.reduce<Record<string, typeof FEATURE_CATALOG>>((acc, meta) => {
     if (!acc[meta.category]) acc[meta.category] = []
@@ -44,6 +64,17 @@ export default function FeaturesPage() {
       </header>
 
       {isLoading && <div className="text-sm text-text-tertiary">Cargando…</div>}
+
+      {wantsStripe && missingStripe.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-200"
+        >
+          <strong className="font-semibold">Stripe incompleto.</strong>{' '}
+          Falta configurar: {missingStripe.join(', ')} en «Stripe (pagos)».
+          El checkout responderá 503 hasta que lo rellenes.
+        </div>
+      )}
 
       <div className="space-y-6">
         {Object.entries(grouped).map(([category, items]) => (

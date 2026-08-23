@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -8,6 +8,7 @@ import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
 import { formatAge } from '@/lib/formatAge'
 import { useRefresh } from '@/lib/useRefresh'
+import { useEntitlements } from '@/lib/hooks/useEntitlements'
 import { saveLocalLocation } from '@/lib/localStorageLocations'
 import type { WeatherModel, MetricId } from '@/lib/models'
 
@@ -71,6 +72,8 @@ function ToggleRow({ label, description, active, onClick, accent = 'sky' }: Togg
 }
 
 export default function SettingsPanel(props: SettingsPanelProps) {
+  // B-NBT-10: CSV export is a premium perk.
+  const entitlements = useEntitlements()
   const { locale, toggleLocale } = useLocale()
   const s = STRINGS[locale]
   const { theme, preference, cycleTheme } = useTheme()
@@ -125,12 +128,12 @@ export default function SettingsPanel(props: SettingsPanelProps) {
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
             <div>
               <p className="text-sm text-text-primary font-medium">{s.settingsLanguage}</p>
-              <p className="text-xs text-text-tertiary">{locale === 'en' ? 'English' : 'Español'}</p>
+              <p className="text-xs text-text-tertiary">{locale === 'en' ? 'English' : 'EspaÃ±ol'}</p>
             </div>
             <button
               onClick={toggleLocale}
               className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-text-primary hover:bg-surface-popover transition-colors"
-              title={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
+              title={locale === 'en' ? 'Cambiar a espaÃ±ol' : 'Switch to English'}
               aria-label={locale === 'en' ? 'Switch language' : 'Cambiar idioma'}
             >
               {otherLocale.toUpperCase()}
@@ -146,7 +149,7 @@ export default function SettingsPanel(props: SettingsPanelProps) {
               className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-text-primary hover:bg-surface-popover transition-colors"
               aria-label="Toggle theme"
             >
-              {theme === 'dark' ? '🌙' : '☀️'}
+              {theme === 'dark' ? 'ðŸŒ™' : 'â˜€ï¸'}
             </button>
           </div>
         </div>
@@ -167,7 +170,7 @@ export default function SettingsPanel(props: SettingsPanelProps) {
           {props.marine ? (
             <ToggleRow
               label={s.basic}
-              description={locale === 'en' ? 'Show land metrics in marine mode' : 'Métricas terrestres en modo marino'}
+              description={locale === 'en' ? 'Show land metrics in marine mode' : 'MÃ©tricas terrestres en modo marino'}
               active={props.showBasic}
               onClick={props.onBasicToggle}
               accent="emerald"
@@ -190,6 +193,9 @@ export default function SettingsPanel(props: SettingsPanelProps) {
           </button>
           {props.viewData ? (
             <button
+              
+              disabled={!entitlements?.exportHistorical}
+              title={entitlements?.exportHistorical ? undefined : 'Premium'}
               onClick={() => {
                 const csv = exportForecastCsv(props.displayModels, props.viewData!.time, props.viewData!.series, props.effectiveMaxHours, props.viewData!.utcOffsetSeconds)
                 downloadCsv(`forecast-${props.cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
@@ -255,10 +261,10 @@ export default function SettingsPanel(props: SettingsPanelProps) {
               <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : null}
             {isRefreshing
-              ? (locale === 'en' ? 'Refreshing…' : 'Actualizando…')
+              ? (locale === 'en' ? 'Refreshingâ€¦' : 'Actualizandoâ€¦')
               : lastOutcome?.kind === 'refreshed'
-                ? (locale === 'en' ? `Updated · ${refreshAge || ''}` : `Actualizado · ${refreshAge || ''}`)
-                : `${locale === 'en' ? 'Refresh' : 'Actualizar'} · ${refreshAge || ''}`}
+                ? (locale === 'en' ? `Updated Â· ${refreshAge || ''}` : `Actualizado Â· ${refreshAge || ''}`)
+                : `${locale === 'en' ? 'Refresh' : 'Actualizar'} Â· ${refreshAge || ''}`}
           </button>
         </div>
         {feedback ? (

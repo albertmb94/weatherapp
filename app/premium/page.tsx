@@ -1,9 +1,12 @@
 import Link from 'next/link'
 import { listPlans, PLAN_FEATURES, type Plan } from '@/lib/plans'
 import { getFeature } from '@/lib/features'
+import CheckoutButton from '@/components/CheckoutButton'
 
 export default async function PremiumPage() {
   const flag = await getFeature('feature.premium_checkout')
+  const stripe = await getFeature('feature.stripe')
+  const checkoutEnabled = flag.enabled && stripe.enabled
   const plans = await listPlans(true)
   const premium = plans.find(p => p.id === 'premium')
   const stations = plans.find(p => p.id === 'stations')
@@ -31,7 +34,7 @@ export default async function PremiumPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {premium && <PlanCard plan={premium} accent="emerald" />}
+          {premium && <PlanCard plan={premium} accent="emerald" checkoutEnabled={checkoutEnabled} />}
           {stations && <PlanCard plan={stations} accent="cyan" />}
           {bundle && <PlanCard plan={bundle} accent="violet" />}
         </div>
@@ -59,7 +62,7 @@ export default async function PremiumPage() {
   )
 }
 
-function PlanCard({ plan, accent }: { plan: Plan; accent: 'emerald' | 'cyan' | 'violet' }) {
+function PlanCard({ plan, accent, checkoutEnabled = false }: { plan: Plan; accent: 'emerald' | 'cyan' | 'violet'; checkoutEnabled?: boolean }) {
   const accentMap = {
     emerald: 'border-emerald-500/30 bg-emerald-500/5',
     cyan: 'border-cyan-500/30 bg-cyan-500/5',
@@ -95,12 +98,13 @@ function PlanCard({ plan, accent }: { plan: Plan; accent: 'emerald' | 'cyan' | '
           ) : null
         })}
       </ul>
-      <button
-        disabled
-        className="w-full py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
-      >
-        Próximamente
-      </button>
+      <CheckoutButton
+        kind="premium"
+        endpoint="/api/premium/checkout"
+        label="Contratar Premium (anual)"
+        enabled={checkoutEnabled}
+        disabledLabel="Próximamente"
+      />
     </article>
   )
 }

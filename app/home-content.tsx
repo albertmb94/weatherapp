@@ -36,7 +36,7 @@ import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
 import { formatLocationTime, formatLocationDate, formatUtcOffset, getLocationNow } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
-import { saveLocalLocation } from '@/lib/localStorageLocations'
+import { saveLocalLocation, getLocalSavedLocations } from '@/lib/localStorageLocations'
 import { useRefresh } from '@/lib/useRefresh'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { saveLastView, loadLastView } from '@/lib/lastView'
@@ -45,6 +45,7 @@ import { useHourSlider } from '@/lib/hooks/useHourSlider'
 import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
+import { useEntitlements } from '@/lib/hooks/useEntitlements'
 import { useNearbyStations } from '@/lib/hooks/useNearbyStations'
 import { getLeadTimeBucket } from '@/lib/models'
 import { uiBucketToBacktestBuckets } from '@/lib/backtest/config'
@@ -464,6 +465,13 @@ export default function HomeContent() {
   const selectedView: SidebarSection = urlState.view
   const weekDays: 7 | 14 = urlState.weekDays
   const ensembleMode = urlState.ensembleMode
+  // B-NBT-10: plan cap — the free tier is limited to 7-day summaries
+  // and maxModels comparison columns (see displayActiveModelIds).
+  // While entitlements load we treat the visitor as uncapped so
+  // premium users never see a restricted flash.
+  const entitlements = useEntitlements()
+  const caps = entitlements
+  const effWeekDays: 7 | 14 = Math.min(weekDays, caps.maxDays) === 14 ? 14 : 7
 
   // Keep `range` in sync with `weekDays` so the forecast fetch covers
   // enough hours for the PrÃ³ximos dÃ­as panel regardless of which URL
@@ -471,11 +479,11 @@ export default function HomeContent() {
   // ?range=168&week=14 silently caps PrÃ³ximos dÃ­as to 7 days because the
   // API only returned 7 days of data.
   useEffect(() => {
-    const required = weekDays * 24
+    const required = effWeekDays * 24
     if (urlState.range < required) {
       updateUrl({ range: required })
     }
-  }, [weekDays, urlState.range, updateUrl])
+  }, [effWeekDays, urlState.range, updateUrl])
 
   // Always fetch the maximum days so DailySummary always has enough data
   // for 14 days regardless of range / weekDays state or past_days offset.
@@ -703,9 +711,14 @@ export default function HomeContent() {
     mutationFn: async () => {
       // Cities are private to this device: stored in localStorage only.
       // The old /api/locations endpoint was a public, anonymous list shared
-      // across every visitor â€” a privacy bug for what should be personal
+      // across every visitor — a privacy bug for what should be personal
       // bookmarks. We write locally and announce success on failure only
       // when the local storage write actually succeeded.
+      // B-NBT-10: plan cap on saved cities (free = 1).
+      const existing = getLocalSavedLocations()
+      if (!currentCityId && existing.length >= caps.maxSavedCities) {
+        throw Object.assign(new Error('city_limit'), { code: 'city_limit' })
+      }
       try {
         saveLocalLocation(cityName, position[0], position[1])
         return { ok: true, local: true }
@@ -717,7 +730,13 @@ export default function HomeContent() {
       queryClient.invalidateQueries({ queryKey: ['saved-locations'] })
       setToast(locale === 'en' ? `Saved ${cityName}` : `Guardado ${cityName}`)
     },
-    onError: () => {
+    onError: (err) => {
+      if ((err as { code?: string }).code === 'city_limit') {
+        setToast(locale === 'en'
+          ? `Plan limit: ${caps.maxSavedCities} saved city. Premium removes it.`
+          : `Límite del plan: ${caps.maxSavedCities} ciudad guardada. Premium lo quita.`)
+        return
+      }
       setToast(locale === 'en' ? 'Could not save city' : 'No se pudo guardar la ciudad')
     },
   })
@@ -843,10 +862,25 @@ export default function HomeContent() {
     () => (marine ? MODELS : MODELS.filter(m => m.id !== 'marine_global')),
     [marine]
   )
-  const displayActiveModelIds = useMemo(
-    () => (marine ? selectedModels : selectedModels.filter(id => id !== 'marine_global')),
-    [marine, selectedModels]
-  )
+  // B-NBT-10: plan cap on how many models the visitor may compare. The
+  // allowed set keeps the TOP-WEIGHT models (calibrated priority) and
+  // marine_global is always preserved when the toggle is on.
+  const allowedModelIds = useMemo(() => {
+    const land = MODELS.filter(m => m.id !== 'marine_global')
+    const top = [...land]
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, Math.max(1, caps.maxModels))
+      .map(m => m.id)
+    return new Set(top)
+  }, [caps.maxModels])
+  const displayActiveModelIds = useMemo(() => {
+    let ids = selectedModels
+    if (!marine) ids = ids.filter(id => id !== 'marine_global')
+    const filtered = ids.filter(id => id === 'marine_global' || allowedModelIds.has(id))
+    // Never leave the comparison blank because every selected model fell
+    // outside the plan cap — fall back to the allowed set itself.
+    return filtered.length > 0 ? filtered : [...allowedModelIds].slice(0, caps.maxModels)
+  }, [marine, selectedModels, allowedModelIds, caps.maxModels])
 
   // B-NBT-9b (2026-08-22): both anchors now share ONE implementation
   // (`computeInsightsStartIndex` in lib/insightsTime.ts). Since B-NEW-39
@@ -985,7 +1019,9 @@ export default function HomeContent() {
     safeSelectedHour,
   } = useHourSlider({
     selectedHour,
-    selectedRange,
+    // B-NBT-10: free-tier cap — the slider horizon never exceeds the
+    // plan's maxDays (premium keeps the full 14 days).
+    selectedRange: Math.min(selectedRange, caps.maxDays * 24),
     selectedModels,
     viewTimesLength: viewData?.time.length ?? 0,
   })
@@ -1209,7 +1245,12 @@ export default function HomeContent() {
               </button>
               {viewData && (
                 <button
+                  
+                  // B-NBT-10: CSV export is a premium perk (exportHistorical).
+                  disabled={!caps.exportHistorical}
+                  title={caps.exportHistorical ? undefined : (locale === 'en' ? 'Premium: historical CSV export' : 'Premium: exportacion historica CSV')}
                   onClick={() => {
+                    if (!caps.exportHistorical) return
                     const csv = exportForecastCsv(displayModels, viewData.time, viewData.series, effectiveMaxHours, viewData.utcOffsetSeconds)
                     downloadCsv(`forecast-${cityName}-${new Date().toISOString().slice(0, 10)}.csv`, csv)
                   }}
@@ -1408,7 +1449,7 @@ export default function HomeContent() {
                   onBucketChange={handleBucketChange}
                   ensembleMode={ensembleMode}
                   onEnsembleModeChange={handleEnsembleModeChange}
-                  weekDays={weekDays}
+                  weekDays={effWeekDays}
                   // Round-trip every coord change down to 2 decimals so
                   // a fresh /api/forecast that re-issues the same cell
                   // doesn't reset the user's day filter.
@@ -1508,8 +1549,8 @@ export default function HomeContent() {
                 // B-NBT-9: day clicks must land relative to the sliced
                 // view's origin, not to the current-hour index.
                 baseIndex={startIndex}
-                maxHours={Math.max(startIndex + safeSelectedHour, 0) + weekDays * 24}
-                weekDays={weekDays}
+                maxHours={Math.max(startIndex + safeSelectedHour, 0) + effWeekDays * 24}
+                weekDays={effWeekDays}
                 onWeekDaysChange={(d) => {
                   // WeekForecastPanel needs `range` to cover `weekDays * 24`
                   // hours of forecast data; bumping one without the other

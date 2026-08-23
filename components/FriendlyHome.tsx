@@ -20,6 +20,7 @@ import type { StationObservation } from '@/lib/nowcast'
 import CurrentWeatherCard from './CurrentWeatherCard'
 import HourlyForecastStrip from './HourlyForecastStrip'
 import AirConditionsGrid from './AirConditionsGrid'
+import AdSlot from './AdSlot'
 
 /**
  * Build a per-hour "mean across contributing models" series for a
@@ -286,6 +287,9 @@ export default function FriendlyHome({
         grassPollen={grassPollen}
         birchPollen={birchPollen}
       />
+      {/* B-NBT-10: reserved ad inventory for free-tier visitors. The
+          component self-gates on showAds + feature.ads.adsense. */}
+      <AdSlot placement="inline" />
     </div>
   )
 }

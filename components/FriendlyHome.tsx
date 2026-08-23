@@ -241,19 +241,16 @@ export default function FriendlyHome({
     stations,
   })
 
-  // B-NBT-15: evalúa los 3 slots patrocinados y devuelve el primero
-  // cuyas condiciones se cumplen (sunset > lluvia > UV).
+  // B-NBT-15: evalúa los 3 slots patrocinados según la hora local.
+  //   18:00–04:00 → sunset (siempre)
+  //   04:00–18:00 → lluvia ≥ 1 mm → rain, resto → uv
   const activeSlot = useMemo<SponsoredSlotKey | null>(() => {
     if (!snapshot) return null
-    const uvPeak = snapshot.uvIndexPeak ?? snapshot.uvIndex ?? 0
+    const nowT = time[nowIndex]
+    const localHour = nowT instanceof Date ? nowT.getUTCHours() : 12
     const precip = dailyPrecipitationSum?.[0] ?? 0
-    return pickActiveSlot({
-      uvPeak,
-      maxPrecipMm: precip,
-      nowMs: currentTickMs || Date.now(),
-      sunsetMs: sunsetTs ?? null,
-    })
-  }, [snapshot, dailyPrecipitationSum, currentTickMs, sunsetTs])
+    return pickActiveSlot(localHour, precip)
+  }, [snapshot, time, nowIndex, dailyPrecipitationSum])
 
   return (
     <div className="space-y-3 md:space-y-4">

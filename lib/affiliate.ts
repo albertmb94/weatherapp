@@ -56,9 +56,22 @@ export async function ensureAffiliateSchema(): Promise<boolean> {
         city TEXT,
         ts INTEGER NOT NULL
       )`,
-    )).then(() => db.execute(
+    )    ).then(() => db.execute(
       'CREATE INDEX IF NOT EXISTS idx_affiliate_clicks_ts ON affiliate_clicks(ts)',
-    )).then(() => true)
+    )).then(async () => {
+      // B-NBT-15: migrar triggers viejos a los nuevos slot keys.
+      const renames: [string, string][] = [
+        ['uv_high', 'slot_uv'],
+        ['rain_24h', 'slot_rain'],
+      ]
+      for (const [oldK, newK] of renames) {
+        await db.execute(
+          'UPDATE affiliate_products SET trigger = ? WHERE trigger = ?',
+          [newK, oldK],
+        )
+      }
+      return true
+    }).then(() => true)
       .catch(() => false)
   }).catch(() => false)
   return schemaReady

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { db } from '@/lib/db'
 import { getFeature } from '@/lib/features'
@@ -32,7 +32,7 @@ function isAllowedMarketplace(target: string): boolean {
  *  path from the user and gives us a reliable place to record clicks
  *  per anon_id. */
 export async function GET(req: NextRequest) {
-  // B-NBT-14 fix: el gate feature.affiliates eliminado — los productos
+  // B-NBT-14 fix: el gate feature.affiliates eliminado â€” los productos
   // activos SON el control. Si hay un producto, se sirve; si no, no.
   const program = req.nextUrl.searchParams.get('program') ?? ''
   const productId = req.nextUrl.searchParams.get('product_id') ?? ''
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   }
   // B-NBT-10 fix: this route is excluded from the proxy matcher, so
   // `x-anon-id` never arrives and every click used to log anon_id
-  // 'unknown'. Read the cookie directly instead — and honour the same
+  // 'unknown'. Read the cookie directly instead â€” and honour the same
   // consent gate (a declined visitor still gets redirected; we just
   // don't attribute the click).
   const trackingAllowed = isTrackingAllowed(req.cookies.get(CONSENT_COOKIE)?.value)
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
       [id, anonId, program, productId, trigger, Date.now()],
     )
   } catch {
-    /* non-fatal — a click that fails to log should still redirect */
+    /* non-fatal â€” a click that fails to log should still redirect */
   }
   return NextResponse.redirect(target, { status: 302 })
 }

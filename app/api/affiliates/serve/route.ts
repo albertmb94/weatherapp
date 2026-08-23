@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFeature } from '@/lib/features'
 import { listAffiliateProducts } from '@/lib/affiliate'
 
 /**
  * B-NBT-13: public endpoint that serves ONE sponsored product matching
  * a trigger. Called by SponsoredSection when forecast conditions match.
- * No auth needed (public catalog), but rate-limited.
+ *
+ * B-NBT-14 fix: the `feature.affiliates` gate was REMOVED — it was a
+ * redundant second control surface that confused operators ("added
+ * product but nothing shows"). The PRODUCTS are the control: if you
+ * add an enabled product for a trigger, it serves. Delete or disable
+ * it, and it stops. No separate toggle to forget about.
  */
 export async function GET(req: NextRequest) {
-  const flag = await getFeature('feature.affiliates')
-  if (!flag.enabled) {
-    return NextResponse.json({ ok: true, product: null })
-  }
   const { searchParams } = new URL(req.url)
   const trigger = searchParams.get('trigger') ?? ''
   const locale = searchParams.get('locale') === 'en' ? 'en' : 'es'

@@ -36,7 +36,7 @@ interface SponsoredSectionProps {
  * no ha superado su lÃ­mite diario. Enlaza a /api/affiliate/redirect
  * para registrar el click antes de redirigir a Amazon.
  */
-export default function SponsoredSection({ snapshot, enabled }: SponsoredSectionProps) {
+export default function SponsoredSection({ snapshot }: SponsoredSectionProps) {
   const { locale } = useLocale()
   const [product, setProduct] = useState<SponsoredProduct | null>(null)
   const [matchedTrigger, setMatchedTrigger] = useState<TriggerMatch | null>(null)
@@ -45,7 +45,7 @@ export default function SponsoredSection({ snapshot, enabled }: SponsoredSection
   const best = matches[0] ?? null
 
   useEffect(() => {
-    if (!enabled || !best || !snapshot) {
+    if (!best || !snapshot) {
       setProduct(null)
       setMatchedTrigger(null)
       return
@@ -67,7 +67,7 @@ export default function SponsoredSection({ snapshot, enabled }: SponsoredSection
       })
       .catch(() => {})
     return () => controller.abort()
-  }, [best?.key, locale, enabled, snapshot])
+  }, [best?.key, locale, snapshot])
 
   if (!product || !matchedTrigger) return null
 

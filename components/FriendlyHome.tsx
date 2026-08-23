@@ -173,11 +173,10 @@ export default function FriendlyHome({
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
-  // B-NBT-13: sponsored section — visible cuando feature.affiliates
-  // está activo y el usuario no ha superado su límite diario.
-  const entitlements = useEntitlements()
+  // B-NBT-13: sponsored section — visible para TODOS los usuarios
+  // cuando feature.affiliates está activo (es la vía de monetización
+  // de los usuarios free, no solo de los premium).
   const affiliatesEnabled = useFeatureEnabled('feature.affiliates')
-  const sponsoredEnabled = affiliatesEnabled && entitlements.hasAny
   // BUG FIX: previous build never threaded a wall-clock down to
   // `CurrentWeatherCard`, so the weekday label was always empty in
   // production. Tick once a minute (matches the rest of the app) so
@@ -300,8 +299,7 @@ export default function FriendlyHome({
           catálogo de afiliados y feature.affiliates está activo. */}
       <SponsoredSection
         snapshot={snapshot}
-        entitlements={entitlements}
-        enabled={sponsoredEnabled}
+        enabled={affiliatesEnabled}
       />
       {/* B-NBT-10: reserved ad inventory for free-tier visitors. The
           component self-gates on showAds + feature.ads.adsense. */}

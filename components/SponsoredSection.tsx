@@ -1,10 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
 import { evaluateTriggers, type TriggerMatch } from '@/lib/sponsored'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
-import type { Entitlements } from '@/lib/entitlements'
 
 interface SponsoredProduct {
   id: string
@@ -16,7 +15,7 @@ interface SponsoredProduct {
 }
 
 const TRIGGER_LABELS: Record<string, { es: string; en: string }> = {
-  uv_high: { es: 'Protección solar recomendada', en: 'Sun protection recommended' },
+  uv_high: { es: 'ProtecciÃ³n solar recomendada', en: 'Sun protection recommended' },
   rain_24h: { es: 'Para la lluvia', en: 'For the rain' },
   heat: { es: 'Para el calor', en: 'For the heat' },
   wind_strong: { es: 'Para el viento', en: 'For the wind' },
@@ -26,7 +25,6 @@ const TRIGGER_LABELS: Record<string, { es: string; en: string }> = {
 
 interface SponsoredSectionProps {
   snapshot: CurrentSnapshot | null
-  entitlements: Entitlements
   enabled: boolean
 }
 
@@ -34,11 +32,11 @@ interface SponsoredSectionProps {
  * B-NBT-13 (2026-08-22): sponsored product card contextual al forecast.
  *
  * Aparece SOLO cuando las condiciones actuales disparan un trigger del
- * catálogo de afiliados (UV alto, lluvia esperada, etc.) y el usuario
- * no ha superado su límite diario. Enlaza a /api/affiliate/redirect
+ * catÃ¡logo de afiliados (UV alto, lluvia esperada, etc.) y el usuario
+ * no ha superado su lÃ­mite diario. Enlaza a /api/affiliate/redirect
  * para registrar el click antes de redirigir a Amazon.
  */
-export default function SponsoredSection({ snapshot, entitlements, enabled }: SponsoredSectionProps) {
+export default function SponsoredSection({ snapshot, enabled }: SponsoredSectionProps) {
   const { locale } = useLocale()
   const [product, setProduct] = useState<SponsoredProduct | null>(null)
   const [matchedTrigger, setMatchedTrigger] = useState<TriggerMatch | null>(null)
@@ -82,7 +80,7 @@ export default function SponsoredSection({ snapshot, entitlements, enabled }: Sp
           // eslint-disable-next-line @next/next/no-img-element
           <img src={product.imageUrl} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
         ) : (
-          <div className="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 text-xl">🛒</div>
+          <div className="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 text-xl">ðŸ›’</div>
         )}
         <div className="min-w-0 flex-1">
           <p className="text-[10px] uppercase tracking-widest text-text-muted">{triggerLabel}</p>
@@ -104,7 +102,7 @@ export default function SponsoredSection({ snapshot, entitlements, enabled }: Sp
         </a>
       </div>
       <p className="text-[9px] text-text-muted mt-2 text-right">
-        {locale === 'en' ? 'Affiliate link — supports this project at no cost to you.' : 'Enlace de afiliado — apoya este proyecto sin coste adicional.'}
+        {locale === 'en' ? 'Affiliate link â€” supports this project at no cost to you.' : 'Enlace de afiliado â€” apoya este proyecto sin coste adicional.'}
       </p>
     </section>
   )

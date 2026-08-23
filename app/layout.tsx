@@ -78,6 +78,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Providers>{children}</Providers>
         </ErrorBoundary>
         {!cookiebot.enabled ? <ConsentBanner /> : null}
+        {/* B-NBT-10: red de seguridad SIN React para el banner de
+            consentimiento. Aunque la hidratación muera (chunk viejo en
+            caché del SW, deploy a medias, error de JS), los botones
+            Aceptar/Rechazar siguen funcionando: este delegador en fase
+            de captura persiste la elección y elimina el diálogo. Es
+            idempotente con el handler de React. */}
+        {!cookiebot.enabled ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `document.addEventListener('click',function(e){var t=e.target;if(!t||!t.closest)return;var b=t.closest('[data-consent-choice]');if(!b)return;var v=b.getAttribute('data-consent-choice')==='accept'?'granted':'rejected';try{localStorage.setItem('wthr_consent',v);localStorage.setItem('wthr_consent_ts',String(Date.now()))}catch(_){}document.cookie='wthr_consent='+v+';max-age=31536000;path=/;samesite=lax';var d=b.closest('[data-consent-dialog]');if(d)d.style.display='none'},true);`,
+            }}
+          />
+        ) : null}
         <script
           dangerouslySetInnerHTML={{
             // The SW is served through `/api/sw` so the build-time

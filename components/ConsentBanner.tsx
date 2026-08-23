@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { CONSENT_COOKIE, consentCookieOptions } from '@/lib/trackingConsent'
@@ -9,7 +9,7 @@ import { CONSENT_COOKIE, consentCookieOptions } from '@/lib/trackingConsent'
  *  suppressed in that case to avoid double-prompts.
  *
  *  B-NBT-10: the choice is ALSO mirrored to the `wthr_consent` cookie
- *  so the Edge proxy can honour it server-side — localStorage is
+ *  so the Edge proxy can honour it server-side â€” localStorage is
  *  invisible to middleware, and until this mirror existed the proxy
  *  tracked every visitor pre-consent.
  *
@@ -18,8 +18,8 @@ import { CONSENT_COOKIE, consentCookieOptions } from '@/lib/trackingConsent'
  *  so the static HTML always contained a VISIBLE dialog. On routes
  *  served from the prerender shell that copy ended up ORPHANED outside
  *  the hydrated tree (no React fibers, direct child of <body>) and
- *  completely inert — the user saw a banner they had already dismissed
- *  and could not close. Fix: classic mounted-gate — the banner can only
+ *  completely inert â€” the user saw a banner they had already dismissed
+ *  and could not close. Fix: classic mounted-gate â€” the banner can only
  *  exist after the component mounts on the client, never in server
  *  HTML. */
 function readStoredChoice(): 'accept' | 'reject' | null {
@@ -46,7 +46,7 @@ function writeConsentCookie(value: 'accept' | 'reject'): void {
 
 /** Session-lifetime guard: once answered IN THIS DOCUMENT the banner
  *  must never remount, even if localStorage is blocked (quota/private
- *  mode) — previously that made the banner immortal within the SPA. */
+ *  mode) â€” previously that made the banner immortal within the SPA. */
 let answeredInSession = false
 
 export default function ConsentBanner() {
@@ -63,7 +63,7 @@ export default function ConsentBanner() {
     try {
       localStorage.setItem('wthr_consent', value)
       localStorage.setItem('wthr_consent_ts', String(Date.now()))
-    } catch { /* storage blocked — cookie + session guard still apply */ }
+    } catch { /* storage blocked â€” cookie + session guard still apply */ }
     writeConsentCookie(value)
     setShow(false)
   }
@@ -72,6 +72,7 @@ export default function ConsentBanner() {
 
   return (
     <div
+      data-consent-dialog=""
       role="dialog"
       aria-label="Consentimiento de cookies"
       className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-3 sm:max-w-sm z-[3000] rounded-2xl border border-border bg-surface-raised p-3 shadow-xl"
@@ -82,12 +83,14 @@ export default function ConsentBanner() {
       </p>
       <div className="flex gap-2 mt-2">
         <button
+          data-consent-choice="accept"
           onClick={() => persist('accept')}
           className="flex-1 py-1.5 rounded bg-accent text-white text-xs font-medium"
         >
           Aceptar
         </button>
         <button
+          data-consent-choice="reject"
           onClick={() => persist('reject')}
           className="flex-1 py-1.5 rounded border border-border text-xs text-text-secondary"
         >

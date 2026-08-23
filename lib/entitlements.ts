@@ -97,66 +97,23 @@ export interface Entitlements {
 }
 
 function featuresFor(p: { premium: boolean; stations: boolean }): Entitlements {
-  const premium = p.premium
-  const stations = p.stations
-  if (premium && stations) {
-    return {
-      premium: true,
-      stations: true,
-      hasAny: true,
-      maxModels: 999,
-      maxDays: 14,
-      maxSavedCities: 999,
-      maxAffiliateSectionsPerDay: 3,
-      showAds: false,
-      pushAlerts: true,
-      exportHistorical: true,
-      canViewStationsTab: true,
-    }
-  }
-  if (premium) {
-    return {
-      premium: true,
-      stations: false,
-      hasAny: true,
-      maxModels: 999,
-      maxDays: 14,
-      maxSavedCities: 999,
-      maxAffiliateSectionsPerDay: 2,
-      showAds: false,
-      pushAlerts: true,
-      exportHistorical: true,
-      canViewStationsTab: false,
-    }
-  }
-  if (stations) {
-    // Stations add-on without Premium: stations tab only, everything else free-tier.
-    return {
-      premium: false,
-      stations: true,
-      hasAny: true,
-      maxModels: 7,
-      maxDays: 7,
-      maxSavedCities: 1,
-      maxAffiliateSectionsPerDay: 1,
-      showAds: true,
-      pushAlerts: false,
-      exportHistorical: false,
-      canViewStationsTab: true,
-    }
-  }
+  // B-NBT-14 (2026-08-22): TODOS los usuarios ven TODO — sin restricciones.
+  // El owner pidió explícitamente que nadie tenga limitaciones mientras
+  // la monetización no esté activa. Cuando se quiera reintroducir el
+  // paywall, restaurar las matrices por plan (ver git history).
+  void p
   return {
-    premium: false,
-    stations: false,
-    hasAny: false,
-    maxModels: 7,
-    maxDays: 7,
-    maxSavedCities: 1,
-    maxAffiliateSectionsPerDay: 1,
-    showAds: true,
-    pushAlerts: false,
-    exportHistorical: false,
-    canViewStationsTab: false,
+    premium: true,
+    stations: true,
+    hasAny: true,
+    maxModels: 999,
+    maxDays: 14,
+    maxSavedCities: 999,
+    maxAffiliateSectionsPerDay: 3,
+    showAds: false,
+    pushAlerts: true,
+    exportHistorical: true,
+    canViewStationsTab: true,
   }
 }
 

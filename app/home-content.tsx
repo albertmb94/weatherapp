@@ -45,7 +45,7 @@ import { useHourSlider } from '@/lib/hooks/useHourSlider'
 import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
-import { useEntitlements, UNCAPPED } from '@/lib/hooks/useEntitlements'
+import { useEntitlements } from '@/lib/hooks/useEntitlements'
 import { useNearbyStations } from '@/lib/hooks/useNearbyStations'
 import { getLeadTimeBucket } from '@/lib/models'
 import { uiBucketToBacktestBuckets } from '@/lib/backtest/config'
@@ -470,7 +470,7 @@ export default function HomeContent() {
   // While entitlements load we treat the visitor as uncapped so
   // premium users never see a restricted flash.
   const entitlements = useEntitlements()
-  const caps = entitlements ?? UNCAPPED
+  const caps = entitlements
   const effWeekDays: 7 | 14 = Math.min(weekDays, caps.maxDays) === 14 ? 14 : 7
 
   // Keep `range` in sync with `weekDays` so the forecast fetch covers

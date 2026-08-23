@@ -15,11 +15,18 @@ interface AffiliateProduct {
   asin: string
   locale: string
   title: string
-  priceLabel: string | null
-  imageUrl: string | null
+  description?: string | null
+  priceLabel?: string | null
+  imageUrl?: string | null
   affiliateUrl: string
   enabled: boolean
   sortOrder: number
+}
+
+/** B-NBT-13: extrae ASIN de una URL de Amazon (misma lógica que el API). */
+function extractAsinClient(url: string): string | null {
+  const m = /(?:\/dp\/|\/gp\/product\/)([A-Z0-9]{10})/i.exec(url)
+  return m ? m[1].toUpperCase() : null
 }
 
 const TRIGGERS = [
@@ -66,6 +73,18 @@ function ProductsList() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'affiliate-products'] }),
   })
 
+  // B-NBT-13: toggle enabled sin reenviar el objeto completo.
+  const toggle = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      await fetch(`/api/admin/affiliates/${encodeURIComponent(id)}/toggle`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'affiliate-products'] }),
+  })
+
   return (
     <div className="space-y-4">
       <NewProductForm onCreated={() => queryClient.invalidateQueries({ queryKey: ['admin', 'affiliate-products'] })} />
@@ -77,19 +96,39 @@ function ProductsList() {
               <th className="px-3 py-2 font-medium">Trigger</th>
               <th className="px-3 py-2 font-medium">Locale</th>
               <th className="px-3 py-2 font-medium">ASIN</th>
-              <th className="px-3 py-2 font-medium">Título</th>
+              <th className="px-3 py-2 font-medium">Título / texto</th>
+              <th className="px-3 py-2 font-medium">Enlace</th>
               <th className="px-3 py-2 font-medium">Estado</th>
               <th className="px-3 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {(data?.products ?? []).map(p => (
-              <tr key={p.id} className="border-t border-border hover:bg-surface-raised">
+              <tr key={p.id} className="border-t border-border hover:bg-surface-raised align-top">
                 <td className="px-3 py-2 font-mono text-[10px]">{p.trigger}</td>
                 <td className="px-3 py-2">{p.locale}</td>
                 <td className="px-3 py-2 font-mono text-[10px]">{p.asin}</td>
-                <td className="px-3 py-2 truncate max-w-[200px]">{p.title}</td>
-                <td className="px-3 py-2">{p.enabled ? '✅' : '❌'}</td>
+                <td className="px-3 py-2 max-w-[220px]">
+                  <div className="truncate">{p.title}</div>
+                  {(p as AffiliateProduct & { description?: string }).description ? (
+                    <div className="text-[10px] text-text-muted truncate max-w-[200px]">
+                      {(p as AffiliateProduct & { description?: string }).description}
+                    </div>
+                  ) : null}
+                </td>
+                <td className="px-3 py-2 max-w-[160px]">
+                  <a href={p.affiliateUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline break-all text-[10px]">
+                    {p.affiliateUrl.length > 50 ? p.affiliateUrl.slice(0, 50) + '…' : p.affiliateUrl}
+                  </a>
+                </td>
+                <td className="px-3 py-2">
+                  <button
+                    onClick={() => toggle.mutate({ id: p.id, enabled: !p.enabled })}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${p.enabled ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}
+                  >
+                    {p.enabled ? 'Activo' : 'Inactivo'}
+                  </button>
+                </td>
                 <td className="px-3 py-2">
                   <button onClick={() => del.mutate(p.id)} className="text-red-400 hover:underline">
                     Borrar
@@ -98,7 +137,7 @@ function ProductsList() {
               </tr>
             ))}
             {(data?.products ?? []).length === 0 && !isLoading && (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-text-tertiary">Sin productos.</td></tr>
+              <tr><td colSpan={7} className="px-3 py-6 text-center text-text-tertiary">Sin productos.</td></tr>
             )}
           </tbody>
         </table>
@@ -110,31 +149,57 @@ function ProductsList() {
 function NewProductForm({ onCreated }: { onCreated: () => void }) {
   const [trigger, setTrigger] = useState(TRIGGERS[0].key)
   const [locale, setLocale] = useState<'es' | 'en'>('es')
-  const [asin, setAsin] = useState('')
+  const [amazonUrl, setAmazonUrl] = useState('')
   const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
   const [priceLabel, setPriceLabel] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // B-NBT-13: preview del ASIN extraído de la URL pegada.
+  const asinPreview = extractAsinClient(amazonUrl)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (!amazonUrl.trim() && !asinPreview) {
+      setError('Pega una URL de producto de Amazon.')
+      return
+    }
     setBusy(true)
-    await fetch('/api/admin/affiliates', {
+    setError(null)
+    const r = await fetch('/api/admin/affiliates', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ trigger, locale, asin, title, priceLabel, imageUrl }),
+      body: JSON.stringify({
+        trigger,
+        locale,
+        amazonUrl: amazonUrl.trim(),
+        asin: asinPreview ?? '',
+        title,
+        description: description || undefined,
+        priceLabel: priceLabel || undefined,
+        imageUrl: imageUrl || undefined,
+        enabled: true,
+      }),
     })
-    setAsin('')
+    const data = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok || !data.ok) {
+      setError(data.message ?? data.error ?? 'Error al guardar')
+      return
+    }
+    setAmazonUrl('')
     setTitle('')
+    setDescription('')
     setPriceLabel('')
     setImageUrl('')
-    setBusy(false)
     onCreated()
   }
 
   return (
     <form onSubmit={submit} className="rounded-2xl border border-border bg-surface-raised p-4 space-y-3">
-      <h2 className="text-sm font-semibold">Añadir producto</h2>
+      <h2 className="text-sm font-semibold">Añadir producto Amazon</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <label className="space-y-1">
           <span className="text-[10px] text-text-tertiary block">Trigger</span>
@@ -149,12 +214,21 @@ function NewProductForm({ onCreated }: { onCreated: () => void }) {
             <option value="en">en</option>
           </select>
         </label>
-        <label className="space-y-1">
-          <span className="text-[10px] text-text-tertiary block">ASIN</span>
-          <input value={asin} onChange={e => setAsin(e.target.value)} required className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs font-mono" />
+        <label className="space-y-1 sm:col-span-3">
+          <span className="text-[10px] text-text-tertiary block">URL del producto en Amazon (pega la URL completa)</span>
+          <input
+            value={amazonUrl}
+            onChange={e => setAmazonUrl(e.target.value)}
+            required
+            placeholder="https://www.amazon.es/Estacion-Meteorologica-Interior/dp/B0XXXXXXXX"
+            className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs font-mono"
+          />
+          {asinPreview && (
+            <span className="text-[10px] text-emerald-400 block">ASIN detectado: {asinPreview}</span>
+          )}
         </label>
         <label className="space-y-1 sm:col-span-2">
-          <span className="text-[10px] text-text-tertiary block">Título</span>
+          <span className="text-[10px] text-text-tertiary block">Título (texto visible)</span>
           <input value={title} onChange={e => setTitle(e.target.value)} required className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs" />
         </label>
         <label className="space-y-1">
@@ -162,11 +236,16 @@ function NewProductForm({ onCreated }: { onCreated: () => void }) {
           <input value={priceLabel} onChange={e => setPriceLabel(e.target.value)} placeholder="12,99 €" className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs" />
         </label>
         <label className="space-y-1 sm:col-span-3">
+          <span className="text-[10px] text-text-tertiary block">Descripción / texto promocional (opcional)</span>
+          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Ej: La estación más vendida para uso en interior con pantalla LCD…" className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs resize-y" />
+        </label>
+        <label className="space-y-1 sm:col-span-3">
           <span className="text-[10px] text-text-tertiary block">URL de imagen (opcional)</span>
           <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://…" className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs" />
         </label>
       </div>
-      <button type="submit" disabled={busy} className="px-3 py-1.5 rounded bg-accent text-white text-xs font-medium disabled:opacity-50">
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      <button type="submit" disabled={busy || !asinPreview} className="px-3 py-1.5 rounded bg-accent text-white text-xs font-medium disabled:opacity-50">
         {busy ? 'Guardando…' : 'Añadir'}
       </button>
     </form>

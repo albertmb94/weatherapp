@@ -5,13 +5,14 @@ import type { Entitlements } from '@/lib/entitlements'
 import { FREE_ENTITLEMENTS } from '@/lib/entitlements'
 
 /**
- * B-NBT-10: resolve the visitor's plan limits client-side.
+ * B-NBT-11: resolve the visitor's plan limits client-side.
  *
- * - While loading (or on error) we return `undefined` so callers can
- *   decide their own fallback — most UI wants NO CAP until proven,
- *   otherwise premium users would see a free-tier flash on every load.
- * - Once loaded, callers MUST clamp through these values (maxModels /
- *   maxDays / maxSavedCities / exportHistorical / showAds).
+ * B-NBT-12 FIX (fail-closed): mientras carga o si el endpoint falla,
+ * devuelve FREE_ENTITLEMENTS — nunca UNCAPPED. Así los usuarios free
+ * ven SIEMPRE las limitaciones de su plan por defecto (7 días,
+ * 7 modelos, 1 ciudad), y premium se desbloquea en cuanto la cookie
+ * de entitlement resuelve. Es la semántica que el owner pidió
+ * explícitamente: "por defecto limitado".
  */
 
 interface EntitlementsResponse {
@@ -20,7 +21,7 @@ interface EntitlementsResponse {
   entitlements: Entitlements
 }
 
-export function useEntitlements(): Entitlements | undefined {
+export function useEntitlements(): Entitlements {
   const { data } = useQuery<EntitlementsResponse>({
     queryKey: ['entitlements'],
     queryFn: async ({ signal }) => {
@@ -31,19 +32,8 @@ export function useEntitlements(): Entitlements | undefined {
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: true,
+    // Si el endpoint falla, mantener el último valor válido (o free).
+    retry: 1,
   })
-  return data?.entitlements
-}
-
-/** Convenience: caps with a generous default so premium users never see
- *  a restricted state before hydration completes. */
-export const UNCAPPED: Entitlements = {
-  ...FREE_ENTITLEMENTS,
-  premium: true,
-  hasAny: true,
-  maxModels: 999,
-  maxDays: 14,
-  maxSavedCities: 999,
-  showAds: false,
-  exportHistorical: true,
+  return data?.entitlements ?? FREE_ENTITLEMENTS
 }

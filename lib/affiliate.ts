@@ -1,11 +1,12 @@
-/**
- * Affiliate system — sponsored product blocks contextualised by the
+﻿/**
+ * Affiliate system â€” sponsored product blocks contextualised by the
  * current forecast. Disabled by default; the admin flips
  * `feature.affiliates` (and `feature.affiliates.amazon`) on once the
  * Amazon Associates account is approved and the tracking ID is pasted
  * in the feature config.
  */
 
+import { randomBytes } from 'crypto'
 import { db } from './db'
 import { getFeature } from './features'
 
@@ -43,6 +44,9 @@ export async function ensureAffiliateSchema(): Promise<boolean> {
     ).then(() => db.execute(
       'CREATE INDEX IF NOT EXISTS idx_aff_products_trigger ON affiliate_products(trigger, locale, enabled)',
     )).then(() => db.execute(
+      // B-NBT-13: columna de texto libre por producto (self-healing)
+      'ALTER TABLE affiliate_products ADD COLUMN description TEXT',
+    ).catch(() => {/* ya existe */})).then(() => db.execute(
       `CREATE TABLE IF NOT EXISTS affiliate_clicks (
         id TEXT PRIMARY KEY,
         anon_id TEXT NOT NULL,
@@ -66,6 +70,7 @@ export interface AffiliateProduct {
   asin: string
   locale: 'es' | 'en'
   title: string
+  description: string | null
   priceLabel: string | null
   imageUrl: string | null
   affiliateUrl: string
@@ -79,6 +84,7 @@ interface AffiliateRow {
   asin: string
   locale: string
   title: string
+  description?: string | null
   price_label: string | null
   image_url: string | null
   affiliate_url: string
@@ -107,7 +113,7 @@ export async function listAffiliateProducts(opts: {
   }
   try {
     const rows = await db.select<AffiliateRow>(
-      `SELECT id, trigger, asin, locale, title, price_label, image_url, affiliate_url, enabled, sort_order
+      `SELECT id, trigger, asin, locale, title, description, price_label, image_url, affiliate_url, enabled, sort_order
        FROM affiliate_products
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
        ORDER BY sort_order ASC, id ASC`,
@@ -119,6 +125,7 @@ export async function listAffiliateProducts(opts: {
       asin: r.asin,
       locale: r.locale as 'es' | 'en',
       title: r.title,
+      description: r.description ?? null,
       priceLabel: r.price_label,
       imageUrl: r.image_url,
       affiliateUrl: r.affiliate_url,
@@ -155,6 +162,59 @@ export async function pickProducts(opts: {
 export interface AffiliateConfig {
   trackingId: string
   marketplace: string
+}
+
+/** B-NBT-13: extrae el ASIN de una URL de producto de Amazon
+ *  (formatos /dp/ASIN, /gp/product/ASIN). Null si no coincide. */
+export function extractAsinFromAmazonUrl(url: string): string | null {
+  const m = /(?:\/dp\/|\/gp\/product\/)([A-Z0-9]{10})/i.exec(url)
+  return m ? m[1].toUpperCase() : null
+}
+
+export interface AffiliateProductUpsert {
+  id?: string
+  trigger: string
+  locale: 'es' | 'en'
+  asin: string
+  title: string
+  description?: string | null
+  priceLabel?: string | null
+  imageUrl?: string | null
+  affiliateUrl: string
+  enabled: boolean
+}
+
+/** B-NBT-13: create/update atómico del catálogo de afiliados. */
+export async function upsertAffiliateProduct(p: AffiliateProductUpsert): Promise<string> {
+  await ensureAffiliateSchema()
+  const id = p.id ?? randomId()
+  const now = Date.now()
+  await db.execute(
+    `INSERT INTO affiliate_products
+       (id, trigger, asin, locale, title, description, price_label, image_url, affiliate_url, enabled, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       trigger = excluded.trigger,
+       asin = excluded.asin,
+       locale = excluded.locale,
+       title = excluded.title,
+       description = excluded.description,
+       price_label = excluded.price_label,
+       image_url = excluded.image_url,
+       affiliate_url = excluded.affiliate_url,
+       enabled = excluded.enabled,
+       updated_at = excluded.updated_at`,
+    [id, p.trigger, p.asin, p.locale, p.title, p.description ?? null, p.priceLabel ?? null,
+     p.imageUrl ?? null, p.affiliateUrl, p.enabled ? 1 : 0, now, now],
+  )
+  return id
+}
+
+function randomId(): string {
+  const bytes = randomBytes(8)
+  let out = ''
+  for (const b of bytes) out += b.toString(16).padStart(2, '0')
+  return out
 }
 
 export async function getAmazonAffiliateConfig(): Promise<AffiliateConfig | null> {

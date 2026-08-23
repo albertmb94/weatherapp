@@ -11,6 +11,8 @@ import {
 } from '@/lib/friendlyForecast'
 import { resolveActiveModels, weightsFor } from '@/lib/ensemble/central'
 import { useNowcast } from '@/lib/hooks/useNowcast'
+import { useEntitlements } from '@/lib/hooks/useEntitlements'
+import { useFeatureEnabled } from '@/lib/hooks/useFeature'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 // ProfileChip is no longer rendered inline (the user asked us
 // to drop the "Perfil: costero" chip from the home view). The
@@ -21,6 +23,7 @@ import CurrentWeatherCard from './CurrentWeatherCard'
 import HourlyForecastStrip from './HourlyForecastStrip'
 import AirConditionsGrid from './AirConditionsGrid'
 import AdSlot from './AdSlot'
+import SponsoredSection from './SponsoredSection'
 
 /**
  * Build a per-hour "mean across contributing models" series for a
@@ -170,6 +173,11 @@ export default function FriendlyHome({
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
+  // B-NBT-13: sponsored section — visible cuando feature.affiliates
+  // está activo y el usuario no ha superado su límite diario.
+  const entitlements = useEntitlements()
+  const affiliatesEnabled = useFeatureEnabled('feature.affiliates')
+  const sponsoredEnabled = affiliatesEnabled && entitlements.hasAny
   // BUG FIX: previous build never threaded a wall-clock down to
   // `CurrentWeatherCard`, so the weekday label was always empty in
   // production. Tick once a minute (matches the rest of the app) so
@@ -286,6 +294,14 @@ export default function FriendlyHome({
         // the 6th toggle tile (grass <-> birch).
         grassPollen={grassPollen}
         birchPollen={birchPollen}
+      />
+      {/* B-NBT-13: sponsored product contextual al forecast. Solo
+          aparece cuando las condiciones disparan un trigger del
+          catálogo de afiliados y feature.affiliates está activo. */}
+      <SponsoredSection
+        snapshot={snapshot}
+        entitlements={entitlements}
+        enabled={sponsoredEnabled}
       />
       {/* B-NBT-10: reserved ad inventory for free-tier visitors. The
           component self-gates on showAds + feature.ads.adsense. */}

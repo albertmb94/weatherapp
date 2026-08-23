@@ -95,6 +95,7 @@ function sliceForecast(data: ForecastResult, startIndex: number): ForecastResult
     dailyPrecipitationProbabilityMax: sliceArr(data.dailyPrecipitationProbabilityMax),
     dailyPrecipitationHours: sliceArr(data.dailyPrecipitationHours),
     modelsWithNoData: data.modelsWithNoData,
+    todaySunsetTs: data.todaySunsetTs,
   }
 }
 
@@ -1356,6 +1357,7 @@ export default function HomeContent() {
                   fetchedAt={data?.fetchedAt ?? null}
                   forecastAgeMs={forecastAgeMs}
                   dailyPrecipitationSum={dailyPrecipitationSumTodayFirst}
+        sunsetTs={effectiveData?.todaySunsetTs ?? null}
                   userLat={position[0]}
                   userLon={position[1]}
                   // BUG FIX: previously the parent never passed

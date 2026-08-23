@@ -299,7 +299,6 @@ export default function FriendlyHome({
           catÃ¡logo de afiliados y feature.affiliates estÃ¡ activo. */}
       <SponsoredSection
         snapshot={snapshot}
-        enabled={affiliatesEnabled}
       />
       {/* B-NBT-10: reserved ad inventory for free-tier visitors. The
           component self-gates on showAds + feature.ads.adsense. */}

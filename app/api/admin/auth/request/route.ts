@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { isAdmin, requestMagicLink } from '@/lib/admin/auth'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { isAdmin, requestMagicLink, directAdminToken, setAdminCookie } from '@/lib/admin/auth'
 import { sendEmail } from '@/lib/emails'
 import { rateLimit } from '@/lib/rateLimit'
 
@@ -22,6 +22,18 @@ export async function POST(req: NextRequest) {
   if (!email || !email.includes('@')) {
     return NextResponse.json({ ok: false, error: 'invalid_email' }, { status: 400 })
   }
+  // ⚠️ TEMPORARY BYPASS (B-NBT-10, petición del owner): mientras el
+  // magic link está desactivado, el superadmin entra directo si el email
+  // coincide EXACTAMENTE con process.env.ADMIN_EMAIL. Sin dependencia de
+  // DB (isAdmin/tablas): el entorno es la única fuente de verdad.
+  // Cuando se reactive los magic links, ELIMINAR este bloque completo.
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
+  const directToken = directAdminToken()
+  if (adminEmail && email === adminEmail && directToken) {
+    await setAdminCookie(directToken)
+    return NextResponse.json({ ok: true, direct: true })
+  }
+
   const exists = await isAdmin(email)
   if (!exists) {
     // Don't reveal whether the email is admin — respond as if it were sent.
@@ -36,8 +48,8 @@ export async function POST(req: NextRequest) {
   // Attempt to send via Resend (no-op if feature disabled).
   const send = await sendEmail({
     to: email,
-    subject: 'Weather Admin · Magic link',
-    html: `<p>Hola,</p><p>Haz clic para acceder al panel de administración:</p><p><a href="${verifyUrl}" style="background:#0a7aff;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Acceder</a></p><p>Si no has solicitado este enlace puedes ignorarlo.</p>`,
+    subject: 'Weather Admin Â· Magic link',
+    html: `<p>Hola,</p><p>Haz clic para acceder al panel de administraciÃ³n:</p><p><a href="${verifyUrl}" style="background:#0a7aff;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Acceder</a></p><p>Si no has solicitado este enlace puedes ignorarlo.</p>`,
     plainText: `Accede al panel de admin: ${verifyUrl}`,
     metadata: { kind: 'admin_magic_link' },
   })
@@ -51,6 +63,7 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line no-console
     console.log(`[admin] magic link | email=${email} | url=${verifyUrl} | resend=${reason}`)
   }
+
 
   return NextResponse.json({ ok: true, sent: true, delivered: send.ok })
 }

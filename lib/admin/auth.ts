@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto'
+﻿import { createHmac, randomBytes } from 'crypto'
 import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
@@ -40,8 +40,16 @@ async function ensureSchema(): Promise<boolean> {
         )
       }
       return true
-    }).catch(() => false)
-  }).catch(() => false)
+    })
+  }).then((ok) => ok).catch((err) => {
+    console.error('[admin] ensureSchema failed:', err instanceof Error ? err.message : err)
+    // B-NBT-10 fix: NO cachear el fallo permanentemente. Si el primer
+    // intento chocó con un lock transitorio (otro proceso escribiendo
+    // local.db), el proceso entero quedaba muerto para admin para
+    // siempre. Reset para permitir reintento en la siguiente llamada.
+    schemaReady = null
+    return false
+  })
   return schemaReady
 }
 
@@ -50,6 +58,19 @@ function generateToken(): string {
 }
 
 export { generateToken }
+/**
+ * B-NBT-10 — TEMPORARY direct-admin token (magic link desactivado por
+ * petición del owner). Deriva un token determinista de ADMIN_EMAIL para
+ * que el acceso al panel no dependa de la tabla admin_sessions (ni del
+ * estado de la DB). Nivel de confianza: equivalente a "quien conozca el
+ * ADMIN_EMAIL entra" — eliminar junto con el bypass del request route
+ * cuando se reactive los magic links.
+ */
+export function directAdminToken(): string | null {
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
+  if (!adminEmail) return null
+  return createHmac('sha256', `wthr-direct-admin::${adminEmail}`).update('direct-session').digest('hex')
+}
 
 export async function isAdmin(email: string): Promise<boolean> {
   if (!(await ensureSchema())) return false
@@ -102,7 +123,16 @@ export async function consumeMagicLink(token: string): Promise<string | null> {
 }
 
 export async function validateAdminSession(token: string): Promise<string | null> {
-  if (!(await ensureSchema())) return null
+  // B-NBT-10 TEMPORARY: el token del bypass valida sin DB.
+  const dt = directAdminToken()
+  if (dt && token === dt) {
+    return process.env.ADMIN_EMAIL!.toLowerCase().trim()
+  }
+  const schemaOk = await ensureSchema()
+  if (!schemaOk) {
+    console.log('[validateAdminSession] ensureSchema FALSE')
+    return null
+  }
   const rows = await db.select<{ email: string; expires_at: number }>(
     'SELECT email, expires_at FROM admin_sessions WHERE token = ?',
     [token],
@@ -124,6 +154,11 @@ export const getCurrentAdmin = cache(async (): Promise<string | null> => {
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
   if (!token) return null
+  // B-NBT-10 TEMPORARY: token determinista del bypass (sin DB).
+  const directToken = directAdminToken()
+  if (directToken && token === directToken) {
+    return process.env.ADMIN_EMAIL!.toLowerCase().trim()
+  }
   return validateAdminSession(token)
 })
 
@@ -134,10 +169,17 @@ export async function destroyAdminSession(token: string): Promise<void> {
 
 export async function setAdminCookie(token: string): Promise<void> {
   const cookieStore = await cookies()
+  // B-NBT-10 fix: con el opt-in self-hosted (DB_ALLOW_FILE_IN_PRODUCTION)
+  // el despliegue corre sobre HTTP sin TLS; una cookie Secure no se
+  // enviaría jamás y el login rebotaría al formulario. En Vercel (sin el
+  // flag) se mantiene Secure=true.
+  const selfHostedHttp =
+    process.env.DB_ALLOW_FILE_IN_PRODUCTION === '1' ||
+    process.env.DB_ALLOW_FILE_IN_PRODUCTION === 'true'
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' && !selfHostedHttp,
     maxAge: SESSION_TTL_MS / 1000,
     path: '/',
   })

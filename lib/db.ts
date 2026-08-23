@@ -1,4 +1,4 @@
-import { createClient, type Client, type InValue } from '@libsql/client'
+﻿import { createClient, type Client, type InValue } from '@libsql/client'
 
 let cached: Client | null = null
 let initialized = false
@@ -23,7 +23,7 @@ export interface DbAdapter {
   ): Promise<T[]>
   /**
    * Run a write (INSERT/UPDATE/DELETE/CREATE). Returns true on success,
-   * false (without throwing) when the DB is unavailable — the caller can
+   * false (without throwing) when the DB is unavailable â€” the caller can
    * then fall back to the in-memory store.
    */
   execute(sql: string, args?: InValue[]): Promise<boolean>
@@ -34,9 +34,16 @@ function getUnderlyingClient(): Client | null {
   initialized = true
   const tursoUrl = process.env.TURSO_DATABASE_URL
   const tursoToken = process.env.TURSO_AUTH_TOKEN
-  if (process.env.NODE_ENV === 'production' && !tursoUrl) {
-    // No Turso configured in production: Vercel functions are read-only so
-    // we can't fall back to file:local.db. Defer to the in-memory adapters.
+  // B-NBT-10 fix: opt-in para despliegues self-hosted en modo producción
+  // SIN Turso (`next start` en un VPS/staging). Sin este flag,
+  // NODE_ENV=production anulaba el cliente y TODO el admin quedaba en
+  // no-op silencioso (isAdmin siempre false, tablas nunca creadas).
+  const allowFileInProd =
+    process.env.DB_ALLOW_FILE_IN_PRODUCTION === '1' ||
+    process.env.DB_ALLOW_FILE_IN_PRODUCTION === 'true'
+  if (process.env.NODE_ENV === 'production' && !tursoUrl && !allowFileInProd) {
+    // Vercel functions are read-only so we can't fall back to
+    // file:local.db there. Defer to the in-memory adapters.
     cached = null
     return cached
   }
@@ -69,7 +76,8 @@ export const db: DbAdapter = {
     try {
       await client.execute('SELECT 1')
       available = true
-    } catch {
+    } catch (err) {
+      console.error('[db] ensure failed:', err instanceof Error ? err.message : err)
       available = false
     }
     return available

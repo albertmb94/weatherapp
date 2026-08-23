@@ -1,4 +1,4 @@
-/**
+﻿/**
  * B-NBT-10 (2026-08-22): analytics aggregation layer for the admin
  * metrics dashboard.
  *
@@ -43,13 +43,14 @@ export async function ensureAnalyticsSchema(): Promise<boolean> {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_vi_email ON visitor_identity(email)')
       return true
     } catch {
+      schemaReady = null
       return false
     }
-  }).catch(() => false)
+  }).catch(() => { schemaReady = null; return false })
   return schemaReady
 }
 
-/** Called on every accepted pageview — cheap upsert keeping last_seen
+/** Called on every accepted pageview â€” cheap upsert keeping last_seen
  *  fresh. Failures are non-fatal by design. */
 export async function touchVisitorIdentity(anonId: string, now = Date.now()): Promise<void> {
   try {

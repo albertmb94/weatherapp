@@ -1,5 +1,5 @@
-/**
- * Feature flags — single source of truth for which monetisation features
+﻿/**
+ * Feature flags â€” single source of truth for which monetisation features
  * are currently active. Every feature reads through `getFeature()` so
  * the admin panel can toggle each one without a redeploy.
  *
@@ -21,7 +21,7 @@ export interface FeatureFlag {
  *  same render don't hit the DB repeatedly.
  *
  *  B-NBT-9c (2026-08-22): `revalidateFeature()` used to write into a
- *  module-level Map that getFeature() merely "touched" — reading a Map
+ *  module-level Map that getFeature() merely "touched" â€” reading a Map
  *  invalidates nothing, and React's cache() is per-request anyway, so
  *  both halves of the machinery were no-ops dressed up as an
  *  invalidation mechanism. Removed: admin writes take effect on the
@@ -51,7 +51,7 @@ async function loadFeature(key: string): Promise<FeatureFlag> {
 }
 
 /** React cache() so per-request dedupe works in server components.
- *  Admin toggles take effect on the next request automatically — there
+ *  Admin toggles take effect on the next request automatically â€” there
  *  is no cross-request cache to bust (see B-NBT-9c note above). */
 export const getFeature = cache(async (key: string): Promise<FeatureFlag> => {
   return loadFeature(key)
@@ -106,14 +106,14 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.PREMIUM_CHECKOUT,
     label: 'Checkout Premium',
-    description: 'Muestra el botón de suscripción a Premium y procesa pagos.',
+    description: 'Muestra el botÃ³n de suscripciÃ³n a Premium y procesa pagos.',
     category: 'monetization',
     configSchema: [],
   },
   {
     key: FEATURE_KEYS.STATIONS_CHECKOUT,
     label: 'Checkout Estaciones (add-on)',
-    description: 'Muestra el botón de suscripción al add-on Estaciones.',
+    description: 'Muestra el botÃ³n de suscripciÃ³n al add-on Estaciones.',
     category: 'monetization',
   },
   {
@@ -129,7 +129,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     category: 'monetization',
     configSchema: [
       { key: 'tracking_id', label: 'Amazon Tracking ID', type: 'string' },
-      { key: 'marketplace', label: 'Marketplace (amazon.es, amazon.com…)', type: 'string' },
+      { key: 'marketplace', label: 'Marketplace (amazon.es, amazon.comâ€¦)', type: 'string' },
     ],
   },
   {
@@ -138,7 +138,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     description: 'Muestra bloques de AdSense en los slots definidos.',
     category: 'monetization',
     configSchema: [
-      { key: 'client_id', label: 'AdSense Client ID (ca-pub-…)', type: 'string' },
+      { key: 'client_id', label: 'AdSense Client ID (ca-pub-â€¦)', type: 'string' },
       { key: 'slot_sidebar', label: 'Ad Slot ID (sidebar)', type: 'string' },
       { key: 'slot_feed', label: 'Ad Slot ID (in-feed)', type: 'string' },
     ],
@@ -146,7 +146,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.ADS_ETHICALADS,
     label: 'EthicalAds',
-    description: 'Muestra bloques de EthicalAds (alternativa ética a AdSense).',
+    description: 'Muestra bloques de EthicalAds (alternativa Ã©tica a AdSense).',
     category: 'monetization',
     configSchema: [
       { key: 'publisher_id', label: 'Publisher ID', type: 'string' },
@@ -185,22 +185,22 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     configSchema: [
       { key: 'vapid_public_key', label: 'VAPID Public Key', type: 'string' },
       { key: 'vapid_private_key', label: 'VAPID Private Key', type: 'string', secret: true },
-      { key: 'vapid_subject', label: 'VAPID Subject (mailto:…)', type: 'string' },
+      { key: 'vapid_subject', label: 'VAPID Subject (mailto:â€¦)', type: 'string' },
     ],
   },
   {
     key: FEATURE_KEYS.KOFI,
     label: 'Ko-fi (donaciones)',
-    description: 'Muestra el botón de donación Ko-fi en el footer.',
+    description: 'Muestra el botÃ³n de donaciÃ³n Ko-fi en el footer.',
     category: 'monetization',
     configSchema: [
-      { key: 'url', label: 'URL de tu página Ko-fi', type: 'url' },
+      { key: 'url', label: 'URL de tu pÃ¡gina Ko-fi', type: 'url' },
     ],
   },
   {
     key: FEATURE_KEYS.GITHUB_SPONSORS,
     label: 'GitHub Sponsors',
-    description: 'Muestra el botón de GitHub Sponsors.',
+    description: 'Muestra el botÃ³n de GitHub Sponsors.',
     category: 'monetization',
     configSchema: [
       { key: 'url', label: 'URL de tu GitHub Sponsors', type: 'url' },
@@ -209,7 +209,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.STRIPE,
     label: 'Stripe (pagos)',
-    description: 'Procesa pagos a través de Stripe. Activar antes que Premium/Estaciones checkout.',
+    description: 'Procesa pagos a travÃ©s de Stripe. Activar antes que Premium/Estaciones checkout.',
     category: 'infrastructure',
     configSchema: [
       { key: 'secret_key', label: 'Stripe Secret Key', type: 'string', secret: true },
@@ -220,17 +220,17 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.RESEND,
     label: 'Resend (emails)',
-    description: 'Envía emails transaccionales (magic link admin, receipts, etc.).',
+    description: 'EnvÃ­a emails transaccionales (magic link admin, receipts, etc.).',
     category: 'infrastructure',
     configSchema: [
       { key: 'api_key', label: 'Resend API Key', type: 'string', secret: true },
-      { key: 'from_email', label: 'Email From (Weather <hola@…>)', type: 'string' },
+      { key: 'from_email', label: 'Email From (Weather <hola@â€¦>)', type: 'string' },
     ],
   },
   {
     key: FEATURE_KEYS.BUTTONDOWN,
     label: 'Buttondown (newsletter)',
-    description: 'Gestiona el envío de la newsletter.',
+    description: 'Gestiona el envÃ­o de la newsletter.',
     category: 'infrastructure',
     configSchema: [
       { key: 'api_key', label: 'Buttondown API Key', type: 'string', secret: true },
@@ -238,20 +238,20 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   },
   {
     key: FEATURE_KEYS.METRICS_DASHBOARD,
-    label: 'Dashboard de métricas',
-    description: 'Páginas /admin/metrics (tráfico, cohorts, funnels).',
+    label: 'Dashboard de mÃ©tricas',
+    description: 'PÃ¡ginas /admin/metrics (trÃ¡fico, cohorts, funnels).',
     category: 'analytics',
   },
   {
     key: FEATURE_KEYS.FEATURE_FLAGS_ADMIN,
-    label: 'Página de feature flags',
+    label: 'PÃ¡gina de feature flags',
     description: 'Muestra /admin/features. Normalmente siempre ON.',
     category: 'infrastructure',
   },
   {
     key: FEATURE_KEYS.ANOMALY_ALERTS,
-    label: 'Alertas de anomalías',
-    description: 'Cron diario que detecta caídas de tráfico / conversiones y avisa por email.',
+    label: 'Alertas de anomalÃ­as',
+    description: 'Cron diario que detecta caÃ­das de trÃ¡fico / conversiones y avisa por email.',
     category: 'analytics',
   },
 ]
@@ -303,7 +303,7 @@ export async function ensureFeatureFlagsSchema(): Promise<boolean> {
           updated_by TEXT
         )`,
       )
-      // Seed catalogue rows (idempotent — INSERT OR IGNORE keeps manual edits)
+      // Seed catalogue rows (idempotent â€” INSERT OR IGNORE keeps manual edits)
       for (const meta of FEATURE_CATALOG) {
         await db.execute(
           `INSERT OR IGNORE INTO feature_flags (key, enabled, description) VALUES (?, 0, ?)`,
@@ -314,6 +314,6 @@ export async function ensureFeatureFlagsSchema(): Promise<boolean> {
     } catch {
       return false
     }
-  }).catch(() => false)
+  }).catch(() => { schemaReady = null; return false })
   return schemaReady
 }

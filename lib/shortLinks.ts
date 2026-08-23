@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+﻿import { db } from '@/lib/db'
 
 const TTL_DAYS = 90
 const TTL_MS = TTL_DAYS * 24 * 60 * 60 * 1000
@@ -16,7 +16,7 @@ async function ensureSchema(): Promise<boolean> {
         created_at INTEGER NOT NULL
       )`,
     )
-  }).catch(() => false)
+  }).catch(() => { schemaReady = null; return false })
   return schemaReady
 }
 

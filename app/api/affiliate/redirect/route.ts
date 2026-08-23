@@ -32,10 +32,8 @@ function isAllowedMarketplace(target: string): boolean {
  *  path from the user and gives us a reliable place to record clicks
  *  per anon_id. */
 export async function GET(req: NextRequest) {
-  const flag = await getFeature('feature.affiliates')
-  if (!flag.enabled) {
-    return NextResponse.json({ ok: false, error: 'affiliates_disabled' }, { status: 404 })
-  }
+  // B-NBT-14 fix: el gate feature.affiliates eliminado — los productos
+  // activos SON el control. Si hay un producto, se sirve; si no, no.
   const program = req.nextUrl.searchParams.get('program') ?? ''
   const productId = req.nextUrl.searchParams.get('product_id') ?? ''
   const trigger = req.nextUrl.searchParams.get('trigger') ?? ''

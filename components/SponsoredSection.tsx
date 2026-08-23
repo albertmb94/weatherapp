@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
-import { evaluateTriggers, type TriggerMatch } from '@/lib/sponsored'
+import { evaluateTriggers } from '@/lib/sponsored'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'
 
 interface SponsoredProduct {
@@ -15,7 +15,7 @@ interface SponsoredProduct {
 }
 
 const TRIGGER_LABELS: Record<string, { es: string; en: string }> = {
-  uv_high: { es: 'ProtecciÃ³n solar recomendada', en: 'Sun protection recommended' },
+  uv_high: { es: 'Protección solar', en: 'Sun protection' },
   rain_24h: { es: 'Para la lluvia', en: 'For the rain' },
   heat: { es: 'Para el calor', en: 'For the heat' },
   wind_strong: { es: 'Para el viento', en: 'For the wind' },
@@ -25,85 +25,59 @@ const TRIGGER_LABELS: Record<string, { es: string; en: string }> = {
 
 interface SponsoredSectionProps {
   snapshot: CurrentSnapshot | null
-  enabled: boolean
 }
 
-/**
- * B-NBT-13 (2026-08-22): sponsored product card contextual al forecast.
- *
- * Aparece SOLO cuando las condiciones actuales disparan un trigger del
- * catÃ¡logo de afiliados (UV alto, lluvia esperada, etc.) y el usuario
- * no ha superado su lÃ­mite diario. Enlaza a /api/affiliate/redirect
- * para registrar el click antes de redirigir a Amazon.
- */
 export default function SponsoredSection({ snapshot }: SponsoredSectionProps) {
   const { locale } = useLocale()
   const [product, setProduct] = useState<SponsoredProduct | null>(null)
-  const [matchedTrigger, setMatchedTrigger] = useState<TriggerMatch | null>(null)
+  const [triggerKey, setTriggerKey] = useState<string | null>(null)
 
   const matches = evaluateTriggers(snapshot)
   const best = matches[0] ?? null
 
   useEffect(() => {
-    if (!best || !snapshot) {
-      setProduct(null)
-      setMatchedTrigger(null)
-      return
-    }
+    if (!best || !snapshot) { setProduct(null); setTriggerKey(null); return }
     const controller = new AbortController()
-    fetch(
-      `/api/affiliates/serve?trigger=${best.key}&locale=${locale}`,
-      { signal: controller.signal },
-    )
+    fetch(`/api/affiliates/serve?trigger=${best.key}&locale=${locale}`, { signal: controller.signal })
       .then(r => r.json())
       .then(data => {
-        if (data.product) {
-          setProduct(data.product)
-          setMatchedTrigger(best)
-        } else {
-          setProduct(null)
-          setMatchedTrigger(null)
-        }
+        if (data.product) { setProduct(data.product); setTriggerKey(best.key) }
+        else { setProduct(null); setTriggerKey(null) }
       })
       .catch(() => {})
     return () => controller.abort()
   }, [best?.key, locale, snapshot])
 
-  if (!product || !matchedTrigger) return null
+  if (!product || !triggerKey) return null
 
-  const triggerLabel = TRIGGER_LABELS[matchedTrigger.key]?.[locale] ?? ''
+  const label = TRIGGER_LABELS[triggerKey]?.[locale] ?? ''
 
   return (
-    <section aria-label={triggerLabel} className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent p-4">
-      <div className="flex items-start gap-3">
-        {product.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.imageUrl} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
-        ) : (
-          <div className="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 text-xl">ðŸ›’</div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-widest text-text-muted">{triggerLabel}</p>
-          <p className="text-sm font-medium text-text-primary mt-0.5">{product.title}</p>
-          {product.description ? (
-            <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">{product.description}</p>
-          ) : null}
-          {product.priceLabel ? (
-            <span className="inline-block text-xs font-semibold text-accent mt-1">{product.priceLabel}</span>
-          ) : null}
-        </div>
-        <a
-          href={`/api/affiliate/redirect?program=amazon&product_id=${encodeURIComponent(product.id)}&trigger=${matchedTrigger.key}&to=${encodeURIComponent(product.affiliateUrl)}`}
-          target="_blank"
-          rel="noopener noreferrer sponsored"
-          className="shrink-0 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-medium self-center"
-        >
-          {locale === 'es' ? 'Ver' : 'View'}
-        </a>
+    <a
+      href={`/api/affiliate/redirect?program=amazon&product_id=${encodeURIComponent(product.id)}&trigger=${triggerKey}&to=${encodeURIComponent(product.affiliateUrl)}`}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      className="flex items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-500/[0.04] px-4 py-2.5 hover:border-amber-400/50 hover:bg-amber-500/[0.08] transition-colors group"
+      aria-label={label}
+    >
+      {product.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={product.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+      ) : (
+        <span className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0 text-sm" aria-hidden="true">
+          🛍️
+        </span>
+      )}
+      <div className="min-w-0 flex-1 leading-tight">
+        <p className="text-[9px] uppercase tracking-widest text-text-muted">{label}</p>
+        <p className="text-xs font-medium text-text-primary truncate">{product.title}</p>
+        <p className="text-[10px] text-text-muted truncate">
+          {[product.description, product.priceLabel].filter(Boolean).join(' · ') || (locale === 'es' ? 'Ver en Amazon' : 'View on Amazon')}
+        </p>
       </div>
-      <p className="text-[9px] text-text-muted mt-2 text-right">
-        {locale === 'en' ? 'Affiliate link â€” supports this project at no cost to you.' : 'Enlace de afiliado â€” apoya este proyecto sin coste adicional.'}
-      </p>
-    </section>
+      <span className="shrink-0 px-2 py-1 rounded-md text-[10px] font-medium text-accent opacity-60 group-hover:opacity-100 transition-opacity" aria-hidden="true">
+        →
+      </span>
+    </a>
   )
 }

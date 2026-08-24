@@ -200,7 +200,8 @@ function RevokeButtons({
 }) {
   async function revoke(kind: string) {
     if (!confirm(`¿Revocar ${kind}?`)) return
-    await fetch(`/api/admin/users/${encodeURIComponent(email)}/grant?kind=${kind}`, { method: 'DELETE' })
+    const r = await fetch(`/api/admin/users/${encodeURIComponent(email)}/grant?kind=${kind}`, { method: 'DELETE' })
+    if (!r.ok) alert(`Error al revocar ${kind}: ${await r.text().catch(() => 'unknown')}`)
     onChanged()
   }
   if (active.length === 0) return null

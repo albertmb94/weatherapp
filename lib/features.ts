@@ -256,7 +256,10 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   },
 ]
 
-/** Read all flags in a single query for the admin overview. */
+/** Read all flags in a single query for the admin overview.
+ *  B-NBT-18: los valores de campos secretos se devuelven como ''
+ *  para que el formulario no los muestre y el PUT no los
+ *  sobrescriba accidentalmente con vacío. */
 export async function listAllFeatures(): Promise<
   { key: string; enabled: boolean; config: Record<string, unknown>; description: string | null; updatedAt: number | null }[]
 > {
@@ -270,13 +273,20 @@ export async function listAllFeatures(): Promise<
     }>(
       'SELECT key, enabled, config, description, updated_at FROM feature_flags ORDER BY key',
     )
-    return rows.map(r => ({
-      key: r.key,
-      enabled: Number(r.enabled) === 1,
-      config: r.config ? JSON.parse(r.config) : {},
-      description: r.description,
-      updatedAt: r.updated_at != null ? Number(r.updated_at) : null,
-    }))
+    return rows.map(r => {
+      const cfg: Record<string, unknown> = r.config ? JSON.parse(r.config) : {}
+      // Ocultar valores de claves secretas
+      for (const k of Object.keys(cfg)) {
+        if (/secret|password|private_key/i.test(k)) cfg[k] = ''
+      }
+      return {
+        key: r.key,
+        enabled: Number(r.enabled) === 1,
+        config: cfg,
+        description: r.description,
+        updatedAt: r.updated_at != null ? Number(r.updated_at) : null,
+      }
+    })
   } catch {
     return []
   }

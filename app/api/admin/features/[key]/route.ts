@@ -22,7 +22,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ key:
     return NextResponse.json({ ok: false, error: 'invalid_body' }, { status: 400 })
   }
   const enabled = body.enabled === true ? 1 : 0
-  const configJson = body.config ? JSON.stringify(body.config) : null
+
+  // B-NBT-18: al hacer merge del config, los campos con valor ''
+  // se omiten para no sobrescribir secretos existentes con vacíos.
+  const incomingConfig = body.config ?? {}
+  const existingRow = await db.select<{ config: string | null }>(
+    'SELECT config FROM feature_flags WHERE key = ?',
+    [decodedKey],
+  )
+  const existingConfig: Record<string, unknown> = existingRow[0]?.config
+    ? JSON.parse(existingRow[0].config as string)
+    : {}
+  const mergedConfig: Record<string, unknown> = { ...existingConfig }
+  for (const [k, v] of Object.entries(incomingConfig)) {
+    if (v === '' || v === null || v === undefined) continue // preservar secreto existente
+    mergedConfig[k] = v
+  }
+
+  const configJson = JSON.stringify(mergedConfig)
   try {
     await db.execute(
       `INSERT INTO feature_flags (key, enabled, config, description, updated_at, updated_by)

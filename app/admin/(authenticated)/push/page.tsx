@@ -1,4 +1,4 @@
-import { getFeature } from '@/lib/features'
+﻿import { getFeature } from '@/lib/features'
 import FeatureConfigForm from '@/components/admin/FeatureConfigForm'
 
 export const dynamic = 'force-dynamic'
@@ -27,8 +27,6 @@ export default async function PushPage() {
         description="Genera las claves con: npx web-push generate-vapid-keys"
         fields={FIELDS}
         initialConfig={flag.config}
-        enabled={flag.enabled}
-        onToggleEnabled={() => {}}
       />
 
       <div className="rounded-2xl border border-border bg-surface-raised p-4">

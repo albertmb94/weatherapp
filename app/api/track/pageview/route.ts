@@ -92,11 +92,11 @@ export async function POST(req: NextRequest) {
   if (!anonId || !body.path) {
     return NextResponse.json({ ok: false }, { status: 400 })
   }
-  // B-NBT-10 defense in depth: the proxy already gates on consent, but
-  // this route is publicly reachable â€” re-verify before persisting.
-  if (!isTrackingAllowed(req.cookies.get(CONSENT_COOKIE)?.value)) {
-    return NextResponse.json({ ok: false, reason: 'consent_denied' }, { status: 202 })
-  }
+  // B-NBT-10 defense in depth removed (B-NBT-18): the proxy already
+  // gates on consent BEFORE firing this fetch, and the internal
+  // fetch() does NOT forward cookies — so checking cookies here always
+  // returned false, silently dropping every pageview on production.
+  // The proxy is the authoritative gatekeeper.
   const id = randomBytes(10).toString('hex')
   const ts = body.ts || Date.now()
 

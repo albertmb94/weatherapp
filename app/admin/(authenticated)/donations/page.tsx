@@ -1,4 +1,4 @@
-import { getFeature } from '@/lib/features'
+﻿import { getFeature } from '@/lib/features'
 import FeatureConfigForm from '@/components/admin/FeatureConfigForm'
 
 export const dynamic = 'force-dynamic'
@@ -11,10 +11,10 @@ const SPONSORS_FIELDS = [
   { key: 'url', label: 'URL de GitHub Sponsors', type: 'url' as const, placeholder: 'https://github.com/sponsors/tuusuario' },
 ]
 
-function DonationForm({ featureKey, title, icon, fields, config, enabled }: {
+function DonationForm({ featureKey, title, icon, fields, config }: {
   featureKey: string; title: string; icon: string
   fields: { key: string; label: string; type: 'url' }[]
-  config: Record<string, unknown>; enabled: boolean
+  config: Record<string, unknown>
 }) {
   return (
     <FeatureConfigForm
@@ -23,8 +23,6 @@ function DonationForm({ featureKey, title, icon, fields, config, enabled }: {
       description="Pega la URL pública. Aparecerá en /support cuando esté activo."
       fields={fields}
       initialConfig={config}
-      enabled={enabled}
-      onToggleEnabled={() => {}}
     />
   )
 }
@@ -41,9 +39,9 @@ export default async function DonationsPage() {
       </header>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <DonationForm featureKey="feature.kofi" title="Ko-fi" icon="☕"
-          fields={KOFI_FIELDS} config={kofi.config} enabled={kofi.enabled} />
+          fields={KOFI_FIELDS} config={kofi.config} />
         <DonationForm featureKey="feature.githubsponsors" title="GitHub Sponsors" icon="💜"
-          fields={SPONSORS_FIELDS} config={sponsors.config} enabled={sponsors.enabled} />
+          fields={SPONSORS_FIELDS} config={sponsors.config} />
       </div>
     </div>
   )

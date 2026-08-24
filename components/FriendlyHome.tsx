@@ -139,12 +139,12 @@ interface FriendlyHomeProps {
    *  air-quality query; `null`/missing hides the tile. */
   europeanAqi?: number | null
   /** F5 (revised, second pass): the current grass pollen
-   *  reading (grains/mÂ³). Surfaces inside the Métricas
+   *  reading (grains/m³). Surfaces inside the Métricas
    *  block as the 6th tile, which toggles between grass and
    *  birch on tap. `null`/missing hides the tile. */
   grassPollen?: number | null
   /** F5 (revised, second pass): the current birch pollen
-   *  reading (grains/mÂ³). */
+   *  reading (grains/m³). */
   birchPollen?: number | null
 }
 

@@ -434,7 +434,7 @@ export async function seedDefaultTemplates(): Promise<void> {
       subject_es: 'Bienvenido a Premium',
       subject_en: 'Welcome to Premium',
       body_es:
-        '# Hola {{email}}\n\nTu suscripciÃ³n **Premium** estÃ¡ activa hasta el {{period_end}}.\n\nGracias por apoyar Weather.',
+        '# Hola {{email}}\n\nTu suscripción **Premium** está activa hasta el {{period_end}}.\n\nGracias por apoyar Weather.',
       body_en:
         '# Hi {{email}}\n\nYour **Premium** subscription is active until {{period_end}}.\n\nThanks for supporting Weather.',
       variables: ['{{email}}', '{{period_end}}'],
@@ -444,10 +444,10 @@ export async function seedDefaultTemplates(): Promise<void> {
     {
       id: 'cross_sell_stations',
       name: 'Cross-sell Estaciones',
-      subject_es: 'Estaciones: aÃ±ade datos reales a tus predicciones',
+      subject_es: 'Estaciones: aÁ±ade datos reales a tus predicciones',
       subject_en: 'Stations: add real data to your forecasts',
       body_es:
-        '# Hola {{email}}\n\nYa tienes Premium. Por **2 â‚¬/mes mÃ¡s** desbloquea Estaciones y cruza el ensemble con observaciones reales de AEMET, Meteocat y Meteoclimatic.\n\n[AÃ±adir Estaciones]({{upgrade_url}})',
+        '# Hola {{email}}\n\nYa tienes Premium. Por **2 â‚¬/mes más** desbloquea Estaciones y cruza el ensemble con observaciones reales de AEMET, Meteocat y Meteoclimatic.\n\n[AÁ±adir Estaciones]({{upgrade_url}})',
       body_en:
         '# Hi {{email}}\n\nYou already have Premium. For **â‚¬2/mo more** unlock Stations and cross-reference the ensemble with real AEMET, Meteocat and Meteoclimatic observations.\n\n[Add Stations]({{upgrade_url}})',
       variables: ['{{email}}', '{{upgrade_url}}'],
@@ -457,10 +457,10 @@ export async function seedDefaultTemplates(): Promise<void> {
     {
       id: 'newsletter_confirm',
       name: 'Confirm newsletter',
-      subject_es: 'Confirma tu suscripciÃ³n al newsletter',
+      subject_es: 'Confirma tu suscripción al newsletter',
       subject_en: 'Confirm your newsletter subscription',
       body_es:
-        '# Confirma tu suscripciÃ³n\n\nHaz clic para confirmar y empezar a recibir el resumen semanal.\n\n[Confirmar]({{confirm_url}})',
+        '# Confirma tu suscripción\n\nHaz clic para confirmar y empezar a recibir el resumen semanal.\n\n[Confirmar]({{confirm_url}})',
       body_en:
         '# Confirm your subscription\n\nClick to confirm and start receiving the weekly digest.\n\n[Confirm]({{confirm_url}})',
       variables: ['{{confirm_url}}'],
@@ -470,7 +470,7 @@ export async function seedDefaultTemplates(): Promise<void> {
     {
       id: 'premium_receipt',
       name: 'Recibo Premium',
-      subject_es: 'Recibo de tu suscripciÃ³n Premium',
+      subject_es: 'Recibo de tu suscripción Premium',
       subject_en: 'Your Premium receipt',
       body_es:
         '# Recibo\n\n**Plan:** {{plan}}\n**Importe:** {{amount}}\n**Fecha:** {{date}}',

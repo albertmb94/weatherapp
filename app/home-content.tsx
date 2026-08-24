@@ -21,7 +21,7 @@ import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar
 import SettingsPanel from '@/components/SettingsPanel'
 import CitiesList from '@/components/CitiesList'
 // AirQualityCard was removed in the F5 second pass (2026-07-27):
-// the air-quality and pollen tiles now live inside the MÃ©tricas
+// the air-quality and pollen tiles now live inside the Métricas
 // block (see <AirQualityTile> in `AirConditionsGrid.tsx`), so
 // the standalone section is no longer rendered anywhere. The
 // component file is still in the repo in case we want to
@@ -205,7 +205,7 @@ export default function HomeContent() {
   // resolves to IP-based geolocation â€” often tens of km away from the
   // user's real position. That silently rewrote `urlState.lat/lon` to
   // a random spot, and with the 5-km mobile radius the Estaciones tab
-  // returned zero stations (the user's report: "antes salÃ­an muchas
+  // returned zero stations (the user's report: "antes salían muchas
   // estaciones en Badalona y ahora ninguna"). The user can still
   // geolocate explicitly via the button in the header.
   const [toast, setToast] = useState<string | null>(null)
@@ -301,7 +301,7 @@ export default function HomeContent() {
   // resolves to IP-based geolocation â€” often tens of km away from the
   // user's real position. That silently rewrote `urlState.lat/lon` to
   // a random spot, and with the 5-km mobile radius the Estaciones tab
-  // returned zero stations (the user's report: "antes salÃ­an muchas
+  // returned zero stations (the user's report: "antes salían muchas
   // estaciones en Badalona y ahora ninguna"). The user can still
   // geolocate explicitly via the button in the header, which uses
   // the same GPS-quality API but only fires on demand.
@@ -475,9 +475,9 @@ export default function HomeContent() {
   const effWeekDays: 7 | 14 = Math.min(weekDays, caps.maxDays) === 14 ? 14 : 7
 
   // Keep `range` in sync with `weekDays` so the forecast fetch covers
-  // enough hours for the PrÃ³ximos dÃ­as panel regardless of which URL
+  // enough hours for the Próximos días panel regardless of which URL
   // params the user landed on. Without this, a deep link like
-  // ?range=168&week=14 silently caps PrÃ³ximos dÃ­as to 7 days because the
+  // ?range=168&week=14 silently caps Próximos días to 7 days because the
   // API only returned 7 days of data.
   useEffect(() => {
     const required = effWeekDays * 24
@@ -519,7 +519,7 @@ export default function HomeContent() {
   const lastFetchedAt = data?.fetchedAt
   // `forecastAgeMs` and the auto-refresh trigger rely on `Date.now()`,
   // which is impure. We compute it once on mount + every refresh, then
-  // tick it forward via `currentTickMs` (updated 1Ã— per minute by an
+  // tick it forward via `currentTickMs` (updated 1Á— per minute by an
   // effect below) so the "Refresh due" badge actually ticks.
   //
   // B-NEW-20 (2026-07-27): the previous `useState(() => Date.now())`
@@ -588,7 +588,7 @@ export default function HomeContent() {
   // F5: air quality + pollen. The Open-Meteo air-quality endpoint
   // exposes a separate forecast (5-day max) so it lives in its
   // own query. F5 (revised): we ALWAYS run this query now because
-  // the EU AQI tile is rendered inside the MÃ©tricas block on
+  // the EU AQI tile is rendered inside the Métricas block on
   // every viewport (mobile included). The full tile card above
   // is still gated to desktop / mobile landscape, but the
   // headline value must be available everywhere.
@@ -604,7 +604,7 @@ export default function HomeContent() {
   // local time (the API honours `timezone=auto`), so we find
   // the index whose UTC-fake-local `hour` matches the current
   // wall clock floored to the hour. When the data hasn't
-  // arrived yet we return `null` so the MÃ©tricas tile stays
+  // arrived yet we return `null` so the Métricas tile stays
   // hidden rather than showing a misleading "â€”".
   const currentEuropeanAqi = useMemo<number | null>(() => {
     const data = airQualityQuery.data
@@ -632,7 +632,7 @@ export default function HomeContent() {
   }, [airQualityQuery.data, currentTickMs])
 
   // F5 (revised, second pass): same hour-aligned lookup for
-  // the two pollen readings surfaced in the MÃ©tricas block.
+  // the two pollen readings surfaced in the Métricas block.
   // Each tile consumes its own value so the parent stays a
   // pure view; the toggle state lives inside
   // `AirConditionsGrid`.
@@ -649,7 +649,7 @@ export default function HomeContent() {
   // F5 (revised, second pass): the standalone `AirQualityCard`
   // is gone, so the viewport gate is no longer needed. The
   // air-quality query still runs on every viewport because the
-  // MÃ©tricas block now consumes the EU AQI and pollen values
+  // Métricas block now consumes the EU AQI and pollen values
   // on mobile too.
 
   // F-5: persist every successful forecast to IndexedDB so the user
@@ -847,7 +847,7 @@ export default function HomeContent() {
       },
       () => {
         setGeoLoading(false)
-        setToast(locale === 'en' ? 'Location access denied' : 'Acceso a ubicaciÃ³n denegado')
+        setToast(locale === 'en' ? 'Location access denied' : 'Acceso a ubicación denegado')
       },
       { enableHighAccuracy: false, timeout: 5000 }
     )
@@ -1196,7 +1196,7 @@ export default function HomeContent() {
           <button
             onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
             className="min-h-[36px] px-2 rounded text-[11px] font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer tracking-wider"
-            title={locale === 'en' ? 'Cambiar a espaÃ±ol' : 'Switch to English'}
+            title={locale === 'en' ? 'Cambiar a espaÁ±ol' : 'Switch to English'}
           >
             {locale === 'en' ? 'ES' : 'EN'}
           </button>
@@ -1326,7 +1326,7 @@ export default function HomeContent() {
             {!isOnline && (
               <div className="mx-4 md:mx-6 mt-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs">
                 {offlineSnapshot
-                  ? `${STRINGS[locale].offlineBanner ?? 'Offline'} Â· ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
+                  ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
                   : (STRINGS[locale].offlineBanner ?? 'Offline â€” no cached data')}
               </div>
             )}
@@ -1373,7 +1373,7 @@ export default function HomeContent() {
                   // slots in the hourly strip respect the toggle.
                   // Default 'wedai' keeps the friendly overview on
                   // the calibrated ensemble â€” the user expects
-                  // "PrevisiÃ³n de hoy" to follow whatever the Avanzado
+                  // "Previsión de hoy" to follow whatever the Avanzado
                   // toggle says.
                   ensembleMode={ensembleMode}
                   // Sprint 13: the auto-derived profile (or null
@@ -1384,12 +1384,12 @@ export default function HomeContent() {
                   usageProfile={effectiveProfile.profile}
                   usageProfileRecommended={recommendedSet}
                   // F5 (revised): the EU AQI value is rendered
-                  // inside the MÃ©tricas block (via AirConditionsGrid)
+                  // inside the Métricas block (via AirConditionsGrid)
                   // so it shows on every viewport including mobile
                   // portrait.
                   europeanAqi={currentEuropeanAqi}
                   // F5 (revised, second pass): pollen values feed
-                  // the toggle tile inside the MÃ©tricas block.
+                  // the toggle tile inside the Métricas block.
                   grassPollen={currentGrassPollen}
                   birchPollen={currentBirchPollen}
                 />
@@ -1399,12 +1399,12 @@ export default function HomeContent() {
               {/* F5 (revised, second pass): the standalone
                   `AirQualityCard` is gone. Air quality and
                   pollen now live exclusively inside the
-                  MÃ©tricas block (EU AQI tile + Pollen toggle
+                  Métricas block (EU AQI tile + Pollen toggle
                   tile) on every viewport, so the user gets
                   the headline values without scrolling past
                   a 10-tile grid. The data is still fetched
                   (see `airQualityQuery` above) because the
-                  MÃ©tricas tiles depend on it. */}
+                  Métricas tiles depend on it. */}
 
               {/* B-NEW-29 (2026-07-30): the saved-locations
                   strip used to live HERE, below the offline
@@ -1565,7 +1565,7 @@ export default function HomeContent() {
                 }}
                 onSelectHour={handleHourChange}
                 // B-NEW-10 (2026-07-25): thread the ensemble toggle
-                // through to PrÃ³ximos dÃ­as so the daily highs/lows
+                // through to Próximos días so the daily highs/lows
                 // use the calibrated ensemble when the Avanzado
                 // toggle is on WedAI.
                 ensembleMode={ensembleMode}

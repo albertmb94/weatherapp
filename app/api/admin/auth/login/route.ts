@@ -11,15 +11,15 @@ import { db } from '@/lib/db'
 import { rateLimit } from '@/lib/rateLimit'
 
 /**
- * B-NBT-11: login clÃ¡sico usuario + contraseÃ±a.
+ * B-NBT-11: login clásico usuario + contraseña.
  *
  * DOS modos en el mismo endpoint:
- *   - Formulario nativo (sin JS): fields urlencoded â†’ verifica y
- *     responde 303 redirect a /admin o /admin/login?error=â€¦
- *     Funciona aunque la hidrataciÃ³n muera (misma filosofÃ­a que el
+ *   - Formulario nativo (sin JS): fields urlencoded → verifica y
+ *     responde 303 redirect a /admin o /admin/login?error=…
+ *     Funciona aunque la hidratación muera (misma filosofía que el
  *     fallback del banner de cookies).
- *   - fetch JSON ({username,password}) â†’ devuelve {ok:true} para
- *     callers programÃ¡ticos.
+ *   - fetch JSON ({username,password}) → devuelve {ok:true} para
+ *     callers programáticos.
  *
  * Magic link DESACTIVADO por completo. Rate limit 5/min/IP.
  */
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   const email = await verifyAdminLogin(username, password)
   if (!email) {
-    // Mensaje genÃ©rico: no revelar si fallÃ³ el usuario o la contraseÃ±a.
+    // Mensaje genérico: no revelar si falló el usuario o la contraseña.
     if (isForm) return NextResponse.redirect(new URL('/admin/login?error=credentials', req.url), 303)
     return NextResponse.json({ ok: false, error: 'invalid_credentials' }, { status: 401 })
   }

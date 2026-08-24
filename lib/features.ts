@@ -106,14 +106,14 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.PREMIUM_CHECKOUT,
     label: 'Checkout Premium',
-    description: 'Muestra el botÃ³n de suscripciÃ³n a Premium y procesa pagos.',
+    description: 'Muestra el botón de suscripción a Premium y procesa pagos.',
     category: 'monetization',
     configSchema: [],
   },
   {
     key: FEATURE_KEYS.STATIONS_CHECKOUT,
     label: 'Checkout Estaciones (add-on)',
-    description: 'Muestra el botÃ³n de suscripciÃ³n al add-on Estaciones.',
+    description: 'Muestra el botón de suscripción al add-on Estaciones.',
     category: 'monetization',
   },
   {
@@ -146,7 +146,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.ADS_ETHICALADS,
     label: 'EthicalAds',
-    description: 'Muestra bloques de EthicalAds (alternativa Ã©tica a AdSense).',
+    description: 'Muestra bloques de EthicalAds (alternativa ética a AdSense).',
     category: 'monetization',
     configSchema: [
       { key: 'publisher_id', label: 'Publisher ID', type: 'string' },
@@ -191,16 +191,16 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.KOFI,
     label: 'Ko-fi (donaciones)',
-    description: 'Muestra el botÃ³n de donaciÃ³n Ko-fi en el footer.',
+    description: 'Muestra el botón de donación Ko-fi en el footer.',
     category: 'monetization',
     configSchema: [
-      { key: 'url', label: 'URL de tu pÃ¡gina Ko-fi', type: 'url' },
+      { key: 'url', label: 'URL de tu página Ko-fi', type: 'url' },
     ],
   },
   {
     key: FEATURE_KEYS.GITHUB_SPONSORS,
     label: 'GitHub Sponsors',
-    description: 'Muestra el botÃ³n de GitHub Sponsors.',
+    description: 'Muestra el botón de GitHub Sponsors.',
     category: 'monetization',
     configSchema: [
       { key: 'url', label: 'URL de tu GitHub Sponsors', type: 'url' },
@@ -209,7 +209,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.STRIPE,
     label: 'Stripe (pagos)',
-    description: 'Procesa pagos a travÃ©s de Stripe. Activar antes que Premium/Estaciones checkout.',
+    description: 'Procesa pagos a través de Stripe. Activar antes que Premium/Estaciones checkout.',
     category: 'infrastructure',
     configSchema: [
       { key: 'secret_key', label: 'Stripe Secret Key', type: 'string', secret: true },
@@ -220,7 +220,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.RESEND,
     label: 'Resend (emails)',
-    description: 'EnvÃ­a emails transaccionales (magic link admin, receipts, etc.).',
+    description: 'Envía emails transaccionales (magic link admin, receipts, etc.).',
     category: 'infrastructure',
     configSchema: [
       { key: 'api_key', label: 'Resend API Key', type: 'string', secret: true },
@@ -230,7 +230,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   {
     key: FEATURE_KEYS.BUTTONDOWN,
     label: 'Buttondown (newsletter)',
-    description: 'Gestiona el envÃ­o de la newsletter.',
+    description: 'Gestiona el envío de la newsletter.',
     category: 'infrastructure',
     configSchema: [
       { key: 'api_key', label: 'Buttondown API Key', type: 'string', secret: true },
@@ -238,20 +238,20 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
   },
   {
     key: FEATURE_KEYS.METRICS_DASHBOARD,
-    label: 'Dashboard de mÃ©tricas',
-    description: 'PÃ¡ginas /admin/metrics (trÃ¡fico, cohorts, funnels).',
+    label: 'Dashboard de métricas',
+    description: 'Páginas /admin/metrics (tráfico, cohorts, funnels).',
     category: 'analytics',
   },
   {
     key: FEATURE_KEYS.FEATURE_FLAGS_ADMIN,
-    label: 'PÃ¡gina de feature flags',
+    label: 'Página de feature flags',
     description: 'Muestra /admin/features. Normalmente siempre ON.',
     category: 'infrastructure',
   },
   {
     key: FEATURE_KEYS.ANOMALY_ALERTS,
-    label: 'Alertas de anomalÃ­as',
-    description: 'Cron diario que detecta caÃ­das de trÃ¡fico / conversiones y avisa por email.',
+    label: 'Alertas de anomalías',
+    description: 'Cron diario que detecta caídas de tráfico / conversiones y avisa por email.',
     category: 'analytics',
   },
 ]

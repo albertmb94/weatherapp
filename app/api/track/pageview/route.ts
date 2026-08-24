@@ -45,7 +45,7 @@ async function ensureSchema(): Promise<boolean> {
       )
       await db.execute('CREATE INDEX IF NOT EXISTS idx_pv_ts ON page_views(ts)')
       await db.execute('CREATE INDEX IF NOT EXISTS idx_pv_anon ON page_views(anon_id, ts)')
-      // B-NBT-12: celda geogrÃ¡fica (~5 km) derivada de los params
+      // B-NBT-12: celda geográfica (~5 km) derivada de los params
       // lat/lon del path. NULL para visitas sin coordenadas.
       try {
         await db.execute('ALTER TABLE page_views ADD COLUMN geo_cell TEXT')
@@ -101,12 +101,12 @@ export async function POST(req: NextRequest) {
   const ts = body.ts || Date.now()
 
   // B-NBT-12 (2026-08-22): limpiar el path ANTES de persistir.
-  //   - Las rutas internas (/api/*, manifest, iconos) no son "pÃ¡ginas":
-  //     se descartan para no contaminar "PÃ¡ginas mÃ¡s vistas".
-  //   - A las pÃ¡ginas reales se les guarda SOLO el pathname (sin query),
-  //     que era lo que metÃ­a URLs kilomÃ©tricas de /api/forecast en la
+  //   - Las rutas internas (/api/*, manifest, iconos) no son "páginas":
+  //     se descartan para no contaminar "Páginas más vistas".
+  //   - A las páginas reales se les guarda SOLO el pathname (sin query),
+  //     que era lo que metía URLs kilométricas de /api/forecast en la
   //     tabla y en el dashboard.
-  //   - Se extrae la celda geogrÃ¡fica (~5 km) de los params lat/lon del
+  //   - Se extrae la celda geográfica (~5 km) de los params lat/lon del
   //     query â€” el URL state siempre los lleva cuando hay ciudad
   //     seleccionada â€” para el desglose por zonas del dashboard.
   let pathname = body.path.slice(0, 300)

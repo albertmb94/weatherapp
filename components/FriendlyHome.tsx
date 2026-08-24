@@ -134,12 +134,12 @@ interface FriendlyHomeProps {
    *  pre-Sprint-13 behaviour byte-for-byte. */
   usageProfileRecommended?: ReadonlySet<string>
   /** F5 (revised): the EU AQI value for the current hour.
-   *  Surfaced inside the MÃ©tricas block as a 5th tile. The
+   *  Surfaced inside the Métricas block as a 5th tile. The
    *  parent (home-content) supplies the value from the
    *  air-quality query; `null`/missing hides the tile. */
   europeanAqi?: number | null
   /** F5 (revised, second pass): the current grass pollen
-   *  reading (grains/mÂ³). Surfaces inside the MÃ©tricas
+   *  reading (grains/mÂ³). Surfaces inside the Métricas
    *  block as the 6th tile, which toggles between grass and
    *  birch on tap. `null`/missing hides the tile. */
   grassPollen?: number | null
@@ -177,7 +177,7 @@ export default function FriendlyHome({
   const { locale } = useLocale()
   const s = STRINGS[locale]
   // B-NBT-13: sponsored section â€” visible para TODOS los usuarios
-  // cuando feature.affiliates estÃ¡ activo (es la vÃ­a de monetizaciÃ³n
+  // cuando feature.affiliates está activo (es la vía de monetización
   // de los usuarios free, no solo de los premium).
   const affiliatesEnabled = useFeatureEnabled('feature.affiliates')
   // BUG FIX: previous build never threaded a wall-clock down to
@@ -299,7 +299,7 @@ export default function FriendlyHome({
         forecastAgeMs={forecastAgeMs ?? null}
         dailyPrecipitationSum={dailyPrecipitationSum}
         // F5 (revised): pass the EU AQI value down so the
-        // 5th tile in the MÃ©tricas block shows on every
+        // 5th tile in the Métricas block shows on every
         // viewport. The air-quality section above is only
         // rendered on desktop / mobile landscape.
         europeanAqi={europeanAqi}

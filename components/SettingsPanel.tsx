@@ -128,12 +128,12 @@ export default function SettingsPanel(props: SettingsPanelProps) {
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
             <div>
               <p className="text-sm text-text-primary font-medium">{s.settingsLanguage}</p>
-              <p className="text-xs text-text-tertiary">{locale === 'en' ? 'English' : 'EspaÃ±ol'}</p>
+              <p className="text-xs text-text-tertiary">{locale === 'en' ? 'English' : 'EspaÁ±ol'}</p>
             </div>
             <button
               onClick={toggleLocale}
               className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-text-primary hover:bg-surface-popover transition-colors"
-              title={locale === 'en' ? 'Cambiar a espaÃ±ol' : 'Switch to English'}
+              title={locale === 'en' ? 'Cambiar a espaÁ±ol' : 'Switch to English'}
               aria-label={locale === 'en' ? 'Switch language' : 'Cambiar idioma'}
             >
               {otherLocale.toUpperCase()}
@@ -149,7 +149,7 @@ export default function SettingsPanel(props: SettingsPanelProps) {
               className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-text-primary hover:bg-surface-popover transition-colors"
               aria-label="Toggle theme"
             >
-              {theme === 'dark' ? 'ðŸŒ™' : 'â˜€ï¸'}
+              {theme === 'dark' ? '🌙' : 'â˜€ï¸'}
             </button>
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function SettingsPanel(props: SettingsPanelProps) {
           {props.marine ? (
             <ToggleRow
               label={s.basic}
-              description={locale === 'en' ? 'Show land metrics in marine mode' : 'MÃ©tricas terrestres en modo marino'}
+              description={locale === 'en' ? 'Show land metrics in marine mode' : 'Métricas terrestres en modo marino'}
               active={props.showBasic}
               onClick={props.onBasicToggle}
               accent="emerald"
@@ -263,8 +263,8 @@ export default function SettingsPanel(props: SettingsPanelProps) {
             {isRefreshing
               ? (locale === 'en' ? 'Refreshingâ€¦' : 'Actualizandoâ€¦')
               : lastOutcome?.kind === 'refreshed'
-                ? (locale === 'en' ? `Updated Â· ${refreshAge || ''}` : `Actualizado Â· ${refreshAge || ''}`)
-                : `${locale === 'en' ? 'Refresh' : 'Actualizar'} Â· ${refreshAge || ''}`}
+                ? (locale === 'en' ? `Updated · ${refreshAge || ''}` : `Actualizado · ${refreshAge || ''}`)
+                : `${locale === 'en' ? 'Refresh' : 'Actualizar'} · ${refreshAge || ''}`}
           </button>
         </div>
         {feedback ? (

@@ -236,8 +236,8 @@ export async function fetchForecast(
   // Live verification against the provider (2026-08-22, Badalona +
   // Berlin, forecast_days=16 & past_days=3) shows that behaviour no
   // longer exists: each model returns a full-length array null-padded
-  // past its own horizon (arome_france_hd â†’ h~128, icon_eu â†’ h~194,
-  // ecmwf_ifs â†’ h~422, gfs_global â†’ h455), and `weightedAvg` already
+  // past its own horizon (arome_france_hd → h~128, icon_eu → h~194,
+  // ecmwf_ifs → h~422, gfs_global → h455), and `weightedAvg` already
   // skips null entries. The restriction silently removed every
   // high-resolution regional model (AROME-FR HD 1.3km, ICON-D2 2km,
   // ICON-EU, ARPEGE-EU...) from the ensemble, which collapsed the

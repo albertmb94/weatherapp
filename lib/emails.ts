@@ -158,13 +158,13 @@ function mdToHtml(md: string): string {
 }
 
 function inlineFormat(s: string): string {
-  // [text](url) â†’ <a href="url">text</a>
+  // [text](url) → <a href="url">text</a>
   let out = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text: string, url: string) => {
     return `<a href="${url}" style="color:#0a7aff;text-decoration:underline">${text}</a>`
   })
-  // **bold** â†’ <strong>
+  // **bold** → <strong>
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-  // *italic* â†’ <em>
+  // *italic* → <em>
   out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>')
   return out
 }

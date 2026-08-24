@@ -128,12 +128,12 @@ export default function SettingsPanel(props: SettingsPanelProps) {
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
             <div>
               <p className="text-sm text-text-primary font-medium">{s.settingsLanguage}</p>
-              <p className="text-xs text-text-tertiary">{locale === 'en' ? 'English' : 'EspaÁ±ol'}</p>
+              <p className="text-xs text-text-tertiary">{locale === 'en' ? 'English' : 'Español'}</p>
             </div>
             <button
               onClick={toggleLocale}
               className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-text-primary hover:bg-surface-popover transition-colors"
-              title={locale === 'en' ? 'Cambiar a espaÁ±ol' : 'Switch to English'}
+              title={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
               aria-label={locale === 'en' ? 'Switch language' : 'Cambiar idioma'}
             >
               {otherLocale.toUpperCase()}
@@ -149,7 +149,7 @@ export default function SettingsPanel(props: SettingsPanelProps) {
               className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-text-primary hover:bg-surface-popover transition-colors"
               aria-label="Toggle theme"
             >
-              {theme === 'dark' ? '🌙' : 'â˜€ï¸'}
+              {theme === 'dark' ? '🌙' : '☀️'}
             </button>
           </div>
         </div>

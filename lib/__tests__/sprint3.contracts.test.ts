@@ -42,8 +42,8 @@ describe('getMetricWeights', () => {
   it('returns the temperature preset when no accuracy records exist', () => {
     const w = getMetricWeights('temperature', [], 0.95, '0-48h')
     // B-NBT-8: calibrated bucket (backtest 2026-08-15..22) rescaled by
-    // the AI reserve of 0.20: ecmwf_ifs 0.102 â†’ 0.0816, gfs_global
-    // 0.062 â†’ 0.0496. The AI reserve now only holds the unverifiable
+    // the AI reserve of 0.20: ecmwf_ifs 0.102 → 0.0816, gfs_global
+    // 0.062 → 0.0496. The AI reserve now only holds the unverifiable
     // models (aifs025 22/34, graphcast025 12/34): aifs gets
     // (22/34) Ã— 0.20 â‰ˆ 0.1294.
     expect(w.ecmwf_ifs).toBeCloseTo(0.102 * 0.8, 3)
@@ -80,7 +80,7 @@ describe('weightedAvg bias correction (S3/S10 groundwork)', () => {
     const values = [10, 20]
     const weights = [1, 1]
     const modelIds = ['a', 'b']
-    // Bias of +5 on `a` shifts its contribution from 10 â†’ 5.
+    // Bias of +5 on `a` shifts its contribution from 10 → 5.
     const bias = { a: 5, b: 0 }
     expect(weightedAvg(values, weights, null, modelIds, bias)).toBe(12.5)
   })

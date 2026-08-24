@@ -47,6 +47,7 @@ import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
 import { useEntitlements } from '@/lib/hooks/useEntitlements'
 import { useNearbyStations } from '@/lib/hooks/useNearbyStations'
+import KoFiWidgets from '@/components/KoFiWidgets'
 import { getLeadTimeBucket } from '@/lib/models'
 import { uiBucketToBacktestBuckets } from '@/lib/backtest/config'
 import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
@@ -1593,6 +1594,7 @@ export default function HomeContent() {
         </div>
       )}
 
+      <KoFiWidgets />
       <MobileTabBar
         active={mobileTabFromView}
         onChange={(next) => {

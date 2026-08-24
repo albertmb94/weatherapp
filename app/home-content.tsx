@@ -1578,7 +1578,7 @@ export default function HomeContent() {
 
       {/* F-9: footer keyboard hints, hidden on mobile (mobile tab bar lives at the bottom). */}
       <div className="hidden real-desktop:flex real-desktop:mt-auto px-3 py-0.5 bg-surface/50 border-t border-border text-[9px] text-text-tertiary gap-3 shrink-0">
-        <span>â† â†’ {STRINGS[locale].footerHours}</span>
+        <span>← → {STRINGS[locale].footerHours}</span>
         <span>/ {STRINGS[locale].footerSearch}</span>
         <span>m {STRINGS[locale].footerMap}</span>
         <a href="/premium" className="ml-auto hover:text-text-primary">Premium</a>
@@ -1750,7 +1750,7 @@ const AdvancedSection = memo(function AdvancedSection({
     return out
   }, [activeSliceSeries, activeSliceStartIndex])
   // When the filter is active the active row is the noonIndex inside
-  // the filtered window. Otherwise we keep the wall-clock â†’ URL-state
+  // the filtered window. Otherwise we keep the wall-clock → URL-state
   // conversion the old logic used.
   const insightsSelectedHour = dayFilter
     ? Math.max(0, dayFilter.anchor - dayFilter.startIndex)

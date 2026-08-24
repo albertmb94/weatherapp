@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
@@ -16,9 +16,9 @@ interface SlotProduct {
 }
 
 const SLOTS = [
-  { key: 'slot_uv', icon: '☀️', labelEs: 'UV (pico ≥ 4)', hint: 'Se muestra cuando el índice UV del día alcanza 4 o más.' },
-  { key: 'slot_rain', icon: '🌧️', labelEs: 'Lluvia (≥ 1 mm)', hint: 'Se muestra cuando se espera 1 mm o más de precipitación hoy.' },
-  { key: 'slot_sunset', icon: '🌅', labelEs: 'Atardecer (próximas 2 h)', hint: 'Se muestra cuando falta menos de 2 horas para la puesta de sol.' },
+  { key: 'slot_uv', icon: 'â˜€ï¸', labelEs: 'UV (pico â‰¥ 4)', hint: 'Se muestra cuando el Ã­ndice UV del dÃ­a alcanza 4 o mÃ¡s.' },
+  { key: 'slot_rain', icon: 'ðŸŒ§ï¸', labelEs: 'Lluvia (â‰¥ 1 mm)', hint: 'Se muestra cuando se espera 1 mm o mÃ¡s de precipitaciÃ³n hoy.' },
+  { key: 'slot_sunset', icon: 'ðŸŒ…', labelEs: 'Atardecer (prÃ³ximas 2 h)', hint: 'Se muestra cuando falta menos de 2 horas para la puesta de sol.' },
 ] as const
 
 function extractAsin(url: string): string | null {
@@ -42,13 +42,13 @@ export default function AffiliatesAdminPage() {
   for (const p of products) byTrigger.set(p.trigger, p)
 
   const saveSlot = useMutation({
-    mutationFn: async ({ trigger, title, description, amazonUrl }: {
-      trigger: string; title: string; description: string; amazonUrl: string
+    mutationFn: async ({ trigger, locale, title, description, amazonUrl }: {
+      trigger: string; locale: string; title: string; description: string; amazonUrl: string
     }) => {
       const r = await fetch('/api/admin/affiliates', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ trigger, amazonUrl, title, description, enabled: true }),
+        body: JSON.stringify({ trigger, locale, amazonUrl, title, description, enabled: true }),
       })
       if (!r.ok) throw new Error('save_failed')
       return r.json()
@@ -63,11 +63,11 @@ export default function AffiliatesAdminPage() {
         <p className="text-sm text-text-tertiary">
           Configura un producto Amazon por slot. Solo se muestra UN anuncio a la vez:
           el primero cuyo trigger coincida con las condiciones actuales.
-          Pega la URL completa de Amazon y el ASIN se extrae automáticamente.
+          Pega la URL completa de Amazon y el ASIN se extrae automÃ¡ticamente.
         </p>
       </header>
 
-      {isLoading && <div className="text-sm text-text-tertiary">Cargando…</div>}
+      {isLoading && <div className="text-sm text-text-tertiary">Cargandoâ€¦</div>}
 
       <div className="space-y-4">
         {SLOTS.map(slot => (
@@ -76,7 +76,7 @@ export default function AffiliatesAdminPage() {
             slot={slot}
             existing={byTrigger.get(slot.key) ?? null}
             onSave={(title, description, amazonUrl) =>
-              saveSlot.mutateAsync({ trigger: slot.key, title, description, amazonUrl })}
+              saveSlot.mutateAsync({ trigger: slot.key, locale: 'es', title, description, amazonUrl })}
             saving={saveSlot.isPending}
           />
         ))}
@@ -128,7 +128,7 @@ function SlotEditor({ slot, existing, onSave, saving }: {
       <div className="flex items-center gap-2">
         <span className="text-lg" aria-hidden>{slot.icon}</span>
         <h3 className="text-sm font-semibold">{slot.labelEs}</h3>
-        {existing && <span className="text-[10px] text-emerald-400 ml-auto">✓ configurado</span>}
+        {existing && <span className="text-[10px] text-emerald-400 ml-auto">âœ“ configurado</span>}
       </div>
       <p className="text-[11px] text-text-muted">{slot.hint}</p>
       <div className="space-y-2">
@@ -139,28 +139,28 @@ function SlotEditor({ slot, existing, onSave, saving }: {
             value={amazonUrl}
             onChange={e => setAmazonUrl(e.target.value)}
             required
-            placeholder="https://www.amazon.es/…/dp/B0XXXXXXXX"
+            placeholder="https://www.amazon.es/â€¦/dp/B0XXXXXXXX"
             className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs font-mono"
           />
           {asin && <span className="text-[10px] text-emerald-400 block mt-0.5">ASIN: {asin}</span>}
         </label>
         <label className="block">
-          <span className="text-[10px] text-text-tertiary block mb-0.5">Título visible</span>
+          <span className="text-[10px] text-text-tertiary block mb-0.5">TÃ­tulo visible</span>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
             required
-            placeholder="Ej: Estación meteorológica digital"
+            placeholder="Ej: EstaciÃ³n meteorolÃ³gica digital"
             className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs"
           />
         </label>
         <label className="block">
-          <span className="text-[10px] text-text-tertiary block mb-0.5">Descripción / texto promocional</span>
+          <span className="text-[10px] text-text-tertiary block mb-0.5">DescripciÃ³n / texto promocional</span>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
             rows={2}
-            placeholder="Ej: La estación más vendida para uso en interior…"
+            placeholder="Ej: La estaciÃ³n mÃ¡s vendida para uso en interiorâ€¦"
             className="w-full px-2 py-1.5 rounded border border-border bg-surface text-xs resize-y"
           />
         </label>
@@ -170,7 +170,7 @@ function SlotEditor({ slot, existing, onSave, saving }: {
         disabled={!canSave || saving}
         className="px-3 py-1.5 rounded bg-accent text-white text-xs font-medium disabled:opacity-50"
       >
-        {saving ? 'Guardando…' : saved ? '✓ Guardado' : 'Guardar'}
+        {saving ? 'Guardandoâ€¦' : saved ? 'âœ“ Guardado' : 'Guardar'}
       </button>
     </form>
   )

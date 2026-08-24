@@ -1,52 +1,23 @@
 'use client'
 
-import { useEffect } from 'react'
-
 /**
- * B-NBT-23: overlay flotante de Ko-fi minimalista.
- * Solo el logo circular, sin texto — discreto.
+ * B-NBT-23: botón flotante de Ko-fi minimalista.
+ * Sin scripts externos ni widgets de terceros — HTML/CSS puro.
+ * Solo visible en desktop (≥1024px). En móvil usa el botón del header.
  */
 export default function KoFiOverlay() {
-  useEffect(() => {
-    if (document.querySelector('script[src*="overlay-widget.js"]')) return
-
-    const script = document.createElement('script')
-    script.src = 'https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'
-    script.async = true
-    document.head.appendChild(script)
-
-    // CSS para hacer el botón discreto: solo logo, sin texto, más pequeño
-    const style = document.createElement('style')
-    style.textContent = `
-      #kofi-widget-overlay-container .kofi-chat-launcher,
-      #kofi-widget-overlay-container [class*="donate-button"] {
-        min-width: 0 !important;
-      }
-      #kofi-widget-overlay-container .kofi-chat-launcher-text,
-      #kofi-widget-overlay-container [class*="donate-button"] span:not(:first-child) {
-        display: none !important;
-      }
-    `
-    document.head.appendChild(style)
-
-    script.onload = () => {
-      const w = window as unknown as {
-        kofiWidgetOverlay?: { draw: (user: string, opts: Record<string, string>) => void }
-      }
-      if (w.kofiWidgetOverlay) {
-        w.kofiWidgetOverlay.draw('albertminano', {
-          'type': 'floating-chat',
-          'floating-chat.donateButton.background-color': '#323842',
-          'floating-chat.donateButton.text-color': '#fff',
-        })
-      }
-    }
-
-    return () => {
-      script.remove()
-      style.remove()
-    }
-  }, [])
-
-  return null
+  return (
+    <a
+      href="https://ko-fi.com/F8C225NYMV"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Apoya el proyecto en Ko-fi"
+      className="hidden real-desktop:flex fixed bottom-4 right-4 z-[1500] w-12 h-12 rounded-full bg-[#323842] items-center justify-center shadow-lg hover:scale-105 transition-transform cursor-pointer"
+    >
+      {/* Ko-fi logo SVG inline */}
+      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="#fff" aria-hidden="true">
+        <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593.775-.484 1.599-1.33 1.599-2.354 0-.944-.508-1.764-1.27-2.228L19.36.001h-3.24l.036 2.406c-.384.06-.772.14-1.152.245C13.15 1.282 10.918.805 8.766.805c-4.02 0-7.474 2.228-7.474 2.228l1.984 2.056s1.752-.556 3.004-.556c0 0 .296 1.128-.372 2.32-.668 1.192-1.656 1.484-1.656 1.484l1.092 1.68s2.396-.52 4.116-.148c0 0 1.04 2.212 2.212 3.108 0 0 .076 1.344-.892 2.464 0 0 1.64 1.56 3.656 1.56s3.656-1.56 3.656-1.56c-.964-1.12-.888-2.464-.888-2.464 1.172-.896 2.208-3.104 2.208-3.104 1.72-.372 4.116.148 4.116.148z"/>
+      </svg>
+    </a>
+  )
 }

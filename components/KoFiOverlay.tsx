@@ -3,17 +3,11 @@
 import { useEffect } from 'react'
 
 /**
- * B-NBT-20: floating Ko-fi chat overlay para DESKTOP.
- * Carga el script de Ko-fi y dibuja el widget flotante.
- * En móvil se oculta automáticamente por CSS del propio widget de Ko-fi;
- * el botón móvil es un enlace con imagen en el header.
- *
- * El username se extrae de la URL configurada en /admin/donations
- * (feature.kofi.config.url → https://ko-fi.com/albertminano).
+ * B-NBT-22: overlay flotante de Ko-fi en TODOS los tamaños de pantalla.
+ * Hardcoded con el username del owner. Sin feature flags ni configs.
  */
-export default function KoFiOverlay({ username }: { username: string }) {
+export default function KoFiOverlay() {
   useEffect(() => {
-    // Solo cargar una vez
     if (document.querySelector('script[src*="overlay-widget.js"]')) return
 
     const script = document.createElement('script')
@@ -26,7 +20,7 @@ export default function KoFiOverlay({ username }: { username: string }) {
         kofiWidgetOverlay?: { draw: (user: string, opts: Record<string, string>) => void }
       }
       if (w.kofiWidgetOverlay) {
-        w.kofiWidgetOverlay.draw(username, {
+        w.kofiWidgetOverlay.draw('albertminano', {
           'type': 'floating-chat',
           'floating-chat.donateButton.text': 'Support Me',
           'floating-chat.donateButton.background-color': '#323842',
@@ -35,13 +29,8 @@ export default function KoFiOverlay({ username }: { username: string }) {
       }
     }
 
-    return () => {
-      script.remove()
-      // Limpiar el widget flotante si existe
-      const overlay = document.getElementById('kofi-widget-overlay')
-      if (overlay) overlay.remove()
-    }
-  }, [username])
+    return () => { script.remove() }
+  }, [])
 
   return null
 }

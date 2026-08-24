@@ -444,12 +444,12 @@ export async function seedDefaultTemplates(): Promise<void> {
     {
       id: 'cross_sell_stations',
       name: 'Cross-sell Estaciones',
-      subject_es: 'Estaciones: aÁ±ade datos reales a tus predicciones',
+      subject_es: 'Estaciones: añade datos reales a tus predicciones',
       subject_en: 'Stations: add real data to your forecasts',
       body_es:
-        '# Hola {{email}}\n\nYa tienes Premium. Por **2 â‚¬/mes más** desbloquea Estaciones y cruza el ensemble con observaciones reales de AEMET, Meteocat y Meteoclimatic.\n\n[AÁ±adir Estaciones]({{upgrade_url}})',
+        '# Hola {{email}}\n\nYa tienes Premium. Por **2 €/mes más** desbloquea Estaciones y cruza el ensemble con observaciones reales de AEMET, Meteocat y Meteoclimatic.\n\n[Añadir Estaciones]({{upgrade_url}})',
       body_en:
-        '# Hi {{email}}\n\nYou already have Premium. For **â‚¬2/mo more** unlock Stations and cross-reference the ensemble with real AEMET, Meteocat and Meteoclimatic observations.\n\n[Add Stations]({{upgrade_url}})',
+        '# Hi {{email}}\n\nYou already have Premium. For **€2/mo more** unlock Stations and cross-reference the ensemble with real AEMET, Meteocat and Meteoclimatic observations.\n\n[Add Stations]({{upgrade_url}})',
       variables: ['{{email}}', '{{upgrade_url}}'],
       category: 'marketing',
       enabled: 1,

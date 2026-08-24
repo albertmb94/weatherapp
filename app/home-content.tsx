@@ -306,7 +306,7 @@ export default function HomeContent() {
   // geolocate explicitly via the button in the header, which uses
   // the same GPS-quality API but only fires on demand.
 
-  // M-UI-6: persist the user's last view (metric, models, range, â€¦)
+  // M-UI-6: persist the user's last view (metric, models, range, …)
   // so that returning later without a URL still restores their
   // preferences. Position is intentionally NOT persisted â€” it's tied
   // to the city the user picked and they can re-pick it. We save
@@ -894,7 +894,7 @@ export default function HomeContent() {
   //
   // Known limitation (documented, accepted): Open-Meteo returns ONE
   // utc_offset_seconds per request. Across a DST transition inside the
-  // 16-day window the fake-local timeline drifts Â±1 h until the next
+  // 16-day window the fake-local timeline drifts ±1 h until the next
   // refetch; day-boundary scans degrade gracefully (one duplicated or
   // skipped hour) instead of misbehaving.
   const startIndex = useMemo(() => {
@@ -1421,7 +1421,7 @@ export default function HomeContent() {
                   mobile, once for desktop). */}
 
                 {/* B-NEW-37 (2026-08-18): the Mapa view is gone entirely.
-                    The previous `{false && â€¦}` wrapper that preserved the
+                    The previous `{false && …}` wrapper that preserved the
                     dead JSX has been deleted â€” `showMap`, `handleMapToggle`,
                     `mapSectionRef`, `scrollToMapRef` and the MapPicker import
                     are all gone with it. The URL state still carries

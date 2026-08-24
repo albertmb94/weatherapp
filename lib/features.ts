@@ -129,7 +129,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     category: 'monetization',
     configSchema: [
       { key: 'tracking_id', label: 'Amazon Tracking ID', type: 'string' },
-      { key: 'marketplace', label: 'Marketplace (amazon.es, amazon.comâ€¦)', type: 'string' },
+      { key: 'marketplace', label: 'Marketplace (amazon.es, amazon.com…)', type: 'string' },
     ],
   },
   {
@@ -138,7 +138,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     description: 'Muestra bloques de AdSense en los slots definidos.',
     category: 'monetization',
     configSchema: [
-      { key: 'client_id', label: 'AdSense Client ID (ca-pub-â€¦)', type: 'string' },
+      { key: 'client_id', label: 'AdSense Client ID (ca-pub-…)', type: 'string' },
       { key: 'slot_sidebar', label: 'Ad Slot ID (sidebar)', type: 'string' },
       { key: 'slot_feed', label: 'Ad Slot ID (in-feed)', type: 'string' },
     ],
@@ -185,7 +185,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     configSchema: [
       { key: 'vapid_public_key', label: 'VAPID Public Key', type: 'string' },
       { key: 'vapid_private_key', label: 'VAPID Private Key', type: 'string', secret: true },
-      { key: 'vapid_subject', label: 'VAPID Subject (mailto:â€¦)', type: 'string' },
+      { key: 'vapid_subject', label: 'VAPID Subject (mailto:…)', type: 'string' },
     ],
   },
   {
@@ -224,7 +224,7 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     category: 'infrastructure',
     configSchema: [
       { key: 'api_key', label: 'Resend API Key', type: 'string', secret: true },
-      { key: 'from_email', label: 'Email From (Weather <hola@â€¦>)', type: 'string' },
+      { key: 'from_email', label: 'Email From (Weather <hola@…>)', type: 'string' },
     ],
   },
   {

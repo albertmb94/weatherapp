@@ -261,7 +261,7 @@ export default function SettingsPanel(props: SettingsPanelProps) {
               <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : null}
             {isRefreshing
-              ? (locale === 'en' ? 'Refreshingâ€¦' : 'Actualizandoâ€¦')
+              ? (locale === 'en' ? 'Refreshing…' : 'Actualizando…')
               : lastOutcome?.kind === 'refreshed'
                 ? (locale === 'en' ? `Updated · ${refreshAge || ''}` : `Actualizado · ${refreshAge || ''}`)
                 : `${locale === 'en' ? 'Refresh' : 'Actualizar'} · ${refreshAge || ''}`}

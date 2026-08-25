@@ -5,7 +5,7 @@
  *   - safeDecode / validateLatLon: server guard rails.
  */
 import { describe, it, expect } from 'vitest'
-import { isTrackingAllowed, CONSENT_COOKIE } from '@/lib/trackingConsent'
+import { isTrackingAllowed, normalizeConsentValue, CONSENT_COOKIE } from '@/lib/trackingConsent'
 import { safeDecode, validateLatLon } from '@/lib/api/params'
 
 describe('isTrackingAllowed (B-NBT-10)', () => {
@@ -19,6 +19,19 @@ describe('isTrackingAllowed (B-NBT-10)', () => {
     expect(isTrackingAllowed(null)).toBe(false)
     expect(isTrackingAllowed('')).toBe(false)
     expect(isTrackingAllowed('GRANTED')).toBe(false)
+  })
+
+  it('normalizes legacy banner values (accept/reject bug fix)', () => {
+    // The ConsentBanner overwrote 'granted' with 'accept' between
+    // 2026-08-22 and the fix; those visitors accepted and must count.
+    expect(normalizeConsentValue('granted')).toBe('granted')
+    expect(normalizeConsentValue('accept')).toBe('granted')
+    expect(normalizeConsentValue('rejected')).toBe('rejected')
+    expect(normalizeConsentValue('reject')).toBe('rejected')
+    expect(normalizeConsentValue(undefined)).toBeNull()
+    expect(normalizeConsentValue('garbage')).toBeNull()
+    expect(isTrackingAllowed('accept')).toBe(true)
+    expect(isTrackingAllowed('reject')).toBe(false)
   })
 
   it('exposes the cookie name used by banner + proxy', () => {

@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useEffect, useState } from 'react'
-import { CONSENT_COOKIE, consentCookieOptions } from '@/lib/trackingConsent'
+import { CONSENT_COOKIE, consentCookieOptions, normalizeConsentValue } from '@/lib/trackingConsent'
 
 /** Lightweight consent banner that activates when feature.cookiebot is
  *  disabled and the admin needs a stop-gap. When Cookiebot is enabled
@@ -26,18 +26,26 @@ function readStoredChoice(): 'accept' | 'reject' | null {
   // Cookiebot takes over the consent UX when present.
   if ((window as unknown as { Cookiebot?: unknown }).Cookiebot) return 'accept'
   try {
-    const ls = localStorage.getItem('wthr_consent')
-    if (ls === 'accept' || ls === 'reject') return ls
+    const v = normalizeConsentValue(localStorage.getItem('wthr_consent'))
+    if (v) return v === 'granted' ? 'accept' : 'reject'
   } catch { /* storage blocked */ }
   // Fallback: the cookie mirror survives even when localStorage is
   // partitioned/blocked (Safari private mode, strict browser settings).
-  const m = document.cookie.match(/(?:^|;\s*)wthr_consent=(granted|rejected)/)
-  if (m) return m[1] === 'granted' ? 'accept' : 'reject'
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)wthr_consent=([^;]*)/)
+    const v = normalizeConsentValue(m?.[1])
+    if (v) return v === 'granted' ? 'accept' : 'reject'
+  } catch { /* ignore */ }
   return null
 }
 
-/** Mirror the choice into a cookie readable by proxy.ts. */
-function writeConsentCookie(value: 'accept' | 'reject'): void {
+/** Mirror the choice into a cookie readable by proxy.ts. MUST write the
+ *  canonical 'granted'/'rejected' values — same vocabulary as the
+ *  inline delegator in layout.tsx. The React handler runs after it
+ *  (bubble phase vs capture), so writing anything else here overwrote
+ *  a valid 'granted' with an unparseable value and silently disabled
+ *  tracking for every visitor who accepted (metrics flatlined at 0). */
+function writeConsentCookie(value: 'granted' | 'rejected'): void {
   try {
     const opts = consentCookieOptions()
     document.cookie = `${CONSENT_COOKIE}=${value};max-age=${opts.maxAge};path=${opts.path};samesite=${opts.sameSite}`
@@ -60,11 +68,14 @@ export default function ConsentBanner() {
 
   function persist(value: 'accept' | 'reject') {
     answeredInSession = true
+    // Canonical values so this handler is truly idempotent with the
+    // inline delegator in layout.tsx (which fires first, capture phase).
+    const canonical = value === 'accept' ? 'granted' : 'rejected'
     try {
-      localStorage.setItem('wthr_consent', value)
+      localStorage.setItem('wthr_consent', canonical)
       localStorage.setItem('wthr_consent_ts', String(Date.now()))
-    } catch { /* storage blocked â€” cookie + session guard still apply */ }
-    writeConsentCookie(value)
+    } catch { /* storage blocked — cookie + session guard still apply */ }
+    writeConsentCookie(canonical)
     setShow(false)
   }
 

@@ -19,11 +19,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'missing_trigger' }, { status: 400 })
   }
 
-  const products = await listAffiliateProducts({
+  let products = await listAffiliateProducts({
     trigger,
     locale,
     enabledOnly: true,
   })
+  // El catálogo del admin se crea en español; si no hay producto para el
+  // idioma pedido, servimos el que haya para no dejar el slot vacío.
+  if (products.length === 0) {
+    products = await listAffiliateProducts({ trigger, enabledOnly: true })
+  }
   // Return the first (sort_order ASC is already applied by the query).
   const product = products[0] ?? null
   return NextResponse.json({ ok: true, product })

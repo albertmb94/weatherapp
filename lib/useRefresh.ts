@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 export interface RefreshStatus {
@@ -85,10 +85,26 @@ export function useRefresh(): UseRefreshResult {
     },
   })
 
+  // AUDITORÍA: la dependencia era `[mutation]`, y react-query devuelve un
+  // objeto de mutación NUEVO en cada render, así que `refresh` cambiaba
+  // de identidad continuamente. Ese valor alimenta
+  // `usePullToRefresh({ onRefresh: refresh })`, cuyo efecto de listeners
+  // depende de los handlers: durante un gesto de arrastre —que llama a
+  // `setPullDistance` en cada frame— los tres listeners táctiles se
+  // quitaban y se volvían a añadir ~60 veces por segundo.
+  //
+  // Se guardan las partes volátiles en refs y las dependencias quedan
+  // vacías: `refresh` es estable de por vida.
+  const mutationRef = useRef(mutation)
+  // Se actualiza en un efecto, no durante el render: escribir en un ref
+  // mientras se renderiza rompe el modo concurrente (react-hooks/refs).
+  useEffect(() => {
+    mutationRef.current = mutation
+  })
   const refresh = useCallback(() => {
-    if (mutation.isPending) return
-    mutation.mutate()
-  }, [mutation])
+    if (mutationRef.current.isPending) return
+    mutationRef.current.mutate()
+  }, [])
 
   return {
     status: statusQuery.data ?? null,

@@ -16,15 +16,20 @@ let schemaReady: Promise<boolean> | null = null
 async function ensureSchema(): Promise<boolean> {
   if (schemaReady) return schemaReady
   schemaReady = db.ensure().then(ok => {
-    if (!ok) return false
+    if (!ok) {
+      // No cachear el fallo: un apagón transitorio de Turso no debe
+      // desactivar app_state para siempre en esta instancia.
+      schemaReady = null
+      return false
+    }
     return db.execute(
       `CREATE TABLE IF NOT EXISTS app_state (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       )`,
-    )
-  }).catch(() => false)
+    ).catch(() => { schemaReady = null; return false })
+  }).catch(() => { schemaReady = null; return false })
   return schemaReady
 }
 

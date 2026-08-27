@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { hashPassword, verifyPassword } from '../admin/auth'
 
 describe('admin password hashing (B-NBT-11)', () => {

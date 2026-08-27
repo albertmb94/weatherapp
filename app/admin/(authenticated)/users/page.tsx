@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 
@@ -17,11 +17,20 @@ export default function UsersPage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'premium' | 'stations' | 'canceled'>('all')
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'users', query, filter],
+  // AUDITORÍA: `query` entraba directo en la queryKey, así que se
+  // disparaba una petición POR PULSACIÓN de tecla. 300 ms de espera
+  // convierten "barcelona" en una consulta en vez de nueve.
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['admin', 'users', debouncedQuery, filter],
     queryFn: async () => {
-      const r = await fetch(`/api/admin/users?q=${encodeURIComponent(query)}&filter=${filter}`)
-      if (!r.ok) throw new Error('Failed to load users')
+      const r = await fetch(`/api/admin/users?q=${encodeURIComponent(debouncedQuery)}&filter=${filter}`)
+      if (!r.ok) throw new Error(`El servidor respondió ${r.status}`)
       return r.json() as Promise<{ ok: boolean; users: UserRow[]; total: number }>
     },
   })
@@ -91,7 +100,28 @@ export default function UsersPage() {
                 </td>
               </tr>
             ))}
-            {(data?.users ?? []).length === 0 && !isLoading && (
+            {/* AUDITORÍA: no se desestructuraba `isError`, así que un 500 del
+                servidor se mostraba como "Sin resultados." — el admin
+                concluía que no tenía usuarios cuando en realidad la
+                consulta había fallado. */}
+            {isError && (
+              <tr>
+                <td colSpan={6} className="px-3 py-6 text-center">
+                  <p className="text-sm text-red-500">
+                    No se pudo cargar la lista de usuarios
+                    {error instanceof Error ? `: ${error.message}` : '.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => refetch()}
+                    className="mt-2 px-3 py-1 rounded-lg border border-border text-xs hover:bg-surface-raised"
+                  >
+                    Reintentar
+                  </button>
+                </td>
+              </tr>
+            )}
+            {!isError && (data?.users ?? []).length === 0 && !isLoading && (
               <tr>
                 <td colSpan={6} className="px-3 py-6 text-center text-text-tertiary">
                   Sin resultados.

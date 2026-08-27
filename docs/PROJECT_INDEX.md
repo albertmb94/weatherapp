@@ -29,12 +29,7 @@ e2e/              Playwright end-to-end tests
 The schema, conventions and sprint history live in `docs/`:
 - `docs/CONVENCIONES.md` — code conventions, naming, tokens
 - `docs/ESQUEMA_DATOS.md` — DB schema + URL state shape
-- `docs/SPRINT_*.md` — per-sprint history (Sprint 0 … Sprint 11)
-
-The schema, conventions and sprint history live in `docs/`:
-- `docs/CONVENCIONES.md` — code conventions, naming, tokens
-- `docs/ESQUEMA_DATOS.md` — DB schema + URL state shape
-- `docs/SPRINT_*.md` — per-sprint history
+- `docs/SPRINT_*.md` — per-sprint history (Sprint 0 … Sprint 14)
 
 ---
 
@@ -58,7 +53,7 @@ documented in `docs/ESQUEMA_DATOS.md`.
 
 For external APIs: each external integration has its own module under
 `lib/` (`lib/openMeteo.ts`, `lib/aemet.ts`, `lib/meteocat.ts`,
-`lib/meteoclimatic.ts`, `lib/rainViewer.ts`, `lib/reverseGeocode.ts`)
+`lib/meteoclimatic.ts`, `lib/reverseGeocode.ts`)
 and a corresponding server route under `app/api/`.
 
 ---

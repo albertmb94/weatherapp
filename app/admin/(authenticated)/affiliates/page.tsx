@@ -1,8 +1,7 @@
-﻿'use client'
+'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import { extractAsinFromAmazonUrl } from '@/lib/affiliate'
 
 interface SlotProduct {
   id: string
@@ -100,14 +99,18 @@ function SlotEditor({ slot, existing, onSave, saving }: {
 }) {
   const [amazonUrl, setAmazonUrl] = useState(existing?.affiliateUrl ?? '')
   const [title, setTitle] = useState(existing?.title ?? '')
-  const [description, setDescription] = useState((existing as SlotProduct & { description?: string })?.description ?? '')
+  const [description, setDescription] = useState(existing?.description ?? '')
   const [saved, setSaved] = useState(false)
-
-  useEffect(() => {
+  // Re-seed del formulario cuando cambia `existing` (tras un save, el
+  // refetch devuelve un objeto nuevo). Ajuste en fase de render (patrón
+  // oficial de React) en lugar de setState en un efecto.
+  const [seededFor, setSeededFor] = useState<SlotProduct | null>(existing)
+  if (existing !== seededFor) {
+    setSeededFor(existing)
     setAmazonUrl(existing?.affiliateUrl ?? '')
     setTitle(existing?.title ?? '')
-    setDescription((existing as SlotProduct & { description?: string })?.description ?? '')
-  }, [existing])
+    setDescription(existing?.description ?? '')
+  }
 
   const asin = extractAsin(amazonUrl)
   const canSave = amazonUrl.trim().length > 0 && title.trim().length > 0 && !!asin

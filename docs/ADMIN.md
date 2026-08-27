@@ -15,9 +15,13 @@ These env vars **must** be present in Vercel for the admin to work:
 | `APP_URL` | optional | Fallback for `NEXT_PUBLIC_APP_URL`. |
 | `RESEND_API_KEY` | optional | Transactional email sender. |
 | `EMAIL_FROM` | optional | Required for transactional emails. Defaults to `Weather <hello@example.com>`. |
-| `STRIPE_SECRET_KEY` | optional | Required for Premium/Stations checkout. |
-| `STRIPE_WEBHOOK_SECRET` | optional | Required for webhook signature verification. |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | optional | Required for client-side Stripe Elements. |
+| `STRIPE_SECRET_KEY` | — | **Not read at runtime.** Stripe config lives in `/admin/features` (`feature_flags.config`). |
+| `STRIPE_WEBHOOK_SECRET` | — | **Not read at runtime.** Configured via `/admin/features`. |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | — | **Not read at runtime.** Configured via `/admin/features`. |
+| `ADMIN_USERNAME` | optional | Admin username seeded into `admin_credentials` (default `admin`). |
+| `ADMIN_PASSWORD` | optional | Seeds the initial `admin_credentials` row (only if the table is empty). |
+| `DB_ALLOW_FILE_IN_PRODUCTION` | optional | `1`/`true` for self-hosted HTTP deploys: admin cookie without `Secure`. |
+| `CRON_SECRET` | optional | Bearer token validated by `/api/cron/analytics-rollup`. |
 
 ## Architecture
 
@@ -53,8 +57,10 @@ El magic link está DESACTIVADO. El acceso es clásico:
    - `ADMIN_EMAIL` — identidad del owner en `admin_users`.
    - Opcional: `ADMIN_USERNAME` (default `admin`) y `ADMIN_PASSWORD`
      para personalizar las credenciales sembradas.
-2. Si la tabla `admin_credentials` está vacía, el primer arranque siembra:
-   - usuario `admin` · contraseña `Wx-Staging-2026!k7Q` (cámbiala).
+2. Si la tabla `admin_credentials` está vacía y `ADMIN_PASSWORD` está
+   definida, el primer arranque siembra el acceso (usuario por defecto
+   `admin`, o `ADMIN_USERNAME`). Nunca se siembra una contraseña
+   conocida/publicada: sin `ADMIN_PASSWORD` no se siembran credenciales.
 3. Entra en `/admin/login` con usuario y contraseña.
    - Errores genéricos (no revela si falló usuario o contraseña).
    - Rate limit 5 intentos/min/IP.
@@ -92,23 +98,21 @@ All features default to OFF. The admin enables them via `/admin/features`. Each 
 
 - `getFeature` uses React `cache` so multiple consumers in the same render share one DB query. **Cross-request caching is not implemented** â€” every page load triggers 2 DB queries (`feature.cookiebot` + `feature.plausible`) on the root layout. For high-traffic deploys, lift these to `unstable_cache` with a 60s TTL.
 - `proxy.ts` fires a `fetch` to `/api/track/pageview` on every request. The fetch is `keepalive: true` so it doesn't block response flushing. For very high traffic, batch these writes.
-- Magic links are one-time use (deleted on first verify). TTL is 7 days. Sessions are persistent (TTL 7 days, sliding â€” the cookie is re-issued on every validate).
+- Magic links are removed (B-NBT-11) and the owner bypass is removed too (audit S1, 2026-08-27): access is username/password against `admin_credentials`, nothing else. Admin sessions are persistent (TTL 7 days) and always backed by a row in `admin_sessions`, so logout and password changes can revoke them.
 
 ## Security
 
 - `proxy.ts` adds baseline security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS in production).
 - Admin cookies are `HttpOnly`, `SameSite=Lax`, `Secure` in production.
-- Magic-link tokens are 32 random bytes (`crypto.getRandomValues` in Edge runtime, `randomBytes(32)` in Node).
+- Session tokens are 32 random bytes (`randomBytes(32)` in Node) stored in `admin_sessions`. There is no secondary auth path: the removed owner bypass validated an HMAC token that had no DB row, so it could not be revoked by logout or by rotating the password.
+- Changing the password revokes **every** session for that admin before issuing the new one (audit S2).
 - Affiliate redirect enforces an allowlist of marketplaces (Amazon domains, Awin, Booking).
 - Admin endpoints are rate-limited per IP (auth: 5/min) and per admin (campaigns: 12/5min).
 
 ## Not yet implemented (stretch)
 
-- Stripe SDK not installed. Checkouts return `503 stripe_sdk_pending` until `npm install stripe` and the integration block is uncommented.
 - Web Push not installed. The push handlers will be added when `feature.push` is enabled.
-- Vercel cron runs need to be set up in `vercel.json` (not present yet). The cron endpoints all live under `/api/cron/*` and accept a bearer token.
 - Cross-request caching for `getFeature` (mentioned above).
-- Cohorts, funnels, and anomaly detection â€” the dashboard stubs are in place but the analytics queries are not built.
 
 ## Local development
 
@@ -116,7 +120,7 @@ All features default to OFF. The admin enables them via `/admin/features`. Each 
 npm install
 npm run dev
 # Visit http://localhost:3000/admin/login
-# The first magic link will be printed to the dev server console.
+# Log in with the seeded username/password (ADMIN_USERNAME / ADMIN_PASSWORD).
 ```
 
 For local dev with the full Stack:

@@ -1,7 +1,8 @@
-﻿'use client'
+'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
+import { readConsentFromBrowser } from '@/lib/trackingConsent'
 import type { SponsoredSlotKey } from '@/lib/sponsored'
 
 interface SponsoredProduct {
@@ -22,19 +23,37 @@ interface SponsoredSectionProps {
   slotKey: SponsoredSlotKey | null
 }
 
+const emptySubscribe = () => () => {}
+const readConsentGranted = () => readConsentFromBrowser() === 'granted'
+
 export default function SponsoredSection({ slotKey }: SponsoredSectionProps) {
   const { locale } = useLocale()
   const [product, setProduct] = useState<SponsoredProduct | null>(null)
+  // AUDITORÍA: este componente no comprobaba el consentimiento, a
+  // diferencia de AdSlot. Un clic en el enlace pasa por
+  // /api/affiliate/redirect, que registra el clic con el anon_id: es
+  // seguimiento con fines comerciales y necesita permiso igual que la
+  // publicidad. Devuelve false en SSR y en la primera hidratación.
+  const consented = useSyncExternalStore(emptySubscribe, readConsentGranted, () => false)
+
+  // Reset cuando desaparece el slot: ajuste de estado en fase de render
+  // (patrón oficial de React), evita el setState síncrono en el efecto.
+  if (!slotKey && product !== null) {
+    setProduct(null)
+  }
 
   useEffect(() => {
-    if (!slotKey) { setProduct(null); return }
+    if (!slotKey || !consented) return
     const controller = new AbortController()
     fetch(`/api/affiliates/serve?trigger=${slotKey}&locale=${locale}`, { signal: controller.signal })
       .then(r => r.json())
       .then(data => setProduct(data.product ?? null))
       .catch(() => setProduct(null))
     return () => controller.abort()
-  }, [slotKey, locale])
+    // Con `consented` en las dependencias: sin el, aceptar las cookies
+    // sin recargar no volvia a lanzar la peticion y el bloque no
+    // aparecia hasta la siguiente navegacion.
+  }, [slotKey, locale, consented])
 
   if (!product || !slotKey) return null
 

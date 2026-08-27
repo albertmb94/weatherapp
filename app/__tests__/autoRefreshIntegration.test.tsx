@@ -39,18 +39,14 @@ const TICK_MS = 60_000
  */
 function useHarness(mockFetchedAt: number, fetchFn: () => Promise<ForecastResult>) {
   const queryClient = useQueryClient()
-  const [forecastAgeMs, setForecastAgeMs] = useState<number | null>(null)
-  const [isFetching, setIsFetching] = useState(false)
   const lastAutoRefreshAtRef = useRef(0)
   const invalidations = useRef<unknown[]>([])
 
   // Mock the forecast query so `data` lands with `fetchedAt = mockFetchedAt`.
-  const { data, isFetching: rqIsFetching } = useQuery<ForecastResult>({
+  const { data, isFetching } = useQuery<ForecastResult>({
     queryKey: ['forecast', 0, 0, 168, false],
     queryFn: fetchFn,
   })
-
-  useEffect(() => { setIsFetching(rqIsFetching) }, [rqIsFetching])
 
   // Replicate the orchestrator's tick — same 60s cadence as
   // `useClientNow(60_000)` in production.
@@ -60,13 +56,12 @@ function useHarness(mockFetchedAt: number, fetchFn: () => Promise<ForecastResult
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    if (data?.fetchedAt && currentTickMs) {
-      setForecastAgeMs(Math.max(0, currentTickMs - data.fetchedAt))
-    } else if (!data) {
-      setForecastAgeMs(null)
-    }
-  }, [data, currentTickMs])
+  // `forecastAgeMs` derivado (sin espejar estado en un efecto). El caso
+  // intermedio del original (data presente pero sin tick) no existe en la
+  // práctica: currentTickMs pasa de null a un valor y no vuelve atrás.
+  const forecastAgeMs = data?.fetchedAt && currentTickMs != null
+    ? Math.max(0, currentTickMs - data.fetchedAt)
+    : null
 
   // The effect under test.
   useEffect(() => {
@@ -87,7 +82,13 @@ function useHarness(mockFetchedAt: number, fetchFn: () => Promise<ForecastResult
     invalidations.current.push({ at: currentTickMs, age: forecastAgeMs })
   }, [forecastAgeMs, isFetching, currentTickMs, queryClient])
 
-  return { invalidations: invalidations.current, forecastAgeMs, data }
+  // Getter en lugar de leer `invalidations.current` durante el render:
+  // la lectura ocurre cuando el test lo accede, fuera de la fase de render.
+  return {
+    get invalidations(): unknown[] { return invalidations.current },
+    forecastAgeMs,
+    data,
+  }
 }
 
 function makeHarness(mockFetchedAt: number, fetchFn: () => Promise<ForecastResult>) {

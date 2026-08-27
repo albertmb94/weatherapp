@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
-import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE } from '@/lib/models'
 import type { MetricId } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { ensembleWithFallback, resolveActiveModels, weightsForAbsolute } from '@/lib/ensemble/central'

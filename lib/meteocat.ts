@@ -108,10 +108,6 @@ function minOf(readings: Reading[] | undefined): number | null {
   if (!readings || readings.length === 0) return null
   return readings.reduce((m, r) => (r.valor < m ? r.valor : m), readings[0].valor)
 }
-function sumOf(readings: Reading[] | undefined): number | null {
-  if (!readings || readings.length === 0) return null
-  return readings.reduce((s, r) => s + r.valor, 0)
-}
 
 /**
  * Combine station metadata with per-variable readings into the shared
@@ -153,7 +149,7 @@ export function buildMeteocatObservations(
         bearing,
         direction: bearing !== null ? bearingToDirection(bearing) : '',
       },
-      precipitation: sumOf(byVar.PRECIP.get(code)),
+      precipitation: last(byVar.PRECIP.get(code))?.valor ?? null,
     })
   }
   return out

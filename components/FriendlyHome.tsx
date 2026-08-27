@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useMemo } from 'react'
 import type { MetricId, WeatherModel } from '@/lib/models'
@@ -11,7 +11,6 @@ import {
 } from '@/lib/friendlyForecast'
 import { resolveActiveModels, weightsFor } from '@/lib/ensemble/central'
 import { useNowcast } from '@/lib/hooks/useNowcast'
-import { useEntitlements } from '@/lib/hooks/useEntitlements'
 import { useFeatureEnabled } from '@/lib/hooks/useFeature'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 // ProfileChip is no longer rendered inline (the user asked us
@@ -42,7 +41,7 @@ function buildMeanSeries(
 ): (number | null)[] {
   // B-NBT-9b (2026-08-22): the average is the WEIGHTED WedAI mean
   // (calibrated presets, per-hour lead) instead of a flat unweighted
-  // average over every series key â€” the same number every other
+  // average over every series key — the same number every other
   // surface shows for that hour, so the station blend on the headline
   // card starts from a consistent baseline.
   const active = resolveActiveModels(models, [], 'wedai')
@@ -98,7 +97,7 @@ interface FriendlyHomeProps {
   liveUvValidAt?: Date | null
   /** Localised freshness for the UI. */
   fetchedAt?: number | null
-  /** Forecast age (ms) â€” used to flag the card when the data is stale. */
+  /** Forecast age (ms) — used to flag the card when the data is stale. */
   forecastAgeMs?: number | null
   /** B-NEW-10 (2026-07-25): ensemble mode for the hourly strip's
    *  future slots. The big "Tiempo actual" card (computeCurrentSnapshot)
@@ -118,7 +117,7 @@ interface FriendlyHomeProps {
   /** User's current coordinate (lat/lon). Threaded down to `useNowcast`
    *  so the closest-station lookup actually centres on the user's
    *  position. The previous build hard-coded (0, 0) which produced
-   *  Atlantic-Ocean stations as the "closest match" â€” a real bug. */
+   *  Atlantic-Ocean stations as the "closest match" — a real bug. */
   userLat?: number
   userLon?: number
   /** Sprint 13: the auto-derived profile for the current location.
@@ -130,7 +129,7 @@ interface FriendlyHomeProps {
   /** Sprint 13: full backtest recommendation set, threaded down to
    *  `computeCurrentSnapshot` so the snapshot's `meanAcrossModels`
    *  uses `weightsForProfile` and biases the recommended models.
-   *  An empty Set means no boost â€” the snapshot degrades to the
+   *  An empty Set means no boost — the snapshot degrades to the
    *  pre-Sprint-13 behaviour byte-for-byte. */
   usageProfileRecommended?: ReadonlySet<string>
   /** F5 (revised): the EU AQI value for the current hour.
@@ -176,7 +175,7 @@ export default function FriendlyHome({
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
-  // B-NBT-13: sponsored section â€” visible para TODOS los usuarios
+  // B-NBT-13: sponsored section — visible para TODOS los usuarios
   // cuando feature.affiliates está activo (es la vía de monetización
   // de los usuarios free, no solo de los premium).
   const affiliatesEnabled = useFeatureEnabled('feature.affiliates')
@@ -202,7 +201,7 @@ export default function FriendlyHome({
       // `meanAcrossModels` call inside uses `weightsForProfile`
       // instead of `weightsFor`. Default-arg semantics in
       // friendlyForecast.ts make this safe to leave undefined here
-      // â€” when usageProfile is null (classifier still in flight) we
+      // — when usageProfile is null (classifier still in flight) we
       // skip the boost and use the pre-Sprint-13 weights exactly.
       usageProfile,
       usageProfileRecommended,
@@ -257,7 +256,7 @@ export default function FriendlyHome({
       {/* The auto-derived profile chip ("Perfil: costero", "sin
           sesgo regional", etc.) used to be rendered here. The
           user reported it added noise without any action the
-          user could take â€” the underlying boost is already
+          user could take — the underlying boost is already
           applied transparently to the ensemble, and the chip
           itself was an "FYI" with no follow-up. We keep the
           `usageProfile` derivation alive (the classifier
@@ -309,8 +308,12 @@ export default function FriendlyHome({
         birchPollen={birchPollen}
       />
       {/* B-NBT-15: sponsored slot — UN anuncio simultáneo. Evalúa
-          UV ≥ 4, lluvia ≥ 1 mm o atardecer próximo (en ese orden). */}
-      <SponsoredSection slotKey={activeSlot} />
+          UV ≥ 4, lluvia ≥ 1 mm o atardecer próximo (en ese orden).
+          AUDITORÍA: `affiliatesEnabled` se calculaba arriba y no se usaba,
+          así que los enlaces de afiliado se servían aunque la flag
+          estuviera APAGADA — justo lo contrario de lo que dice el
+          comentario que la acompaña. */}
+      <SponsoredSection slotKey={affiliatesEnabled ? activeSlot : null} />
       {/* B-NBT-10: reserved ad inventory for free-tier visitors. The
           component self-gates on showAds + feature.ads.adsense. */}
       <AdSlot placement="inline" />

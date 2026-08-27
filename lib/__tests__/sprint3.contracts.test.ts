@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Regression tests for S3 (dead-export removal + contract fixes):
  *  - `getMetricWeights` now returns the blended preset/dynamic
  *    weight map (was previously returning `{}`).
@@ -70,7 +70,7 @@ describe('getMetricWeights', () => {
 })
 
 describe('computeDynamicWeights', () => {
-  it('is no longer the public API surface â€” covered by getMetricWeights', () => {
+  it('is no longer the public API surface — covered by getMetricWeights', () => {
     expect(typeof computeDynamicWeights).toBe('function')
   })
 })

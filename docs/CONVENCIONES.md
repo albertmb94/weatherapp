@@ -44,7 +44,8 @@
 - Redondeo para caché: 1 decimal
 
 ### Divisas
-- No aplica (no hay transacciones monetarias)
+- Stripe (€ EUR) para suscripciones Premium/Stations, configurado vía
+  `/admin/features` y `/admin/plans` (no en variables de entorno).
 
 ### Zonas horarias
 - Los datos de Open-Meteo se asumen en UTC
@@ -134,7 +135,7 @@
 
 | Herramienta | Propósito | Config |
 |-------------|-----------|--------|
-| ESLint 9 | Linting | `.eslint.config.mjs` (next/core-web-vitals + typescript) |
+| ESLint 9 | Linting | `eslint.config.mjs` (next/core-web-vitals + typescript) |
 | TypeScript | Type checking | `tsconfig.json` (strict: true) |
 | Tailwind CSS 4 | Estilos | `postcss.config.mjs` + `@tailwindcss/postcss` |
 | Next.js | Build | `next.config.ts` |
@@ -179,8 +180,11 @@ No hacer commits directos a `main`. Trabajar siempre en ramas.
 | E2E | Flujos completos de usuario | `e2e/` (Playwright) |
 
 ### Cobertura mínima
-- Utils: 80% coverage
-- API routes: casos de éxito, error y edge cases
+- Utils (`lib/`): 70% lines (70% functions, 65% branches) en
+  `vitest.config.ts`
+- API routes (`app/api/`): 65% lines, 60% functions, 55% branches
+- Components: 35% lines, 30% functions, 30% branches
+- (El plugin `@vitest/coverage-v8` se instala bajo demanda)
 
 ### Imports de tests
 ```typescript

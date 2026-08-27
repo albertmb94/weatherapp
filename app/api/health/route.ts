@@ -1,35 +1,85 @@
-import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { NextRequest, NextResponse } from 'next/server'
+import { db, DbError } from '@/lib/db'
+import { migrationStatus } from '@/lib/migrations'
 import { getFeature } from '@/lib/features'
+import { rateLimit } from '@/lib/rateLimit'
 
-/** Lightweight health check used by the admin overview and by
- *  uptime monitors. Probes the DB, the optional Resend/Stripe
- *  configs and Open-Meteo. Always returns 200 unless the DB is
- *  completely down (in which case we 503 so monitors flag it). */
-export async function GET() {
-  const checks: Record<string, { ok: boolean; detail?: string }> = {}
-  try {
-    const r = await db.select<{ ok: number }>('SELECT 1 AS ok')
-    checks.db = { ok: r.length > 0 }
-  } catch (err) {
-    checks.db = { ok: false, detail: String(err) }
+// Cache en memoria del probe a Open-Meteo (60 s): el poll del admin cada
+// 30 s no debe golpear el upstream en cada llamada (quemaría la cuota).
+let openMeteoCache: { at: number; ok: boolean } | null = null
+
+async function checkOpenMeteo(): Promise<{ ok: boolean }> {
+  const now = Date.now()
+  if (openMeteoCache && now - openMeteoCache.at < 60_000) {
+    return { ok: openMeteoCache.ok }
   }
-
-  const resend = await getFeature('feature.resend')
-  checks.resend = { ok: resend.enabled && !!resend.config.api_key, detail: resend.enabled ? 'configured' : 'disabled' }
-
-  const stripe = await getFeature('feature.stripe')
-  checks.stripe = { ok: stripe.enabled && !!stripe.config.secret_key, detail: stripe.enabled ? 'configured' : 'disabled' }
-
+  let ok = false
   try {
     const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.45&longitude=2.25&hourly=temperature_2m', {
       signal: AbortSignal.timeout(3000),
     })
-    checks.openmeteo = { ok: r.ok }
-  } catch (err) {
-    checks.openmeteo = { ok: false, detail: String(err) }
+    ok = r.ok
+  } catch {
+    ok = false
+  }
+  openMeteoCache = { at: now, ok }
+  return { ok }
+}
+
+/** Lightweight health check for the admin overview and uptime monitors.
+ *  Hardened (auditoría F3): sin leaks de errores crudos (`String(err)`),
+ *  sin desvelar detalles de configuración de terceros, y con el probe de
+ *  Open-Meteo cacheado en memoria. Solo devuelve 503 si la DB está caída
+ *  (los servicios externos opcionales no tumban el health). */
+export async function GET(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!rateLimit(`health:${ip}`, 20)) {
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 })
   }
 
-  const allOk = Object.values(checks).every(c => c.ok)
+  const checks: Record<string, { ok: boolean; detail?: string }> = {}
+  // `db.select` no lanza nunca: devolvía [] tanto si la BD estaba caída
+  // como si no había ninguna configurada, y ambos casos se colapsaban en
+  // el mismo "ok:false" sin decir cuál era. Con la variante estricta el
+  // health distingue un despliegue mal configurado (falta la env) de una
+  // base de datos que existe pero no responde.
+  try {
+    const r = await db.selectOrThrow<{ ok: number }>('SELECT 1 AS ok')
+    checks.db = { ok: r.length > 0 }
+  } catch (err) {
+    const kind = err instanceof DbError ? err.kind : 'unknown'
+    console.error('[health] db check failed:', err instanceof Error ? err.message : err)
+    checks.db = { ok: false, detail: kind === 'not_configured' ? 'not_configured' : 'down' }
+  }
+
+  // Esquema: un despliegue con migraciones pendientes responde a las
+  // consultas pero le faltan tablas o columnas, y eso se manifestaba
+  // como "cero visitas" en vez de como un error.
+  if (checks.db.ok) {
+    const schema = await migrationStatus()
+    checks.schema = schema.ok
+      ? {
+          ok: schema.pending.length === 0 && schema.drift.length === 0,
+          detail: `v${schema.currentVersion}/v${schema.latestVersion}` +
+            (schema.pending.length > 0 ? ` · ${schema.pending.length} pendiente(s)` : '') +
+            (schema.drift.length > 0 ? ` · deriva en v${schema.drift.map(d => d.version).join(',')}` : ''),
+        }
+      : { ok: false, detail: 'unreadable' }
+  }
+
+  // No desvelar si Resend/Stripe están configurados: solo "ok/disabled".
+  const resend = await getFeature('feature.resend')
+  checks.resend = { ok: false, detail: 'disabled' }
+  if (resend.enabled) checks.resend = { ok: false, detail: 'configured' }
+
+  const stripe = await getFeature('feature.stripe')
+  checks.stripe = { ok: false, detail: 'disabled' }
+  if (stripe.enabled) checks.stripe = { ok: false, detail: 'configured' }
+
+  checks.openmeteo = await checkOpenMeteo()
+
+  // Resend/Stripe son opcionales: solo la DB y Open-Meteo (core) cuentan
+  // para el estado global; los flags de pago/email no deben marcar DOWN.
+  const allOk = checks.db.ok && checks.openmeteo.ok
   return NextResponse.json({ ok: allOk, checks, ts: Date.now() }, { status: allOk ? 200 : 503 })
 }

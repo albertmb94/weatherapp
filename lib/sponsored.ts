@@ -1,4 +1,4 @@
-﻿/**
+/**
  * B-NBT-15 (2026-08-22): los 3 slots patrocinados.
  *
  * Lógica por hora local de la ubicación consultada:

@@ -1,7 +1,8 @@
-﻿import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
+import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
+import { memoizeSchema } from '@/lib/schemaGuard'
 
 const COOKIE_NAME = 'wthr_admin'
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -14,86 +15,78 @@ export const ADMIN_SESSION_TTL_MS = SESSION_TTL_MS
  * del owner. El acceso al panel es usuario + contraseña clásicos contra
  * la tabla `admin_credentials` (hash scrypt con salt aleatorio).
  *
- * Credenciales sembradas en el primer arranque (si la tabla está vacía):
- *   usuario:  admin
- *   contraseña: la constante DEFAULT_ADMIN_PASSWORD de más abajo
- * (puede sobreescribirse con la env ADMIN_PASSWORD antes del primer
- *  arranque; después cámbiala desde la BD o borrando la fila).
+ * Credenciales sembradas en el primer arranque SOLO si la env
+ * ADMIN_PASSWORD está definida (nunca se siembra una contraseña
+ * conocida/publicada en el repo). Rotación posterior desde /admin/settings.
  */
 
 export const DEFAULT_ADMIN_USERNAME = 'admin'
 
-/** ⚠️ SOLO STAGING — cambiar tras el primer login si procede. */
-const DEFAULT_ADMIN_PASSWORD = 'Wx-Staging-2026!k7Q'
+const ensureSchema = memoizeSchema('admin', async () => {
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS admin_users (
+      email TEXT PRIMARY KEY,
+      name TEXT,
+      role TEXT NOT NULL DEFAULT 'admin',
+      created_at INTEGER NOT NULL,
+      last_login_at INTEGER
+    )`,
+  )
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS admin_sessions (
+      token TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'session',
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+  )
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_admin_sessions_email ON admin_sessions(email)`,
+  )
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS admin_credentials (
+      username TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+  )
 
-let schemaReady: Promise<boolean> | null = null
-
-async function ensureSchema(): Promise<boolean> {
-  if (schemaReady) return schemaReady
-  schemaReady = db.ensure().then(ok => {
-    if (!ok) return false
-    return db.execute(
-      `CREATE TABLE IF NOT EXISTS admin_users (
-        email TEXT PRIMARY KEY,
-        name TEXT,
-        role TEXT NOT NULL DEFAULT 'admin',
-        created_at INTEGER NOT NULL,
-        last_login_at INTEGER
-      )`,
-    ).then(() => db.execute(
-      `CREATE TABLE IF NOT EXISTS admin_sessions (
-        token TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
-        kind TEXT NOT NULL DEFAULT 'session',
-        expires_at INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
-      )`,
-    )).then(() => db.execute(
-      `CREATE INDEX IF NOT EXISTS idx_admin_sessions_email ON admin_sessions(email)`,
-    )).then(() => db.execute(
-      `CREATE TABLE IF NOT EXISTS admin_credentials (
-        username TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
-        password_hash TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )`,
-    )).then(async () => {
-      // Seed initial admin identity from env var
-      const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
-      if (adminEmail) {
-        await db.execute(
-          `INSERT OR IGNORE INTO admin_users (email, name, role, created_at) VALUES (?, ?, ?, ?)`,
-          [adminEmail, 'Owner', 'superadmin', Date.now()],
-        )
-      }
-      // Seed default username/password ONLY when the table is empty so
-      // future password rotations are never silently reverted.
-      const count = await db.select<{ n: number }>('SELECT COUNT(*) AS n FROM admin_credentials')
-      if (Number(count[0]?.n ?? 0) === 0) {
-        const email = adminEmail ?? 'admin@local'
-        await db.execute(
-          `INSERT OR IGNORE INTO admin_credentials (username, email, password_hash, created_at)
-           VALUES (?, ?, ?, ?)`,
-          [
-            process.env.ADMIN_USERNAME?.toLowerCase().trim() || DEFAULT_ADMIN_USERNAME,
-            email,
-            hashPassword(process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD),
-            Date.now(),
-          ],
-        )
-      }
-      return true
-    }).catch((err) => {
-      console.error('[admin] ensureSchema failed:', err instanceof Error ? err.message : err)
-      // B-NBT-10 fix: NO cachear el fallo permanentemente (lock
-      // transitorio de SQLite dejaría el admin muerto para siempre).
-      schemaReady = null
-      return false
-    })
-  })
-  return schemaReady
-}
-
+  // Seed initial admin identity from env var
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
+  if (adminEmail) {
+    await db.execute(
+      `INSERT OR IGNORE INTO admin_users (email, name, role, created_at) VALUES (?, ?, ?, ?)`,
+      [adminEmail, 'Owner', 'superadmin', Date.now()],
+    )
+  }
+  // Seed default username/password ONLY when the table is empty AND
+  // ADMIN_PASSWORD is explicitly provided — nunca se siembra una
+  // contraseña conocida (publicada en el repo) ni un default fijo.
+  const seededPassword = process.env.ADMIN_PASSWORD
+  const count = await db.select<{ n: number }>('SELECT COUNT(*) AS n FROM admin_credentials')
+  if (Number(count[0]?.n ?? 0) === 0) {
+    if (!seededPassword) {
+      console.warn(
+        '[admin] Sin credenciales: define ADMIN_PASSWORD (+ opcionalmente ADMIN_USERNAME) ' +
+          'para sembrar el acceso inicial, o inserta la fila en admin_credentials manualmente.',
+      )
+    } else {
+      const email = adminEmail ?? 'admin@local'
+      await db.execute(
+        `INSERT OR IGNORE INTO admin_credentials (username, email, password_hash, created_at)
+         VALUES (?, ?, ?, ?)`,
+        [
+          process.env.ADMIN_USERNAME?.toLowerCase().trim() || DEFAULT_ADMIN_USERNAME,
+          email,
+          hashPassword(seededPassword),
+          Date.now(),
+        ],
+      )
+    }
+  }
+})
 // ---------------------------------------------------------------------------
 // Password hashing (scrypt nativo de Node — sin dependencias nuevas)
 // ---------------------------------------------------------------------------
@@ -124,19 +117,6 @@ function generateToken(): string {
 
 export { generateToken }
 
-/**
- * B-NBT-10 — TEMPORARY direct-admin token (magic link desactivado por
- * petición del owner). Deriva un token determinista de ADMIN_EMAIL para
- * que el acceso al panel no dependa del estado de la DB. Nivel de
- * confianza: "quien conozca el ADMIN_EMAIL entra". Eliminar junto con
- * el bypass del request route cuando se reactivén los magic links.
- */
-export function directAdminToken(): string | null {
-  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
-  if (!adminEmail) return null
-  return createHmac('sha256', `wthr-direct-admin::${adminEmail}`).update('direct-session').digest('hex')
-}
-
 /** Usuario + contraseña correctos → el email asociado (o null). */
 export async function verifyAdminLogin(
   username: string,
@@ -165,11 +145,6 @@ export async function isAdmin(email: string): Promise<boolean> {
 }
 
 export async function validateAdminSession(token: string): Promise<string | null> {
-  // B-NBT-10 TEMPORARY: el token determinista del bypass valida sin DB.
-  const dt = directAdminToken()
-  if (dt && token === dt) {
-    return process.env.ADMIN_EMAIL!.toLowerCase().trim()
-  }
   if (!(await ensureSchema())) return null
   const rows = await db.select<{ email: string; expires_at: number }>(
     'SELECT email, expires_at FROM admin_sessions WHERE token = ?',

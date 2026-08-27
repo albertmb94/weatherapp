@@ -14,6 +14,20 @@ import { SW_VERSION, SW_FALLBACK } from '@/lib/serviceWorkerVersion'
  * Without this endpoint the SW was hard-coded with
  * `weather-2026-07-19` and had to be bumped by hand on every deploy,
  * leaving clients on a stale offline cache until they purged it.
+ *
+ * POR QUE `force-static` (y por que NO es una contradiccion con
+ * `no-store`): el handler lee `public/sw.js` del disco, y en un
+ * despliegue serverless la carpeta `public/` la sirve el CDN — no forma
+ * parte del bundle de la funcion. `force-static` hace que este handler
+ * se ejecute EN EL BUILD, donde el fichero si existe, y lo que se
+ * despliega es el resultado ya sustituido. `no-store` es una cabecera
+ * para el NAVEGADOR: evita que se quede con un service worker viejo.
+ * Uno es cuando se genera; la otra, quien puede guardarlo.
+ *
+ * La consecuencia de este acoplamiento: si alguien quita
+ * `force-static`, el handler pasara a ejecutarse en tiempo de peticion,
+ * `readFileSync` fallara y el service worker dejara de actualizarse. De
+ * ahi el 500 explicito de abajo en vez de una excepcion sin manejar.
  */
 
 export const runtime = 'nodejs'
@@ -21,7 +35,17 @@ export const dynamic = 'force-static'
 
 export function GET(_req: NextRequest): Response {
   const filePath = join(process.cwd(), 'public', 'sw.js')
-  const source = readFileSync(filePath, 'utf-8')
+  let source: string
+  try {
+    source = readFileSync(filePath, 'utf-8')
+  } catch (err) {
+    // Degradar en vez de reventar el build/handler si el fichero falta.
+    console.error('[sw] no se pudo leer public/sw.js:', err instanceof Error ? err.message : err)
+    return new Response('Service worker not found', {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  }
   const body = source
     .replace(/__SW_BUILD_ID__/g, SW_VERSION)
     .replace(/__SW_BUILD_ID_FALLBACK__/g, SW_FALLBACK)

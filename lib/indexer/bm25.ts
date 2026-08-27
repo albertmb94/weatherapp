@@ -26,7 +26,7 @@ const STOPWORDS = new Set([
   'the', 'a', 'an', 'to', 'of', 'in', 'on', 'for', 'and', 'or',
   'is', 'are', 'was', 'were', 'be', 'been', 'being',
   'it', 'its', 'this', 'that', 'these', 'those',
-  'with', 'as', 'by', 'at', 'from', 'or',
+  'with', 'as', 'by', 'at', 'from',
 ])
 
 /** Tokenise one document into a list of lowercase alphanumeric tokens. */

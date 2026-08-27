@@ -13,13 +13,12 @@ import { DEFAULT_LOCALE, localizedHref, splitLocale } from '@/lib/locale/routing
  *  idioma incluso a quien estaba navegando en /en. */
 export default function NotFound() {
   // NO se usa useLocale() a proposito: el 404 de la raiz se renderiza
-  // FUERA del LocaleProvider, que vive en app/[locale]/layout.tsx. Usarlo
-  // aqui lanzaba durante el render del servidor y, aunque el HTML ya iba
-  // enviado, ROMPIA LA HIDRATACION DE TODA LA RUTA: la app se veia
-  // completa pero sin datos y sin una sola peticion a /api, porque no
-  // llegaba a correr ningun efecto ni ninguna consulta. No habia error en
-  // consola; solo aparecia en el log del servidor. El idioma se lee de la
-  // ruta, que siempre esta disponible (mismo enfoque que app/error.tsx).
+  // FUERA del LocaleProvider, que vive en app/[locale]/layout.tsx, asi
+  // que useLocale() lanzaba "must be used within LocaleProvider" durante
+  // el render del servidor. El error solo aparecia en el log del
+  // servidor, no en la consola del navegador, asi que era facil no
+  // verlo. El idioma se lee de la ruta, que siempre esta disponible
+  // (mismo enfoque que app/error.tsx).
   const pathname = usePathname()
   const locale = splitLocale(pathname ?? '/').locale ?? DEFAULT_LOCALE
   const es = locale === 'es'

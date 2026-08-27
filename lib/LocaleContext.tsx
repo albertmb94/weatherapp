@@ -26,21 +26,25 @@ export { DEFAULT_LOCALE }
  *
  * POR QUÉ SE RECIBE COMO PROP Y NO SE LEE CON `usePathname()`:
  *
- * La primera versión de este refactor derivaba el idioma con
- * `usePathname()` aquí dentro. Este proveedor se monta en el layout
- * RAÍZ (app/providers.tsx), por encima del segmento `[locale]`, y usar
- * ahí el hook de ruta ROMPÍA LA HIDRATACIÓN DE TODO EL SUBÁRBOL: la
- * página se pintaba con el HTML del servidor pero React no la
- * adoptaba, así que no corría ningún efecto ni ninguna consulta de
- * react-query. En la práctica: la app aparecía completa pero sin datos
- * —todos los valores con guiones— y sin una sola petición a /api. No
- * había ningún error en consola; se detectó comparando la hidratación
- * contra el build anterior.
+ * `app/[locale]/layout.tsx` ya conoce el idioma por `params` y lo pasa
+ * como prop. El servidor es la autoridad: no hay derivación duplicada y
+ * no puede haber desajuste entre lo que renderiza el servidor y lo que
+ * deduce el cliente. Derivarlo con `usePathname()` dentro del proveedor
+ * significaría montarlo en el layout RAÍZ (app/providers.tsx), que está
+ * por encima del segmento `[locale]` y no puede saber el idioma sin
+ * deducirlo — justo lo que este refactor venía a eliminar.
  *
- * Ahora `app/[locale]/layout.tsx` monta este proveedor con el idioma
- * que ya conoce por `params`. Es además más correcto: el servidor es la
- * autoridad, no hay derivación duplicada y no puede haber desajuste
- * entre lo que renderiza el servidor y lo que deduce el cliente.
+ * NOTA SOBRE UN DIAGNÓSTICO ERRÓNEO QUE ESTUVO AQUÍ ESCRITO: se llegó a
+ * afirmar que `usePathname()` en este proveedor "rompía la hidratación
+ * de todo el subárbol". Era falso. El síntoma —la app pintada pero sin
+ * datos y sin una sola petición a /api— venía de MEDIRLO en un navegador
+ * cuya pestaña no compone frames. La portada cuelga de un `<Suspense>`
+ * que se sirve en diferido, y React programa la revelación de ese límite
+ * con `requestAnimationFrame`; donde no hay frames, `rAF` no dispara,
+ * el límite se queda con el marcador `$~` para siempre y la página
+ * parece muerta sin estarlo. Verificado con Playwright contra un build
+ * de producción: hidrata correctamente. La comprobación permanente vive
+ * en e2e/hidratacion.spec.ts.
  */
 export function LocaleProvider({
   children,

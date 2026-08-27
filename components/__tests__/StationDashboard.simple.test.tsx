@@ -1,16 +1,20 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, act } from '@testing-library/react'
+import { render, cleanup, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import StationDashboard from '../StationDashboard'
 import { LocaleProvider } from '@/lib/LocaleContext'
 
 function wrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={qc}>
-      <LocaleProvider initialLocale="es">{children}</LocaleProvider>
-    </QueryClientProvider>
-  )
+  function TestWrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={qc}>
+        <LocaleProvider initialLocale="es">{children}</LocaleProvider>
+      </QueryClientProvider>
+    )
+  }
+  TestWrapper.displayName = 'TestWrapper'
+  return TestWrapper
 }
 
 describe('StationDashboard (rendered in isolation)', () => {

@@ -66,7 +66,16 @@ export async function POST(req: NextRequest) {
   try {
     const { getAmazonAffiliateConfig, buildAffiliateUrl } = await import('@/lib/affiliate')
     const cfg = await getAmazonAffiliateConfig()
-    if (cfg) affiliateUrl = buildAffiliateUrl(asin, cfg)
+    // AUDITORIA: aqui se pasaba `asin` a secas. `buildAffiliateUrl`
+    // interpreta una cadena como URL COMPLETA, asi que hacia
+    // `new URL("B0ABC12345")`, que lanza, y el catch devolvia
+    // "B0ABC12345?tag=...". Esa basura relativa se guardaba en la BD y
+    // /api/affiliate/redirect la rechazaba luego con 400 por no empezar
+    // por https://. Es decir: configurar el tracking ID —lo unico que
+    // hace que los enlaces generen dinero— rompia TODOS los productos
+    // creados a partir de ese momento. Sin tracking ID funcionaba.
+    // La sobrecarga de objeto es la que construye la URL de verdad.
+    if (cfg) affiliateUrl = buildAffiliateUrl({ asin, marketplace: 'amazon.es' }, cfg)
   } catch { /* fallback a URL limpia */ }
 
   const id = await upsertAffiliateProduct({

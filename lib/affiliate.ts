@@ -1,5 +1,5 @@
-﻿/**
- * Affiliate system â€” sponsored product blocks contextualised by the
+/**
+ * Affiliate system — sponsored product blocks contextualised by the
  * current forecast. Disabled by default; the admin flips
  * `feature.affiliates` (and `feature.affiliates.amazon`) on once the
  * Amazon Associates account is approved and the tracking ID is pasted
@@ -8,6 +8,7 @@
 
 import { randomBytes } from 'crypto'
 import { db } from './db'
+import { memoizeSchema } from './schemaGuard'
 import { getFeature } from './features'
 
 export type AffiliateTrigger =
@@ -20,62 +21,55 @@ export type AffiliateTrigger =
   | 'snow'
   | 'fog'
 
-let schemaReady: Promise<boolean> | null = null
-
-export async function ensureAffiliateSchema(): Promise<boolean> {
-  if (schemaReady) return schemaReady
-  schemaReady = db.ensure().then(ok => {
-    if (!ok) return false
-    return db.execute(
-      `CREATE TABLE IF NOT EXISTS affiliate_products (
-        id TEXT PRIMARY KEY,
-        trigger TEXT NOT NULL,
-        asin TEXT NOT NULL,
-        locale TEXT NOT NULL,
-        title TEXT NOT NULL,
-        price_label TEXT,
-        image_url TEXT,
-        affiliate_url TEXT NOT NULL,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        sort_order INTEGER NOT NULL DEFAULT 0,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER
-      )`,
-    ).then(() => db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_aff_products_trigger ON affiliate_products(trigger, locale, enabled)',
-    )).then(() => db.execute(
-      // B-NBT-13: columna de texto libre por producto (self-healing)
-      'ALTER TABLE affiliate_products ADD COLUMN description TEXT',
-    ).catch(() => {/* ya existe */})).then(() => db.execute(
-      `CREATE TABLE IF NOT EXISTS affiliate_clicks (
-        id TEXT PRIMARY KEY,
-        anon_id TEXT NOT NULL,
-        program TEXT NOT NULL,
-        product_id TEXT NOT NULL,
-        trigger TEXT NOT NULL,
-        city TEXT,
-        ts INTEGER NOT NULL
-      )`,
-    )    ).then(() => db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_affiliate_clicks_ts ON affiliate_clicks(ts)',
-    )).then(async () => {
-      // B-NBT-15: migrar triggers viejos a los nuevos slot keys.
-      const renames: [string, string][] = [
-        ['uv_high', 'slot_uv'],
-        ['rain_24h', 'slot_rain'],
-      ]
-      for (const [oldK, newK] of renames) {
-        await db.execute(
-          'UPDATE affiliate_products SET trigger = ? WHERE trigger = ?',
-          [newK, oldK],
-        )
-      }
-      return true
-    }).then(() => true)
-      .catch(() => false)
-  }).catch(() => false)
-  return schemaReady
-}
+export const ensureAffiliateSchema = memoizeSchema('affiliate', async () => {
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS affiliate_products (
+      id TEXT PRIMARY KEY,
+      trigger TEXT NOT NULL,
+      asin TEXT NOT NULL,
+      locale TEXT NOT NULL,
+      title TEXT NOT NULL,
+      price_label TEXT,
+      image_url TEXT,
+      affiliate_url TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER
+    )`,
+  )
+  await db.execute(
+    'CREATE INDEX IF NOT EXISTS idx_aff_products_trigger ON affiliate_products(trigger, locale, enabled)',
+  )
+  // B-NBT-13: columna de texto libre por producto (self-healing)
+  try {
+    await db.execute('ALTER TABLE affiliate_products ADD COLUMN description TEXT')
+  } catch {
+    /* ya existe */
+  }
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS affiliate_clicks (
+      id TEXT PRIMARY KEY,
+      anon_id TEXT NOT NULL,
+      program TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      trigger TEXT NOT NULL,
+      city TEXT,
+      ts INTEGER NOT NULL
+    )`,
+  )
+  await db.execute(
+    'CREATE INDEX IF NOT EXISTS idx_affiliate_clicks_ts ON affiliate_clicks(ts)',
+  )
+  // B-NBT-15: migrar triggers viejos a los nuevos slot keys.
+  const renames: [string, string][] = [
+    ['uv_high', 'slot_uv'],
+    ['rain_24h', 'slot_rain'],
+  ]
+  for (const [oldK, newK] of renames) {
+    await db.execute('UPDATE affiliate_products SET trigger = ? WHERE trigger = ?', [newK, oldK])
+  }
+})
 
 export interface AffiliateProduct {
   id: string

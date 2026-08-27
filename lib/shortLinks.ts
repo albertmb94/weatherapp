@@ -1,24 +1,18 @@
-﻿import { db } from '@/lib/db'
+import { db } from '@/lib/db'
+import { memoizeSchema } from '@/lib/schemaGuard'
 
 const TTL_DAYS = 90
 const TTL_MS = TTL_DAYS * 24 * 60 * 60 * 1000
 
-let schemaReady: Promise<boolean> | null = null
-
-async function ensureSchema(): Promise<boolean> {
-  if (schemaReady) return schemaReady
-  schemaReady = db.ensure().then(ok => {
-    if (!ok) return false
-    return db.execute(
-      `CREATE TABLE IF NOT EXISTS short_links (
-        id TEXT PRIMARY KEY,
-        snapshot TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )`,
-    )
-  }).catch(() => { schemaReady = null; return false })
-  return schemaReady
-}
+const ensureSchema = memoizeSchema('shortLinks', async () => {
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS short_links (
+      id TEXT PRIMARY KEY,
+      snapshot TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+  )
+})
 
 // F-9: short links stored in our own DB so we don't depend on any
 // external service. Snapshot is the JSON-encoded URL params from

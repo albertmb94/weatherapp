@@ -40,20 +40,24 @@ async function fetchElevation(lat: number, lon: number): Promise<number> {
  * For production, consider using a proper geospatial dataset.
  */
 function estimateDistanceToCoast(lat: number, lon: number): number {
-  // Known coastal reference points (simplified)
-  // A proper implementation would use a coastline dataset
+  // Known coastal reference points (simplified).
+  // IMPORTANTE (auditoría F2/B9): NUNCA incluir ciudades interiores
+  // (p. ej. París/Londres) como "costa" — clasificaría el interior como
+  // coastal y distorsionaría los pesos por terreno. Solo puntos que
+  // están realmente junto al mar.
   const coastRefs = [
     // Mediterranean
     { lat: 41.39, lon: 2.17 }, // Barcelona
     { lat: 43.30, lon: 5.37 }, // Marseille
     { lat: 40.85, lon: 14.27 }, // Naples
     { lat: 37.98, lon: 23.73 }, // Athens
-    // Atlantic
+    { lat: 38.72, lon: -9.14 }, // Lisbon
+    // Atlantic (Europe)
     { lat: 43.26, lon: -2.93 }, // Bilbao
     { lat: 43.54, lon: -5.66 }, // Gijón
-    { lat: 48.86, lon: 2.35 }, // Paris (nearby coast)
-    { lat: 51.51, lon: -0.13 }, // London
     { lat: 55.68, lon: 12.57 }, // Copenhagen
+    { lat: 59.33, lon: 18.07 }, // Stockholm
+    { lat: 60.17, lon: 24.94 }, // Helsinki
     // Atlantic (Americas)
     { lat: 40.71, lon: -74.01 }, // New York
     { lat: 34.05, lon: -118.24 }, // Los Angeles
@@ -161,6 +165,41 @@ function isNearRiverValley(lat: number, lon: number): boolean {
 }
 
 /**
+ * Urban detection based on a set of known metropolitan areas. This is a
+ * rough heuristic; a proper implementation would use a population/land
+ * use dataset. Only high-population metro cores are listed so that
+ * nearby suburbs/outskirts don't get mislabelled.
+ */
+function isUrban(lat: number, lon: number): boolean {
+  const metros = [
+    // Iberia
+    { lat: 40.42, lon: -3.70, r: 45 }, // Madrid
+    { lat: 41.39, lon: 2.17, r: 35 }, // Barcelona (urbano, aunque costero)
+    { lat: 37.39, lon: -6.00, r: 25 }, // Sevilla
+    // Europe
+    { lat: 48.86, lon: 2.35, r: 45 }, // Paris
+    { lat: 51.51, lon: -0.13, r: 45 }, // London
+    { lat: 52.52, lon: 13.41, r: 40 }, // Berlin
+    { lat: 48.14, lon: 11.58, r: 30 }, // Munich
+    { lat: 41.90, lon: 12.50, r: 35 }, // Rome
+    { lat: 45.46, lon: 9.19, r: 35 }, // Milan
+    { lat: 52.37, lon: 4.90, r: 35 }, // Amsterdam
+    { lat: 50.85, lon: 4.35, r: 30 }, // Brussels
+    { lat: 48.21, lon: 16.37, r: 30 }, // Vienna
+    { lat: 50.08, lon: 14.44, r: 30 }, // Prague
+    { lat: 52.23, lon: 21.01, r: 35 }, // Warsaw
+    // Americas / elsewhere
+    { lat: 40.71, lon: -74.01, r: 50 }, // New York
+    { lat: 34.05, lon: -118.24, r: 50 }, // Los Angeles
+    { lat: 41.88, lon: -87.63, r: 50 }, // Chicago
+  ]
+  for (const m of metros) {
+    if (haversineSimple(lat, lon, m.lat, m.lon) < m.r) return true
+  }
+  return false
+}
+
+/**
  * Classify a location's terrain type.
  * Uses elevation API + geographic heuristics.
  */
@@ -189,6 +228,13 @@ export async function classifyTerrain(
   // River valley: near a major river
   if (isNearRiverValley(lat, lon) && elevation < 500) {
     return { type: 'river_valley', confidence: 0.7, elevation, distanceToCoast }
+  }
+
+  // Urban: known metropolitan core (was previously unreachable — the
+  // classifier never returned 'urban', so profiles.ts's urban branch was
+  // dead code).
+  if (isUrban(lat, lon)) {
+    return { type: 'urban', confidence: 0.7, elevation, distanceToCoast }
   }
 
   // Flat: low elevation, far from coast

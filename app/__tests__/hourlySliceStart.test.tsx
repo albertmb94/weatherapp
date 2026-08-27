@@ -14,9 +14,7 @@
  * provided the forecast isn't older than the 2-hour auto-refresh
  * window (otherwise the auto-refresh effect would have fired first).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, act, waitFor } from '@testing-library/react'
-import { useEffect, useMemo, useState } from 'react'
+import { describe, it, expect } from 'vitest'
 import { floorHourLocation } from '@/lib/dateUtils'
 
 const UTC_OFFSET_S = 2 * 3600 // CEST — matches the user's location

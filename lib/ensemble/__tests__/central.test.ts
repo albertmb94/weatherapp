@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Unit tests for the central ensemble module. These exercise the
  * helpers in isolation; the regression test in
  * `centralEnsemble.test.ts` exercises the integration with the
@@ -68,7 +68,7 @@ describe('weightsFor', () => {
     const ecmwfIdx = active.findIndex(m => m.id === 'ecmwf_ifs')
     expect(w[ecmwfIdx]).toBeCloseTo(0.102 * 0.8, 3)
     // The high-resolution regional must outrank every global in the
-    // calibrated short-lead bucket â€” this is the whole point of the
+    // calibrated short-lead bucket — this is the whole point of the
     // backtest-driven calibration.
     const iconEuIdx = active.findIndex(m => m.id === 'icon_eu')
     expect(w[iconEuIdx]).toBeGreaterThan(w[ecmwfIdx])

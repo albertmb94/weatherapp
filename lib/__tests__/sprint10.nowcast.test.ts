@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { blendNowcast, pickClosestStation, type StationObservation } from '../nowcast'
+import { blendNowcast, type StationObservation } from '../nowcast'
 
 const NOW = Date.UTC(2026, 6, 1, 12, 0, 0)
 

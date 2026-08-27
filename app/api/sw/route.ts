@@ -1,7 +1,7 @@
 import { type NextRequest } from 'next/server'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { SW_VERSION, SW_FALLBACK } from '@/lib/serviceWorkerVersion'
+import { SW_VERSION } from '@/lib/serviceWorkerVersion'
 
 /**
  * Serve the Service Worker template with the build-time version stamp
@@ -46,9 +46,10 @@ export function GET(_req: NextRequest): Response {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     })
   }
-  const body = source
-    .replace(/__SW_BUILD_ID__/g, SW_VERSION)
-    .replace(/__SW_BUILD_ID_FALLBACK__/g, SW_FALLBACK)
+  // Una unica sustitucion. Antes habia dos y la primera, al ser global,
+  // pisaba el marcador que usaba la logica de respaldo del propio SW
+  // (ver el comentario en public/sw.js).
+  const body = source.replace(/__SW_BUILD_ID__/g, SW_VERSION)
   return new Response(body, {
     headers: {
       'Content-Type': 'application/javascript; charset=utf-8',

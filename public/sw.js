@@ -18,11 +18,24 @@
 // chunks hasta que se cierran; las nuevas arrancan con el nuevo. Se
 // admite ademas un mensaje SKIP_WAITING para que la app pueda ofrecer
 // "actualizar ahora" cuando quiera implementarlo.
-const SW_VERSION = '__SW_BUILD_ID__'
-const SW_VERSION_FALLBACK = '__SW_BUILD_ID_FALLBACK__'
-const EFFECTIVE_VERSION = (SW_VERSION === '__SW_BUILD_ID__')
-  ? `weather-dev-${SW_VERSION_FALLBACK}`
-  : SW_VERSION
+// AUDITORIA (encontrado verificando en produccion): aqui habia un
+// ternario que comparaba SW_VERSION con el marcador '__SW_BUILD_ID__'
+// para decidir si usar un nombre de respaldo. Pero la sustitucion que
+// hace app/api/sw/route.ts es GLOBAL:
+//
+//     source.replace(/__SW_BUILD_ID__/g, SW_VERSION)
+//
+// asi que tambien reemplazaba el marcador DENTRO de la comparacion, que
+// quedaba como (SW_VERSION === SW_VERSION): siempre cierta. El SW usaba
+// SIEMPRE el nombre de respaldo 'weather-dev-<fecha>', nunca la version
+// del despliegue — de modo que `activate` seguia sin purgar nada entre
+// despliegues, que era justo lo que se pretendia arreglar.
+//
+// El respaldo ya no hace falta en el cliente: lib/serviceWorkerVersion.ts
+// garantiza SIEMPRE un valor con sentido (SHA del commit, id de
+// despliegue, BUILD_ID o hash de esta plantilla). Una sola sustitucion,
+// sin logica que la pueda contradecir.
+const EFFECTIVE_VERSION = '__SW_BUILD_ID__'
 const CACHE_NAME = `${EFFECTIVE_VERSION}-static`
 const RUNTIME_CACHE = `${EFFECTIVE_VERSION}-runtime`
 const PRECACHE_URLS = ['/', '/manifest.json', '/icon-192.svg']

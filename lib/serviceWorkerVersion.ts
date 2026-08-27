@@ -58,6 +58,7 @@ function computeVersion(): string {
 
 export const SW_VERSION = computeVersion()
 
-/** Sello de desarrollo que el SW usa cuando no hay versión de build.
- *  Se recalcula por día para no invalidar la caché en cada recarga. */
-export const SW_FALLBACK = `${new Date().toISOString().slice(0, 10)}.dev`
+// SW_FALLBACK se ha eliminado: el respaldo vivía en el cliente y la
+// sustitución global de la ruta lo hacía ganar SIEMPRE (ver public/sw.js).
+// `computeVersion()` ya garantiza un valor con sentido en los cuatro
+// escenarios, así que no hay nada que respaldar.

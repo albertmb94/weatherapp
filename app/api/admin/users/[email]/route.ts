@@ -20,10 +20,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ema
       plan: string
       current_period_end: number
       stripe_subscription_id: string
-      entitlement_token: string
       created_at: number
     }>(
-      `SELECT email, kind, status, plan, current_period_end, stripe_subscription_id, entitlement_token, created_at
+      `SELECT email, kind, status, plan, current_period_end, stripe_subscription_id, created_at
        FROM subscriptions WHERE email = ? ORDER BY created_at DESC`,
       [userEmail],
     )
@@ -50,7 +49,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ema
           plan: s.plan,
           currentPeriodEnd: Number(s.current_period_end),
           stripeSubscriptionId: s.stripe_subscription_id,
-          claimUrl: `${process.env.NEXT_PUBLIC_APP_URL?.trim() || ''}/premium/claim?token=${s.entitlement_token}`,
           createdAt: Number(s.created_at),
         })),
         grants: grants.map(g => ({
@@ -65,7 +63,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ema
       },
     })
   } catch (err) {
-    console.error('[admin] user lookup failed:', err)
-    return NextResponse.json({ ok: false, error: 'lookup_failed' }, { status: 500 })
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import DailySummary from '@/components/DailySummary'
 import { LocaleProvider } from '@/lib/LocaleContext'
 import type { WeatherModel } from '@/lib/models'

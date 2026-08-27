@@ -12,7 +12,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { getFeature } from '@/lib/features'
 import { listPlans } from '@/lib/plans'
-import { appOrigin } from '@/lib/appUrl'
 
 interface CheckoutPayload {
   email?: string
@@ -62,18 +61,14 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Redirect targets: SIEMPRE desde la env canónica (NEXT_PUBLIC_APP_URL),
-  // nunca del header Origin controlado por el cliente.
-  const origin = appOrigin(new URL(req.url).origin)
+  const origin = req.headers.get('origin') ?? new URL(req.url).origin
   try {
     const stripe = new Stripe(secretKey)
-    // Prefer the admin-configured Stripe Price ID; fall back to inline
-    // price_data so a plan without price IDs still checks out.
-    const stripePriceId =
-      interval === 'monthly' ? plan.stripePriceIdMonthly : plan.stripePriceIdYearly
-    const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = stripePriceId
-      ? { quantity: 1, price: stripePriceId }
-      : {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer_email: body.email || undefined,
+      line_items: [
+        {
           quantity: 1,
           price_data: {
             currency: 'eur',
@@ -81,11 +76,8 @@ export async function POST(req: NextRequest) {
             recurring: { interval: interval === 'monthly' ? 'month' : 'year' },
             product_data: { name: `${plan.nameEn} (${interval})` },
           },
-        }
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer_email: body.email || undefined,
-      line_items: [lineItem],
+        },
+      ],
       metadata: { kind: 'premium' },
       subscription_data: { metadata: { kind: 'premium' } },
       success_url: `${origin}/manage?checkout=success`,
@@ -93,10 +85,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({ ok: true, url: session.url })
   } catch (err) {
-    console.error('[checkout] premium session failed:', err)
-    return NextResponse.json(
-      { ok: false, error: 'stripe_error', message: 'No se pudo iniciar el pago. Revisa la configuración de Stripe.' },
-      { status: 502 },
-    )
+    const message = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ ok: false, error: 'stripe_error', message }, { status: 502 })
   }
 }

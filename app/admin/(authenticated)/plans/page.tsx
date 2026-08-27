@@ -50,8 +50,6 @@ function PlanCard({ plan, onChanged }: { plan: Plan; onChanged: () => void }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [syncedMsg, setSyncedMsg] = useState<string | null>(null)
 
   const save = useMutation({
     mutationFn: async () => {
@@ -93,22 +91,10 @@ function PlanCard({ plan, onChanged }: { plan: Plan; onChanged: () => void }) {
   })
 
   async function sync() {
-    setSyncing(true)
-    setError(null)
-    try {
-      const r = await fetch(`/api/admin/plans/${encodeURIComponent(plan.id)}/sync`, { method: 'POST' })
-      const data = await r.json()
-      if (!data.verified) {
-        setError(data.message ?? 'No verificado')
-      } else {
-        setSyncedMsg(`Sincronizado (mensual: ${data.priceIdMonthly}, anual: ${data.priceIdYearly})`)
-        onChanged()
-        setTimeout(() => setSyncedMsg(''), 4000)
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error de red')
-    } finally {
-      setSyncing(false)
+    const r = await fetch(`/api/admin/plans/${encodeURIComponent(plan.id)}/sync`, { method: 'POST' })
+    const data = await r.json()
+    if (!data.verified) {
+      alert(data.message ?? 'No verificado')
     }
   }
 
@@ -233,12 +219,10 @@ function PlanCard({ plan, onChanged }: { plan: Plan; onChanged: () => void }) {
         <button
           type="button"
           onClick={sync}
-          disabled={syncing}
-          className="px-3 py-1.5 rounded border border-border text-xs text-text-secondary disabled:opacity-50"
+          className="px-3 py-1.5 rounded border border-border text-xs text-text-secondary"
         >
-          {syncing ? 'Sincronizando…' : 'Sync con Stripe'}
+          Sync con Stripe
         </button>
-        {syncedMsg && <span className="text-xs text-emerald-400">{syncedMsg}</span>}
         {saved && <span className="text-xs text-emerald-400">Guardado</span>}
         {error && <span className="text-xs text-red-400">{error}</span>}
       </footer>

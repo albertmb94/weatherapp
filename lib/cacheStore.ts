@@ -1,5 +1,4 @@
 import { db } from '@/lib/db'
-import { memoizeSchema } from '@/lib/schemaGuard'
 
 export interface CachedEntry {
   body: string
@@ -18,15 +17,22 @@ interface CacheStoreOptions {
 }
 
 export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleMs }: CacheStoreOptions) {
-  const ensureSchema = memoizeSchema(`cacheStore:${tableName}`, async () => {
-    await db.execute(
-      `CREATE TABLE IF NOT EXISTS ${tableName} (
-        cache_key TEXT PRIMARY KEY,
-        body TEXT NOT NULL,
-        fetched_at INTEGER NOT NULL
-      )`,
-    )
-  })
+  let schemaReady: Promise<boolean> | null = null
+
+  async function ensureSchema(): Promise<boolean> {
+    if (schemaReady) return schemaReady
+    schemaReady = db.ensure().then(ok => {
+      if (!ok) return false
+      return db.execute(
+        `CREATE TABLE IF NOT EXISTS ${tableName} (
+          cache_key TEXT PRIMARY KEY,
+          body TEXT NOT NULL,
+          fetched_at INTEGER NOT NULL
+        )`,
+      )
+    }).catch(() => false)
+    return schemaReady
+  }
 
   async function get(cacheKey: string, now: number = Date.now()): Promise<CachedEntry | null> {
     if (!(await ensureSchema())) return null

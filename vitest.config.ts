@@ -45,12 +45,11 @@ export default defineConfig({
         'lib/indexer/**',
         'scripts/**',
       ],
-      // AUDITORÍA: con `enabled: false` Y el paquete sin instalar,
-      // `npm run test:coverage` fallaba y los umbrales de arriba eran
-      // puramente decorativos — no se han comprobado nunca. Ahora
-      // @vitest/coverage-v8 está en devDependencies y la cobertura se
-      // activa al pasar --coverage (que es lo que hace el script
-      // test:coverage), sin ralentizar el `npm test` de cada día.
+      // The coverage-v8 plugin needs to be installed as a devDependency
+      // before `npm run test:coverage` works. Run
+      // `npm i -D @vitest/coverage-v8` once. We avoid listing it as a hard
+      // dependency so the lockfile churn doesn't break existing installs.
+      enabled: false,
     },
   },
 })

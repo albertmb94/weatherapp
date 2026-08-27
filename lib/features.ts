@@ -1,5 +1,5 @@
-/**
- * Feature flags — single source of truth for which monetisation features
+﻿/**
+ * Feature flags â€” single source of truth for which monetisation features
  * are currently active. Every feature reads through `getFeature()` so
  * the admin panel can toggle each one without a redeploy.
  *
@@ -10,7 +10,6 @@
 
 import { cache } from 'react'
 import { db } from './db'
-import { memoizeSchema } from './schemaGuard'
 
 export interface FeatureFlag {
   enabled: boolean
@@ -22,7 +21,7 @@ export interface FeatureFlag {
  *  same render don't hit the DB repeatedly.
  *
  *  B-NBT-9c (2026-08-22): `revalidateFeature()` used to write into a
- *  module-level Map that getFeature() merely "touched" — reading a Map
+ *  module-level Map that getFeature() merely "touched" â€” reading a Map
  *  invalidates nothing, and React's cache() is per-request anyway, so
  *  both halves of the machinery were no-ops dressed up as an
  *  invalidation mechanism. Removed: admin writes take effect on the
@@ -34,10 +33,6 @@ export function revalidateFeature(_key?: string): void {
 }
 
 async function loadFeature(key: string): Promise<FeatureFlag> {
-  // Auditoría S4: sin esto, en una BD sin `feature_flags` toda flag leía
-  // `false` en silencio (db.select traga el "no such table") y el sitio
-  // se comportaba como si el operador lo hubiera apagado todo.
-  if (!(await ensureFeatureFlagsSchema())) return { enabled: false, config: {} }
   try {
     const rows = await db.select<{
       enabled: number | string
@@ -56,7 +51,7 @@ async function loadFeature(key: string): Promise<FeatureFlag> {
 }
 
 /** React cache() so per-request dedupe works in server components.
- *  Admin toggles take effect on the next request automatically — there
+ *  Admin toggles take effect on the next request automatically â€” there
  *  is no cross-request cache to bust (see B-NBT-9c note above). */
 export const getFeature = cache(async (key: string): Promise<FeatureFlag> => {
   return loadFeature(key)
@@ -265,18 +260,6 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
  *  B-NBT-18: los valores de campos secretos se devuelven como ''
  *  para que el formulario no los muestre y el PUT no los
  *  sobrescriba accidentalmente con vacío. */
-/** Claves de config cuyo valor nunca debe salir por una API. Cubre
- *  secret_key, api_key, token, password, private_key… (auditoría: la
- *  regex anterior dejaba pasar `api_key` en claro). */
-const SECRET_KEY_RE = /secret|password|private|api_?key|token|credential/i
-
-export function maskSecretConfig(cfg: Record<string, unknown>): Record<string, unknown> {
-  for (const k of Object.keys(cfg)) {
-    if (SECRET_KEY_RE.test(k)) cfg[k] = ''
-  }
-  return cfg
-}
-
 export async function listAllFeatures(): Promise<
   { key: string; enabled: boolean; config: Record<string, unknown>; description: string | null; updatedAt: number | null }[]
 > {
@@ -293,10 +276,13 @@ export async function listAllFeatures(): Promise<
     return rows.map(r => {
       const cfg: Record<string, unknown> = r.config ? JSON.parse(r.config) : {}
       // Ocultar valores de claves secretas
+      for (const k of Object.keys(cfg)) {
+        if (/secret|password|private_key/i.test(k)) cfg[k] = ''
+      }
       return {
         key: r.key,
         enabled: Number(r.enabled) === 1,
-        config: maskSecretConfig(cfg),
+        config: cfg,
         description: r.description,
         updatedAt: r.updated_at != null ? Number(r.updated_at) : null,
       }
@@ -306,34 +292,38 @@ export async function listAllFeatures(): Promise<
   }
 }
 
+let schemaReady: Promise<boolean> | null = null
+
 /** Ensure the `feature_flags` table exists and is seeded with the
- *  catalogue. Se invoca desde CADA lectura de flag (`loadFeature`), de
- *  modo que la primera petición tras un despliegue nuevo arranca el
- *  esquema sin paso manual de migración.
- *
- *  Auditoría S4: el docstring ya prometía esto, pero el único llamador
- *  real era el PUT del admin. En una BD nueva `feature_flags` no
- *  existía, `db.select` tragaba el "no such table" devolviendo `[]` y
- *  TODA flag leía `false` — con lo que el webhook de Stripe descartaba
- *  pagos reales y los emails transaccionales se registraban como
- *  "skipped", hasta que alguien abría /admin/features y pulsaba
- *  guardar. */
-export const ensureFeatureFlagsSchema = memoizeSchema('features', async () => {
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS feature_flags (
-      key TEXT PRIMARY KEY,
-      enabled INTEGER NOT NULL DEFAULT 0,
-      config TEXT,
-      description TEXT,
-      updated_at INTEGER,
-      updated_by TEXT
-    )`,
-  )
-  // Seed catalogue rows (idempotent — INSERT OR IGNORE keeps manual edits)
-  for (const meta of FEATURE_CATALOG) {
-    await db.execute(
-      `INSERT OR IGNORE INTO feature_flags (key, enabled, description) VALUES (?, 0, ?)`,
-      [meta.key, meta.description],
-    )
-  }
-})
+ *  catalogue. Called from each feature lookup so the very first request
+ *  after a fresh deploy bootstraps the schema without needing a manual
+ *  migration step. */
+export async function ensureFeatureFlagsSchema(): Promise<boolean> {
+  if (schemaReady) return schemaReady
+  schemaReady = db.ensure().then(async ok => {
+    if (!ok) return false
+    try {
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS feature_flags (
+          key TEXT PRIMARY KEY,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          config TEXT,
+          description TEXT,
+          updated_at INTEGER,
+          updated_by TEXT
+        )`,
+      )
+      // Seed catalogue rows (idempotent â€” INSERT OR IGNORE keeps manual edits)
+      for (const meta of FEATURE_CATALOG) {
+        await db.execute(
+          `INSERT OR IGNORE INTO feature_flags (key, enabled, description) VALUES (?, 0, ?)`,
+          [meta.key, meta.description],
+        )
+      }
+      return true
+    } catch {
+      return false
+    }
+  }).catch(() => { schemaReady = null; return false })
+  return schemaReady
+}

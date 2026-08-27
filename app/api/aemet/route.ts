@@ -25,11 +25,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const lat = searchParams.get('lat')
   const lon = searchParams.get('lon')
-  // AUDITORIA: `radius` no se validaba, asi que `?radius=1e9` devolvia
-  // las ~900 estaciones de golpe en cada peticion. Se acota a un rango
-  // razonable y NaN cae al valor por defecto.
-  const radiusRaw = Number(searchParams.get('radius') ?? '100')
-  const radius = Number.isFinite(radiusRaw) ? Math.min(Math.max(radiusRaw, 1), 500) : 100
+  const radius = Number(searchParams.get('radius') ?? '100')
 
   // Sprint 10 / B-10-5 (E6): consult the shared Turso cache first so a
   // cold lambda in serverless deployments doesn't burn the upstream
@@ -65,10 +61,7 @@ export async function GET(request: Request) {
           fetchedAt = null
         } else {
           return NextResponse.json(
-            // Sin `detail` del proveedor: AEMET lleva la API key en el
-            // query string, asi que cualquier mensaje suyo que incluya la
-            // URL la filtraria al cliente.
-            { error: 'Failed to fetch AEMET data' },
+            { error: 'Failed to fetch AEMET data', detail: message },
             { status: 502 }
           )
         }

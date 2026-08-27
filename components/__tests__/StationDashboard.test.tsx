@@ -27,10 +27,7 @@ function createWrapper() {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        {/* Idioma EXPLICITO: estos tests esperan cadenas en ingles y
-            antes lo conseguian por accidente, porque el proveedor leia
-            navigator.language (en-US en jsdom). */}
-        <LocaleProvider initialLocale="en">{children}</LocaleProvider>
+        <LocaleProvider>{children}</LocaleProvider>
       </QueryClientProvider>
     )
   }

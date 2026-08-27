@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -30,13 +30,11 @@ import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } 
 import { fetchForecast, fetchCurrentUv, rotateDailyToToday, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
 import { fetchAirQuality, type AirQualityResult } from '@/lib/airQuality'
 import { useUrlState } from '@/lib/useUrlState'
-import { setTrackingContext } from '@/lib/analytics/tracker'
-import { localizedHref } from '@/lib/locale/routing'
 import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
 import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
-import { formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
+import { formatLocationTime, formatLocationDate, formatUtcOffset, getLocationNow } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation, getLocalSavedLocations } from '@/lib/localStorageLocations'
 import { useRefresh } from '@/lib/useRefresh'
@@ -167,7 +165,7 @@ const DEFAULT_MODELS = MODELS.map(m => m.id)
 const DEFAULT_RANGE = 336
 const OPEN_METEO_MAX_DAYS = 16
 
-export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
+export default function HomeContent() {
   // M3: keep initial defaults SSR-safe. The `showMap` derivation uses
   // matchMedia which differs between server and client; we apply it in an
   // effect after mount.
@@ -188,17 +186,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   }))
   const [urlState, updateUrl] = useUrlState(defaults)
 
-  // Publica la ciudad y la vista actuales para el emisor de analytics.
-  // Hace falta porque `buildQuery` (lib/useUrlState.ts) OMITE lat/lon
-  // cuando coinciden con la ciudad por defecto: la ingesta antigua los
-  // rascaba del query string, así que la celda geográfica salía NULL
-  // justo para la ciudad más visitada y el desglose "Zonas" del panel
-  // estaba estructuralmente vacío. Aquí viajan explícitos desde el
-  // estado, estén o no en la URL.
-  useEffect(() => {
-    setTrackingContext({ lat: urlState.lat, lon: urlState.lon, view: urlState.view })
-  }, [urlState.lat, urlState.lon, urlState.view])
-
   const [position, setPosition] = useState<[number, number]>([urlState.lat, urlState.lon])
   // If the user lands on a deep link (`?lat=..&lon=..`) the city name
   // used to default to "Badalona" (the Spanish fallback), so the header
@@ -216,7 +203,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   const geocodeSeqRef = useRef(0)
   // B-NEW-40 (2026-08-18): the auto-geolocate effect (B-NEW-36) has been
   // REMOVED. It used `enableHighAccuracy: false`, which on desktop
-  // resolves to IP-based geolocation — often tens of km away from the
+  // resolves to IP-based geolocation â€” often tens of km away from the
   // user's real position. That silently rewrote `urlState.lat/lon` to
   // a random spot, and with the 5-km mobile radius the Estaciones tab
   // returned zero stations (the user's report: "antes salían muchas
@@ -232,14 +219,14 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   const stationsSectionRef = useRef<HTMLElement>(null)
   const scrollToMapRef = useRef(false)
   const scrollToStationsRef = useRef(false)
-  const { locale, toggleLocale, setLocale } = useLocale()
+  const { locale, toggleLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
   // B-NBT-5: SSR-safe online flag for the offline banner (see hook).
   const isOnline = useOnlineStatus()
   // Refresh hook: the per-location auto-refresh is the primary
   // refresh path now (driven by `data.fetchedAt > 2h` below). The
   // hook's `refresh` mutation is still wired to SettingsPanel and
-  // to the pull-to-refresh gesture as an escape hatch — the user
+  // to the pull-to-refresh gesture as an escape hatch â€” the user
   // asked for the buttons next to the search bar to be removed on
   // 2026-08-18 because the auto-refresh is reliable enough that the
   // manual button wasn't pulling its weight.
@@ -257,12 +244,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // disabled. AEMET publishes every 10 min, so a 5-min staleTime plus
   // a 5-min refetchInterval keeps the list fresh without spamming
   // the API.
-  //
-  // (Auditoria: este bloque afirmaba un radio de 5 km. El valor real es
-  // NEARBY_STATIONS_DEFAULT_RADIUS_KM = 10 en lib/hooks/useNearbyStations.ts.
-  // Un comentario que miente sobre una constante es peor que ninguno:
-  // el radio de 5 km fue justo la causa del incidente de "no salen
-  // estaciones en Badalona".)
   //
   // We source the coords from `urlState.lat` / `urlState.lon`
   // directly (not from the local `position` state) so the nowcast
@@ -290,7 +271,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // so we don't need a state-update-in-effect for the common case; the
   // reverseGeocode effect below fills in the city name asynchronously.
   if (position[0] !== urlState.lat || position[1] !== urlState.lon) {
-    // Update lazily on the next render — React lets us call a state setter
+    // Update lazily on the next render â€” React lets us call a state setter
     // during render to derive state from a prop, which is the documented
     // pattern for "props into state".
     setPosition([urlState.lat, urlState.lon])
@@ -304,8 +285,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     if (!isDefault) {
       const seq = ++geocodeSeqRef.current
       void reverseGeocode(urlState.lat, urlState.lon, locale).then(name => {
-        // Descarta respuestas fuera de orden: aquí no hay spinner que
-        // apagar, sólo un nombre que no debe pisar a otro más reciente.
         if (seq !== geocodeSeqRef.current) return
         if (name) setCityName(name)
       })
@@ -320,7 +299,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
 
   // B-NEW-40 (2026-08-18): the auto-geolocate effect (B-NEW-36) has been
   // REMOVED. It used `enableHighAccuracy: false`, which on desktop
-  // resolves to IP-based geolocation — often tens of km away from the
+  // resolves to IP-based geolocation â€” often tens of km away from the
   // user's real position. That silently rewrote `urlState.lat/lon` to
   // a random spot, and with the 5-km mobile radius the Estaciones tab
   // returned zero stations (the user's report: "antes salían muchas
@@ -330,12 +309,12 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
 
   // M-UI-6: persist the user's last view (metric, models, range, …)
   // so that returning later without a URL still restores their
-  // preferences. Position is intentionally NOT persisted — it's tied
+  // preferences. Position is intentionally NOT persisted â€” it's tied
   // to the city the user picked and they can re-pick it. We save
   // whenever the state changes after the first paint.
   // M-UI-6: persist the user's last view (metric, models, range, ...)
   // so that returning later without a URL still restores their
-  // preferences. Position is intentionally NOT persisted — it's tied
+  // preferences. Position is intentionally NOT persisted â€” it's tied
   // to the city the user picked and they can re-pick it. We save with a
   // 500ms debounce so a flurry of URL state changes (e.g. dragging the
   // hour slider) doesn't fire a localStorage write on every frame.
@@ -426,19 +405,11 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // 2026-07-28: the SVG never rendered reliably in the column
   // layout, so the section now ends with the InsightsTable.
 
-  // Compatibilidad con enlaces antiguos del tipo `/?locale=en`.
-  //
-  // El idioma vivía en el query string y este efecto lo empujaba al
-  // estado de React. Ahora vive en la RUTA, así que un enlace viejo se
-  // traduce navegando a su equivalente (`/en`) una sola vez. Sin esto,
-  // los enlaces ya compartidos abrirían en español en silencio.
-  const localeParamAplicado = useRef(false)
   useEffect(() => {
-    if (localeParamAplicado.current) return
-    if (!urlState.locale || urlState.locale === locale) return
-    localeParamAplicado.current = true
-    setLocale(urlState.locale === 'en' ? 'en' : 'es')
-  }, [urlState.locale, locale, setLocale])
+    if (urlState.locale && urlState.locale !== locale) {
+      toggleLocale()
+    }
+  }, [urlState.locale, locale, toggleLocale])
 
   // S7.5: collapse the mobile header on scroll. Bound to the window scroll
   // position; we don't need IntersectionObserver since the header is
@@ -478,7 +449,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     return () => clearTimeout(t)
   }, [toast])
 
-  // M-UI-4: refresh outcome toast is disabled — every URL state change
+  // M-UI-4: refresh outcome toast is disabled â€” every URL state change
   // re-renders home-content and the `lastOutcome` ref check would re-fire
   // (we re-created the ref each time) which caused the toast to re-appear
   // whenever the user scrolled the page. The refresh button itself gives
@@ -543,7 +514,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // REFRESH_WINDOW_MS (2h), kick off a silent background refresh. The user
   // requested this explicitly so a fresh /api/forecast response lands
   // before the Turso cache turns stale, and we surface it through the
-  // refresh badge too — see useQuery refetch(). React Query's
+  // refresh badge too â€” see useQuery refetch(). React Query's
   // `staleTime` only marks stale; the actual fire happens via
   // refetchOnWindowFocus and the explicit invalidation here.
   const lastFetchedAt = data?.fetchedAt
@@ -554,14 +525,14 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   //
   // B-NEW-20 (2026-07-27): the previous `useState(() => Date.now())`
   // initializer captured the server's clock on SSR and the
-  // client's clock on hydration — even if the tick interval
+  // client's clock on hydration â€” even if the tick interval
   // re-syncs them every 60s, the *initial* value differed
   // between renders and React aborted with hydration error
   // #418 on the "Updated 5m ago" / "Recarga pendiente 2h"
   // text node rendered from `forecastAgeMs`. We start the
   // state at `null` (matches the SSR render and the first
   // client render) and set the actual `currentTickMs` in the
-  // same `useEffect` that starts the tick interval — that
+  // same `useEffect` that starts the tick interval â€” that
   // Reuses `useClientNow` so the pattern (server-time on the SSR
   // pass, ticking every 1 min thereafter) lives in one place. Drives
   // the `forecastAgeMs` calculation that powers auto-refresh below.
@@ -574,7 +545,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // coming back stale (cache hit returning the same `fetchedAt`,
   // network failure, etc.). `useClientNow` ticks every minute so
   // the predicate above will keep re-firing as long as the data
-  // is older than 2h — that's correct, but without a debounce each
+  // is older than 2h â€” that's correct, but without a debounce each
   // tick would re-issue invalidateQueries, which React Query would
   // then either ignore (in-flight) or schedule (back-to-back), and
   // the user would see the cache lock in a stale state. The helper
@@ -625,7 +596,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   const airQualityQuery = useQuery<AirQualityResult>({
     queryKey: ['air-quality', position[0], position[1]],
     queryFn: ({ signal }) => fetchAirQuality(position[0], position[1], { signal }),
-    staleTime: 60 * 60 * 1000, // 1h — air quality changes on the order of hours
+    staleTime: 60 * 60 * 1000, // 1h â€” air quality changes on the order of hours
     refetchOnWindowFocus: true,
   })
 
@@ -635,7 +606,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // the index whose UTC-fake-local `hour` matches the current
   // wall clock floored to the hour. When the data hasn't
   // arrived yet we return `null` so the Métricas tile stays
-  // hidden rather than showing a misleading "—".
+  // hidden rather than showing a misleading "â€”".
   const currentEuropeanAqi = useMemo<number | null>(() => {
     const data = airQualityQuery.data
     if (!data) return null
@@ -647,7 +618,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     // shared `currentTickMs` (the same wall-clock value
     // every other consumer in this file reads) instead of
     // `Date.now()` so the React purity rule is satisfied
-    // and SSR / hydration stay consistent — `currentTickMs`
+    // and SSR / hydration stay consistent â€” `currentTickMs`
     // is 0 on the first client render and starts ticking
     // once the `useClientNow` effect runs.
     const referenceMs = data.fetchedAt ?? currentTickMs
@@ -675,7 +646,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     [airQualityQuery.data],
   )
 
-  // F5: viewport detection — desktop or mobile landscape.
+  // F5: viewport detection â€” desktop or mobile landscape.
   // F5 (revised, second pass): the standalone `AirQualityCard`
   // is gone, so the viewport gate is no longer needed. The
   // air-quality query still runs on every viewport because the
@@ -788,7 +759,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // The tolerance is intentionally the same one used inside
   // `saveLocalLocation`'s dedup check, so the UI and the data
   // layer agree on what "the same place" means.
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- el React Compiler no está habilitado en next.config.ts, así que este useMemo sí aporta memoización real; el diagnóstico del plugin asume compilador activo.
   const currentCityId = useMemo(() => {
     return savedLocations?.find(l =>
       l.name === cityName &&
@@ -826,7 +796,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     updateUrl({ hour: safe })
   }, [updateUrl])
 
-  // B-NEW-37 (2026-08-18): `handleMapToggle` removed — no UI flips
+  // B-NEW-37 (2026-08-18): `handleMapToggle` removed â€” no UI flips
   // `showMap` to true any more, so the toggle would be dead code.
 
   const handleMarineToggle = useCallback(() => {
@@ -847,14 +817,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   const handleBucketChange = useCallback((b: BucketHours) => {
     updateUrl({ bucket: b })
   }, [updateUrl])
-
-  // AUDITORÍA: se pasaba `() => setAdvancedExpanded(o => !o)` en línea, es
-  // decir una función NUEVA en cada render, así que el `memo()` que
-  // envuelve AdvancedSection no acertaba jamás — y su propio comentario
-  // dice que ese memo protege "el coste dominante en móvil lento"
-  // (DailySummary + InsightsTable, ~2000 líneas). Con la identidad
-  // estable el memo por fin funciona.
-  const toggleAdvanced = useCallback(() => setAdvancedExpanded(o => !o), [])
 
   const handleViewSelect = useCallback((section: SidebarSection) => {
     // B-NEW-37 (2026-08-18): the Mapa nav entry is gone from the
@@ -879,19 +841,10 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
         // geocode resolved (up to ~6 s) made the GPS position bounce
         // back and the forecast/map never move until the name arrived.
         updateUrl({ lat, lon })
-        try {
-          const name = await reverseGeocode(lat, lon, locale)
-          // AUDITORÍA: este early-return ocurría ANTES de `setGeoLoading(false)`,
-          // así que dos pulsaciones seguidas del botón de localizar (o una
-          // localización seguida de una búsqueda de ciudad) invalidaban la
-          // primera secuencia y dejaban el botón girando y deshabilitado
-          // PARA SIEMPRE, sin más salida que recargar la página. El reset
-          // vive ahora en el `finally` y ocurre pase lo que pase.
-          if (seq !== geocodeSeqRef.current) return
-          setCityName(name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`)
-        } finally {
-          setGeoLoading(false)
-        }
+        const name = await reverseGeocode(lat, lon, locale)
+        if (seq !== geocodeSeqRef.current) return
+        setCityName(name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`)
+        setGeoLoading(false)
       },
       () => {
         setGeoLoading(false)
@@ -904,7 +857,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // Filter out the virtual marine model only when the marine toggle is
   // *off*. With marine=on we keep every model so that the chart, the
   // Insights table and the friendly cards still compute proper averages
-  // and gradients — the InsightsTable hides the basic land columns on
+  // and gradients â€” the InsightsTable hides the basic land columns on
   // its own when `showBasic=false`, so the user keeps the marine view
   // without losing land-model coverage.
   const displayModels = useMemo(
@@ -935,7 +888,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // (`computeInsightsStartIndex` in lib/insightsTime.ts). Since B-NEW-39
   // the shared `startIndex` is ALSO wall-clock anchored, so the two were
   // numerically identical post-hydration while their comments claimed
-  // opposite contracts ("fetchedAt" vs "wall clock") — a guaranteed
+  // opposite contracts ("fetchedAt" vs "wall clock") â€” a guaranteed
   // desync the next time someone "fixes" one of them. The fallback to
   // `fetchedAt` before hydration is preserved inside the helper's
   // caller via `currentTickMs || fetchedAt`.
@@ -973,7 +926,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // computed exactly as before.
   //
   // We initialise the state with an empty Set and update it via
-  // setState inside the effect — the cascading-update lint that
+  // setState inside the effect â€” the cascading-update lint that
   // synchronous setState-in-effect would trigger is intentional
   // here because the alternative (deriving `recommendedSet` from
   // props) is impossible: the backtest result is async by design.
@@ -981,8 +934,8 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // The setState calls below are inside a useEffect that synchronises
   // the backtest result (async by design) with the React state. The
   // `react-hooks/set-state-in-effect` rule flags this pattern but
-  // it is correct here because the alternative — deriving
-  // `recommendedSet` from props — is impossible: the backtest is
+  // it is correct here because the alternative â€” deriving
+  // `recommendedSet` from props â€” is impossible: the backtest is
   // async, runs once per terrain, and the result must be cached.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -994,7 +947,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     // The lead-time bucket for the recommendation comes from the
     // current "now" hour (lead time 0). B-NBT-3: `model_accuracy`
     // stores the FINE backtest buckets ('0-24h', '24-48h', ...), so
-    // the UI preset bucket must be mapped before querying — querying
+    // the UI preset bucket must be mapped before querying â€” querying
     // with '0-48h' verbatim never matched and silently disabled the
     // profile boost forever.
     const backtestBuckets = uiBucketToBacktestBuckets(getLeadTimeBucket(0))
@@ -1019,7 +972,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // The number of recommendation entries that actually overlap with
-  // the user's active model selection — surfaced in the chip so the
+  // the user's active model selection â€” surfaced in the chip so the
   // user can see whether the boost is taking effect (a coastal city
   // The number of recommendation entries that overlap with
   // the user's active model selection used to be surfaced in
@@ -1105,12 +1058,12 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-    // B-NEW-37 (2026-08-18): dropped `showMap` from the deps — the
+    // B-NEW-37 (2026-08-18): dropped `showMap` from the deps â€” the
     // 'm' shortcut that toggled the map is gone and the only thing
     // that flipped `showMap` on is the (now-disabled) map section.
   }, [selectedHour, effectiveMaxHours, handleHourChange, handleViewSelect])
 
-  // B-NEW-37 (2026-08-18): the scroll-to-map effect is gone — the
+  // B-NEW-37 (2026-08-18): the scroll-to-map effect is gone â€” the
   // map section is permanently disabled, so there's nothing to
   // scroll into view.
 
@@ -1205,23 +1158,10 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
         <SavedLocations onSelect={handleCitySelect} />
       </div>
 
-      {/* AUDITORIA — el UNICO <h1> del documento era el de mas abajo, con
-          clases `hidden sm:block` DENTRO de un contenedor
-          `real-desktop:hidden`: en escritorio la pagina no tenia ningun
-          h1, y en moviles estrechos tampoco. Se anade un encabezado
-          accesible siempre presente (visible solo para lectores de
-          pantalla) y el de la cabecera movil pasa a ser un <span>, que es
-          lo que siempre fue visualmente. */}
-      <h1 className="sr-only">
-        {locale === 'en'
-          ? 'Weather model comparison'
-          : 'Comparador de modelos meteorologicos'}
-      </h1>
-
       {/* MOBILE-ONLY: secondary header (geo, map toggle, theme, lang, hamburger). */}
       <div ref={mobileMenuRef} className="real-desktop:hidden px-3 py-1.5 bg-surface-raised border-b border-border">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-          <span className="text-xs font-semibold text-text-secondary whitespace-nowrap hidden sm:block">Weather</span>
+          <h1 className="text-xs font-semibold text-text-secondary whitespace-nowrap hidden sm:block">Weather</h1>
           <div className="w-px h-4 bg-border hidden sm:block" />
           <button
             onClick={handleGeolocate}
@@ -1255,19 +1195,15 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
             )}
           </button>
           <button
-            // `toggleLocale` NAVEGA a la ruta del otro idioma conservando
-            // el query string, así que ya no hay que escribir nada en la
-            // URL a mano (y hacerlo añadiría un `?locale=` redundante que
-            // competiría con la ruta).
-            onClick={toggleLocale}
+            onClick={() => { toggleLocale(); updateUrl({ locale: locale === 'en' ? 'es' : 'en' }) }}
             className="min-h-[36px] px-2 rounded text-[11px] font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer tracking-wider"
-            title={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
+            title={locale === 'en' ? 'Cambiar a espaÁ±ol' : 'Switch to English'}
           >
             {locale === 'en' ? 'ES' : 'EN'}
           </button>
-          {/* B-NBT-23: Ko-fi — enlace directo a donaciones (URL de feature.kofi.url) */}
+          {/* B-NBT-23: Ko-fi — enlace directo a donaciones */}
           <a
-            href={kofiUrl}
+            href="https://ko-fi.com/F8C225NYMV"
             target="_blank"
             rel="noopener noreferrer"
             className="min-h-[36px] flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
@@ -1348,13 +1284,13 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
           onSelect={handleViewSelect}
           layers={{
             // B-NEW-37 (2026-08-18): `showMap` dropped from the
-            // LayerState — the map section is permanently disabled
+            // LayerState â€” the map section is permanently disabled
             // and no UI flips it any more.
             marine,
             showBasic,
           }}
           onLayerToggle={{
-            // B-NEW-37 (2026-08-18): `map` removed — `handleMapToggle`
+            // B-NEW-37 (2026-08-18): `map` removed â€” `handleMapToggle`
             // is gone and the map section no longer mounts.
             marine: handleMarineToggle,
             basic: handleBasicToggle,
@@ -1364,7 +1300,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
         <main className="flex-1 min-w-0 min-h-0 flex">
           <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
             {/* Sticky search + range on tablet/desktop, sitting at the top of
-                the main column. The metric pills are NOT rendered here — they
+                the main column. The metric pills are NOT rendered here â€” they
                 live next to the Map view (which is what they drive). */}
             <div className="hidden real-desktop:block sticky top-0 z-[1000] bg-background/95 backdrop-blur border-b border-border">
               <div className="flex items-center gap-2 px-4 real-desktop:px-6 py-3">
@@ -1394,7 +1330,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
               <SavedLocations onSelect={handleCitySelect} />
             </div>
 
-            {/* F-5: offline banner — visible only while the browser reports
+            {/* F-5: offline banner â€” visible only while the browser reports
                 offline. B-NBT-5: driven by the useOnlineStatus hook; the
                 previous inline `typeof navigator !== 'undefined' &&
                 !navigator.onLine` check evaluated TRUE on the server
@@ -1404,7 +1340,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
               <div className="mx-4 md:mx-6 mt-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs">
                 {offlineSnapshot
                   ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
-                  : (STRINGS[locale].offlineBanner ?? 'Offline — no cached data')}
+                  : (STRINGS[locale].offlineBanner ?? 'Offline â€” no cached data')}
               </div>
             )}
 
@@ -1414,7 +1350,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
               className="p-3 real-desktop:p-4 real-desktop:space-y-4 space-y-3"
             >
               {/* B-NEW-37 (2026-08-18): removed 'map' from the render-guard
-                  union — no `selectedView === 'map'` path is reachable any
+                  union â€” no `selectedView === 'map'` path is reachable any
                   more, so the conditional collapses to the three live
                   views. */}
               {(selectedView === 'weather' || selectedView === 'cities' || selectedView === 'stations') && (
@@ -1449,14 +1385,14 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                   // through to FriendlyHome so the AHORA + future
                   // slots in the hourly strip respect the toggle.
                   // Default 'wedai' keeps the friendly overview on
-                  // the calibrated ensemble — the user expects
+                  // the calibrated ensemble â€” the user expects
                   // "Previsión de hoy" to follow whatever the Avanzado
                   // toggle says.
                   ensembleMode={ensembleMode}
                   // Sprint 13: the auto-derived profile (or null
                   // while the classifier is in flight) and the
                   // backtest recommendation set. Empty set means
-                  // no boost is applied — the snapshot degrades
+                  // no boost is applied â€” the snapshot degrades
                   // to the pre-Sprint-13 behaviour byte-for-byte.
                   usageProfile={effectiveProfile.profile}
                   usageProfileRecommended={recommendedSet}
@@ -1499,7 +1435,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
 
                 {/* B-NEW-37 (2026-08-18): the Mapa view is gone entirely.
                     The previous `{false && …}` wrapper that preserved the
-                    dead JSX has been deleted — `showMap`, `handleMapToggle`,
+                    dead JSX has been deleted â€” `showMap`, `handleMapToggle`,
                     `mapSectionRef`, `scrollToMapRef` and the MapPicker import
                     are all gone with it. The URL state still carries
                     `showMap` and `view: 'map'` for backwards compat with
@@ -1508,7 +1444,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                 {selectedView === 'weather' && (
                 <AdvancedSection
                   expanded={advancedExpanded}
-                  onToggle={toggleAdvanced}
+                  onToggle={() => setAdvancedExpanded(o => !o)}
                   displayModels={displayModels}
                   displayActiveModelIds={displayActiveModelIds}
                   selectedModels={selectedModels}
@@ -1656,10 +1592,9 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
       <div className="hidden real-desktop:flex real-desktop:mt-auto px-3 py-0.5 bg-surface/50 border-t border-border text-[9px] text-text-tertiary gap-3 shrink-0">
         <span>← → {STRINGS[locale].footerHours}</span>
         <span>/ {STRINGS[locale].footerSearch}</span>
-        {/* AUDITORIA: el atajo 'm' se elimino con la vista de mapa
-            (B-NEW-37) pero el pie seguia anunciandolo. Se anuncia una
-            ayuda que no funciona. */}
-        <a href={localizedHref('/premium', locale)} className="ml-auto hover:text-text-primary">Premium</a>
+        <span>m {STRINGS[locale].footerMap}</span>
+        <a href="/premium" className="ml-auto hover:text-text-primary">Premium</a>
+        <a href="/admin" className="hover:text-text-primary">Admin</a>
       </div>
 
       {toast && (
@@ -1671,7 +1606,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
         </div>
       )}
 
-      <KoFiWidgets url={kofiUrl} />
+      <KoFiWidgets />
       <MobileTabBar
         active={mobileTabFromView}
         onChange={(next) => {
@@ -1697,7 +1632,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
  * its actual props changes. Without this memo, every URL state change
  * (e.g. toggling a model) re-runs the DailySummary and InsightsTable
  * tree, which is the dominant cost on slow mobile. The model
- * comparison chart was removed (2026-07-28) — see comment above.
+ * comparison chart was removed (2026-07-28) â€” see comment above.
  */
 const AdvancedSection = memo(function AdvancedSection({
   expanded,
@@ -1735,7 +1670,7 @@ const AdvancedSection = memo(function AdvancedSection({
   viewData: ReturnType<typeof sliceForecast> | NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
   fullData: NonNullable<Awaited<ReturnType<typeof fetchForecast>>> | null
   startIndex: number
-  /** B-NBT-9b: identical to `startIndex` — both anchors share the same
+  /** B-NBT-9b: identical to `startIndex` â€” both anchors share the same
    *  wall-clock implementation since the dedupe. Kept as a separate
    *  prop so the InsightsTable call-site stays explicit about which
    *  anchor feeds it. */
@@ -1765,7 +1700,7 @@ const AdvancedSection = memo(function AdvancedSection({
   const s = STRINGS[locale]
   // Pre-extract the dense props so the JSX below is readable. Wrap
   // them in `useMemo` so the `[]` fallbacks don't return a fresh
-  // array on every render — that would re-trigger the
+  // array on every render â€” that would re-trigger the
   // `insightsViewTimes` / `insightsViewSeries` memos below on every
   // keystroke from a sibling state change.
   const viewTimes = useMemo(() => viewData?.time ?? [], [viewData])
@@ -1795,7 +1730,7 @@ const AdvancedSection = memo(function AdvancedSection({
   // When the filter is active the Insights table is sliced from the
   // filter's 00:00 (taken from the *full* data, not `viewTimes`).
   // That way the user can ask for "from today 00:00" even when the
-  // current wall clock is past midnight — the table re-anchors on
+  // current wall clock is past midnight â€” the table re-anchors on
   // the day at index `dayFilter.startIndex` in `fullTimes`.
   //
   // The wall-clock offset (no-filter branch) is the same

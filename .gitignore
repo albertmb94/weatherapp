@@ -58,16 +58,9 @@ next-env.d.ts
 dev.log
 dev.err.log
 *.log
-# AUDITORIA: estos tres patrones eran GLOBALES, asi que ignoraban
-# cualquier imagen o HTML en CUALQUIER carpeta del repo. Por eso
-# public/manifest.json solo tiene iconos SVG (Android e iOS quieren PNG)
-# y por eso nunca se pudo commitear un opengraph-image.png. Anclados a la
-# raiz siguen tapando las capturas sueltas sin bloquear public/.
-/*.html
-/*.jpeg
-/*.png
-/screenshots/
-scripts/screenshots/
+*.html
+*.jpeg
+*.png
 
 # playwright artifacts
 /test-results/

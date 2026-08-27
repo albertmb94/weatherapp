@@ -22,19 +22,17 @@
 - Gráfico comparativo con área de spread y media ponderada
 - Tabla de insights con buckets temporales configurables (columnas marinas visibles solo con el toggle)
 - Ubicaciones guardadas persistidas en SQLite local
-- Caché de forecasts en SQLite (TTL 2h), con tabla independiente para marine
+- Caché de forecasts en SQLite (TTL 4h), con tabla independiente para marine
 - i18n español/inglés
 - Estado sincronizado en URL para compartir (incluye flag `marine`)
 
 ### Out of scope
+- Autenticación de usuarios
 - Datos históricos/archivados
 - Alertas meteorológicas
 - Predicción de más de 14 días
 - Edición de coordenadas de ubicación guardada
-
-*(El panel de administración añade autenticación de admin y
-`lib/exportCsv.ts` para exportar datos; ya no aplica "no user auth" ni
-"no data export".)*
+- Exportación de datos
 
 ---
 
@@ -75,13 +73,20 @@ weather/
 │   └── providers.tsx
 ├── components/
 │   ├── CitySearch.tsx              # Autocompletado ciudades
+│   ├── ColorLegend.tsx            # Leyenda de color heatmap
 │   ├── DailySummary.tsx           # Cards resumen diario
 │   ├── InsightsTable.tsx          # Tabla detallada (con columnas marinas opcionales)
+│   ├── MapPicker.tsx              # Mapa Leaflet con heatmap
 │   ├── MetricPills.tsx            # Selector métricas (land / marine / all)
+│   ├── ModelComparisonChart.tsx   # Gráfico Recharts
+│   ├── ModelPills.tsx             # Selector modelos
+│   ├── RainRadarOverlay.tsx       # Overlay RainViewer
+│   ├── RefreshButton.tsx          # Botón refresh con cooldown
 │   ├── SavedLocations.tsx         # Lista ubicaciones guardadas
 │   ├── StationDashboard.tsx       # Tab de estaciones (AEMET + Meteoclimatic)
 │   ├── StationCard.tsx            # Card de observación de estación
-│   └── StationMap.tsx             # Mapa Leaflet de estaciones
+│   ├── StationMap.tsx             # Mapa Leaflet de estaciones
+│   └── TimeRangeSelector.tsx      # Selector rango temporal
 ├── lib/
 │   ├── appState.ts                # Estado refresh (DB)
 │   ├── cacheKey.ts                # Construcción claves caché (forecast + marine)
@@ -89,8 +94,10 @@ weather/
 │   ├── db.ts                      # Cliente libSQL
 │   ├── ensemble.ts                # weightedAvg, contrastText
 │   ├── forecastCache.ts           # Gestión caché forecasts
+│   ├── heatmapConfig.ts           # Config grid heatmap
 │   ├── i18n.ts                    # Traducciones ES/EN (incluye marine)
 │   ├── LocaleContext.tsx          # Provider i18n
+│   ├── locations.ts              # CRUD ubicaciones guardadas
 │   ├── marine.ts                  # Cliente Open-Meteo Marine API
 │   ├── marineCache.ts             # Gestión caché marine
 │   ├── aemet.ts                   # Cliente AEMET OpenData
@@ -98,6 +105,7 @@ weather/
 │   ├── meteoclimatic-types.ts     # Tipos de observación y regiones
 │   ├── models.ts                 # Definición modelos y métricas (con `group: 'land'|'marine'`)
 │   ├── openMeteo.ts              # Cliente Open-Meteo forecast (con `includeMarine`)
+│   ├── rainViewer.ts             # Cliente RainViewer API
 │   ├── usePullToRefresh.ts       # Hook gesto pull-to-refresh (S6)
 │   ├── useUrlState.ts            # Hook sincronización URL (con `marine`)
 │   └── weatherIcon.ts            # Selector icono meteorológico
@@ -105,28 +113,20 @@ weather/
 │   ├── PLAN.md
 │   ├── ESQUEMA_DATOS.md
 │   ├── CONVENCIONES.md
+│   ├── DECISIONES.md
 │   ├── SPRINTS.md
 │   ├── SPRINTS_PLAN.md            # Plan operativo de la funcionalidad de olas
-│   ├── SPRINT_9.md / SPRINT_10.md
-│   └── PROJECT_INDEX.md
+│   └── ESTADO_ACTUAL.md
 ├── .claude/skills/                # Skills detectadas
 ├── public/                        # assets estáticos
 ├── local.db                       # SQLite local
 ├── package.json
 ├── next.config.ts
 ├── tsconfig.json
+├── tailwind.config.ts (si aplica)
 ├── postcss.config.mjs
 └── eslint.config.mjs
 ```
-
-**Eliminados / ya no existen** (removidos en refactors recientes):
-`components/MapPicker.tsx`, `components/ColorLegend.tsx`,
-`components/ModelComparisonChart.tsx`, `components/ModelPills.tsx`,
-`components/RainRadarOverlay.tsx`, `components/RefreshButton.tsx`,
-`components/TimeRangeSelector.tsx`, `lib/rainViewer.ts`,
-`lib/heatmapConfig.ts`, `lib/locations.ts`, `docs/DECISIONES.md`,
-`docs/ESTADO_ACTUAL.md`. (La vista de mapa y el radar se eliminaron en
-B-NEW-37; las ubicaciones guardadas pasaron a localStorage.)
 
 ---
 
@@ -149,9 +149,9 @@ B-NEW-37; las ubicaciones guardadas pasaron a localStorage.)
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |--------|--------------|---------|------------|
-| Rate limiting de Open-Meteo | Media | Alto | Caché 2h, reintentos con backoff, stale-while-revalidate |
+| Rate limiting de Open-Meteo | Media | Alto | Caché 4h, reintentos con backoff, stale-while-revalidate |
 | Fallo de geocodificación | Baja | Medio | Cachear resultados 1h, mensaje de error claro |
 | Conflictos con React 19 / Next 16 (breaking changes) | Media | Alto | Leer docs de `node_modules/next/dist/docs/` antes de cambios |
 | Memoria en cliente con muchos modelos | Media | Medio | Limitar a 6 modelos simultáneos en fetch, forzar largo alcance |
-| Leaflet + React Strict Mode | Confirmado | Bajo | `reactStrictMode: true` en next.config.ts (con guard idempotente en el mapa) |
+| Leaflet + React Strict Mode | Confirmado | Bajo | `reactStrictMode: false` en next.config.ts |
 | Inyección vía parámetros MCP | Baja | Alto | Validación de lat/lon contra rangos válidos (-90/90, -180/180) |

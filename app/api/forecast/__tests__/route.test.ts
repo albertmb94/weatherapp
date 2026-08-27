@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock dependencies before importing the route.
 // `buildUpstreamParams` is left un-mocked so it strips `v` like the
@@ -123,7 +123,7 @@ describe('/api/forecast GET', () => {
       response = res
     })
 
-    // Yield once so the route starts but does not finish — the
+    // Yield once so the route starts but does not finish â€” the
     // `setCachedForecast` mock is parked on `writePromise`.
     await new Promise<void>((r) => setTimeout(r, 0))
     expect(response, 'response must wait for the Turso write').toBeNull()

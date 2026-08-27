@@ -42,9 +42,7 @@ global), por lo que los datos se integran como un **modelo virtual**
 - [x] **1.3** Crear `lib/marine.ts` con `fetchMarine()`.
 - [x] **1.4** Crear `app/api/marine/route.ts` con rate limit, retry y cache.
 - [x] **1.5** Extender `lib/forecastCache.ts` con tabla unificada
-  `api_cache(kind, cache_key, body, fetched_at)`. *(Nota: el diseño
-  final usa dos tablas separadas, `forecast_cache` y `marine_cache`,
-  creadas vía `createCacheStore({ tableName })` en `lib/cacheStore.ts`.)*
+  `api_cache(kind, cache_key, body, fetched_at)`.
 - [x] **1.6** Añadir `buildMarineCacheKey()` a `lib/cacheKey.ts`.
 
 ### Fase 2 — Pipeline de fetch
@@ -86,11 +84,9 @@ componentes críticos (MetricPills, InsightsTable, ModelSelector).
 | `lib/__tests__/colorScales.test.ts` | 7 nuevas escalas |
 | `lib/__tests__/cacheKey.test.ts` | `buildMarineCacheKey` |
 | `lib/__tests__/marine.test.ts` | parseo y forma de `fetchMarine` |
+| `lib/__tests__/marineCache.test.ts` | tabla unificada, TTL |
 | `app/api/marine/__tests__/route.test.ts` | hit/miss/stale, retry, rate limit |
-
-*(No existen `lib/__tests__/marineCache.test.ts` ni
-`components/__tests__/MetricPills.test.tsx` — los helpers de métricas
-se cubren en `components/__tests__/InsightsTable.test.tsx`.)*
+| `components/__tests__/MetricPills.test.tsx` | filtro `group` |
 
 ### Fase 6 — Documentación
 
@@ -101,7 +97,7 @@ se cubren en `components/__tests__/InsightsTable.test.tsx`.)*
 
 | Riesgo | Mitigación |
 |--------|------------|
-| Payload extra (7 cols × 168h) | Solo se piden con `marine=1`; cache 2h |
+| Payload extra (7 cols × 168h) | Solo se piden con `marine=1`; cache 4h |
 | Comparación terrestre vs marino | `weight: 0` en `marine_global`; columnas separadas en la tabla |
 | Null en ubicaciones interiores | Empty state explícito |
 | UI saturada con 7 pills nuevas | Pills agrupadas, solo con `marine` activo |

@@ -9,26 +9,6 @@
 //      init it with the DSN.
 
 export async function register(): Promise<void> {
-  // Migraciones: único hook nativo de Next que corre una vez por
-  // instancia de servidor. Deliberadamente SIN await — una Turso lenta no
-  // debe retrasar la primera petición. La corrección no depende de que
-  // esto termine: los caminos de lectura y escritura de analytics
-  // esperan la MISMA promesa memoizada (migrationsReady()), así que si
-  // aún no ha acabado simplemente se enganchan a ella.
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { migrationsReady } = await import('./lib/migrations')
-    void migrationsReady()
-      .then(res => {
-        if (!res.ok) {
-          console.error('[migrations] arranque fallido:', res.error)
-        } else if (res.applied.length > 0) {
-          // eslint-disable-next-line no-console
-          console.log(`[migrations] aplicadas al arrancar: v${res.applied.join(', v')}`)
-        }
-      })
-      .catch(err => console.error('[migrations] arranque fallido:', err))
-  }
-
   const dsn = process.env.SENTRY_DSN
   if (!dsn) return
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
@@ -39,10 +19,9 @@ export async function register(): Promise<void> {
     // is not installed yet (no type declarations available).
     const spec = '@sentry/nextjs'
     type SentryModule = { init?: (opts: { dsn: string; tracesSampleRate: number }) => void }
-    // Fix (auditoría F3): la forma anterior `Function('return import(s)')()`
-    // dejaba `s` sin enlazar → ReferenceError en runtime y Sentry nunca
-    // arrancaba. Se pasa `s` como parámetro del cuerpo construido.
-    const dynImport = Function('s', 'return import(s)') as (s: string) => Promise<unknown>
+    const dynImport: (s: string) => Promise<unknown> =
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      (s) => Function('return import(s)')() as never
     const mod = (await dynImport(spec).catch(() => null)) as SentryModule | null
     if (!mod || !mod.init) {
       console.warn('[sentry] SENTRY_DSN set but @sentry/nextjs is not installed')

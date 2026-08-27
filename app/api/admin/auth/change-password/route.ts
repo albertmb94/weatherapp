@@ -2,21 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentAdmin, generateToken, setAdminCookie } from '@/lib/admin/auth'
 import { ADMIN_SESSION_TTL_MS } from '@/lib/admin/auth'
 import { db } from '@/lib/db'
-import { rateLimit } from '@/lib/rateLimit'
 import { scryptSync, randomBytes, timingSafeEqual } from 'crypto'
-
-export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   const admin = await getCurrentAdmin()
   if (!admin) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-
-  // Auditoría: esta ruta verifica una contraseña con scryptSync (~50-100ms
-  // de CPU bloqueante) y no tenía NINGÚN límite, a diferencia del login.
-  // Limitar por admin, no por IP: la sesión ya está autenticada.
-  if (!rateLimit(`admin:pwd:${admin}`, 5)) {
-    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 })
-  }
 
   let body: { current_password?: string; new_password?: string }
   try { body = await req.json() } catch {
@@ -54,31 +44,13 @@ export async function POST(req: NextRequest) {
   )
   if (!updated) return NextResponse.json({ ok: false, error: 'save_failed' }, { status: 503 })
 
-  // Auditoría (S2): rotar la sesión NO revocaba las demás. Si cambias la
-  // contraseña porque sospechas que te robaron una cookie, esa cookie
-  // seguía siendo válida los 7 días restantes. Ahora se invalidan TODAS
-  // las sesiones del admin y sólo después se emite la nueva — el orden
-  // importa: al revés, el DELETE borraría también la recién creada.
-  const revoked = await db.execute('DELETE FROM admin_sessions WHERE email = ?', [admin])
-  if (!revoked) {
-    // Fail-closed: si no podemos revocar, no confirmamos el cambio como
-    // completo — el operador debe reintentar en vez de creerse seguro.
-    return NextResponse.json({ ok: false, error: 'revoke_failed' }, { status: 503 })
-  }
-
+  // Rotar sesión
   const newToken = generateToken()
-  const now = Date.now()
-  const stored = await db.execute(
+  await db.execute(
     'INSERT INTO admin_sessions (token, email, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
-    [newToken, admin, 'session', now + ADMIN_SESSION_TTL_MS, now],
+    [newToken, admin, 'session', Date.now() + ADMIN_SESSION_TTL_MS, Date.now()],
   )
-  if (!stored) {
-    // La contraseña YA cambió y las sesiones están revocadas: sin fila en
-    // admin_sessions la cookie no valida, así que el admin debe volver a
-    // entrar con la contraseña nueva. Decirlo explícitamente.
-    return NextResponse.json({ ok: true, reauth_required: true }, { status: 200 })
-  }
   await setAdminCookie(newToken)
 
-  return NextResponse.json({ ok: true, sessions_revoked: true })
+  return NextResponse.json({ ok: true })
 }

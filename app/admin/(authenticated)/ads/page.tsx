@@ -1,4 +1,4 @@
-import { getFeature } from '@/lib/features'
+﻿import { getFeature } from '@/lib/features'
 import FeatureConfigForm from '@/components/admin/FeatureConfigForm'
 
 export const dynamic = 'force-dynamic'

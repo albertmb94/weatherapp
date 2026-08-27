@@ -5,7 +5,7 @@
  *   - safeDecode / validateLatLon: server guard rails.
  */
 import { describe, it, expect } from 'vitest'
-import { isTrackingAllowed, normalizeConsentValue, consentFromCookiebot, CONSENT_COOKIE } from '@/lib/trackingConsent'
+import { isTrackingAllowed, normalizeConsentValue, CONSENT_COOKIE } from '@/lib/trackingConsent'
 import { safeDecode, validateLatLon } from '@/lib/api/params'
 
 describe('isTrackingAllowed (B-NBT-10)', () => {
@@ -66,28 +66,5 @@ describe('validateLatLon', () => {
   it('rejects missing params (Number(null) === 0 trap)', () => {
     expect(validateLatLon(null, null)).toBe('Missing coordinates')
     expect(validateLatLon('', null)).toBe('Missing coordinates')
-  })
-})
-
-describe('consentFromCookiebot (auditoría causa raíz #1)', () => {
-  it('mapea la categoría statistics a nuestro vocabulario canónico', () => {
-    expect(consentFromCookiebot({ statistics: true })).toBe('granted')
-    expect(consentFromCookiebot({ statistics: false })).toBe('rejected')
-  })
-
-  it('devuelve null mientras Cookiebot no haya resuelto, para no confundir "aún no sé" con "no"', () => {
-    expect(consentFromCookiebot(undefined)).toBeNull()
-    expect(consentFromCookiebot(null)).toBeNull()
-    expect(consentFromCookiebot({})).toBeNull()
-    expect(consentFromCookiebot({ necessary: true, marketing: true })).toBeNull()
-  })
-
-  it('IGNORA marketing: aceptar anuncios no es aceptar analítica', () => {
-    expect(consentFromCookiebot({ statistics: false, marketing: true })).toBe('rejected')
-    expect(consentFromCookiebot({ statistics: true, marketing: false })).toBe('granted')
-  })
-
-  it('un statistics no booleano se trata como "sin resolver", no como true', () => {
-    expect(consentFromCookiebot({ statistics: 'yes' } as unknown as { statistics?: boolean })).toBeNull()
   })
 })

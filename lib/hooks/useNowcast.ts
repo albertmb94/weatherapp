@@ -45,14 +45,6 @@ export function useNowcast({
   nowMs,
 }: UseNowcastOptions): NowcastResult {
   return useMemo(() => {
-    // AUDITORIA: se etiqueta TODO como 'aemet', pero `useNearbyStations`
-    // distingue con cuidado entre AEMET y Meteocat y mezcla ambas en la
-    // misma lista. Aqui esa distincion se pierde, asi que una
-    // observacion de Meteocat se atribuye a AEMET en la mezcla del
-    // nowcast. Como `pickClosestStation` sólo usa `source` para
-    // desempatar y trazar, no altera el valor mostrado — pero la
-    // procedencia que se registra es incorrecta y confundira al proximo
-    // que depure una discrepancia de temperatura.
     const closest = pickClosestStation(
       [{ source: 'aemet', stations }],
       userLat,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import AirConditionsGrid from '../AirConditionsGrid'
 import { LocaleProvider } from '@/lib/LocaleContext'
 import type { CurrentSnapshot } from '@/lib/friendlyForecast'

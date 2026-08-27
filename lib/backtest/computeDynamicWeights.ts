@@ -91,9 +91,7 @@ export function getMetricWeights(
   const presetId: EnsemblePreset =
     metricId === 'precipitation' || metricId === 'wind_speed' || metricId === 'wind_gusts'
       ? 'precipitation'
-      : metricId === 'precipitation_probability'
-        ? 'precipitation_probability'
-        : 'temperature'
+      : 'temperature'
   const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
   const presetWeights = preset.weights[leadTimeBucket] ?? preset.weights['0-48h'] ?? {}
   if (accuracyRecords.length === 0) {
@@ -196,8 +194,9 @@ export function getEnsembleConfidence(
 
   const stdDev = Math.sqrt(variance)
 
-  // Thresholds basados en rangos típicos de variables meteorológicas
-  // (auditoría F2/B11: alineados con lib/confidence.ts — stdDev < 1.5/3.0).
+  // Thresholds based on typical weather variable ranges
+  // Temperature: stdDev < 1°C = high, < 2.5°C = medium
+  // Wind: stdDev < 2 km/h = high, < 5 km/h = medium
   if (stdDev < 1.5) return 'high'
   if (stdDev < 3) return 'medium'
   return 'low'

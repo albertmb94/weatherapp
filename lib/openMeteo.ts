@@ -1,4 +1,5 @@
-import type { WeatherModel, Metric } from './models'
+﻿import type { WeatherModel, Metric, MetricId } from './models'
+import { METRICS, MODELS } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { fetchMarine, computeMarineDays } from './marine'
 import { parseOpenMeteoTimes, getLocationNow } from './dateUtils'
@@ -19,7 +20,7 @@ const MAX_FORECAST_MODELS = 16
 // future contract regression cannot silently drop the UV column.
 export const UV_MIN_FORECAST_DAYS = 7
 
-// Models effectively cover long horizons globally — we treat these as the
+// Models effectively cover long horizons globally â€” we treat these as the
 // "long-range tier" that must be included whenever the requested horizon
 // exceeds what the high-res regional models can provide. Each model has
 // patchy coverage (e.g. GFS returns null for much of Europe; ICON returns
@@ -63,7 +64,7 @@ export interface ForecastResult {
    *  `dailyPrecipitationSum`. Used by `DailySummary` to display
    *  "X% prob. lluvia" without doing a manual `Math.max` over 24 entries. */
   dailyPrecipitationProbabilityMax: (number | null)[]
-  /** Daily `time[]` array — these are the local-time 00:00 timestamps
+  /** Daily `time[]` array â€” these are the local-time 00:00 timestamps
    *  used to label the columns. */
   dailyTime: Date[]
   /** Daily counter for hours with measurable precipitation
@@ -89,15 +90,15 @@ export interface CurrentConditions {
   uvIndexValidAt: Date | null
   /** Provider-reported update interval for `current_*` fields (seconds). */
   uvIndexIntervalSec: number | null
-  /** True when the request returned a `current` block at all — false on
+  /** True when the request returned a `current` block at all â€” false on
    *  models/locations the provider does not cover with current UV. */
   hasCurrent: boolean
 }
 
 /**
  * B-NEW-41: with a multi-model request (`models=a,b,c`) Open-Meteo
- * returns every DAILY variable keyed per model — e.g.
- * `precipitation_sum_ecmwf_ifs` — instead of a plain
+ * returns every DAILY variable keyed per model â€” e.g.
+ * `precipitation_sum_ecmwf_ifs` â€” instead of a plain
  * `precipitation_sum`. The previous parser read only the unsuffixed
  * key, so `dailyPrecipitationSum` / `precipitation_hours` /
  * `precipitation_probability_max` were silently empty and the
@@ -152,14 +153,14 @@ export { detectModelsWithNoData } from './api/openMeteoProxy'
 /**
  * B-NBT-9 (2026-08-22): `AirConditionsGrid` renders "Total lluvia hoy"
  * from `dailyPrecipitationSum[0]`. The raw array is aligned with
- * `dailyTime`, which starts `past_days` days ago — index 0 therefore
+ * `dailyTime`, which starts `past_days` days ago â€” index 0 therefore
  * pointed 2-3 days BEFORE today. Rotate so index 0 is always the
  * location's current local day, falling back to the raw array when the
  * day can't be located.
  *
  * Snapshots persisted by pre-B-NEW-41 builds lack `dailyTime` entirely;
  * those are returned as-is (the tile then shows the unrotated value)
- * instead of throwing inside a render-path useMemo — hydrating such a
+ * instead of throwing inside a render-path useMemo â€” hydrating such a
  * snapshot used to white-screen the whole offline/error fallback.
  */
 export function rotateDailyToToday(data: ForecastResult | null): (number | null)[] {
@@ -192,9 +193,16 @@ function parseTodaySunset(daily: Record<string, unknown> | undefined): number | 
   const arr = daily.sunset
   if (!Array.isArray(arr)) return null
   const now = Date.now()
-  // Devolver el primer sunset cuyo día sea hoy o mañana (los ISO sin
-  // offset son hora local — tratarlos como UTC-fake-local). El primer
-  // bucle era código muerto (siempre continuaba) y se eliminó (F4).
+  for (const s of arr) {
+    if (typeof s !== 'string') continue
+    // Los ISO sin offset son hora local — tratarlos como UTC-fake-local
+    const ts = new Date(s + 'Z').getTime()
+    if (Number.isFinite(ts) && ts >= now - 86_400_000 && ts >= now - 12 * 3600_000) {
+      // Buscar la puesta de sol más cercana a ahora que aún no ha pasado hoy
+      continue
+    }
+  }
+  // Simplemente devolver el primer sunset cuyo día sea hoy o mañana
   for (const s of arr) {
     if (typeof s !== 'string') continue
     const ts = new Date(s + 'Z').getTime()
@@ -214,7 +222,7 @@ export async function fetchForecast(
   const landModels = models.filter(m => m.id !== 'marine_global')
   // Use region-aware selection: prioritize high-res regional models for the
   // user's location, then cap at MAX_FORECAST_MODELS. The tier-ordered
-  // slice is intentional — `capModels` re-sorts globally by weight and
+  // slice is intentional â€” `capModels` re-sorts globally by weight and
   // would pull in AI models (aifs025, graphcast025) and drop the
   // region-specific models (e.g. ARPEGE, AROME) that the actual data
   // covers better for Europe. The DailySummary math already falls back
@@ -233,7 +241,7 @@ export async function fetchForecast(
   // skips null entries. The restriction silently removed every
   // high-resolution regional model (AROME-FR HD 1.3km, ICON-D2 2km,
   // ICON-EU, ARPEGE-EU...) from the ensemble, which collapsed the
-  // short-lead temperature/precipitation forecast onto coarse globals —
+  // short-lead temperature/precipitation forecast onto coarse globals â€”
   // the regression the user reported. We restore the mixed selection:
   // regionals first (highest resolution for the location), then
   // globals + AI by weight, capped so a pathological catalogue can't
@@ -274,7 +282,7 @@ export async function fetchForecast(
     // buildForecastCacheKey) but stripped by the route before
     // forwarding to Open-Meteo. Bumping the value invalidates every
     // pre-existing entry in one shot, which is what we needed on
-    // 2026-07-24 when the long-range model filter was added — the
+    // 2026-07-24 when the long-range model filter was added â€” the
     // serverless Turso cache kept serving the 48-h-truncated payload
     // for up to 4 hours otherwise.
     v: CACHE_KEY_VERSION,
@@ -355,7 +363,7 @@ export async function fetchForecast(
     }
   }
 
-  // The daily block is optional in the response — older provider
+  // The daily block is optional in the response â€” older provider
   // versions or single-day requests omit it. Fall back to empty arrays
   // so callers can still index into them without runtime guards.
   // B-NEW-41: with `models=` the provider keys every daily variable per

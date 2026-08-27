@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import {
   applyAdminCookieToResponse,
+  directAdminToken,
   generateToken,
   setAdminCookie,
   ADMIN_SESSION_TTL_MS,
@@ -62,22 +63,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'invalid_credentials' }, { status: 401 })
   }
 
-  // Sesión aleatoria de 256 bits persistida en admin_sessions: expira a
-  // los ADMIN_SESSION_TTL_MS, es revocable (logout / change-password la
-  // borran) y NO depende de ningún secreto derivable.
-  const sessionToken = generateToken()
+  // B-NBT-11: la cookie de sesión es el TOKEN DETERMINISTA del owner
+  // (directAdminToken) para que la validación en layout/APIs no dependa
+  // de la salud de admin_sessions en cada copia del bundle. La fila en
+  // admin_sessions se inserta como best-effort para auditoría.
+  const sessionToken = directAdminToken() ?? generateToken()
   const now = Date.now()
   try {
     await db.execute(
-      'INSERT OR REPLACE INTO admin_sessions (token, email, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT OR IGNORE INTO admin_sessions (token, email, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
       [sessionToken, email, 'session', now + ADMIN_SESSION_TTL_MS, now],
     )
     await db.execute('UPDATE admin_users SET last_login_at = ? WHERE email = ?', [now, email])
-  } catch (err) {
-    console.error('[admin] login: no se pudo registrar la sesión:', err instanceof Error ? err.message : err)
-    // Fail-closed: sin fila en admin_sessions la sesión no valida.
-    if (isForm) return NextResponse.redirect(new URL('/admin/login?error=store', req.url), 303)
-    return NextResponse.json({ ok: false, error: 'session_store_unavailable' }, { status: 503 })
+  } catch {
+    /* best-effort: la cookie determinista valida sin fila */
   }
   await setAdminCookie(sessionToken)
   if (isForm) {

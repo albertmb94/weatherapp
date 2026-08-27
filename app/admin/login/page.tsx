@@ -1,3 +1,4 @@
+﻿import { getFeature } from '@/lib/features'
 
 /**
  * B-NBT-11: login clásico con FORMULARIO NATIVO (method=post sin JS).
@@ -9,7 +10,6 @@ const ERRORS: Record<string, string> = {
   invalid: 'Petición inválida.',
   rate: 'Demasiados intentos. Espera un minuto.',
   storage: 'Base de datos no disponible.',
-  store: 'No se pudo registrar la sesión. Inténtalo de nuevo.',
 }
 
 export default async function AdminLoginPage({

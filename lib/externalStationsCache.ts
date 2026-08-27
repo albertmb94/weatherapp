@@ -1,5 +1,4 @@
 import { db } from './db'
-import { memoizeSchema } from './schemaGuard'
 import { REFRESH_WINDOW_MS } from './refreshWindow'
 import type { MeteoclimaticObservation } from './meteoclimatic-types'
 
@@ -45,15 +44,22 @@ const TABLE = 'external_stations_cache'
 const FRESH_TTL_MS = REFRESH_WINDOW_MS
 const STALE_TTL_MS = 24 * 60 * 60 * 1000
 
-const ensureSchema = memoizeSchema('externalStationsCache', async () => {
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS ${TABLE} (
-      source TEXT PRIMARY KEY,
-      body TEXT NOT NULL,
-      fetched_at INTEGER NOT NULL
-    )`,
-  )
-})
+let schemaReady: Promise<boolean> | null = null
+
+async function ensureSchema(): Promise<boolean> {
+  if (schemaReady) return schemaReady
+  schemaReady = db.ensure().then(ok => {
+    if (!ok) return false
+    return db.execute(
+      `CREATE TABLE IF NOT EXISTS ${TABLE} (
+        source TEXT PRIMARY KEY,
+        body TEXT NOT NULL,
+        fetched_at INTEGER NOT NULL
+      )`,
+    )
+  }).catch(() => false)
+  return schemaReady
+}
 
 export async function getCachedStations(
   source: CachedStations['source'],

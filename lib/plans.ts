@@ -12,11 +12,7 @@ let schemaReady: Promise<boolean> | null = null
 async function ensureSchema(): Promise<boolean> {
   if (schemaReady) return schemaReady
   schemaReady = db.ensure().then(async ok => {
-    if (!ok) {
-      // No cachear el fallo (apagón transitorio de Turso).
-      schemaReady = null
-      return false
-    }
+    if (!ok) return false
     try {
       await db.execute(
         `CREATE TABLE IF NOT EXISTS plans (
@@ -38,18 +34,11 @@ async function ensureSchema(): Promise<boolean> {
           updated_at INTEGER
         )`,
       )
-      // Migración aditiva: producto de Stripe creado por /admin/plans/[id]/sync.
-      try {
-        await db.execute(`ALTER TABLE plans ADD COLUMN stripe_product_id TEXT`)
-      } catch {
-        /* columna ya existe */
-      }
       return true
     } catch {
-      schemaReady = null
       return false
     }
-  }).catch(() => { schemaReady = null; return false })
+  }).catch(() => false)
   return schemaReady
 }
 
@@ -64,7 +53,6 @@ export interface Plan {
   yearlyPriceCents: number | null
   stripePriceIdMonthly: string | null
   stripePriceIdYearly: string | null
-  stripeProductId: string | null
   features: string[]
   enabled: boolean
   sortOrder: number
@@ -84,7 +72,6 @@ interface PlanRow {
   yearly_price_cents: number | null
   stripe_price_id_monthly: string | null
   stripe_price_id_yearly: string | null
-  stripe_product_id: string | null
   features: string | null
   enabled: number | string
   sort_order: number | string
@@ -105,7 +92,6 @@ function rowToPlan(r: PlanRow): Plan {
     yearlyPriceCents: r.yearly_price_cents != null ? Number(r.yearly_price_cents) : null,
     stripePriceIdMonthly: r.stripe_price_id_monthly,
     stripePriceIdYearly: r.stripe_price_id_yearly,
-    stripeProductId: r.stripe_product_id ?? null,
     features: r.features ? JSON.parse(r.features) : [],
     enabled: Number(r.enabled) === 1,
     sortOrder: Number(r.sort_order ?? 0),
@@ -200,36 +186,6 @@ export async function upsertPlan(input: UpsertPlanInput): Promise<boolean> {
     return true
   } catch (err) {
     console.warn('[plans] upsert failed', err)
-    return false
-  }
-}
-
-/** Persist Stripe product/price references produced by /admin/plans sync. */
-export async function setPlanStripeRefs(id: string, refs: {
-  productId?: string | null
-  priceIdMonthly?: string | null
-  priceIdYearly?: string | null
-}): Promise<boolean> {
-  await ensureSchema()
-  try {
-    await db.execute(
-      `UPDATE plans SET
-         stripe_product_id = ?,
-         stripe_price_id_monthly = ?,
-         stripe_price_id_yearly = ?,
-         updated_at = ?
-       WHERE id = ?`,
-      [
-        refs.productId ?? null,
-        refs.priceIdMonthly ?? null,
-        refs.priceIdYearly ?? null,
-        Date.now(),
-        id,
-      ],
-    )
-    return true
-  } catch (err) {
-    console.warn('[plans] setPlanStripeRefs failed', err)
     return false
   }
 }

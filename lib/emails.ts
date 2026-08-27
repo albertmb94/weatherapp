@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Email rendering and sending. Templates live in the `email_templates`
  * table so the admin can edit copy and previews without a redeploy.
  *
- * Sending is gated behind the `feature.resend` flag — the function
+ * Sending is gated behind the `feature.resend` flag â€” the function
  * fails fast with a clear error if Resend isn't configured. The same
  * guard protects the magic-link auth flow so a missing Resend key
  * doesn't silently drop admin login emails.
@@ -10,46 +10,57 @@
 
 import { Resend } from 'resend'
 import { db } from '@/lib/db'
-import { memoizeSchema } from '@/lib/schemaGuard'
 import { getFeature } from '@/lib/features'
 import { randomBytes } from 'crypto'
 
-const ensureSchema = memoizeSchema('emails', async () => {
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS email_templates (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      subject_es TEXT NOT NULL,
-      subject_en TEXT NOT NULL,
-      body_es TEXT NOT NULL,
-      body_en TEXT NOT NULL,
-      variables TEXT,
-      category TEXT NOT NULL DEFAULT 'transactional',
-      enabled INTEGER NOT NULL DEFAULT 1,
-      updated_at INTEGER
-    )`,
-  )
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS email_log (
-      id TEXT PRIMARY KEY,
-      template_id TEXT,
-      recipient TEXT NOT NULL,
-      subject TEXT,
-      status TEXT NOT NULL,
-      resend_id TEXT,
-      error TEXT,
-      metadata TEXT,
-      sent_at INTEGER,
-      sent_by TEXT
-    )`,
-  )
-  await db.execute(
-    `CREATE INDEX IF NOT EXISTS idx_email_log_recipient ON email_log(recipient, sent_at)`,
-  )
-  await db.execute(
-    `CREATE INDEX IF NOT EXISTS idx_email_log_status ON email_log(status, sent_at)`,
-  )
-})
+let schemaReady: Promise<boolean> | null = null
+
+async function ensureSchema(): Promise<boolean> {
+  if (schemaReady) return schemaReady
+  schemaReady = db.ensure().then(async ok => {
+    if (!ok) return false
+    try {
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS email_templates (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          subject_es TEXT NOT NULL,
+          subject_en TEXT NOT NULL,
+          body_es TEXT NOT NULL,
+          body_en TEXT NOT NULL,
+          variables TEXT,
+          category TEXT NOT NULL DEFAULT 'transactional',
+          enabled INTEGER NOT NULL DEFAULT 1,
+          updated_at INTEGER
+        )`,
+      )
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS email_log (
+          id TEXT PRIMARY KEY,
+          template_id TEXT,
+          recipient TEXT NOT NULL,
+          subject TEXT,
+          status TEXT NOT NULL,
+          resend_id TEXT,
+          error TEXT,
+          metadata TEXT,
+          sent_at INTEGER,
+          sent_by TEXT
+        )`,
+      )
+      await db.execute(
+        `CREATE INDEX IF NOT EXISTS idx_email_log_recipient ON email_log(recipient, sent_at)`,
+      )
+      await db.execute(
+        `CREATE INDEX IF NOT EXISTS idx_email_log_status ON email_log(status, sent_at)`,
+      )
+      return true
+    } catch {
+      return false
+    }
+  }).catch(() => { schemaReady = null; return false })
+  return schemaReady
+}
 
 interface TemplateRow {
   id: string
@@ -103,16 +114,8 @@ export async function renderTemplate(
  *  italic, links and line breaks. Keeps the implementation dependency-free
  *  so we don't need `marked` or `react-markdown` at the edge. */
 function mdToHtml(md: string): string {
-  // Se escapan tambien las comillas: sin ellas, la URL de un enlace
-  // markdown interpolada en href="..." podia cerrar el atributo e
-  // inyectar otros (ver inlineFormat).
   const escape = (s: string) =>
-    s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const lines = md.split(/\r?\n/)
   const out: string[] = []
   let inList = false
@@ -154,29 +157,10 @@ function mdToHtml(md: string): string {
   return out.join('\n')
 }
 
-/** Esquemas permitidos en un enlace de plantilla. `javascript:` y
- *  `data:` quedan fuera: una plantilla la edita un admin desde el panel,
- *  pero el correo lo abre el cliente. */
-function safeHref(url: string): string | null {
-  const trimmed = url.trim()
-  if (/^(https?:\/\/|mailto:)/i.test(trimmed)) return trimmed
-  // Enlaces relativos a la propia app.
-  if (trimmed.startsWith('/')) return trimmed
-  return null
-}
-
 function inlineFormat(s: string): string {
   // [text](url) → <a href="url">text</a>
   let out = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text: string, url: string) => {
-    // AUDITORIA: la URL se interpolaba tal cual DESPUES de que `escape`
-    // hubiera pasado, y `escape` no cubria las comillas dobles. Una
-    // plantilla con [x](" onload=...) inyectaba atributos en el HTML del
-    // correo saliente. Ahora se valida el esquema y se escapan las
-    // comillas del atributo.
-    const href = safeHref(url)
-    if (!href) return text
-    const safe = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
-    return `<a href="${safe}" style="color:#0a7aff;text-decoration:underline">${text}</a>`
+    return `<a href="${url}" style="color:#0a7aff;text-decoration:underline">${text}</a>`
   })
   // **bold** → <strong>
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -516,7 +500,7 @@ export async function seedDefaultTemplates(): Promise<void> {
         ],
       )
     } catch {
-      /* ignore — table may not exist yet */
+      /* ignore â€” table may not exist yet */
     }
   }
 }

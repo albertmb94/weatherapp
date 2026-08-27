@@ -97,7 +97,7 @@ export async function GET(request: Request) {
         })
       }
       return NextResponse.json(
-        { error: `Open-Meteo ${res.status}` },
+        { error: `Open-Meteo ${res.status}`, detail: text.slice(0, 500) },
         { status: res.status }
       )
     }

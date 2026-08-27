@@ -1,64 +1,64 @@
 /**
- * Identidad de despliegue para el Service Worker.
+ * Build-time constants for the Service Worker.
  *
- * DOS BUGS QUE ESTO ARREGLA (auditoría):
+ * `next.config.ts` writes these values into a JSON file that lives
+ * under `node_modules/.cache/weather/` so production builds don't
+ * pay the runtime cost of recomputing them per request. The location
+ * is deliberately outside the bundle so client code can never
+ * accidentally pull it in.
  *
- *  1. La versión era `sha1(public/sw.js)`. Ese fichero es una PLANTILLA
- *     estática: sólo cambia cuando alguien edita el propio Service
- *     Worker. En un despliegue normal el hash era idéntico, `activate`
- *     no borraba ninguna caché (filtra por `!k.startsWith(VERSION)`) y
- *     los usuarios seguían con los assets viejos indefinidamente. La
- *     promesa de la cabecera de `public/sw.js` —"a new deployment
- *     purges the previous cache deterministically"— era simplemente
- *     falsa.
- *
- *  2. El valor se cacheaba en `node_modules/.cache/weather/`. Los
- *     proveedores de CI restauran `node_modules` entre builds, así que
- *     ese fichero podía sobrevivir a un despliegue y devolver la versión
- *     ANTERIOR — justo el fallo que pretendía evitar. La caché se ha
- *     eliminado: leer una variable de entorno o un fichero de 40 bytes
- *     no necesita optimización, y la ruta que lo consume es
- *     `force-static`.
- *
- * El docstring anterior además atribuía a `next.config.ts` la escritura
- * del fichero de caché; `next.config.ts` no contiene ese código.
+ * The values are:
+ *   - `version` — a short hash of `public/sw.js`, used to bust the
+ *     offline cache after a deploy.
+ *   - `fallback` — a development-only stamp (`YYYY-MM-DD.dev`) the
+ *     SW substitutes when the hash is unavailable.
  */
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
-/** Identidad estable y única por despliegue, en orden de preferencia. */
-function computeVersion(): string {
-  // 1. Vercel: el SHA del commit es determinista y disponible tanto en
-  //    build como en runtime.
-  const sha = process.env.VERCEL_GIT_COMMIT_SHA
-  if (sha && sha.length >= 7) return `weather-${sha.slice(0, 12)}`
+const CACHE_FILE = join(process.cwd(), 'node_modules', '.cache', 'weather', 'sw-version.json')
+const SW_TEMPLATE = join(process.cwd(), 'public', 'sw.js')
 
-  // 2. Vercel sin git (deploy por CLI o subida directa).
-  const deploymentId = process.env.VERCEL_DEPLOYMENT_ID
-  if (deploymentId) return `weather-${deploymentId.slice(-12)}`
+interface SWConstants {
+  version: string
+  fallback: string
+}
 
-  // 3. Self-hosted: el BUILD_ID de Next cambia en cada `next build`.
+function compute(): SWConstants {
   try {
-    const buildId = readFileSync(join(process.cwd(), '.next', 'BUILD_ID'), 'utf-8').trim()
-    if (buildId) return `weather-${buildId.slice(0, 12)}`
+    const template = readFileSync(SW_TEMPLATE, 'utf-8')
+    const version = createHash('sha1').update(template).digest('hex').slice(0, 12)
+    const fallback = `${new Date().toISOString().slice(0, 10)}.dev`
+    return { version, fallback }
   } catch {
-    /* sin build (modo dev) */
-  }
-
-  // 4. Último recurso: el hash de la plantilla. Es lo que había antes y
-  //    NO distingue despliegues, pero al menos cambia si se edita el SW.
-  try {
-    const template = readFileSync(join(process.cwd(), 'public', 'sw.js'), 'utf-8')
-    return `weather-tpl-${createHash('sha1').update(template).digest('hex').slice(0, 12)}`
-  } catch {
-    return 'weather-unknown'
+    return { version: 'unknown', fallback: 'dev' }
   }
 }
 
-export const SW_VERSION = computeVersion()
+function load(): SWConstants {
+  if (!existsSync(CACHE_FILE)) {
+    const fresh = compute()
+    try {
+      mkdirSync(dirname(CACHE_FILE), { recursive: true })
+      writeFileSync(CACHE_FILE, JSON.stringify(fresh))
+    } catch {
+      // Best-effort: if we can't write the cache file (e.g. a
+      // read-only filesystem in a serverless deploy), fall back to
+      // computing on the fly.
+    }
+    return fresh
+  }
+  try {
+    const raw = JSON.parse(readFileSync(CACHE_FILE, 'utf-8')) as Partial<SWConstants>
+    if (typeof raw.version === 'string' && typeof raw.fallback === 'string') {
+      return { version: raw.version, fallback: raw.fallback }
+    }
+  } catch {
+    // Corrupt cache; recompute on the fly.
+  }
+  return compute()
+}
 
-// SW_FALLBACK se ha eliminado: el respaldo vivía en el cliente y la
-// sustitución global de la ruta lo hacía ganar SIEMPRE (ver public/sw.js).
-// `computeVersion()` ya garantiza un valor con sentido en los cuatro
-// escenarios, así que no hay nada que respaldar.
+export const SW_VERSION = load().version
+export const SW_FALLBACK = load().fallback

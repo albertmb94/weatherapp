@@ -4,17 +4,5 @@
       "path": "/api/cron/analytics-rollup",
       "schedule": "20 3 * * *"
     }
-  ],
-  "regions": ["iad1"],
-  "functions": {
-    "app/api/cron/analytics-rollup/route.ts": {
-      "maxDuration": 60
-    },
-    "app/api/forecast/route.ts": {
-      "maxDuration": 30
-    },
-    "app/api/marine/route.ts": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }

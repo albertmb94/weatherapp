@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
 
 export type ThemePreference = 'dark' | 'light' | 'auto'
 export type Theme = 'dark' | 'light'
@@ -57,18 +57,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // In 'auto' mode, re-evaluate once a minute so the UI follows the
   // sunrise/sunset boundary even if the user keeps the tab open.
-  //
-  // AUDITORÍA: el intervalo mutaba `documentElement.classList`
-  // DIRECTAMENTE sin tocar el estado de React, así que el `theme` que
-  // devuelve `useTheme()` —el que decide si se pinta el icono de sol o
-  // de luna (app/home-content.tsx)— se quedaba obsoleto al cruzar las
-  // 06:00/18:00: la página cambiaba de colores pero el botón seguía
-  // mostrando el icono contrario. Ahora se fuerza un re-render y el
-  // efecto de arriba aplica la clase, con una sola fuente de verdad.
-  const [, forceTick] = useState(0)
   useEffect(() => {
     if (preference !== 'auto') return
-    const t = setInterval(() => forceTick(n => n + 1), 60_000)
+    const t = setInterval(() => {
+      // Trigger a re-read by dispatching a storage event; the snapshot
+      // provider still returns the same value but the resolved theme
+      // may change, and the effect above re-applies the html class.
+      const resolved = resolveTheme('auto')
+      document.documentElement.classList.toggle('light', resolved === 'light')
+    }, 60_000)
     return () => clearInterval(t)
   }, [preference])
 

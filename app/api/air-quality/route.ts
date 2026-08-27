@@ -46,11 +46,8 @@ export async function GET(request: Request) {
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
-      console.error('[air-quality] upstream', res.status, text.slice(0, 300))
       return NextResponse.json(
-        // El cuerpo del proveedor se registra en el log, no se devuelve:
-        // exponia detalles internos de un tercero a cualquier cliente.
-        { error: `Open-Meteo Air Quality ${res.status}` },
+        { error: `Open-Meteo Air Quality ${res.status}`, detail: text.slice(0, 500) },
         { status: res.status }
       )
     }
@@ -63,9 +60,8 @@ export async function GET(request: Request) {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[air-quality] fetch fallido:', message)
     return NextResponse.json(
-      { error: 'Failed to fetch air quality' },
+      { error: 'Failed to fetch air quality', detail: message },
       { status: 502 }
     )
   }

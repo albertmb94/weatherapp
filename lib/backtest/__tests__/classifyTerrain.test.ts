@@ -53,12 +53,10 @@ describe('classifyTerrain', () => {
     expect(result.confidence).toBeGreaterThanOrEqual(0.8)
   })
 
-  it('classifies New York as coastal, urban or flat (near coast / metro core)', async () => {
+  it('classifies New York as coastal or flat (near coast)', async () => {
     const result = await classifyTerrain(40.71, -74.01)
-    // NY es costero Y núcleo metropolitano; la clasificación depende de la
-    // elevación mockeada (que queda fijada por tests anteriores) y del
-    // orden de prioridad coastal > urban > flat.
-    expect(['coastal', 'urban', 'flat']).toContain(result.type)
+    // New York is near the coast; classification depends on mock elevation
+    expect(['coastal', 'flat']).toContain(result.type)
     expect(result.elevation).toBeGreaterThanOrEqual(0)
   })
 

@@ -58,7 +58,7 @@ describe('buildMeteocatObservations', () => {
     return vals
   }
 
-  it('builds observations, derives max/min from temp series, uses last hourly precip, converts wind m/s->km/h', () => {
+  it('builds observations, derives max/min from temp series, sums precip, converts wind m/s->km/h', () => {
     const byVar = {
       TEMP: new Map([['CC', readings(
         { data: '2026-06-11T07:00Z', valor: 15 },
@@ -86,10 +86,7 @@ describe('buildMeteocatObservations', () => {
     expect(s.pressure.current).toBe(1012)
     expect(s.wind.speed).toBeCloseTo(36) // 10 m/s * 3.6
     expect(s.wind.direction).toBe('E') // 90°
-    // PRECIP (var 35) es acumulación por base horaria: el valor actual
-    // (última lectura) ya ES mm/h. Antes se sumaba el día entero, lo que
-    // inflaba hasta ~24× la lluvia del nowcast (auditoría F2/B6).
-    expect(s.precipitation).toBeCloseTo(0.6)
+    expect(s.precipitation).toBeCloseTo(1.0)
     expect(s.updatedAt).toBe('2026-06-11T09:00Z')
   })
 

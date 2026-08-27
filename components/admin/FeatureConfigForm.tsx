@@ -49,47 +49,18 @@ export default function FeatureConfigForm({
     setSaving(true)
     setError(null)
     try {
-      // Read current full config SO WE DON'T OVERWRITE SECRETS or the
-      // enabled state: the toggle lives in /admin/features and saving
-      // config here must NOT force-enable the flag (auditoría F1).
-      //
-      // AUDITORÍA (segunda pasada): la lectura fallaba EN SILENCIO. Con
-      // `.catch(() => ({ feature: null }))`, un GET caído daba
-      // `currentEnabled = false` y `mergedConfig = { ...undefined,
-      // ...nonEmpty }`. El PUT posterior escribía entonces
-      // `enabled: false` y una config recortada a los campos visibles en
-      // pantalla: un fallo de red pasajero mientras alguien guardaba la
-      // URL de Ko-fi APAGABA Stripe/AdSense/Cookiebot y borraba sus
-      // claves. Ahora se aborta antes de tocar nada.
+      // Read current full config so we don't lose unrelated keys or secrets
       const get = await fetch(`/api/admin/features/${featureKey}`)
-      if (!get.ok) {
-        throw new Error(
-          'No se pudo leer la configuración actual (' + get.status + '). ' +
-            'No se ha guardado nada para no sobrescribir la config existente.',
-        )
-      }
-      let current: { feature?: { enabled?: boolean; config?: Record<string, unknown> } }
-      try {
-        current = await get.json()
-      } catch {
-        throw new Error('Respuesta ilegible al leer la configuración actual. No se ha guardado nada.')
-      }
-      if (!current.feature) {
-        throw new Error('La respuesta no contiene la feature. No se ha guardado nada.')
-      }
-      const currentEnabled = current.feature.enabled === true
+      const current = await get.json().catch(() => ({ config: {} }))
       // Skip empty strings so secrets aren't overwritten with blanks
       const nonEmpty = Object.fromEntries(
         Object.entries(formValues).filter(([, v]) => v !== ''),
       )
-      const mergedConfig = { ...current.feature.config, ...nonEmpty }
+      const mergedConfig = { ...current.config, ...nonEmpty }
       const r = await fetch(`/api/admin/features/${featureKey}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          enabled: currentEnabled,
-          config: mergedConfig,
-        }),
+        body: JSON.stringify({ enabled: true, config: mergedConfig }),
       })
       if (!r.ok) throw new Error(await r.text().catch(() => 'save_failed'))
       setSaved(true)

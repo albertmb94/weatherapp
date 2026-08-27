@@ -1,18 +1,7 @@
-// AUDITORIA — presupuesto de tiempo:
-// La configuracion anterior (3 reintentos x 20 s + esperas de 1+2+4 s)
-// permitia hasta ~87 s en UNA sola llamada, y
-// `fetchOpenMeteoWithModelFallback` puede encadenar un segundo
-// `fetchWithRetry` encima. La plataforma mata la funcion mucho antes,
-// asi que el usuario recibia un 504 en vez del fallback de cache stale
-// que la ruta de forecast SI tiene preparado (nunca se llegaba a
-// ejecutar). Ahora el presupuesto total esta acotado y siempre queda
-// margen para servir cache.
-const MAX_RETRIES = 2
-const BASE_DELAY_MS = 700
-const MAX_RETRY_AFTER_MS = 4000
-const REQUEST_TIMEOUT_MS = 8_000
-/** Tope duro de todos los intentos juntos, esperas incluidas. */
-const TOTAL_BUDGET_MS = 20_000
+const MAX_RETRIES = 3
+const BASE_DELAY_MS = 1000
+const MAX_RETRY_AFTER_MS = 8000
+const REQUEST_TIMEOUT_MS = 20_000
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504])
 // Open-Meteo replies with this status when a `models=` ID is no longer in
 // the catalogue. We degrade the request by retrying without the
@@ -51,21 +40,14 @@ export async function fetchWithRetry(url: string, signal?: AbortSignal): Promise
   // `signal` lets the caller abort the upstream fetch when the client
   // disconnects; combine it with our own per-request timeout so an
   // idle client can't keep the upstream running on Vercel.
-  const deadline = Date.now() + TOTAL_BUDGET_MS
-  const perAttemptTimeout = () =>
-    AbortSignal.timeout(Math.max(1000, Math.min(REQUEST_TIMEOUT_MS, deadline - Date.now())))
-
-  let res = await fetch(url, { signal: combineSignals(signal, perAttemptTimeout()) })
+  const combinedSignal = combineSignals(signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS))
+  let res = await fetch(url, { signal: combinedSignal })
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (res.ok || !RETRYABLE_STATUSES.has(res.status)) return res
     const retryAfterMs = parseRetryAfterMs(res.headers.get('retry-after'))
     const delay = retryAfterMs ?? BASE_DELAY_MS * Math.pow(2, attempt)
-    // Si esperar nos dejaria sin presupuesto, devolvemos lo que hay para
-    // que el llamador pueda recurrir a su cache en vez de morir por
-    // timeout de plataforma.
-    if (Date.now() + delay >= deadline) return res
     await new Promise(r => setTimeout(r, delay))
-    res = await fetch(url, { signal: combineSignals(signal, perAttemptTimeout()) })
+    res = await fetch(url, { signal: combineSignals(signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)) })
   }
   return res
 }
@@ -78,18 +60,10 @@ function combineSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefin
   if (!a) return b
   if (!b) return a
   const controller = new AbortController()
+  const onAbort = () => controller.abort()
   if (a.aborted || b.aborted) {
     controller.abort()
     return controller.signal
-  }
-  // Cada intento creaba un par de listeners sobre el signal del LLAMANTE
-  // (que sobrevive a todos los intentos) y no los quitaba nunca: con
-  // reintentos se acumulaban sobre el mismo objeto. Se limpian ambos en
-  // cuanto uno dispara.
-  const onAbort = () => {
-    controller.abort()
-    a.removeEventListener('abort', onAbort)
-    b.removeEventListener('abort', onAbort)
   }
   a.addEventListener('abort', onAbort, { once: true })
   b.addEventListener('abort', onAbort, { once: true })

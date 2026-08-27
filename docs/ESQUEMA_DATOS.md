@@ -14,7 +14,7 @@ Caché de respuestas de Open-Meteo (forecast).
 
 **Reglas de integridad:**
 - TTL: 2 horas (`REFRESH_WINDOW_MS` en `lib/refreshWindow.ts`). Pasado este tiempo, el caché se considera stale y se fuerza un refetch.
-- Purga: si `now - fetched_at > 24 horas`, se purga en el siguiente acceso (`purgeOlderThanMs` / `maxStaleMs` en `lib/forecastCache.ts`).
+- Purga: si `now - fetched_at > 4 horas`, se purga en el siguiente acceso.
 - Fuente de verdad: `fetched_at` marca cuándo se obtuvo; si el servidor externo falla, se sirve stale con advertencia.
 
 ### 1.2 `marine_cache`
@@ -30,7 +30,7 @@ Caché de respuestas de Open-Meteo (marine). Esquema paralelo al de
 
 **Reglas de integridad:**
 - TTL: 2 horas (`REFRESH_WINDOW_MS`). Pasado este tiempo, el caché se considera stale.
-- Purga: si `now - fetched_at > 24 horas`, se purga en el siguiente acceso (`maxStaleMs` en `lib/forecastCache.ts`).
+- Purga: si `now - fetched_at > 4 horas`, se purga en el siguiente acceso.
 - Solo se rellena esta tabla cuando el flag `marine=1` está activo en la URL.
 
 ### 1.3 `app_state`
@@ -48,11 +48,7 @@ Estado general de la aplicación.
 
 ### 1.4 `saved_locations`
 
-> **Nota:** la tabla `saved_locations` ya NO existe en la base de datos.
-> Las ubicaciones guardadas son por dispositivo (localStorage, ver
-> `lib/localStorageLocations.ts`); `/api/locations` es un stub que
-> responde `410 Gone`. Este apartado se conserva como referencia
-> histórica del antiguo esquema.
+Ubicaciones guardadas por el usuario.
 
 | Campo | Tipo | Nullable | Descripción | Ejemplo |
 |-------|------|----------|-------------|---------|
@@ -84,22 +80,15 @@ null (el llamante cae a la URL original).
 
 ### 1.6 Tablas de admin/monetización
 
-`feature_flags`, `admin_users`, `admin_sessions`, `admin_credentials`,
+`feature_flags`, `admin_users`, `admin_sessions`, `admin_magic_links`,
 `subscriptions`, `user_grants`, `email_templates`, `email_log`,
-`affiliate_products`, `affiliate_clicks`, `plans`, `newsletter_subscribers`,
-`app_state`, `short_links`, `forecast_cache`, `marine_cache`,
-`external_stations_cache`, `page_views`, `sessions`, `events`,
-`daily_anon_stats`, `visitor_identity`, `geo_names` — gestionadas por el
-panel `/admin`; esquema en `docs/ADMIN.md`. Los valores operativos de
-Stripe/Push viven en `feature_flags.config` (JSON), no en variables de
-entorno.
-
-Tablas de backtest (ver `lib/backtest/db.ts`): `forecast_archive`,
-`observations_era5`, `model_accuracy`, `dynamic_weights`.
+`affiliate_products` — gestionadas por el panel `/admin`; esquema en
+`docs/ADMIN.md`. Los valores operativos de Stripe/Push viven en
+`feature_flags.config` (JSON), no en variables de entorno.
 
 ---
 
-## 1.7 Datos en URL (estado de UI)
+## 1.5 Datos en URL (estado de UI)
 
 Parámetros sincronizados con la URL mediante `useUrlState`:
 
@@ -129,9 +118,11 @@ métricas: `wave_height`, `wave_period`, `wave_direction`,
 
 ## 2. Relaciones
 
-No hay relaciones FK entre tablas. Las tablas son independientes (cachés
-transaccionales `forecast_cache`/`marine_cache`/`external_stations_cache`,
-key-value `app_state`, entidades propias `saved_locations`, etc.):
+No hay relaciones FK entre tablas. Las tres tablas son independientes:
+
+- `forecast_cache`: caché transaccional, sin referencias externas
+- `app_state`: clave-valor genérico
+- `saved_locations`: entidad propia sin dependencias
 
 **Cardinalidad:** N/A (tablas planas)
 

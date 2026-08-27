@@ -6,12 +6,8 @@ import { LocaleProvider } from '@/lib/LocaleContext'
 
 function renderBar(active: MobileTab = 'models') {
   const onChange = vi.fn()
-  // Idioma EXPLICITO: antes el proveedor deducia el idioma de
-  // navigator.language, que en jsdom es en-US, asi que estos tests
-  // pasaban en ingles por accidente. Con el idioma en la ruta ya no se
-  // deduce nada, y la dependencia oculta se vuelve visible.
   const utils = render(
-    <LocaleProvider initialLocale="en">
+    <LocaleProvider>
       <MobileTabBar active={active} onChange={onChange} />
     </LocaleProvider>,
   )

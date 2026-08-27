@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addPendingSubscriber, isValidEmail } from '@/lib/newsletter'
-import { sendEmail } from '@/lib/emails'
-import { appOrigin } from '@/lib/appUrl'
+import { ensureNewsletterSchema } from '@/lib/newsletter'
+import { db } from '@/lib/db'
 import { rateLimit } from '@/lib/rateLimit'
 
 /**
- * B-NBT-17 / auditoría F4: public newsletter subscribe (double opt-in).
- * POST {email} → crea suscriptor pendiente y envía email de confirmación.
- * El usuario confirma en /api/newsletter/confirm. Rate limited 3/min/IP.
+ * B-NBT-17: public newsletter subscribe endpoint.
+ * POST {email} → INSERT OR IGNORE into newsletter_subscribers.
+ * Rate limited 3/min/IP. No auth needed.
  */
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
@@ -22,27 +21,20 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid_body' }, { status: 400 })
   }
-  if (!isValidEmail(email)) {
+  if (!email || !email.includes('@')) {
     return NextResponse.json({ ok: false, error: 'invalid_email' }, { status: 400 })
   }
 
-  const token = await addPendingSubscriber(email)
-  if (!token) {
+  await ensureNewsletterSchema()
+  try {
+    await db.execute(
+      `INSERT INTO newsletter_subscribers (email, subscribed_at) VALUES (?, ?)
+            ON CONFLICT(email) DO UPDATE SET unsubscribed_at = NULL`,
+      [email, Date.now()],
+    )
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('[newsletter] subscribe failed:', err instanceof Error ? err.message : err)
     return NextResponse.json({ ok: false, error: 'db_error' }, { status: 503 })
   }
-
-  // Best-effort: si el envío falla, el suscriptor queda pendiente y puede
-  // reintentar; nunca bloqueamos la respuesta (el usuario ya ve "revisa tu email").
-  const origin = appOrigin(req.nextUrl.origin)
-  const confirmUrl = `${origin}/api/newsletter/confirm?email=${encodeURIComponent(email)}&token=${token}`
-  await sendEmail({
-    to: email,
-    templateId: 'newsletter_confirm',
-    locale: 'es',
-    vars: { confirm_url: confirmUrl },
-    metadata: { source: 'newsletter_subscribe' },
-    sentBy: 'newsletter-subscribe',
-  })
-
-  return NextResponse.json({ ok: true, pending: true, message: 'revisa tu email para confirmar' })
 }

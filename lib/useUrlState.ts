@@ -97,12 +97,7 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   // starts at hour 0 (today) in the daily summary.
   if (state.range !== defaults.range) params.set('range', String(state.range))
   if (state.bucket !== defaults.bucket) params.set('bucket', String(state.bucket))
-  // El idioma YA NO se escribe en el query string: vive en la ruta
-  // (/premium vs /en/premium). Seguir escribiendolo dejaria dos fuentes
-  // de verdad compitiendo, y la del query string es la que no se puede
-  // indexar ni sirve para <html lang>. Se sigue LEYENDO en parseUrlParams
-  // para que los enlaces ya compartidos con ?locale=en sigan llevando a
-  // la version inglesa (app/home-content.tsx los traduce navegando).
+  if (state.locale !== defaults.locale) params.set('locale', state.locale)
   if (state.marine !== defaults.marine) params.set('marine', state.marine ? '1' : '0')
   if (state.basic !== defaults.basic) params.set('basic', state.basic ? '1' : '0')
   if (state.view !== defaults.view) params.set('view', state.view)

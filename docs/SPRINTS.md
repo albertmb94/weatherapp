@@ -61,11 +61,11 @@ This document describes the Sprints 0–11 refactor plan executed in
 
 ### S2 — Heatmap & proxies
 - `parseOpenMeteoTime` accepts `Z`, `±HH:MM`, `±HHMM` and `±HH:MM:SS`.
-- `MapPicker` anchored the painted cell to `viewTimes[hourIndex]`
+- `fetchHeatmapGrid` requests `past_days=1` and parses the response
+  through `parseOpenMeteoTimes`.
+- `MapPicker` now anchors the painted cell to `viewTimes[hourIndex]`
   with a ±90-minute DST tolerance, replacing the previous
   `mapTimes[0] + hourIndex*3600_000` formula that froze at day 7.
-  *(Note: the Map view and `MapPicker`/`fetchHeatmapGrid` were later
-  removed in B-NEW-37; these are historical references.)*
 - `STRIPPED_UPSTREAM_KEYS = { 'v' }` is declared once in
   `lib/cacheKey.ts`; both routes use `buildUpstreamParams` so the
   cache-buster stamp never reaches the provider.
@@ -104,9 +104,7 @@ New shared hooks in `lib/hooks/`:
 ### S6 — InsightsTable split
 - Pure helpers (`boundsForBucket`, `aggregateOverRange`,
   `alignToHourBoundary`, `absoluteLead`, `hourEpochMs`) live in
-  `lib/insightRows.ts` and are unit-tested. *(Note: `lib/insightRows.ts`
-  was later removed/renamed — the current module is
-  `lib/insightsTableMeta.ts` / `lib/insightsTime.ts`.)*
+  `lib/insightRows.ts` and are unit-tested.
 
 ### S7 — API cache & SW
 - `/api/sw` is a Next route that reads `public/sw.js` and substitutes
@@ -160,9 +158,7 @@ New shared hooks in `lib/hooks/`:
 - `lib/hooks/useInsightPagination.ts`: 48-row pager for the
   insights table.
 - `components/HeatCell.tsx` and `components/InsightsToolbar.tsx`
-  extracted from the 1708-line `InsightsTable.tsx`. *(Note:
-  `HeatCell` is defined inline in `InsightsTable.tsx`; only
-  `InsightsToolbar.tsx` is a standalone file — see `components/`.)*
+  extracted from the 1708-line `InsightsTable.tsx`.
 - `lib/__tests__/sprint11.insightsMeta.test.ts` covers the
   extracted helpers (4 tests).
 
@@ -258,8 +254,7 @@ two paper cuts that the user reported after Sprint 13 shipped:
    gradient hint acknowledged the scroll but the user wanted
    it gone entirely in portrait.
 
-**Heatmap fixes** *(historical — the Map view was removed in B-NEW-37;
-`MapPicker` and `fetchHeatmapGrid` no longer exist)*
+**Heatmap fixes (`components/MapPicker.tsx`)**
 
 - Added `useMemo(() => selectedModels.slice().sort().join(','))`
   to derive a stable `modelsKey` string. The fetch effect now
@@ -287,9 +282,7 @@ two paper cuts that the user reported after Sprint 13 shipped:
 - New `components/MobileInsightsCard.tsx` renders each row as a
   stacked card: header (bucket label + icon + temperature with
   the heatmap colour) + a wrap-around chip strip for every
-  visible metric. No horizontal scrolling possible. *(Note: the card
-  rendering lives inside `components/InsightsTable.tsx`; there is no
-  standalone `MobileInsightsCard.tsx` file.)*
+  visible metric. No horizontal scrolling possible.
 - New `components/heatStyle.ts` extracts the radial-gradient
   helper that used to live inline in `InsightsTable.tsx`. Both
   the table and the cards share the same colour recipe without

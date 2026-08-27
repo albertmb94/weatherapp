@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
@@ -26,31 +26,8 @@ export default function SponsoredSection({ slotKey }: SponsoredSectionProps) {
   const { locale } = useLocale()
   const [product, setProduct] = useState<SponsoredProduct | null>(null)
 
-  // TAMPOCO se gatea por consentimiento, y la asimetría con AdSlot es
-  // correcta, no una incoherencia:
-  //
-  //   - AdSlot carga AdSense, que ESCRIBE cookies en el dispositivo y
-  //     personaliza publicidad. Eso sí requiere permiso previo.
-  //   - Esto es un enlace de texto a Amazon. Mostrarlo no almacena ni
-  //     lee nada en el dispositivo, que es lo que la ePrivacy somete a
-  //     consentimiento.
-  //
-  // Y la atribución del clic YA respeta el consentimiento donde toca:
-  // /api/affiliate/redirect registra `anon_id = 'consent_denied'` en vez
-  // del identificador cuando no hay permiso, y aun así redirige.
-  //
-  // Gatearlo aquí escondía la monetización a TODO visitante que aún no
-  // hubiera respondido al banner — es decir, a todos en su primera
-  // visita — sin ganar nada a cambio.
-
-  // Reset cuando desaparece el slot: ajuste de estado en fase de render
-  // (patrón oficial de React), evita el setState síncrono en el efecto.
-  if (!slotKey && product !== null) {
-    setProduct(null)
-  }
-
   useEffect(() => {
-    if (!slotKey) return
+    if (!slotKey) { setProduct(null); return }
     const controller = new AbortController()
     fetch(`/api/affiliates/serve?trigger=${slotKey}&locale=${locale}`, { signal: controller.signal })
       .then(r => r.json())

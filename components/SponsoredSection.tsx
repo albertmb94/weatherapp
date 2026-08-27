@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/LocaleContext'
-import { readConsentFromBrowser } from '@/lib/trackingConsent'
 import type { SponsoredSlotKey } from '@/lib/sponsored'
 
 interface SponsoredProduct {
@@ -23,18 +22,26 @@ interface SponsoredSectionProps {
   slotKey: SponsoredSlotKey | null
 }
 
-const emptySubscribe = () => () => {}
-const readConsentGranted = () => readConsentFromBrowser() === 'granted'
-
 export default function SponsoredSection({ slotKey }: SponsoredSectionProps) {
   const { locale } = useLocale()
   const [product, setProduct] = useState<SponsoredProduct | null>(null)
-  // AUDITORÍA: este componente no comprobaba el consentimiento, a
-  // diferencia de AdSlot. Un clic en el enlace pasa por
-  // /api/affiliate/redirect, que registra el clic con el anon_id: es
-  // seguimiento con fines comerciales y necesita permiso igual que la
-  // publicidad. Devuelve false en SSR y en la primera hidratación.
-  const consented = useSyncExternalStore(emptySubscribe, readConsentGranted, () => false)
+
+  // TAMPOCO se gatea por consentimiento, y la asimetría con AdSlot es
+  // correcta, no una incoherencia:
+  //
+  //   - AdSlot carga AdSense, que ESCRIBE cookies en el dispositivo y
+  //     personaliza publicidad. Eso sí requiere permiso previo.
+  //   - Esto es un enlace de texto a Amazon. Mostrarlo no almacena ni
+  //     lee nada en el dispositivo, que es lo que la ePrivacy somete a
+  //     consentimiento.
+  //
+  // Y la atribución del clic YA respeta el consentimiento donde toca:
+  // /api/affiliate/redirect registra `anon_id = 'consent_denied'` en vez
+  // del identificador cuando no hay permiso, y aun así redirige.
+  //
+  // Gatearlo aquí escondía la monetización a TODO visitante que aún no
+  // hubiera respondido al banner — es decir, a todos en su primera
+  // visita — sin ganar nada a cambio.
 
   // Reset cuando desaparece el slot: ajuste de estado en fase de render
   // (patrón oficial de React), evita el setState síncrono en el efecto.
@@ -43,17 +50,14 @@ export default function SponsoredSection({ slotKey }: SponsoredSectionProps) {
   }
 
   useEffect(() => {
-    if (!slotKey || !consented) return
+    if (!slotKey) return
     const controller = new AbortController()
     fetch(`/api/affiliates/serve?trigger=${slotKey}&locale=${locale}`, { signal: controller.signal })
       .then(r => r.json())
       .then(data => setProduct(data.product ?? null))
       .catch(() => setProduct(null))
     return () => controller.abort()
-    // Con `consented` en las dependencias: sin el, aceptar las cookies
-    // sin recargar no volvia a lanzar la peticion y el bloque no
-    // aparecia hasta la siguiente navegacion.
-  }, [slotKey, locale, consented])
+  }, [slotKey, locale])
 
   if (!product || !slotKey) return null
 

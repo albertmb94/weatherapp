@@ -11,7 +11,6 @@ import {
 } from '@/lib/friendlyForecast'
 import { resolveActiveModels, weightsFor } from '@/lib/ensemble/central'
 import { useNowcast } from '@/lib/hooks/useNowcast'
-import { useFeatureEnabled } from '@/lib/hooks/useFeature'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 // ProfileChip is no longer rendered inline (the user asked us
 // to drop the "Perfil: costero" chip from the home view). The
@@ -175,10 +174,13 @@ export default function FriendlyHome({
 }: FriendlyHomeProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
-  // B-NBT-13: sponsored section — visible para TODOS los usuarios
-  // cuando feature.affiliates está activo (es la vía de monetización
-  // de los usuarios free, no solo de los premium).
-  const affiliatesEnabled = useFeatureEnabled('feature.affiliates')
+  // Aquí había `const affiliatesEnabled = useFeatureEnabled('feature.affiliates')`,
+  // sin usar desde B-NBT-14, que eliminó ese gate a propósito. Se elimina
+  // la variable entera en lugar de dejarla colgando: una variable
+  // calculada y no usada PARECE un descuido, y una auditoría posterior la
+  // "arregló" cableándola al slot patrocinado — con lo que los anuncios
+  // desaparecieron pese a haber productos activos, que es justo el
+  // problema que B-NBT-14 venía a resolver. El control son los productos.
   // BUG FIX: previous build never threaded a wall-clock down to
   // `CurrentWeatherCard`, so the weekday label was always empty in
   // production. Tick once a minute (matches the rest of the app) so
@@ -309,11 +311,19 @@ export default function FriendlyHome({
       />
       {/* B-NBT-15: sponsored slot — UN anuncio simultáneo. Evalúa
           UV ≥ 4, lluvia ≥ 1 mm o atardecer próximo (en ese orden).
-          AUDITORÍA: `affiliatesEnabled` se calculaba arriba y no se usaba,
-          así que los enlaces de afiliado se servían aunque la flag
-          estuviera APAGADA — justo lo contrario de lo que dice el
-          comentario que la acompaña. */}
-      <SponsoredSection slotKey={affiliatesEnabled ? activeSlot : null} />
+
+          NO SE GATEA POR `feature.affiliates`, Y ES DELIBERADO (B-NBT-14).
+          Ese gate se eliminó a propósito por ser una segunda superficie
+          de control redundante que despistaba: "he añadido el producto y
+          no sale". EL CONTROL SON LOS PRODUCTOS — si hay uno activo para
+          el trigger, se sirve; si se borra o desactiva, deja de salir.
+          Lo mismo hacen /api/affiliates/serve y /api/affiliate/redirect.
+
+          (Una auditoría posterior interpretó la variable
+          `affiliatesEnabled` sin usar como un descuido y reintrodujo el
+          gate; el efecto fue exactamente el síntoma que B-NBT-14 quería
+          evitar: los anuncios desaparecieron con productos activos.) */}
+      <SponsoredSection slotKey={activeSlot} />
       {/* B-NBT-10: reserved ad inventory for free-tier visitors. The
           component self-gates on showAds + feature.ads.adsense. */}
       <AdSlot placement="inline" />

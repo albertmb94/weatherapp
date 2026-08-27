@@ -42,7 +42,7 @@ function flatSeries(values: number[], count: number) {
 }
 
 function wrap(node: React.ReactNode) {
-  return <LocaleProvider>{node}</LocaleProvider>
+  return <LocaleProvider locale="es">{node}</LocaleProvider>
 }
 
 describe('DailySummary — noonIndex (single offset applied)', () => {

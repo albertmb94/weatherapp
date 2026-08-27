@@ -8,7 +8,7 @@ function makeWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const Provider = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={qc}>
-      <LocaleProvider initialLocale="es">{children}</LocaleProvider>
+      <LocaleProvider locale="es">{children}</LocaleProvider>
     </QueryClientProvider>
   )
   return { qc, Provider }

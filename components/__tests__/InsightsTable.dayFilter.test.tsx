@@ -66,7 +66,7 @@ function wrap(node: React.ReactNode) {
   // navigator.language is "en-US", which would silently flip the
   // locale for the assertions below. Force Spanish explicitly so the
   // copy matches the default the rest of the suite uses.
-  return <LocaleProvider initialLocale="es">{node}</LocaleProvider>
+  return <LocaleProvider locale="es">{node}</LocaleProvider>
 }
 
 /**
@@ -140,7 +140,7 @@ describe('InsightsTable — day filter (B-NEW-32)', () => {
   it('shows the pill label in English when locale is "en"', () => {
     const filter: InsightsDayFilter = { startIndex: 48, anchor: 60, label: 'Wed 12' }
     render(wrap(
-      <LocaleProvider initialLocale="en">
+      <LocaleProvider locale="en">
         <InsightsTable
           models={MODELS}
           activeModelIds={['gfs_global', 'ecmwf_ifs']}

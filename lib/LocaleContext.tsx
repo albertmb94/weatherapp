@@ -1,15 +1,9 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react'
-import { usePathname } from 'next/navigation'
 import type { Locale } from './i18n'
 import { LOCALE_STORAGE_KEY } from './i18n'
-import {
-  DEFAULT_LOCALE,
-  LOCALE_COOKIE,
-  splitLocale,
-  switchLocaleUrl,
-} from './locale/routing'
+import { DEFAULT_LOCALE, LOCALE_COOKIE, switchLocaleUrl } from './locale/routing'
 
 interface LocaleContextValue {
   locale: Locale
@@ -22,45 +16,40 @@ const LocaleContext = createContext<LocaleContextValue | null>(null)
 export { DEFAULT_LOCALE }
 
 /**
- * El idioma sale de la URL, y de ningún otro sitio.
+ * El idioma viene de la RUTA, y lo entrega el servidor.
  *
  * ANTES vivía sólo en localStorage y el servidor renderizaba SIEMPRE el
  * idioma por defecto para no romper la hidratación; el idioma real
- * llegaba en un efecto posterior. Eso implicaba que:
+ * llegaba en un efecto posterior. Eso implicaba que todo rastreador y
+ * todo lector de pantalla veía español, y que el idioma no se podía
+ * compartir en un enlace.
  *
- *   - Todo rastreador y todo lector de pantalla veía español.
- *   - El idioma no se podía compartir en un enlace ni marcar en
- *     favoritos: abrir la misma URL en otro dispositivo daba español.
- *   - El primer render siempre era el idioma equivocado para la mitad de
- *     los visitantes, con su parpadeo correspondiente.
+ * POR QUÉ SE RECIBE COMO PROP Y NO SE LEE CON `usePathname()`:
  *
- * Con el idioma en la ruta, `usePathname()` lo devuelve idéntico en
- * servidor y en cliente, así que no hay desajuste de hidratación ni
- * efecto que corrija nada.
+ * La primera versión de este refactor derivaba el idioma con
+ * `usePathname()` aquí dentro. Este proveedor se monta en el layout
+ * RAÍZ (app/providers.tsx), por encima del segmento `[locale]`, y usar
+ * ahí el hook de ruta ROMPÍA LA HIDRATACIÓN DE TODO EL SUBÁRBOL: la
+ * página se pintaba con el HTML del servidor pero React no la
+ * adoptaba, así que no corría ningún efecto ni ninguna consulta de
+ * react-query. En la práctica: la app aparecía completa pero sin datos
+ * —todos los valores con guiones— y sin una sola petición a /api. No
+ * había ningún error en consola; se detectó comparando la hidratación
+ * contra el build anterior.
  *
- * Nota sobre el prefijo "sólo cuando hace falta": para el español la
- * ruta no lleva prefijo y el proxy la reescribe internamente. El
- * navegador ve `/premium`, así que `usePathname()` devuelve `/premium`,
- * `splitLocale` no encuentra prefijo y cae al idioma por defecto — que
- * es exactamente lo correcto.
+ * Ahora `app/[locale]/layout.tsx` monta este proveedor con el idioma
+ * que ya conoce por `params`. Es además más correcto: el servidor es la
+ * autoridad, no hay derivación duplicada y no puede haber desajuste
+ * entre lo que renderiza el servidor y lo que deduce el cliente.
  */
 export function LocaleProvider({
   children,
-  initialLocale,
+  locale,
 }: {
   children: ReactNode
-  /** Sólo para tests: fuerza un idioma sin depender de la ruta. */
-  initialLocale?: Locale
+  /** Idioma del segmento de ruta. Lo pasa el layout del servidor. */
+  locale: Locale
 }) {
-  // `usePathname` devuelve null fuera del router (tests de componentes
-  // que montan el proveedor suelto); el `?? '/'` lo cubre.
-  const pathname = usePathname()
-
-  const locale: Locale = useMemo(() => {
-    if (initialLocale) return initialLocale
-    return splitLocale(pathname ?? '/').locale ?? DEFAULT_LOCALE
-  }, [initialLocale, pathname])
-
   const setLocale = useCallback(
     (next: Locale) => {
       if (next === locale) return
@@ -81,11 +70,7 @@ export function LocaleProvider({
         /* ignore */
       }
 
-      const destino = switchLocaleUrl(
-        window.location.pathname,
-        window.location.search,
-        next,
-      )
+      const destino = switchLocaleUrl(window.location.pathname, window.location.search, next)
 
       // NAVEGACIÓN COMPLETA, no `router.push`, y no por comodidad:
       // `<html lang>` lo emite el layout RAÍZ a partir de una cabecera
@@ -93,8 +78,7 @@ export function LocaleProvider({
       // renderizar el layout raíz. Con `router.push` la página cambiaría
       // de idioma pero el documento seguiría anunciando `lang="es"` — es
       // decir, se arreglaría lo visible y se dejaría roto exactamente lo
-      // que este refactor venía a arreglar. Cambiar de idioma es un
-      // cambio de documento.
+      // que este refactor venía a arreglar.
       window.location.assign(destino)
     },
     [locale],

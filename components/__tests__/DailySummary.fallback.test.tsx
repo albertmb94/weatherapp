@@ -21,7 +21,7 @@ const MODELS: WeatherModel[] = [
 ]
 
 function wrap(node: React.ReactNode) {
-  return <LocaleProvider initialLocale="en">{node}</LocaleProvider>
+  return <LocaleProvider locale="en">{node}</LocaleProvider>
 }
 
 function fakeTimes(count: number): Date[] {

@@ -11,7 +11,7 @@ function renderBar(active: MobileTab = 'models') {
   // pasaban en ingles por accidente. Con el idioma en la ruta ya no se
   // deduce nada, y la dependencia oculta se vuelve visible.
   const utils = render(
-    <LocaleProvider initialLocale="en">
+    <LocaleProvider locale="en">
       <MobileTabBar active={active} onChange={onChange} />
     </LocaleProvider>,
   )

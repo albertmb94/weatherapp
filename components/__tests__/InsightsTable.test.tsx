@@ -78,7 +78,7 @@ function rampSeries(modelId: string, length: number, startTemp: number, slope: n
 }
 
 function wrap(node: React.ReactNode) {
-  return <LocaleProvider>{node}</LocaleProvider>
+  return <LocaleProvider locale="es">{node}</LocaleProvider>
 }
 
 describe('InsightsTable — "↳ Ahora" annotation on active row', () => {

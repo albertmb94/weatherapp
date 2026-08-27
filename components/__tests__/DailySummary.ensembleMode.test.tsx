@@ -54,7 +54,7 @@ function divergentSeries(count: number) {
 }
 
 function wrap(node: React.ReactNode) {
-  return <LocaleProvider>{node}</LocaleProvider>
+  return <LocaleProvider locale="es">{node}</LocaleProvider>
 }
 
 function extractHighLow(container: HTMLElement): { high: string; low: string } | null {

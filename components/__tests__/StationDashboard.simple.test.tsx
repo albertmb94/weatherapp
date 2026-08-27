@@ -9,7 +9,7 @@ function wrapper() {
   function TestWrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={qc}>
-        <LocaleProvider initialLocale="es">{children}</LocaleProvider>
+        <LocaleProvider locale="es">{children}</LocaleProvider>
       </QueryClientProvider>
     )
   }

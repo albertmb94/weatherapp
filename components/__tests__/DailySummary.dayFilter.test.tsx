@@ -46,7 +46,7 @@ function flatSeries(values: number[], count: number) {
 }
 
 function wrap(node: React.ReactNode) {
-  return <LocaleProvider>{node}</LocaleProvider>
+  return <LocaleProvider locale="es">{node}</LocaleProvider>
 }
 
 describe('DailySummary — day filter (B-NEW-32)', () => {
@@ -168,7 +168,7 @@ describe('DailySummary — day filter (B-NEW-32)', () => {
 
   it('exposes a localised aria-label that mentions the filter intent when onSelectDay is set', async () => {
     render(wrap(
-      <LocaleProvider initialLocale="en">
+      <LocaleProvider locale="en">
         <DailySummary
           models={MODELS}
           activeModelIds={['gfs_global']}

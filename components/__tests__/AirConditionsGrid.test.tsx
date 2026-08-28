@@ -6,7 +6,7 @@ import type { CurrentSnapshot } from '@/lib/friendlyForecast'
 
 function renderGrid(props: Partial<React.ComponentProps<typeof AirConditionsGrid>> = {}) {
   return render(
-    <LocaleProvider initialLocale="es">
+    <LocaleProvider locale="es">
       <AirConditionsGrid snapshot={null} {...props} />
     </LocaleProvider>,
   )

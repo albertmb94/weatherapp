@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useLocale } from '@/lib/LocaleContext'
-import { localizedHref } from '@/lib/locale/routing'
+import { usePathname } from 'next/navigation'
+import { DEFAULT_LOCALE, localizedHref, splitLocale } from '@/lib/locale/routing'
 
 /** Router-level 404 (auditoría F4: no existía un not-found.tsx).
  *
@@ -12,7 +12,15 @@ import { localizedHref } from '@/lib/locale/routing'
  *  botón de volver mandaba siempre a la home española, perdiendo el
  *  idioma incluso a quien estaba navegando en /en. */
 export default function NotFound() {
-  const { locale } = useLocale()
+  // NO se usa useLocale() a proposito: el 404 de la raiz se renderiza
+  // FUERA del LocaleProvider, que vive en app/[locale]/layout.tsx, asi
+  // que useLocale() lanzaba "must be used within LocaleProvider" durante
+  // el render del servidor. El error solo aparecia en el log del
+  // servidor, no en la consola del navegador, asi que era facil no
+  // verlo. El idioma se lee de la ruta, que siempre esta disponible
+  // (mismo enfoque que app/error.tsx).
+  const pathname = usePathname()
+  const locale = splitLocale(pathname ?? '/').locale ?? DEFAULT_LOCALE
   const es = locale === 'es'
 
   return (

@@ -11,7 +11,7 @@ const MODELS_FIXTURE: WeatherModel[] = [
 ]
 
 function renderWithLocale(ui: React.ReactElement) {
-  return render(<LocaleProvider initialLocale="es">{ui}</LocaleProvider>)
+  return render(<LocaleProvider locale="es">{ui}</LocaleProvider>)
 }
 
 describe('ModelSelector', () => {

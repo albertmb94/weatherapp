@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import type { Locale } from '@/lib/i18n'
 import { LOCALES, DEFAULT_LOCALE, isLocale, localizedHref } from '@/lib/locale/routing'
 import { appOrigin } from '@/lib/appUrl'
+import { LocaleProvider } from '@/lib/LocaleContext'
 
 /**
  * Layout del segmento de idioma.
@@ -86,8 +87,9 @@ export default async function LocaleLayout({
   // 200 y Google indexaría infinitas URLs equivalentes.
   if (!isLocale(locale)) notFound()
 
-  // El idioma lo lee LocaleProvider de la propia URL (usePathname), asi
-  // que aqui no hace falta puente alguno: este layout solo valida el
-  // segmento y aporta la metadata con hreflang.
-  return <>{children}</>
+  // El idioma se ENTREGA al proveedor desde el servidor. Es el único
+  // sitio del árbol que lo conoce sin deducirlo, y montarlo aquí evita
+  // el hook de ruta en el layout raíz que rompía la hidratación (ver
+  // lib/LocaleContext.tsx).
+  return <LocaleProvider locale={locale}>{children}</LocaleProvider>
 }

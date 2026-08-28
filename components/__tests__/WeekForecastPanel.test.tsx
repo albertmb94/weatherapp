@@ -33,7 +33,7 @@ function renderPanel(baseIndex: number, selectedHour: number, onSelectHour: (h: 
   const time = makeTimes(384)
   const nowIndex = baseIndex + selectedHour
   return render(
-    <LocaleProvider initialLocale="es">
+    <LocaleProvider locale="es">
       <WeekForecastPanel
         models={MODELS}
         activeIds={['ecmwf_ifs']}

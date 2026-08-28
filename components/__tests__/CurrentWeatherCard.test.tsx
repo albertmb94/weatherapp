@@ -6,7 +6,7 @@ import type { CurrentSnapshot } from '@/lib/friendlyForecast'
 
 function renderCard(snapshot: CurrentSnapshot | null, props: Partial<React.ComponentProps<typeof CurrentWeatherCard>> = {}) {
   return render(
-    <LocaleProvider initialLocale="es">
+    <LocaleProvider locale="es">
       <CurrentWeatherCard city="Badalona" snapshot={snapshot} {...props} />
     </LocaleProvider>,
   )

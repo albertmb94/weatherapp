@@ -29,7 +29,7 @@ const PRODUCTO = {
 
 function montar(slotKey: 'slot_uv' | null) {
   return render(
-    <LocaleProvider initialLocale="es">
+    <LocaleProvider locale="es">
       <SponsoredSection slotKey={slotKey} />
     </LocaleProvider>,
   )

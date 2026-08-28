@@ -82,7 +82,7 @@ describe('DailySummary — 14-day coverage (B-NEW-1)', () => {
     const activeModelIds = MODELS.map(m => m.id).filter(id => id !== 'marine_global')
 
     render(
-      <LocaleProvider>
+      <LocaleProvider locale="es">
         <DailySummary
           models={MODELS}
           activeModelIds={activeModelIds}
@@ -116,7 +116,7 @@ describe('DailySummary — 14-day coverage (B-NEW-1)', () => {
     const activeModelIds = MODELS.map(m => m.id).filter(id => id !== 'marine_global')
 
     render(
-      <LocaleProvider>
+      <LocaleProvider locale="es">
         <DailySummary
           models={MODELS}
           activeModelIds={activeModelIds}

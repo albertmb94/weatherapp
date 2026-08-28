@@ -73,7 +73,7 @@ const SERIES: SeriesLike = {
 }
 
 function wrap(node: React.ReactNode) {
-  return <LocaleProvider>{node}</LocaleProvider>
+  return <LocaleProvider locale="es">{node}</LocaleProvider>
 }
 
 /**

@@ -12,7 +12,7 @@ function wrapper(locale: 'es' | 'en') {
   function Inner({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <LocaleProvider initialLocale={locale}>{children}</LocaleProvider>
+        <LocaleProvider locale={locale}>{children}</LocaleProvider>
       </QueryClientProvider>
     )
   }

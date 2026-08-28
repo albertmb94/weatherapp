@@ -15,7 +15,7 @@ function renderSidebar(active: 'weather' | 'cities' = 'weather') {
     showBasic: true,
   }
   render(
-    <LocaleProvider initialLocale="es">
+    <LocaleProvider locale="es">
       <DesktopSidebar
         active={active}
         onSelect={onSelect}

@@ -34,26 +34,76 @@ when external sources are not configured.
 | `TURSO_AUTH_TOKEN` | Token for the Turso instance above. |
 | `AEMET_API_KEY` | AEMET open-data API key (JWT). Without it, the Stations tab hides AEMET but Meteoclimatic + Meteocat keep working. |
 | `METEOCAT_API_KEY` | Meteocat XEMA network token. Same graceful degradation. |
-| `SENTRY_DSN` | Optional; `@sentry/nextjs` is loaded only when set. |
-| `ADMIN_EMAIL` | First superadmin for the `/admin` panel. Read once at boot — redeploy to change. See `docs/ADMIN.md`. |
-| `NEXT_PUBLIC_APP_URL` | Public URL used for magic links in emails. |
-| `RESEND_API_KEY` | Transactional email sender. Without it, admin magic links print to Vercel logs. |
+| `SENTRY_DSN` | Optional; `@sentry/nextjs` is loaded only when set (and must be installed). |
+| `ADMIN_EMAIL` | Owner superadmin seeded into `admin_users`. See `docs/ADMIN.md`. |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Seed the initial `admin_credentials` row (only when the table is empty). No seed is created without `ADMIN_PASSWORD`. |
+| `NEXT_PUBLIC_APP_URL` | Canonical public URL for Stripe redirects, claim links and emails. |
+| `RESEND_API_KEY` | Transactional email sender (fallback when `feature.resend.api_key` is unset). |
 | `EMAIL_FROM` | From-address for transactional emails (see `lib/emails.ts`). |
+| `CRON_SECRET` | Bearer token protecting `/api/cron/analytics-rollup` (Vercel cron). |
 | `BACKTEST_SECRET` | Bearer token protecting `/api/backtest` (503 without it). |
-| `STRIPE_SECRET_KEY` | Placeholder for the future direct Stripe integration — the live checkout configuration lives in `/admin/features` (`feature_flags.config`). |
+| `DB_ALLOW_FILE_IN_PRODUCTION` | Self-hosted over HTTP: allow non-Secure admin cookies. |
+| `BACKTEST_DB_URL` | Tooling only (`scripts/calibrateEnsemble.ts`); defaults to `file:local.db`. |
 
-A reference `.env.example` ships in the repo. **Admin & monetization env vars** are documented in `.env.example` under the `=== Admin / Monetization ===` section.
+Stripe keys and prices are managed in `/admin/features` (`feature_flags.config`)
+and `/admin/plans` — the `STRIPE_*` / `VAPID_*` env vars are placeholders for a
+future direct integration and are not read at runtime.
+
+A reference `.env.example` ships in the repo. **Admin & monetization env vars**
+are documented in `.env.example` under the `=== Admin / Monetization ===`
+section. **Never commit real credentials** to `.env.example`.
 
 ## Admin panel
 
-The app ships an `/admin` panel where every monetization feature can be toggled without redeploy. See `docs/ADMIN.md` for the full setup, including the magical-link flow, the feature catalogue, and how to enable Premium / Stations / Affiliates / Ads / Newsletter / Push / Donations.
+The app ships an `/admin` panel where every monetization feature can be toggled without redeploy. See `docs/ADMIN.md` for the full setup, including the login flow (username/password), the feature catalogue, and how to enable Premium / Stations / Affiliates / Ads / Newsletter / Push / Donations.
+
+## Languages and URLs
+
+The site is bilingual (Spanish / English) and the language lives **in the
+route**, not in localStorage. Spanish is the default and carries **no
+prefix**, so every URL that existed before the i18n refactor still works
+unchanged — shared links, short links, Stripe return URLs and the
+`page_views` history all stay valid.
+
+| | Spanish (default) | English |
+|---|---|---|
+| Home | `/` | `/en` |
+| Premium | `/premium` | `/en/premium` |
+| Cookie policy | `/cookies` | `/en/cookies` |
+
+- `/es/...` is accepted but **308-redirects** to the unprefixed form, so
+  each page has exactly one canonical URL per language.
+- Every page emits its own `canonical` plus `hreflang` alternates. These
+  are per **page**, never on the layout: a layout canonical is inherited
+  by all its children, which would make `/cookies` declare that it *is*
+  the homepage.
+- `<html lang>` is rendered **by the server**. `proxy.ts` resolves the
+  language and passes it to the root layout in a request header, because
+  the root layout sits above the `[locale]` segment and gets no params.
+- A visitor with no stored choice is redirected by `Accept-Language`.
+  **Bots never are**: Googlebot crawls with `Accept-Language: en`, so
+  negotiating with it would serve it the English site and hide the
+  Spanish one. It sees the default and finds the rest through `hreflang`.
+- An explicit choice (the ES/EN toggle) is stored in the `wthr_locale`
+  cookie and wins over `Accept-Language`.
+- `/admin`, `/api/...` and `/s/...` are exempt: they never carry a
+  language prefix. See `lib/locale/routing.ts`.
+
+Switching language performs a **full navigation**, not a client-side
+push: `<html lang>` comes from the root layout, which a client
+navigation does not re-render.
 
 ## Architecture
 
 ```
-app/              App Router (page, layout, providers, /api routes)
+app/              App Router
+app/[locale]/     public pages (home, premium, legal) — bilingual
+app/admin/        admin panel (Spanish only, no locale prefix)
+app/api/          route handlers
 components/       React UI (no external component lib)
 lib/              Pure logic (models, ensemble, forecasts, date utils)
+  locale/         URL scheme per language (routing, page metadata)
+  analytics/      Client tracker, session rotation, Madrid day keys
   ensemble/       Centralised calibrated weights, meanAtHour, meanOverBucket
   hooks/          Cross-cutting hooks (useHourSlider, useNearbyStations, …)
   indexer/        BM25 + chunker for the offline Qdrant indexer

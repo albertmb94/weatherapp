@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * B-NBT-23: botón flotante de Ko-fi minimalista.
- * Sin scripts externos ni widgets de terceros — HTML/CSS puro.
- * Solo visible en desktop (≥1024px). En móvil usa el botón del header.
+ * B-NBT-23: botón flotante de Ko-fi minimalista (solo desktop ≥1024px).
+ * La URL viene de feature.kofi.url (gestionada en /admin/donations),
+ * con fallback al perfil por defecto si el admin no la configuró.
  */
-export default function KoFiOverlay() {
+export default function KoFiOverlay({ url }: { url: string }) {
   return (
     <a
-      href="https://ko-fi.com/F8C225NYMV"
+      href={url}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Apoya el proyecto en Ko-fi"

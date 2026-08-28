@@ -101,6 +101,8 @@ export async function GET(req: NextRequest) {
       total: map.size,
     })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    // Sin `String(err)` al cliente: filtra SQL y nombres de columna.
+    console.error('[admin] listado de usuarios fallido:', err instanceof Error ? err.message : err)
+    return NextResponse.json({ ok: false, error: 'query_failed' }, { status: 500 })
   }
 }

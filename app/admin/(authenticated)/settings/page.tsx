@@ -1,4 +1,5 @@
 import { ADMIN_SESSION_TTL_MS } from '@/lib/admin/auth'
+import Link from 'next/link'
 import PasswordChangeForm from './PasswordChangeForm'
 
 export const dynamic = 'force-dynamic'
@@ -48,7 +49,7 @@ export default async function SettingsPage() {
         <h2 className="text-xs uppercase tracking-widest text-text-tertiary mb-2">Feature flags</h2>
         <p className="text-[11px] text-text-secondary">
           Gestiona los feature flags desde{' '}
-          <a href="/admin/features" className="text-accent hover:underline">/admin/features</a>.
+          <Link href="/admin/features" className="text-accent hover:underline">/admin/features</Link>.
           Los valores operativos (Stripe, VAPID, AdSense) se almacenan en feature_flags.config vía el mismo panel.
         </p>
       </section>

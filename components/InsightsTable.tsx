@@ -2,11 +2,9 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect, memo } from 'react'
 import type { WeatherModel, MetricId } from '@/lib/models'
-import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE } from '@/lib/models'
-import { getColor, SCALES } from '@/lib/colorScales'
 import type { ScaleMetric } from '@/lib/colorScales'
 import { weightedAvg } from '@/lib/ensemble'
-import { resolveActiveModels, weightsFor, weightsForAbsolute, weightsForProfile, ensembleWithFallback } from '@/lib/ensemble/central'
+import { resolveActiveModels, weightsForAbsolute, weightsForProfile, ensembleWithFallback } from '@/lib/ensemble/central'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'

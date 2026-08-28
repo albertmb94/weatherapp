@@ -22,7 +22,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Missing name' }, { status: 400 })
   }
 
-  const url = `https://geocoding-api.open-meteo.com/v1/search?${searchParams.toString()}`
+  // AUDITORIA: antes se reenviaba el query string COMPLETO del cliente al
+  // proveedor. El host es fijo, asi que no es SSRF, pero cualquiera podia
+  // colar `count=10000` y quemar la cuota compartida a traves de un
+  // endpoint nuestro cacheado en CDN. Se construyen los parametros desde
+  // cero con una lista blanca y topes.
+  const upstream = new URLSearchParams({ name: name.trim().slice(0, 120) })
+  const count = Number(searchParams.get('count'))
+  upstream.set('count', String(Number.isFinite(count) ? Math.min(Math.max(count, 1), 20) : 10))
+  const language = searchParams.get('language')
+  if (language && /^[a-z]{2}$/i.test(language)) upstream.set('language', language.toLowerCase())
+  upstream.set('format', 'json')
+
+  const url = `https://geocoding-api.open-meteo.com/v1/search?${upstream.toString()}`
 
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })

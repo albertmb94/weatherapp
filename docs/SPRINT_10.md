@@ -177,7 +177,7 @@ pre-cambio: 5–50 llamadas upstream / sesión. Estimación post-cambio:
 | # | Acción | Impacto |
 |---|---|---|
 | 1 | `app/api/reverse-geocode/route.ts` con `Cache-Control: public, s-maxage=86400` y redondeo a 2 decimales | **−80 % BigDataCloud** |
-| 2 | `lib/externalStationsCache.ts` (Turso) para AEMET/Meteocat, 4 h fresh / 24 h stale | −50 % upstream cross-instance |
+| 2 | `lib/externalStationsCache.ts` (Turso) para AEMET/Meteocat, 2 h fresh / 24 h stale | −50 % upstream cross-instance |
 | 3 | `past_days=1` cuando `forecastDays <= 7` | −15–25 % BW forecast |
 | 4 | Auto-refresh 4 h sólo si pestaña visible | −10–30 % fetches nocturnos |
 | 5 | `useRefresh.ts` invalidación selectiva (forecast + status, no estaciones) | menos invalidaciones colaterales |

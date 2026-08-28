@@ -1,81 +1,109 @@
-﻿/**
- * B-NBT-10 (2026-08-22): analytics aggregation layer for the admin
- * metrics dashboard.
+/**
+ * Capa de agregación de analytics para el panel de administración.
  *
- * Raw page_views stay the source of truth for the last N days; the cron
- * job (`/api/cron/analytics-rollup`) folds them into `daily_anon_stats`
- * and purges raw rows beyond the retention window. `visitor_identity`
- * links anonymous device ids to emails at the ONE moment they are known
- * together (premium claim), powering the lastSeen column in the admin
- * Users list.
+ * QUÉ CAMBIÓ RESPECTO A LA VERSIÓN ANTERIOR (auditoría):
+ *
+ *  1. `getAdminMetrics` devolvía `AdminMetrics | null`, pero como
+ *     `db.select` NUNCA lanza (devuelve `[]` y traga el error), su
+ *     try/catch no podía dispararse: una tabla inexistente producía un
+ *     objeto lleno de ceros, indistinguible de un martes tranquilo. Por
+ *     eso el incidente pasó desapercibido. Ahora usa las variantes
+ *     estrictas y devuelve una unión discriminada que el panel puede
+ *     pintar como error de verdad.
+ *
+ *  2. `ensureAnalyticsSchema()` creaba `daily_anon_stats` y
+ *     `visitor_identity`... pero NO `page_views` ni `sessions`, que son
+ *     las que consultaba. Esas sólo las creaba la ruta de ingesta. Ahora
+ *     el esquema lo gobierna lib/migrations.ts.
+ *
+ *  3. El rollup escribía `daily_anon_stats` y NO LO LEÍA NADIE:
+ *     `getAdminMetrics` iba siempre contra `page_views` en crudo. Ahora
+ *     es híbrido — días cerrados desde el rollup, hoy desde crudo — con
+ *     lo que el trabajo nocturno por fin sirve para algo y desaparece el
+ *     COUNT(DISTINCT) sobre 90 días de filas crudas.
+ *
+ *  4. El purge de retención se ejecutaba SIEMPRE, incluso si el rollup
+ *     había fallado en silencio. Era el único fallo con pérdida de datos
+ *     irreversible del sistema. Ahora el borrado está condicionado a que
+ *     la consolidación se verifique.
+ *
+ *  5. `resolveZoneNames` hacía hasta 5 fetch bloqueantes de 4 s a un
+ *     servicio externo DENTRO del render del panel, y además creaba una
+ *     tabla en un camino de sólo lectura. Se ha partido en una lectura
+ *     pura y un trabajo nocturno.
+ *
+ *  6. Los días se agrupaban con `strftime(...,'unixepoch')`, que es UTC.
+ *     Ahora se usa la columna `day`, resuelta en Europe/Madrid al
+ *     insertar.
  */
 
-import { db } from './db'
+import { db, DbError } from './db'
+import { migrationsReady } from './migrations'
+import { dayKey, todayKey, rangeDayKeys, prevDayKey, dayStartMs, MS_PER_DAY } from './analytics/time'
 
 const RETENTION_DAYS = 90
+/** La identidad anónima vive lo que la cookie (2 años). Sin este purgado
+ *  `visitor_identity` crecía para siempre: coste y problema de retención. */
+const IDENTITY_RETENTION_DAYS = 730
 
-let schemaReady: Promise<boolean> | null = null
+export const ALLOWED_RANGES = [7, 30, 90] as const
+export type RangeDays = (typeof ALLOWED_RANGES)[number]
 
-export async function ensureAnalyticsSchema(): Promise<boolean> {
-  if (schemaReady) return schemaReady
-  schemaReady = db.ensure().then(async ok => {
-    if (!ok) return false
-    try {
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS daily_anon_stats (
-          date TEXT NOT NULL,
-          anon_id TEXT NOT NULL,
-          views INTEGER NOT NULL DEFAULT 0,
-          sessions INTEGER NOT NULL DEFAULT 0,
-          is_new INTEGER NOT NULL DEFAULT 0,
-          PRIMARY KEY (date, anon_id)
-        )`,
-      )
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_das_date ON daily_anon_stats(date)')
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS visitor_identity (
-          anon_id TEXT PRIMARY KEY,
-          email TEXT,
-          first_seen_at INTEGER NOT NULL,
-          last_seen_at INTEGER NOT NULL
-        )`,
-      )
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_vi_email ON visitor_identity(email)')
-      return true
-    } catch {
-      schemaReady = null
-      return false
-    }
-  }).catch(() => { schemaReady = null; return false })
-  return schemaReady
+export function parseRange(value: string | null | undefined): RangeDays {
+  const n = Number(value)
+  return (ALLOWED_RANGES as readonly number[]).includes(n) ? (n as RangeDays) : 30
 }
 
-/** Called on every accepted pageview â€” cheap upsert keeping last_seen
- *  fresh. Failures are non-fatal by design. */
+/** Dimensiones preagregadas en `daily_breakdowns`. */
+export const BREAKDOWN_DIMS = [
+  'path',
+  'referrer',
+  'utm_source',
+  'device',
+  'browser',
+  'country',
+  'locale',
+  'geo_cell',
+] as const
+export type BreakdownDim = (typeof BREAKDOWN_DIMS)[number]
+
+// ---------------------------------------------------------------------------
+// Identidad del visitante
+// ---------------------------------------------------------------------------
+
+/**
+ * Se llama en cada pageview aceptado. `first_seen_at` / `first_seen_day`
+ * son insert-only: el ON CONFLICT no los toca.
+ *
+ * Esta tabla estaba VACÍA en producción pese a escribirse en cada
+ * pageview: la función no arrancaba el esquema y su try/catch se comía
+ * el "no such table", así que la columna lastSeen del listado de
+ * usuarios del admin llevaba null para todo el mundo desde siempre.
+ */
 export async function touchVisitorIdentity(anonId: string, now = Date.now()): Promise<void> {
   try {
     await db.execute(
-      `INSERT INTO visitor_identity (anon_id, first_seen_at, last_seen_at)
-       VALUES (?, ?, ?)
+      `INSERT INTO visitor_identity (anon_id, first_seen_at, first_seen_day, last_seen_at)
+       VALUES (?, ?, ?, ?)
        ON CONFLICT(anon_id) DO UPDATE SET last_seen_at = excluded.last_seen_at`,
-      [anonId, now, now],
+      [anonId, now, dayKey(now), now],
     )
   } catch {
     /* best-effort */
   }
 }
 
-/** Link a device to an email at claim time. Keeps the earliest
- *  first_seen and the latest email/last_seen. */
+/** Enlaza un dispositivo con un email en el único momento en que se
+ *  conocen juntos (reclamación de premium). */
 export async function linkVisitorIdentity(anonId: string, email: string, now = Date.now()): Promise<void> {
   try {
     await db.execute(
-      `INSERT INTO visitor_identity (anon_id, email, first_seen_at, last_seen_at)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO visitor_identity (anon_id, email, first_seen_at, first_seen_day, last_seen_at)
+       VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(anon_id) DO UPDATE SET
          email = excluded.email,
          last_seen_at = excluded.last_seen_at`,
-      [anonId, email.toLowerCase(), now, now],
+      [anonId, email.toLowerCase(), now, dayKey(now), now],
     )
   } catch {
     /* best-effort */
@@ -83,24 +111,32 @@ export async function linkVisitorIdentity(anonId: string, email: string, now = D
 }
 
 // ---------------------------------------------------------------------------
-// Admin metric queries (all read-only)
+// Tipos del panel
 // ---------------------------------------------------------------------------
 
 export interface DailyPoint {
-  date: string // YYYY-MM-DD (UTC)
+  date: string // YYYY-MM-DD (Europe/Madrid)
   devices: number
   views: number
   newDevices: number
 }
 
-export interface BreakdownRow { label: string; count: number }
+export interface BreakdownRow {
+  label: string
+  /** VISTAS, no dispositivos únicos. Ver la nota de `mergeBreakdown`. */
+  count: number
+}
 
 export interface AdminMetrics {
   rangeDays: number
   today: { devices: number; views: number }
   yesterday: { devices: number; views: number }
   weekDevices: number
-  monthDevices: number
+  /** Dispositivos distintos en toda la ventana. */
+  rangeDevices: number
+  /** rangeNew + rangeReturning === rangeDevices, exactamente. */
+  rangeNew: number
+  rangeReturning: number
   series: DailyPoint[]
   topPaths: BreakdownRow[]
   referrers: BreakdownRow[]
@@ -108,299 +144,543 @@ export interface AdminMetrics {
   devices: BreakdownRow[]
   browsers: BreakdownRow[]
   countries: BreakdownRow[]
-  zones: { label: string; devices: number; views: number }[]
+  locales: BreakdownRow[]
+  zones: { label: string; views: number }[]
   sessionsToday: number
+  sessionsRange: number
+  viewsPerSession: number | null
+  bounceRate: number | null
+  /** Avisos no fatales: la página pinta datos reales y un banner. */
+  warnings: string[]
   generatedAt: number
 }
 
-function dayStartUtcMs(dayOffsetFromToday: number, now: number): number {
-  const d = new Date(now)
-  d.setUTCHours(0, 0, 0, 0)
-  return d.getTime() + dayOffsetFromToday * 86_400_000
-}
+export type MetricsResult =
+  | { ok: true; metrics: AdminMetrics }
+  | { ok: false; error: 'not_configured' | 'query_failed' | 'schema_pending'; detail?: string }
 
 // ---------------------------------------------------------------------------
-// Resolución de nombres de zona (reverse-geocode con cache permanente)
+// Nombres de zona
 // ---------------------------------------------------------------------------
 
 const geoNameCache = new Map<string, string>()
 
-/** Resuelve el nombre de una celda "lat,lon" (2 decimales ≈ 1.1 km)
- *  vía BigDataCloud (el mismo endpoint público que usa
- *  /api/reverse-geocode). Cachea en memoria Y en la tabla geo_names
- *  para no gastar cuota: máx 5 lookups por invocación. */
-async function resolveZoneNames(cells: string[]): Promise<Map<string, string>> {
-  await ensureAnalyticsSchema()
+/**
+ * Lectura PURA: sólo consulta la tabla y la caché en memoria. Las celdas
+ * sin resolver se muestran como coordenadas.
+ *
+ * La versión anterior hacía aquí mismo hasta 5 `fetch` secuenciales de 4 s
+ * de timeout contra un servicio externo, dentro del render del server
+ * component — hasta 20 s de TTFB en el panel — y encima ejecutaba un
+ * CREATE TABLE en un camino de sólo lectura.
+ */
+async function lookupZoneNames(cells: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
   const missing: string[] = []
   for (const cell of cells) {
     const cached = geoNameCache.get(cell)
-    if (cached) { out.set(cell, cached); continue }
-    try {
-      const rows = await db.select<{ name: string }>(
-        'SELECT name FROM geo_names WHERE cell = ?', [cell],
-      )
-      if (rows[0]) {
-        const name = String(rows[0].name)
-        geoNameCache.set(cell, name)
-        out.set(cell, name)
-        continue
-      }
-    } catch { /* la tabla puede no existir aún — se crea abajo */ }
-    missing.push(cell)
+    if (cached) out.set(cell, cached)
+    else missing.push(cell)
   }
-  try {
-    await db.execute(
-      `CREATE TABLE IF NOT EXISTS geo_names (
-        cell TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )`,
+  if (missing.length > 0) {
+    const placeholders = missing.map(() => '?').join(',')
+    const rows = await db.selectOrThrow<{ cell: string; name: string }>(
+      `SELECT cell, name FROM geo_names WHERE cell IN (${placeholders})`,
+      missing,
     )
-  } catch { /* best-effort */ }
+    for (const r of rows) {
+      const name = String(r.name)
+      geoNameCache.set(String(r.cell), name)
+      out.set(String(r.cell), name)
+    }
+  }
+  for (const cell of cells) if (!out.has(cell)) out.set(cell, cell)
+  return out
+}
 
-  let lookups = 0
-  for (const cell of missing.slice(0, 5)) {
-    if (lookups >= 5) break
-    const parts = cell.split(',')
-    const lat = Number(parts[0])
-    const lon = Number(parts[1])
+/**
+ * Escritura: resuelve nombres pendientes contra BigDataCloud. Se ejecuta
+ * en el cron nocturno, con presupuesto acotado y fuera del camino de
+ * petición.
+ */
+export async function resolveMissingZoneNames(limit = 20): Promise<number> {
+  const rows = await db.selectOrThrow<{ label: string }>(
+    `SELECT b.label AS label
+     FROM daily_breakdowns b
+     LEFT JOIN geo_names g ON g.cell = b.label
+     WHERE b.dim = 'geo_cell' AND g.cell IS NULL
+     GROUP BY b.label
+     ORDER BY SUM(b.views) DESC
+     LIMIT ?`,
+    [limit],
+  )
+  let resolved = 0
+  for (const row of rows) {
+    const cell = String(row.label)
+    const [latStr, lonStr] = cell.split(',')
+    const lat = Number(latStr)
+    const lon = Number(lonStr)
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
     try {
       const res = await fetch(
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`,
         { signal: AbortSignal.timeout(4000) },
       )
-      lookups++
       if (!res.ok) continue
-      const data = (await res.json()) as { city?: string; locality?: string; principalSubdivision?: string; countryName?: string }
-      const name = [data.city || data.locality, data.principalSubdivision]
-        .filter(Boolean).join(' · ') || data.countryName || cell
+      const data = (await res.json()) as {
+        city?: string
+        locality?: string
+        principalSubdivision?: string
+        countryName?: string
+      }
+      const name =
+        [data.city || data.locality, data.principalSubdivision].filter(Boolean).join(' · ') ||
+        data.countryName ||
+        cell
+      await db.executeOrThrow(
+        'INSERT OR REPLACE INTO geo_names (cell, name, created_at) VALUES (?, ?, ?)',
+        [cell, name, Date.now()],
+      )
       geoNameCache.set(cell, name)
-      out.set(cell, name)
-      try {
-        await db.execute(
-          'INSERT OR REPLACE INTO geo_names (cell, name, created_at) VALUES (?, ?, ?)',
-          [cell, name, Date.now()],
-        )
-      } catch { /* best-effort */ }
-    } catch { /* timeout/red → dejamos la celda cruda */ }
+      resolved++
+    } catch {
+      /* timeout/red: se reintenta la noche siguiente */
+    }
   }
-  // Celdas sin resolver → etiqueta cruda
-  for (const cell of cells) {
-    if (!out.has(cell)) out.set(cell, cell)
-  }
-  return out
+  return resolved
 }
 
-/** Full dashboard payload. `now` injectable for tests. */
-export async function getAdminMetrics(rangeDays = 30, now = Date.now()): Promise<AdminMetrics | null> {
-  if (!(await ensureAnalyticsSchema())) return null
+// ---------------------------------------------------------------------------
+// Lectura del panel
+// ---------------------------------------------------------------------------
 
-  const todayStart = dayStartUtcMs(0, now)
-  const yesterdayStart = dayStartUtcMs(-1, now)
-  const rangeStart = todayStart - (rangeDays - 1) * 86_400_000
+function toNum(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+/**
+ * Fusiona los desgloses de días cerrados (rollup) con los de hoy (crudo).
+ *
+ * Se suman VISTAS y no dispositivos: `daily_breakdowns.devices` es el
+ * distinto POR DÍA, y sumarlo entre días sobrecuenta (quien entra 5 días
+ * contaría 5 veces). Las vistas sí son aditivas. Por eso las tarjetas de
+ * desglose muestran vistas, y los únicos de rango se calculan aparte
+ * sobre `daily_anon_stats`, donde hay una fila por dispositivo y día y el
+ * COUNT(DISTINCT) entre días sí es exacto.
+ *
+ * El panel anterior etiquetaba cinco tarjetas como "(únicos)" para
+ * números que nunca fueron distintos en el rango.
+ */
+function mergeBreakdown(
+  rows: { dim: string; label: string; views: number }[],
+  dim: BreakdownDim,
+  limit = 8,
+): BreakdownRow[] {
+  const acc = new Map<string, number>()
+  for (const r of rows) {
+    if (r.dim !== dim) continue
+    const label = String(r.label ?? '')
+    acc.set(label, (acc.get(label) ?? 0) + toNum(r.views))
+  }
+  // La etiqueta vacía significa cosas distintas según la dimensión: en
+  // referentes es tráfico directo, en navegador o país es simplemente un
+  // dato que no tenemos. Etiquetarlo todo como "(directo)" hacía que la
+  // tarjeta de navegadores mostrara una fila "(directo)" sin sentido.
+  const vacio = dim === 'referrer' ? '(directo)' : '(desconocido)'
+  return [...acc.entries()]
+    .map(([label, count]) => ({ label: label || vacio, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
+}
+
+/** Desgloses de HOY calculados en crudo, con la misma forma que el rollup. */
+const TODAY_BREAKDOWN_SQL = `
+  SELECT 'path' AS dim, path AS label, COUNT(*) AS views FROM page_views WHERE day = ?1 GROUP BY path
+  UNION ALL SELECT 'referrer', COALESCE(referrer, ''), COUNT(*) FROM page_views WHERE day = ?1 GROUP BY referrer
+  UNION ALL SELECT 'utm_source', utm_source, COUNT(*) FROM page_views WHERE day = ?1 AND utm_source IS NOT NULL GROUP BY utm_source
+  UNION ALL SELECT 'device', COALESCE(device_type, ''), COUNT(*) FROM page_views WHERE day = ?1 GROUP BY device_type
+  UNION ALL SELECT 'browser', COALESCE(user_agent_browser, ''), COUNT(*) FROM page_views WHERE day = ?1 GROUP BY user_agent_browser
+  UNION ALL SELECT 'country', COALESCE(country_code, ''), COUNT(*) FROM page_views WHERE day = ?1 GROUP BY country_code
+  UNION ALL SELECT 'locale', COALESCE(locale, ''), COUNT(*) FROM page_views WHERE day = ?1 GROUP BY locale
+  UNION ALL SELECT 'geo_cell', geo_cell, COUNT(*) FROM page_views WHERE day = ?1 AND geo_cell IS NOT NULL GROUP BY geo_cell
+`
+
+export async function getAdminMetrics(
+  rangeDays: RangeDays = 30,
+  now = Date.now(),
+): Promise<MetricsResult> {
+  const migrations = await migrationsReady()
+  if (!migrations.ok) {
+    return {
+      ok: false,
+      error: migrations.errorKind === 'not_configured' ? 'not_configured' : 'schema_pending',
+      detail: migrations.error,
+    }
+  }
+
+  const warnings: string[] = []
+  const days = rangeDayKeys(rangeDays, now)
+  const today = todayKey(now)
+  const yesterday = prevDayKey(today)
+  const from = days[0]
+  const weekFrom = days[Math.max(0, days.length - 7)]
 
   try {
-    const kpi = await db.select<{ d: string; devices: number; views: number }>(
-      `SELECT strftime('%Y-%m-%d', ts / 1000, 'unixepoch') AS d,
-              COUNT(DISTINCT anon_id) AS devices,
-              COUNT(*) AS views
-       FROM page_views
-       WHERE ts >= ?
-       GROUP BY d`,
-      [rangeStart],
-    )
-
-    const byDay = new Map<string, { devices: number; views: number }>()
-    for (const r of kpi) {
-      byDay.set(String(r.d), { devices: Number(r.devices), views: Number(r.views) })
-    }
-    const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10)
-    const todayIso = iso(todayStart)
-    const yesterdayIso = iso(yesterdayStart)
-
-    const series: DailyPoint[] = []
-    let newPerDay = new Map<string, number>()
-    const firsts = await db.select<{ d: string; n: number }>(
-      `WITH firsts AS (SELECT anon_id, MIN(ts) AS f FROM page_views GROUP BY anon_id)
-       SELECT strftime('%Y-%m-%d', f / 1000, 'unixepoch') AS d, COUNT(*) AS n
-       FROM firsts WHERE f >= ? GROUP BY d`,
-      [rangeStart],
-    )
-    for (const r of firsts) {
-      newPerDay.set(String(r.d), Number(r.n))
-    }
-    newPerDay = new Map([...newPerDay.entries()].filter(([d]) => d >= iso(rangeStart)))
-
-    for (let i = 0; i < rangeDays; i++) {
-      const dIso = iso(todayStart - i * 86_400_000)
-      const agg = byDay.get(dIso) ?? { devices: 0, views: 0 }
-      series.push({
-        date: dIso,
-        devices: agg.devices,
-        views: agg.views,
-        newDevices: Math.min(newPerDay.get(dIso) ?? 0, agg.devices),
-      })
-    }
-
-    const sumRange = (fromIso: string) => {
-      let devices = 0
-      let views = 0
-      for (const [d, v] of byDay) {
-        if (d >= fromIso) { devices += v.devices; views += v.views }
-      }
-      return { devices, views }
-    }
-    const week = sumRange(iso(todayStart - 6 * 86_400_000))
-    const month = sumRange(iso(rangeStart))
-    // Distinct uniques over the whole window need DISTINCT, not sums.
-    const distinctWeek = await db.select<{ n: number }>(
-      'SELECT COUNT(DISTINCT anon_id) AS n FROM page_views WHERE ts >= ?',
-      [todayStart - 6 * 86_400_000],
-    )
-    const distinctMonth = await db.select<{ n: number }>(
-      'SELECT COUNT(DISTINCT anon_id) AS n FROM page_views WHERE ts >= ?',
-      [rangeStart],
-    )
-    const distinct = (rows: { n: number }[]) => (rows[0] ? Number(rows[0].n) : 0)
-
-    async function breakdown(sql: string, args: (string | number)[]): Promise<BreakdownRow[]> {
-      const res = await db.select<{ label: string; count: number }>(sql, args)
-      return res
-        .map(r => ({ label: r.label || '(directo)', count: Number(r.count) }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 8)
-    }
-
-    // B-NBT-12: "Páginas" solo con páginas reales — las rutas internas
-    // (/api/*, manifest, iconos) ya ni se insertan (pageview route), y
-    // este filtro adicional protege el histórico viejo que sí las lleva.
-    const PAGE_FILTER = " AND path NOT LIKE '/api/%' AND path NOT LIKE '/manifest.json%' AND path NOT LIKE '/_next%' AND path NOT LIKE '/icon-%'"
-
-    const [topPaths, referrers, utmSources, devices, browsers, countries] = await Promise.all([
-      breakdown(`SELECT path AS label, COUNT(*) AS count FROM page_views WHERE ts >= ?${PAGE_FILTER} GROUP BY path ORDER BY count DESC LIMIT 10`, [rangeStart]),
-      breakdown("SELECT COALESCE(referrer, '') AS label, COUNT(*) AS count FROM page_views WHERE ts >= ? GROUP BY referrer", [rangeStart]),
-      breakdown("SELECT COALESCE(utm_source, '') AS label, COUNT(*) AS count FROM page_views WHERE ts >= ? AND utm_source IS NOT NULL GROUP BY utm_source", [rangeStart]),
-      breakdown("SELECT COALESCE(device_type, '') AS label, COUNT(DISTINCT anon_id) AS count FROM page_views WHERE ts >= ? GROUP BY device_type", [rangeStart]),
-      breakdown("SELECT COALESCE(user_agent_browser, '') AS label, COUNT(DISTINCT anon_id) AS count FROM page_views WHERE ts >= ? GROUP BY user_agent_browser", [rangeStart]),
-      breakdown("SELECT COALESCE(country, '') AS label, COUNT(DISTINCT anon_id) AS count FROM page_views WHERE ts >= ? GROUP BY country", [rangeStart]),
+    // --- serie diaria: días cerrados desde el rollup, hoy desde crudo ---
+    const [rolled, todayAgg] = await Promise.all([
+      db.selectOrThrow<{ d: string; views: number; devices: number }>(
+        `SELECT date AS d, SUM(views) AS views, COUNT(DISTINCT anon_id) AS devices
+         FROM daily_anon_stats WHERE date >= ? AND date < ? GROUP BY date`,
+        [from, today],
+      ),
+      db.selectOrThrow<{ d: string; views: number; devices: number }>(
+        `SELECT day AS d, COUNT(*) AS views, COUNT(DISTINCT anon_id) AS devices
+         FROM page_views WHERE day = ? GROUP BY day`,
+        [today],
+      ),
     ])
 
-    // B-NBT-12: zonas — celdas geográficas ~1-5 km derivadas del URL
-    // state. Dispositivos ÚNICOS por celda (COUNT DISTINCT anon_id), no
-    // sesiones: un mismo dispositivo con 50 sesiones cuenta una vez.
-    let zones: { label: string; devices: number; views: number }[] = []
-    try {
-      const cellRows = await db.select<{ cell: string; devices: number; views: number }>(
-        `SELECT geo_cell AS cell,
-                COUNT(DISTINCT anon_id) AS devices,
-                COUNT(*) AS views
-         FROM page_views
-         WHERE ts >= ? AND geo_cell IS NOT NULL
-         GROUP BY geo_cell
-         ORDER BY devices DESC, views DESC
-         LIMIT 6`,
-        [rangeStart],
-      )
-      if (cellRows.length > 0) {
-        const names = await resolveZoneNames(cellRows.map(r => String(r.cell)))
-        zones = cellRows.map(r => ({
-          label: names.get(String(r.cell)) ?? String(r.cell),
-          devices: Number(r.devices),
-          views: Number(r.views),
-        })).sort((a, b) => b.devices - a.devices)
-      }
-    } catch {
-      /* zonas best-effort */
+    const byDay = new Map<string, { views: number; devices: number }>()
+    for (const r of [...rolled, ...todayAgg]) {
+      byDay.set(String(r.d), { views: toNum(r.views), devices: toNum(r.devices) })
     }
 
-    // B-NBT-12: sesiones de HOY — métrica separada de dispositivos para
-    // dejar explícito que un dispositivo genera N sesiones.
-    let sessionsToday = 0
-    try {
-      const st = await db.select<{ n: number }>(
-        'SELECT COUNT(*) AS n FROM sessions WHERE started_at >= ?',
-        [todayStart],
-      )
-      sessionsToday = Number(st[0]?.n ?? 0)
-    } catch { /* best-effort */ }
-
-    return {
-      rangeDays,
-      today: byDay.get(todayIso) ?? { devices: 0, views: 0 },
-      yesterday: byDay.get(yesterdayIso) ?? { devices: 0, views: 0 },
-      weekDevices: distinct(distinctWeek),
-      monthDevices: distinct(distinctMonth),
-      series,
-      zones,
-      sessionsToday,
-      topPaths,
-      referrers,
-      utmSources,
-      devices,
-      browsers,
-      countries,
-      generatedAt: Date.now(),
-    }
-  } catch {
-    return null
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Cron: rollup + retention
-// ---------------------------------------------------------------------------
-
-/** Fold yesterday's raw page_views into daily_anon_stats and purge raw
- *  rows older than RETENTION_DAYS. Idempotent (INSERT OR REPLACE).
- *  Returns the rolled-up day and purged-row counts for logging. */
-export async function runAnalyticsRollup(now = Date.now()): Promise<{
-  ok: boolean
-  day?: string
-  rolledUp?: number
-  purgedViews?: number
-  purgedSessions?: number
-  reason?: string
-}> {
-  if (!(await ensureAnalyticsSchema())) return { ok: false, reason: 'db_unavailable' }
-  try {
-    const yesterdayStart = dayStartUtcMs(-1, now)
-    const dayEnd = dayStartUtcMs(0, now)
-    const dayIso = new Date(yesterdayStart).toISOString().slice(0, 10)
-
-    await db.execute(
-      `INSERT OR REPLACE INTO daily_anon_stats (date, anon_id, views, sessions, is_new)
-       SELECT strftime('%Y-%m-%d', ts / 1000, 'unixepoch') AS d,
-              anon_id,
-              COUNT(*),
-              COUNT(DISTINCT session_id),
-              CASE WHEN MIN(ts) = (
-                SELECT MIN(pv2.ts) FROM page_views pv2
-                WHERE pv2.anon_id = page_views.anon_id
-              ) THEN 1 ELSE 0 END
-       FROM page_views
-       WHERE ts >= ? AND ts < ?
-       GROUP BY anon_id`,
-      [yesterdayStart, dayEnd],
+    // Días con visitas pero sin consolidar (el cron no ha pasado todavía,
+    // o falló). Se avisa en vez de mostrar huecos sin explicación.
+    const closedWithRaw = await db.selectOrThrow<{ d: string; views: number; devices: number }>(
+      `SELECT day AS d, COUNT(*) AS views, COUNT(DISTINCT anon_id) AS devices
+       FROM page_views WHERE day >= ? AND day < ? GROUP BY day`,
+      [from, today],
     )
+    let sinConsolidar = 0
+    for (const r of closedWithRaw) {
+      const d = String(r.d)
+      if (!byDay.has(d)) {
+        byDay.set(d, { views: toNum(r.views), devices: toNum(r.devices) })
+        sinConsolidar++
+      }
+    }
+    if (sinConsolidar > 0) {
+      warnings.push(
+        `${sinConsolidar} día(s) sin consolidar por el cron nocturno: se muestran datos en crudo.`,
+      )
+    }
 
-    const cutoff = now - RETENTION_DAYS * 86_400_000
-    // The db adapter hides rowsAffected, so count-then-delete to report
-    // purged volumes.
-    const countViews = await db.select<{ n: number }>('SELECT COUNT(*) AS n FROM page_views WHERE ts < ?', [cutoff])
-    const countSessions = await db.select<{ n: number }>('SELECT COUNT(*) AS n FROM sessions WHERE last_seen_at < ?', [cutoff])
-    await db.execute('DELETE FROM page_views WHERE ts < ?', [cutoff])
-    await db.execute('DELETE FROM sessions WHERE last_seen_at < ?', [cutoff])
+    // --- dispositivos nuevos por día, desde visitor_identity ---
+    // Sustituye al CTE `WITH firsts AS (SELECT anon_id, MIN(ts) ...)`, que
+    // recalculaba la "primera vez" sobre una tabla PURGADA a los 90 días:
+    // un visitante de hace dos años volvía a contar como nuevo.
+    const firsts = await db.selectOrThrow<{ d: string; n: number }>(
+      `SELECT first_seen_day AS d, COUNT(*) AS n
+       FROM visitor_identity WHERE first_seen_day >= ? GROUP BY first_seen_day`,
+      [from],
+    )
+    const newPerDay = new Map(firsts.map(r => [String(r.d), toNum(r.n)]))
+
+    const series: DailyPoint[] = days.map(d => {
+      const agg = byDay.get(d) ?? { views: 0, devices: 0 }
+      return {
+        date: d,
+        views: agg.views,
+        devices: agg.devices,
+        newDevices: Math.min(newPerDay.get(d) ?? 0, agg.devices),
+      }
+    })
+
+    // --- dispositivos distintos del rango (rollup ∪ hoy) ---
+    const distinctSql = (fromDay: string) => ({
+      sql: `SELECT COUNT(*) AS n FROM (
+              SELECT anon_id FROM daily_anon_stats WHERE date >= ? AND date < ?
+              UNION
+              SELECT anon_id FROM page_views WHERE day >= ? AND day <= ?
+            )`,
+      args: [fromDay, today, fromDay, today],
+    })
+    const [rangeRows, weekRows] = await Promise.all([
+      db.selectOrThrow<{ n: number }>(distinctSql(from).sql, distinctSql(from).args),
+      db.selectOrThrow<{ n: number }>(distinctSql(weekFrom).sql, distinctSql(weekFrom).args),
+    ])
+    const rangeDevices = toNum(rangeRows[0]?.n)
+    const weekDevices = toNum(weekRows[0]?.n)
+
+    // --- nuevos vs recurrentes ---
+    // El panel restaba una SUMA de primeras-apariciones-diarias de un
+    // COUNT(DISTINCT) de 30 días: magnitudes no comparables, y el
+    // resultado salía 0 o directamente mal. Aquí `rangeNew` se cuenta
+    // sobre el MISMO conjunto de dispositivos del rango, y los
+    // recurrentes son el resto — con lo que la suma cuadra por
+    // construcción. Un dispositivo sin fila en visitor_identity (datos
+    // previos a la migración) cuenta como recurrente: no es demostrable
+    // que sea nuevo.
+    const newRows = await db.selectOrThrow<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT anon_id FROM daily_anon_stats WHERE date >= ? AND date < ?
+         UNION
+         SELECT anon_id FROM page_views WHERE day >= ? AND day <= ?
+       ) a
+       JOIN visitor_identity vi ON vi.anon_id = a.anon_id
+       WHERE vi.first_seen_day >= ?`,
+      [from, today, from, today, from],
+    )
+    const rangeNew = Math.min(toNum(newRows[0]?.n), rangeDevices)
+    const rangeReturning = rangeDevices - rangeNew
+
+    // --- desgloses ---
+    const [rolledBreak, todayBreak] = await Promise.all([
+      db.selectOrThrow<{ dim: string; label: string; views: number }>(
+        `SELECT dim, label, SUM(views) AS views FROM daily_breakdowns
+         WHERE date >= ? AND date < ? GROUP BY dim, label`,
+        [from, today],
+      ),
+      db.selectOrThrow<{ dim: string; label: string; views: number }>(TODAY_BREAKDOWN_SQL, [today]),
+    ])
+    const allBreak = [...rolledBreak, ...todayBreak].map(r => ({
+      dim: String(r.dim),
+      label: String(r.label ?? ''),
+      views: toNum(r.views),
+    }))
+
+    // --- sesiones ---
+    const sessionRows = await db.selectOrThrow<{
+      hoy: number
+      rango: number
+      vistas: number
+      rebotes: number
+    }>(
+      `SELECT
+         SUM(CASE WHEN started_day = ? THEN 1 ELSE 0 END) AS hoy,
+         COUNT(*) AS rango,
+         SUM(page_count) AS vistas,
+         SUM(CASE WHEN page_count <= 1 THEN 1 ELSE 0 END) AS rebotes
+       FROM sessions WHERE started_day >= ?`,
+      [today, from],
+    )
+    const sessionsToday = toNum(sessionRows[0]?.hoy)
+    const sessionsRange = toNum(sessionRows[0]?.rango)
+    const viewsPerSession = sessionsRange > 0 ? toNum(sessionRows[0]?.vistas) / sessionsRange : null
+    const bounceRate = sessionsRange > 0 ? toNum(sessionRows[0]?.rebotes) / sessionsRange : null
+
+    // --- zonas (lectura pura, sin red) ---
+    let zones: { label: string; views: number }[] = []
+    try {
+      // Se piden más celdas de las que se muestran porque varias celdas
+      // vecinas suelen resolver al MISMO nombre ("Barcelona · Cataluña"
+      // salía repetida en la lista) y se fusionan justo después.
+      const cells = mergeBreakdown(allBreak, 'geo_cell', 24)
+      if (cells.length > 0) {
+        const names = await lookupZoneNames(cells.map(c => c.label))
+        const porNombre = new Map<string, number>()
+        for (const c of cells) {
+          const nombre = names.get(c.label) ?? c.label
+          porNombre.set(nombre, (porNombre.get(nombre) ?? 0) + c.count)
+        }
+        zones = [...porNombre.entries()]
+          .map(([label, views]) => ({ label, views }))
+          .sort((a, b) => b.views - a.views)
+          .slice(0, 6)
+      }
+    } catch (err) {
+      // Best-effort: el resto del panel es válido.
+      warnings.push('No se pudieron resolver los nombres de zona.')
+      console.error('[analytics] zonas:', err instanceof Error ? err.message : err)
+    }
+
+    const todayPoint = byDay.get(today) ?? { views: 0, devices: 0 }
+    const yesterdayPoint = byDay.get(yesterday) ?? { views: 0, devices: 0 }
 
     return {
       ok: true,
-      day: dayIso,
-      rolledUp: 0,
-      purgedViews: Number(countViews[0]?.n ?? 0),
-      purgedSessions: Number(countSessions[0]?.n ?? 0),
+      metrics: {
+        rangeDays,
+        today: todayPoint,
+        yesterday: yesterdayPoint,
+        weekDevices,
+        rangeDevices,
+        rangeNew,
+        rangeReturning,
+        series,
+        topPaths: mergeBreakdown(allBreak, 'path'),
+        referrers: mergeBreakdown(allBreak, 'referrer'),
+        utmSources: mergeBreakdown(allBreak, 'utm_source'),
+        devices: mergeBreakdown(allBreak, 'device'),
+        browsers: mergeBreakdown(allBreak, 'browser'),
+        countries: mergeBreakdown(allBreak, 'country'),
+        locales: mergeBreakdown(allBreak, 'locale'),
+        zones,
+        sessionsToday,
+        sessionsRange,
+        viewsPerSession,
+        bounceRate,
+        warnings,
+        generatedAt: Date.now(),
+      },
     }
   } catch (err) {
-    return { ok: false, reason: String(err) }
+    if (err instanceof DbError) {
+      return { ok: false, error: err.kind === 'not_configured' ? 'not_configured' : 'query_failed', detail: err.message }
+    }
+    return { ok: false, error: 'query_failed', detail: err instanceof Error ? err.message : String(err) }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Cron: consolidación + retención
+// ---------------------------------------------------------------------------
+
+export interface RollupResult {
+  ok: boolean
+  days?: number
+  from?: string
+  to?: string
+  rolledUp?: number
+  breakdownRows?: number
+  zonesResolved?: number
+  purgedViews?: number
+  purgedSessions?: number
+  purgedIdentities?: number
+  purgeSkipped?: boolean
+  reason?: string
+}
+
+/** Días cerrados pendientes de consolidar, en orden. */
+async function pendingDays(now: number): Promise<string[]> {
+  const today = todayKey(now)
+  const floor = dayKey(now - RETENTION_DAYS * MS_PER_DAY)
+  const rows = await db.selectOrThrow<{ d: string }>(
+    `SELECT DISTINCT day AS d FROM page_views
+     WHERE day >= ? AND day < ?
+       AND day NOT IN (SELECT DISTINCT date FROM daily_anon_stats)
+     ORDER BY day`,
+    [floor, today],
+  )
+  return rows.map(r => String(r.d))
+}
+
+/**
+ * Consolida los días cerrados y purga lo que cae fuera de la retención.
+ *
+ * El bucle anterior iba día a día desde `MAX(date) + 1` SIN tope real
+ * pese a que su docstring prometía uno: con el cron caído 60 días, una
+ * sola invocación intentaba 60 INSERT…SELECT con subconsulta
+ * correlacionada y expiraba — y como expiraba, no avanzaba nunca. Aquí
+ * se parte de los días que REALMENTE tienen filas crudas sin consolidar,
+ * que en la práctica son muy pocos.
+ */
+export async function runAnalyticsRollup(now = Date.now()): Promise<RollupResult> {
+  const migrations = await migrationsReady()
+  if (!migrations.ok) return { ok: false, reason: `esquema no disponible: ${migrations.error}` }
+
+  try {
+    const days = await pendingDays(now)
+
+    for (const day of days) {
+      // Una fila por dispositivo y día. Aquí `sessions` por fin significa
+      // algo: antes el id de sesión no rotaba nunca y este COUNT daba 1
+      // para todo visitante recurrente.
+      await db.executeOrThrow(
+        `INSERT OR REPLACE INTO daily_anon_stats (date, anon_id, views, sessions, is_new)
+         SELECT pv.day, pv.anon_id, COUNT(*), COUNT(DISTINCT pv.session_id),
+                CASE WHEN vi.first_seen_day = pv.day THEN 1 ELSE 0 END
+         FROM page_views pv
+         LEFT JOIN visitor_identity vi ON vi.anon_id = pv.anon_id
+         WHERE pv.day = ?
+         GROUP BY pv.anon_id`,
+        [day],
+      )
+
+      // Desgloses del día. Sin esta tabla el panel no podía servir
+      // páginas/referentes/dispositivos desde el rollup y tenía que ir a
+      // `page_views` en crudo sobre toda la ventana.
+      await db.executeOrThrow(
+        `INSERT OR REPLACE INTO daily_breakdowns (date, dim, label, views, devices)
+         SELECT ?1, dim, label, SUM(views), SUM(devices) FROM (
+           SELECT 'path' AS dim, path AS label, COUNT(*) AS views, COUNT(DISTINCT anon_id) AS devices FROM page_views WHERE day = ?1 GROUP BY path
+           UNION ALL SELECT 'referrer', COALESCE(referrer, ''), COUNT(*), COUNT(DISTINCT anon_id) FROM page_views WHERE day = ?1 GROUP BY referrer
+           UNION ALL SELECT 'utm_source', utm_source, COUNT(*), COUNT(DISTINCT anon_id) FROM page_views WHERE day = ?1 AND utm_source IS NOT NULL GROUP BY utm_source
+           UNION ALL SELECT 'device', COALESCE(device_type, ''), COUNT(*), COUNT(DISTINCT anon_id) FROM page_views WHERE day = ?1 GROUP BY device_type
+           UNION ALL SELECT 'browser', COALESCE(user_agent_browser, ''), COUNT(*), COUNT(DISTINCT anon_id) FROM page_views WHERE day = ?1 GROUP BY user_agent_browser
+           UNION ALL SELECT 'country', COALESCE(country_code, ''), COUNT(*), COUNT(DISTINCT anon_id) FROM page_views WHERE day = ?1 GROUP BY country_code
+           UNION ALL SELECT 'locale', COALESCE(locale, ''), COUNT(*), COUNT(DISTINCT anon_id) FROM page_views WHERE day = ?1 GROUP BY locale
+           UNION ALL SELECT 'geo_cell', geo_cell, COUNT(*), COUNT(DISTINCT anon_id) FROM page_views WHERE day = ?1 AND geo_cell IS NOT NULL GROUP BY geo_cell
+         ) GROUP BY dim, label`,
+        [day],
+      )
+
+      // Rebote definitivo, ya con el page_count final de la sesión.
+      await db.executeOrThrow(
+        `UPDATE sessions SET is_bounce = CASE WHEN page_count <= 1 THEN 1 ELSE 0 END WHERE started_day = ?`,
+        [day],
+      )
+    }
+
+    // --- verificación ANTES de borrar nada ---
+    // El código anterior purgaba siempre. Combinado con que `db.execute`
+    // devolvía false en vez de lanzar, un rollup que fallaba por completo
+    // seguía borrando los datos crudos: pérdida irreversible, reportada
+    // como { ok: true }.
+    const sinConsolidar = await pendingDays(now)
+    if (sinConsolidar.length > 0) {
+      return {
+        ok: false,
+        reason: `consolidación incompleta: quedan ${sinConsolidar.length} día(s) sin rollup (${sinConsolidar.slice(0, 5).join(', ')}). NO se ha purgado nada.`,
+        days: days.length,
+        purgeSkipped: true,
+      }
+    }
+
+    const rolledRows = await db.selectOrThrow<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM daily_anon_stats WHERE date >= ?',
+      [dayKey(now - RETENTION_DAYS * MS_PER_DAY)],
+    )
+    const breakRows = await db.selectOrThrow<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM daily_breakdowns WHERE date >= ?',
+      [dayKey(now - RETENTION_DAYS * MS_PER_DAY)],
+    )
+
+    // Nombres de zona: fuera del camino de render, con presupuesto.
+    let zonesResolved = 0
+    try {
+      zonesResolved = await resolveMissingZoneNames(20)
+    } catch {
+      /* best-effort */
+    }
+
+    // --- purga ---
+    const cutoffDay = dayKey(now - RETENTION_DAYS * MS_PER_DAY)
+    const identityCutoff = now - IDENTITY_RETENTION_DAYS * MS_PER_DAY
+    const [cv, cs, ci] = await Promise.all([
+      db.selectOrThrow<{ n: number }>('SELECT COUNT(*) AS n FROM page_views WHERE day < ?', [cutoffDay]),
+      db.selectOrThrow<{ n: number }>('SELECT COUNT(*) AS n FROM sessions WHERE started_day < ?', [cutoffDay]),
+      db.selectOrThrow<{ n: number }>('SELECT COUNT(*) AS n FROM visitor_identity WHERE last_seen_at < ?', [identityCutoff]),
+    ])
+    await db.executeOrThrow('DELETE FROM page_views WHERE day < ?', [cutoffDay])
+    await db.executeOrThrow('DELETE FROM sessions WHERE started_day < ?', [cutoffDay])
+    await db.executeOrThrow('DELETE FROM daily_anon_stats WHERE date < ?', [cutoffDay])
+    await db.executeOrThrow('DELETE FROM daily_breakdowns WHERE date < ?', [cutoffDay])
+    // La identidad vive lo que la cookie (2 años), no 90 días: si se
+    // purgara con la retención corta, `first_seen_day` se perdería y
+    // todo visitante antiguo volvería a contar como nuevo.
+    await db.executeOrThrow('DELETE FROM visitor_identity WHERE last_seen_at < ? AND email IS NULL', [identityCutoff])
+
+    return {
+      ok: true,
+      days: days.length,
+      from: days[0],
+      to: days[days.length - 1],
+      rolledUp: toNum(rolledRows[0]?.n),
+      breakdownRows: toNum(breakRows[0]?.n),
+      zonesResolved,
+      purgedViews: toNum(cv[0]?.n),
+      purgedSessions: toNum(cs[0]?.n),
+      purgedIdentities: toNum(ci[0]?.n),
+    }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    console.error('[analytics] rollup falló:', detail)
+    return { ok: false, reason: detail, purgeSkipped: true }
+  }
+}
+
+/** Exportado sólo para tests. */
+export const __testing = { dayStartMs, pendingDays }

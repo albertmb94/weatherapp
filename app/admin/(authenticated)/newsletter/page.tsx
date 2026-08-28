@@ -42,12 +42,18 @@ export default async function NewsletterPage() {
             <thead><tr className="text-left text-text-muted">
               <th className="px-2 py-1">Email</th>
               <th className="px-2 py-1">Suscrito</th>
+              <th className="px-2 py-1">Estado</th>
             </tr></thead>
             <tbody>
               {subscribers.map(s => (
                 <tr key={s.email} className="border-t border-border">
                   <td className="px-2 py-1 font-mono">{s.email}</td>
                   <td className="px-2 py-1 tabular-nums">{new Date(s.subscribed_at).toISOString().slice(0, 10)}</td>
+                  <td className="px-2 py-1">
+                    {s.confirmed_at
+                      ? <span className="text-emerald-400">Confirmado</span>
+                      : <span className="text-amber-400">Pendiente</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -58,9 +64,9 @@ export default async function NewsletterPage() {
       <div className="rounded-2xl border border-border bg-surface-raised p-4 space-y-2">
         <h3 className="text-xs uppercase tracking-widest text-text-tertiary">Enviar campaña</h3>
         <p className="text-[11px] text-text-secondary">
-          Usa la pestaña Emails → Templates para crear el contenido,
-          luego /admin/emails → send para enviarlo a los suscriptores.
-          La infraestructura de envío ya está operativa vía Resend.
+          Los suscriptores entran por double opt-in (/api/newsletter/confirm).
+          La infraestructura de envío vía Resend está operativa; solo se envían
+          emails a suscriptores confirmados.
         </p>
       </div>
     </div>

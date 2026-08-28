@@ -208,6 +208,10 @@ function precipChanceFromIntensity(precipMm: number | null): number | null {
 }
 
 function ensembleProbability(bag: SeriesBag, hourIndex: number, fallback: number | null): number | null {
+  // Media aritmética (sin pesos) de la probabilidad pronosticada por cada
+  // modelo no-marino. NO es una probabilidad "calibrada" por el backtest —
+  // auditoría F2/B10: se deja el nombre por compatibilidad interna, pero
+  // la UI la etiqueta como "Prob. lluvia" (honesto) y no como calibrada.
   let sum = 0
   let count = 0
   for (const id of Object.keys(bag.series)) {

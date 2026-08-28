@@ -5,7 +5,12 @@ import Providers from "./providers";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import ConsentBanner from "@/components/ConsentBanner";
+import ConsentSync from "@/components/ConsentSync";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 import { getFeature } from "@/lib/features";
+import { appOrigin } from "@/lib/appUrl";
+import { headers } from "next/headers";
+import { DEFAULT_LOCALE, LOCALE_HEADER, isLocale } from "@/lib/locale/routing";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,10 +22,40 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_NAME = "Weather Model Comparison";
+const SITE_DESCRIPTION =
+  "Compara varios modelos meteorológicos a la vez y mira cuál acierta más en tu ciudad.";
+
+/**
+ * AUDITORÍA — la superficie SEO era CERO: sin `metadataBase`, sin
+ * `openGraph`, sin `twitter`, sin canonical, sin sitemap y sin robots.
+ * Compartir un enlace en WhatsApp o en redes no mostraba ni título ni
+ * descripción, y los buscadores no tenían por dónde empezar.
+ *
+ * `metadataBase` sólo se fija cuando hay origen configurado: con un
+ * valor inventado, Next generaría URLs absolutas apuntando al host
+ * equivocado, que es peor que no generarlas.
+ */
+const origin = appOrigin();
+
 export const metadata: Metadata = {
-  title: "Weather Model Comparison",
-  description: "Compare multiple weather models side by side",
+  ...(origin ? { metadataBase: new URL(origin) } : {}),
+  // El título, la descripción, el canonical y los `hreflang` dependen del
+  // idioma, así que viven en app/[locale]/layout.tsx, que es quien lo
+  // conoce. Aquí queda sólo lo común a todo el sitio (incluido /admin).
+  // Título PLANO, sin `template`: el layout de idioma define su propio
+  // par default+template, y tener los dos hacía que el default del hijo
+  // pasara por la plantilla del padre y saliera
+  // "Weather Model Comparison · Weather Model Comparison".
+  // Esto es sólo el respaldo para lo que queda fuera de [locale] (/admin).
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   manifest: "/manifest.json",
+  robots: {
+    index: true,
+    follow: true,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -31,12 +66,21 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#0a0a0a",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // AUDITORÍA: `lang` estaba escrito a fuego como "es" y sólo se
+  // corregía en un efecto de cliente (lib/LocaleContext.tsx), de modo que
+  // TODO rastreador y TODO lector de pantalla veía español, también para
+  // quien navegaba en inglés. Este layout está por encima del segmento
+  // `[locale]` y no recibe params, así que el idioma llega por una
+  // cabecera de petición que escribe el proxy. Ahora el HTML sale del
+  // servidor ya con el idioma correcto.
+  const requestHeaders = await headers()
+  const headerLocale = requestHeaders.get(LOCALE_HEADER)
+  const lang = isLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE
+
   // Read once at request time so feature toggles in the admin are picked
   // up on the next page render. Both scripts are gated; default OFF.
   const plausible = await getFeature('feature.plausible')
@@ -46,11 +90,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html
-      lang="es"
+      lang={lang}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <link rel="manifest" href="/manifest.json" />
+        {/* AUDITORÍA — FOUC de tema: la clase `light` se aplicaba SÓLO en
+            un efecto posterior a la hidratación (lib/ThemeContext.tsx), y
+            globals.css no tiene fallback por `prefers-color-scheme`, así
+            que quien usa el tema claro veía un destello oscuro en CADA
+            carga. Este script corre antes del primer pintado y replica
+            exactamente `resolveTheme()`: si ambos se desincronizan, el
+            efecto de React corrige en cuanto hidrata. */}
+        <script dangerouslySetInnerHTML={{ __html: "try{var p=localStorage.getItem('weather-theme');if(p!=='dark'&&p!=='light'&&p!=='auto')p='dark';var h=new Date().getHours();var t=p==='auto'?((h>=6&&h<18)?'light':'dark'):p;if(t==='light')document.documentElement.classList.add('light')}catch(e){}" }} />
         <link rel="apple-touch-icon" href="/icon-192.svg" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -77,6 +128,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <ConnectionStatus />
           <Providers>{children}</Providers>
         </ErrorBoundary>
+        {/* Se monta SIEMPRE: con Cookiebot activo es el único escritor de
+            `wthr_consent`, y sin él se autodesactiva. Antes, activar
+            Cookiebot dejaba la cookie sin escribir para siempre y el
+            proxy bloqueaba el 100% del tracking (causa raíz #1). */}
+        <ConsentSync cookiebotEnabled={cookiebot.enabled} />
+        {/* Emite pageviews por beacon. Se comprueba el consentimiento en
+            cada emisión, así que montarlo siempre es seguro: sin
+            'granted' no sale ni una petición. */}
+        <AnalyticsTracker />
         {!cookiebot.enabled ? <ConsentBanner /> : null}
         {/* B-NBT-10: red de seguridad SIN React para el banner de
             consentimiento. Aunque la hidratación muera (chunk viejo en
@@ -96,9 +156,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             // The SW is served through `/api/sw` so the build-time
             // version stamp from `next.config.ts` is injected into the
             // served source (see `app/api/sw/route.ts`). Registering
-            // with a path-based URL keeps the same scope (`/`) and lets
-            // us add `Cache-Control: no-store` to the response.
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/api/sw').catch(()=>{})})}`,
+            // with `{ scope: '/' }` is REQUIRED: sin él el scope por
+            // defecto sería la carpeta del script (`/api/`) y el SW no
+            // controlaría ninguna página (auditoría F3/B3). El header
+            // `Service-Worker-Allowed` solo eleva el máximo permitido,
+            // no cambia el scope por defecto.
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/api/sw',{scope:'/'}).catch(()=>{})})}`,
           }}
         />
       </body>

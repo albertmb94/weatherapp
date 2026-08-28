@@ -1,6 +1,16 @@
-import { getAdminMetrics } from '@/lib/analytics'
+import Link from 'next/link'
+import { getAdminMetrics, parseRange, ALLOWED_RANGES, type DailyPoint } from '@/lib/analytics'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Panel de métricas.
+ *
+ * Conserva el rediseño de B-NBT-24 (gráfico SVG, barras proporcionales,
+ * split escritorio/móvil) y lo conecta al contrato de datos nuevo:
+ * selector de rango, estados de error reales y desgloses que cuentan
+ * VISTAS en vez de "únicos" que nunca fueron distintos en el rango.
+ */
 
 /* ── KPI card ───────────────────────────────────────────────────────── */
 
@@ -20,7 +30,7 @@ function Kpi({ label, value, sub, accent }: {
 
 /* ── SVG bar chart ──────────────────────────────────────────────────── */
 
-function DeviceChart({ series }: { series: { date: string; devices: number; views: number }[] }) {
+function DeviceChart({ series, rangeDays }: { series: DailyPoint[]; rangeDays: number }) {
   const W = 720
   const H = 180
   const max = Math.max(1, ...series.map(s => s.views))
@@ -30,10 +40,13 @@ function DeviceChart({ series }: { series: { date: string; devices: number; view
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-44"
-      role="img" aria-label="Dispositivos únicos por día (30 días)">
+      role="img" aria-label={`Dispositivos únicos por día (${rangeDays} días)`}>
       {series.map((s, i) => {
         const vh = Math.max(s.views > 0 ? 3 : 0, Math.round((s.views / max) * (H - 8)))
-        const dh = Math.max(s.devices > 0 ? 3 : 0, Math.round((s.devices / max) * vh))
+        // Ambas series se escalan contra el MISMO máximo. Antes la barra
+        // de dispositivos usaba `(devices / views) * vh`, un ratio de un
+        // ratio: no era comparable entre días y el gráfico mentía.
+        const dh = Math.min(vh, Math.max(s.devices > 0 ? 3 : 0, Math.round((s.devices / max) * (H - 8))))
         const x = i * slot + (slot - barW) / 2
         return (
           <g key={s.date}>
@@ -49,8 +62,8 @@ function DeviceChart({ series }: { series: { date: string; devices: number; view
 
 /* ── Zonas / ciudades ──────────────────────────────────────────────── */
 
-function ZoneList({ zones }: { zones: { label: string; devices: number; views: number }[] }) {
-  const max = Math.max(1, ...zones.map(z => z.devices))
+function ZoneList({ zones }: { zones: { label: string; views: number }[] }) {
+  const max = Math.max(1, ...zones.map(z => z.views))
   return (
     <div className="rounded-2xl border border-border bg-surface-raised p-4">
       <h3 className="text-xs uppercase tracking-widest text-text-tertiary mb-3">📍 Ciudades consultadas</h3>
@@ -62,10 +75,10 @@ function ZoneList({ zones }: { zones: { label: string; devices: number; views: n
             <li key={z.label} className="text-xs">
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate font-medium text-text-primary">{z.label}</span>
-                <span className="tabular-nums text-text-secondary">{z.devices} disp</span>
+                <span className="tabular-nums text-text-secondary">{z.views.toLocaleString('es-ES')} vistas</span>
               </div>
               <div className="h-[3px] rounded-full bg-accent/25 mt-1">
-                <div className="h-full rounded-full bg-accent/60" style={{ width: `${Math.round((z.devices / max) * 100)}%` }} />
+                <div className="h-full rounded-full bg-accent/60" style={{ width: `${Math.round((z.views / max) * 100)}%` }} />
               </div>
             </li>
           ))}
@@ -78,7 +91,7 @@ function ZoneList({ zones }: { zones: { label: string; devices: number; views: n
 /* ── Desktop vs Mobile split ────────────────────────────────────────── */
 
 function DeviceSplit({ devices }: { devices: { label: string; count: number }[] }) {
-  const filtered = devices.filter(d => d.label)
+  const filtered = devices.filter(d => d.label && d.label !== '(desconocido)')
   const total = filtered.reduce((a, d) => a + d.count, 0)
   if (total === 0) return null
   const ICONS: Record<string, string> = { mobile: '📱', tablet: '📋', desktop: '💻' }
@@ -136,34 +149,103 @@ function Table({ title, rows, empty }: { title: string; rows: { label: string; c
   )
 }
 
-function StubLike({ title, message }: { title: string; message: string }) {
+/* ── Selector de rango, sin una línea de JS de cliente ───────────────── */
+
+function RangePicker({ current }: { current: number }) {
   return (
-    <div className="space-y-2">
-      <h1 className="text-xl font-semibold">{title}</h1>
-      <p className="text-sm text-text-tertiary">{message}</p>
+    <div className="flex gap-1" role="group" aria-label="Ventana temporal">
+      {ALLOWED_RANGES.map(r => (
+        <Link
+          key={r}
+          href={`?range=${r}`}
+          scroll={false}
+          aria-current={r === current ? 'true' : undefined}
+          className={
+            r === current
+              ? 'px-2.5 py-1 rounded-lg text-xs font-medium bg-accent text-white'
+              : 'px-2.5 py-1 rounded-lg text-xs text-text-secondary border border-border hover:bg-surface-raised'
+          }
+        >
+          {r}d
+        </Link>
+      ))}
     </div>
   )
 }
 
+function StubLike({ title, message, detail }: { title: string; message: string; detail?: string }) {
+  return (
+    <div className="space-y-2">
+      <h1 className="text-xl font-semibold">{title}</h1>
+      <p className="text-sm text-text-tertiary">{message}</p>
+      {detail ? (
+        <pre className="text-[11px] text-text-muted whitespace-pre-wrap bg-surface-raised border border-border rounded-lg p-2 overflow-x-auto">
+          {detail}
+        </pre>
+      ) : null}
+    </div>
+  )
+}
+
+const MENSAJES_ERROR: Record<string, string> = {
+  not_configured:
+    'No hay base de datos configurada en este entorno. Define TURSO_DATABASE_URL (o DB_ALLOW_FILE_IN_PRODUCTION=1 en self-hosted).',
+  query_failed:
+    'La base de datos respondió con un error al consultar las métricas. Revisa los logs del servidor.',
+  schema_pending:
+    'Hay migraciones de esquema pendientes o fallidas. Compruébalo en /admin/health o ejecútalas desde /api/admin/migrate.',
+}
+
 /* ── Página principal ──────────────────────────────────────────────── */
 
-export default async function MetricsPage() {
-  const m = await getAdminMetrics(30)
+export default async function MetricsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>
+}) {
+  const rangeDays = parseRange((await searchParams).range)
+  const result = await getAdminMetrics(rangeDays)
 
-  if (!m) {
-    return <StubLike title="Métricas" message="Base de datos no disponible." />
+  // Antes esto era `if (!m)`, y `getAdminMetrics` no podía devolver null
+  // porque `db.select` se tragaba los errores: una tabla ausente se veía
+  // como "0 dispositivos", idéntico a un día tranquilo. Ésa es la razón
+  // de que el apagón de analytics durase meses sin que nadie lo notara.
+  if (!result.ok) {
+    return (
+      <StubLike
+        title="Métricas"
+        message={MENSAJES_ERROR[result.error] ?? 'Error desconocido al cargar las métricas.'}
+        detail={result.detail}
+      />
+    )
   }
 
+  const m = result.metrics
   const delta = m.today.devices - m.yesterday.devices
+  const pct = (v: number | null) => (v === null ? '—' : `${Math.round(v * 100)}%`)
 
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="text-xl font-semibold">Métricas</h1>
-        <p className="text-xs text-text-tertiary mt-0.5">
-          Dispositivos únicos · generado {new Date(m.generatedAt).toLocaleString('es-ES')}
-        </p>
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-semibold">Métricas</h1>
+          <p className="text-xs text-text-tertiary mt-0.5">
+            Dispositivos únicos · ventana de {m.rangeDays} días · hora de Madrid ·
+            generado {new Date(m.generatedAt).toLocaleString('es-ES')}
+          </p>
+        </div>
+        <RangePicker current={m.rangeDays} />
       </header>
+
+      {m.warnings.length > 0 ? (
+        // Estado PARCIAL: datos reales + aviso, en vez de tumbar la página
+        // entera o —peor— fingir que todo va bien.
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+          <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-0.5">
+            {m.warnings.map(w => <li key={w}>⚠ {w}</li>)}
+          </ul>
+        </div>
+      ) : null}
 
       {/* KPIs */}
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -172,13 +254,24 @@ export default async function MetricsPage() {
           sub={delta === 0 ? '= ayer' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)} vs ayer`} />
         <Kpi label="Sesiones hoy" value={m.sessionsToday} />
         <Kpi label="Únicos 7 días" value={m.weekDevices} />
-        <Kpi label="Únicos 30 días" value={m.monthDevices} />
+        <Kpi label={`Únicos ${m.rangeDays} días`} value={m.rangeDevices} />
+      </section>
+
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Kpi label={`Sesiones ${m.rangeDays}d`} value={m.sessionsRange} />
+        <Kpi label="Vistas por sesión" value={m.viewsPerSession === null ? '—' : m.viewsPerSession.toFixed(1)} />
+        <Kpi label="Rebote" value={pct(m.bounceRate)} sub="sesiones de una sola vista" />
+        <Kpi
+          label="Nuevos / recurrentes"
+          value={`${m.rangeNew.toLocaleString('es-ES')} / ${m.rangeReturning.toLocaleString('es-ES')}`}
+          sub={`suma = ${m.rangeDevices.toLocaleString('es-ES')} únicos`}
+        />
       </section>
 
       {/* Gráfico */}
       <section className="rounded-2xl border border-border bg-surface-raised p-4">
         <h2 className="text-xs uppercase tracking-widest text-text-tertiary mb-1">Dispositivos únicos por día</h2>
-        <DeviceChart series={m.series} />
+        <DeviceChart series={m.series} rangeDays={m.rangeDays} />
       </section>
 
       {/* Zonas + Desktop/Mobile */}
@@ -187,20 +280,26 @@ export default async function MetricsPage() {
         <DeviceSplit devices={m.devices} />
       </section>
 
-      {/* Navegadores + Nuevos/Recurrentes */}
+      {/* Páginas + Navegadores */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Table title="Navegadores (únicos)" rows={m.browsers} />
-        <Table
-          title="Nuevos vs recurrentes (30d)"
-          rows={[
-            { label: 'Nuevos', count: m.series.reduce((a, s) => a + s.newDevices, 0) },
-            { label: 'Recurrentes', count: Math.max(0, m.monthDevices - m.series.reduce((a, s) => a + s.newDevices, 0)) },
-          ]}
-        />
+        <Table title="Páginas más vistas" rows={m.topPaths} empty="Sin páginas registradas" />
+        <Table title="Navegadores" rows={m.browsers} />
+      </section>
+
+      {/* País, idioma, referentes y campañas */}
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Table title="País (IP)" rows={m.countries} empty="Sin geolocalización disponible" />
+        <Table title="Idioma del navegador" rows={m.locales} />
+        <Table title="Referentes" rows={m.referrers} />
+        <Table title="Campañas (utm_source)" rows={m.utmSources} empty="Sin campañas etiquetadas" />
       </section>
 
       <p className="text-[11px] text-text-muted">
-        Solo visitantes que aceptaron cookies analíticas. Datos brutos purgados a los 90 días.
+        Los desgloses cuentan <strong>vistas</strong> (que sí son sumables entre
+        días); los KPI de arriba cuentan <strong>dispositivos únicos</strong>. Solo
+        visitantes que aceptaron cookies analíticas. Datos brutos purgados a los
+        90 días, después de consolidarse. Los bloqueadores de anuncios impiden
+        parte de la medición, así que el recuento real es algo mayor.
       </p>
     </div>
   )

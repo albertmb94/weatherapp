@@ -1,11 +1,19 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 interface HealthCheck {
   ok: boolean
   checks: Record<string, { ok: boolean; detail?: string }>
   ts: number
+}
+
+interface RollupResult {
+  ok: boolean
+  days?: number
+  purgedViews?: number
+  purgeSkipped?: boolean
+  reason?: string
 }
 
 export default function HealthPage() {
@@ -24,6 +32,27 @@ export default function HealthPage() {
       return body as HealthCheck
     },
     refetchInterval: 30_000,
+  })
+
+  // Ejecución manual del rollup nocturno.
+  //
+  // Existe porque /api/cron/analytics-rollup sólo acepta el bearer de
+  // CRON_SECRET: correcto para Vercel Cron, inútil para operar. Cuando esa
+  // variable no llegó a definirse en producción, la consolidación estuvo
+  // cuatro días parada y no había forma de lanzarla desde aquí. La ruta de
+  // admin se autoriza con la SESIÓN, no con el secreto, así que este botón
+  // funciona incluso cuando la variable falta — que es justo cuando hace
+  // falta.
+  const rollup = useMutation({
+    mutationFn: async (): Promise<RollupResult> => {
+      const r = await fetch('/api/admin/analytics-rollup', { method: 'POST' })
+      const body = (await r.json().catch(() => null)) as RollupResult | null
+      if (!body) throw new Error(`Respuesta no interpretable (${r.status})`)
+      if (!body.ok) throw new Error(body.reason ?? `Falló con ${r.status}`)
+      return body
+    },
+    // El resultado se refleja en checks.cron: se recarga para verlo.
+    onSuccess: () => { void refetch() },
   })
 
   return (
@@ -58,6 +87,31 @@ export default function HealthPage() {
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm capitalize">{name}</div>
                 {c.detail && <div className="text-xs text-text-tertiary">{c.detail}</div>}
+                {name === 'cron' && (
+                  <div className="mt-2 space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => rollup.mutate()}
+                      disabled={rollup.isPending}
+                      className="px-2.5 py-1 rounded-lg border border-border text-xs hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {rollup.isPending ? 'Consolidando…' : 'Consolidar ahora'}
+                    </button>
+                    {rollup.isError && (
+                      <p className="text-xs text-red-500 break-words">
+                        {rollup.error instanceof Error ? rollup.error.message : 'Falló la consolidación'}
+                      </p>
+                    )}
+                    {rollup.isSuccess && (
+                      <p className="text-xs text-emerald-500 break-words">
+                        {rollup.data.days ?? 0} día(s) consolidados
+                        {rollup.data.purgeSkipped
+                          ? ' · no se purgó nada'
+                          : ` · ${rollup.data.purgedViews ?? 0} vista(s) purgadas`}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <span className="text-xs text-text-tertiary">{c.ok ? 'OK' : 'DOWN'}</span>
             </div>

@@ -3,6 +3,43 @@ import { db, DbError } from '@/lib/db'
 import { migrationStatus } from '@/lib/migrations'
 import { getFeature } from '@/lib/features'
 import { rateLimit } from '@/lib/rateLimit'
+import { daysBetween, prevDayKey, todayKey } from '@/lib/analytics/time'
+
+/**
+ * Estado del cron nocturno de analítica.
+ *
+ * POR QUÉ ESTÁ AQUÍ: `CRON_SECRET` no llegó a definirse en producción y
+ * /api/cron/analytics-rollup respondía 503 `cron_not_configured` a TODAS
+ * las llamadas — incluida la que hace Vercel cada noche, porque Vercel
+ * solo envía la cabecera `Authorization: Bearer` cuando esa variable
+ * existe. El cron estuvo caído CUATRO DÍAS y el único aviso apareció en
+ * /admin/metrics ("N día(s) sin consolidar"), es decir, en una pantalla
+ * distinta y solo después de que ya hubiera datos sin consolidar.
+ *
+ * Un despliegue mal configurado tiene que verse el primer día, en la
+ * pantalla a la que se acude cuando algo va mal.
+ */
+async function checkCron(): Promise<{ ok: boolean; detail?: string }> {
+  if (!process.env.CRON_SECRET) {
+    // Sin secreto el cron NUNCA puede ejecutarse: no es que vaya con
+    // retraso, es que está apagado.
+    return { ok: false, detail: 'CRON_SECRET sin definir: el rollup nunca se ejecuta' }
+  }
+  try {
+    const rows = await db.selectOrThrow<{ d: string | null }>(
+      'SELECT MAX(date) AS d FROM daily_anon_stats',
+    )
+    const ultimo = rows[0]?.d ? String(rows[0].d) : null
+    // El cron consolida días CERRADOS, así que al día lo deja en "ayer".
+    const ayer = prevDayKey(todayKey())
+    if (!ultimo) return { ok: false, detail: 'sin consolidar nunca' }
+    const atraso = daysBetween(ultimo, ayer)
+    if (atraso <= 0) return { ok: true, detail: `al día (${ultimo})` }
+    return { ok: false, detail: `${atraso} día(s) de atraso · último: ${ultimo}` }
+  } catch {
+    return { ok: false, detail: 'no se pudo leer el estado del rollup' }
+  }
+}
 
 // Cache en memoria del probe a Open-Meteo (60 s): el poll del admin cada
 // 30 s no debe golpear el upstream en cada llamada (quemaría la cuota).
@@ -75,6 +112,8 @@ export async function GET(req: NextRequest) {
   const stripe = await getFeature('feature.stripe')
   checks.stripe = { ok: false, detail: 'disabled' }
   if (stripe.enabled) checks.stripe = { ok: false, detail: 'configured' }
+
+  if (checks.db.ok) checks.cron = await checkCron()
 
   checks.openmeteo = await checkOpenMeteo()
 

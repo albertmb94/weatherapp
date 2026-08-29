@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from '@/lib/LocaleContext'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
@@ -18,6 +18,25 @@ interface CitySearchProps {
   onSelect: (name: string, lat: number, lon: number) => void
 }
 
+// Focus whichever search input is actually on screen.
+//
+// The home page mounts CitySearch twice — once in the mobile header,
+// once in the sticky desktop one — and CSS hides one of them per
+// breakpoint. Callers outside the component (the "/" shortcut) used to
+// reach the input through a shared `id`, which always resolved to the
+// mobile instance and so focused a `display: none` element on desktop.
+export function focusVisibleCitySearch() {
+  const inputs = Array.from(
+    document.querySelectorAll<HTMLInputElement>('[data-city-search-input]'),
+  )
+  // A `display: none` element has no client rects — that is what tells
+  // the hidden header apart from the rendered one. Environments without
+  // layout (jsdom) report zero rects for everything, so fall back to the
+  // first input instead of leaving the shortcut dead there.
+  const target = inputs.find(el => el.getClientRects().length > 0) ?? inputs[0]
+  target?.focus()
+}
+
 export default function CitySearch({ onSelect }: CitySearchProps) {
   const { locale } = useLocale()
   const [query, setQuery] = useState('')
@@ -25,7 +44,14 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
   const [isOpen, setIsOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const suppressAutoOpenRef = useRef(false)
+  // The component mounts TWICE on the home page (the mobile header and
+  // the sticky desktop one), so a hard-coded id produced two elements
+  // sharing it — invalid HTML, and `getElementById` always resolved to
+  // the mobile one, which is `display: none` on desktop. `useId` gives
+  // each instance its own id, and focus goes through `inputRef` below.
+  const inputId = useId()
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -110,14 +136,22 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
     // Cancel any pending debounce timer so a stale request
     // doesn't fire after the clear and re-open the dropdown.
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    const input = document.getElementById('city-search-input') as HTMLInputElement | null
-    input?.focus()
+    // Focus THIS instance's input via the ref. The old
+    // `getElementById('city-search-input')` returned the first
+    // match in the document, so pressing × in the desktop header
+    // moved focus to the hidden mobile input instead.
+    inputRef.current?.focus()
   }
 
   return (
     <div ref={wrapperRef} className="relative w-full">
       <input
-        id="city-search-input"
+        ref={inputRef}
+        id={inputId}
+        // Stable hook for the global "/" shortcut and for E2E: the id
+        // is per-instance now, so callers outside this component look
+        // up the *rendered* input by this attribute instead.
+        data-city-search-input=""
         type="text"
         value={query}
         onChange={handleChange}

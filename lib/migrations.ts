@@ -265,6 +265,34 @@ export const MIGRATIONS: Migration[] = [
       )
     },
   },
+  {
+    version: 7,
+    name: 'consent_stats',
+    /**
+     * Tasa de aceptación del banner de consentimiento.
+     *
+     * NO HAY IDENTIFICADOR AQUÍ, Y ES LA RAZÓN DE SER DEL DISEÑO. Medir
+     * esto obliga a contar a gente que TODAVÍA NO HA CONSENTIDO, así que
+     * no puede haber cookie, ni anon_id, ni IP guardada: sólo un contador
+     * agregado por día y tipo de evento. Sin almacenar ni leer nada en el
+     * dispositivo y sin ningún identificador, esto no es dato personal y
+     * no depende del consentimiento que precisamente está midiendo.
+     *
+     * `shown` cuenta IMPRESIONES, no personas: el banner reaparece en
+     * cada carga hasta que se responde. La tasa es aceptaciones por
+     * impresión, y el panel lo etiqueta así — llamarlo "% de visitantes"
+     * sería inventarse un denominador que no existe.
+     */
+    statements: [
+      `CREATE TABLE IF NOT EXISTS consent_stats (
+        day TEXT NOT NULL,
+        event TEXT NOT NULL,
+        count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, event)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_consent_stats_day ON consent_stats(day)`,
+    ],
+  },
 ]
 
 // ---------------------------------------------------------------------------

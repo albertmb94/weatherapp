@@ -1,7 +1,8 @@
 'use client'
 
-import { useSyncExternalStore, useState } from 'react'
+import { useEffect, useSyncExternalStore, useState } from 'react'
 import { normalizeConsentValue, persistConsent } from '@/lib/trackingConsent'
+import { registrarEventoConsentimiento } from '@/lib/consentStats'
 import { usePathname } from 'next/navigation'
 import { DEFAULT_LOCALE, localizedHref, splitLocale } from '@/lib/locale/routing'
 
@@ -69,6 +70,16 @@ export default function ConsentBanner() {
   // `show` se deriva durante render (solo se lee storage en cliente).
   const show = isMounted && !submitted && readStoredChoice() === null && !answeredInSession
 
+  // Impresión del banner. Se cuenta DESDE AQUÍ y no desde el layout a
+  // propósito: así impresión y respuesta se registran —o se pierden—
+  // juntas. Si el banner no llega a montarse (hidratación caída, y sólo
+  // actúa el delegador inline), no se cuenta ni la una ni la otra, y la
+  // tasa sigue siendo coherente en vez de quedarse con respuestas sin
+  // denominador.
+  useEffect(() => {
+    if (show) registrarEventoConsentimiento('shown')
+  }, [show])
+
   function persist(value: 'accept' | 'reject') {
     answeredInSession = true
     // Canonical values so this handler is truly idempotent with the
@@ -77,6 +88,7 @@ export default function ConsentBanner() {
     // Un único serializador compartido con ConsentSync y con el
     // delegador inline: tres escritores, un solo vocabulario.
     persistConsent(canonical)
+    registrarEventoConsentimiento(value === 'accept' ? 'accept' : 'reject')
     setSubmitted(true)
   }
 

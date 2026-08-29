@@ -162,7 +162,7 @@ export default function FriendlyHome({
   forecastAgeMs = null,
   ensembleMode = 'wedai',
   dailyPrecipitationSum,
-  sunsetTs,
+  sunsetTs: _sunsetTs,
   stations = [],
   userLat = 0,
   userLon = 0,

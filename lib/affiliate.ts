@@ -196,7 +196,12 @@ export async function upsertAffiliateProduct(p: AffiliateProductUpsert): Promise
   await ensureAffiliateSchema()
   const id = p.id ?? randomId()
   const now = Date.now()
-  await db.execute(
+  // ESTRICTO a propósito: con `db.execute` un fallo devolvía false y esta
+  // función seguía devolviendo el id, así que /api/admin/affiliates
+  // respondía { ok: true, id } sin que el producto existiera. Es
+  // exactamente el síntoma "he añadido el producto y no sale" que ya
+  // costó una investigación entera.
+  await db.executeOrThrow(
     `INSERT INTO affiliate_products
        (id, trigger, asin, locale, title, description, price_label, image_url, affiliate_url, enabled, sort_order, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)

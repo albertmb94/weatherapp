@@ -41,8 +41,6 @@ function buildLongRangeOnlySeries() {
   return series
 }
 
-const evenWeights = LONG_RANGE.map(() => 1)
-
 describe('ensembleWithFallback (B-NEW-6)', () => {
   it('returns the user mean when the selected model has data', () => {
     const series = buildLongRangeOnlySeries()

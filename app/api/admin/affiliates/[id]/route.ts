@@ -12,9 +12,15 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ ok: false, error: 'malformed_id' }, { status: 400 })
   }
   try {
-    await db.execute('DELETE FROM affiliate_products WHERE id = ?', [affiliateId])
+    // `db.execute` (permisivo) devuelve false en vez de lanzar, así que
+    // este catch era CÓDIGO MUERTO y un borrado fallido respondía
+    // { ok: true }: el operador veía "borrado" y el producto seguía
+    // sirviéndose en la portada. La variante estricta sí lanza.
+    await db.executeOrThrow('DELETE FROM affiliate_products WHERE id = ?', [affiliateId])
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    // Sin String(err): el mensaje crudo de libsql no va al cliente.
+    console.error('[afiliados] borrado fallido de', affiliateId, err)
+    return NextResponse.json({ ok: false, error: 'delete_failed' }, { status: 500 })
   }
 }

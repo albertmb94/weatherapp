@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { listAffiliateProducts } from '@/lib/affiliate'
+import { rateLimit } from '@/lib/rateLimit'
 
 /**
  * B-NBT-13: public endpoint that serves ONE sponsored product matching
@@ -12,6 +13,14 @@ import { listAffiliateProducts } from '@/lib/affiliate'
  * it, and it stops. No separate toggle to forget about.
  */
 export async function GET(req: NextRequest) {
+  // Lectura pública que consulta la base en CADA llamada. El slot cambia
+  // como mucho unas pocas veces por sesión; 60/min deja holgura de sobra
+  // a un visitante real y cierra el grifo a un bucle.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!rateLimit(`aff-serve:${ip}`, 60)) {
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 })
+  }
+
   const { searchParams } = new URL(req.url)
   const trigger = searchParams.get('trigger') ?? ''
   const locale = searchParams.get('locale') === 'en' ? 'en' : 'es'

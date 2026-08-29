@@ -31,7 +31,10 @@ const eslintConfig = defineConfig([
     // Los scripts de `scripts/` son CLIs: imprimir por stdout ES su
     // interfaz. La regla generaba 51 avisos permanentes que sólo
     // servían para enterrar los avisos reales del código de aplicación.
-    files: ["scripts/**/*.ts"],
+    // `runWeeklyBacktest` es el mismo caso: un job por lotes cuya salida
+    // de progreso ES su interfaz cuando se lanza desde scripts/. Se
+    // exceptúa el fichero, no la regla.
+    files: ["scripts/**/*.ts", "lib/backtest/runWeeklyBacktest.ts"],
     rules: { "no-console": "off" },
   },
   // Override default ignores of eslint-config-next, and additionally
@@ -40,6 +43,9 @@ const eslintConfig = defineConfig([
   // unrelated errors).
   globalIgnores([
     ".next/**",
+    // Salida generada por el informe de cobertura: ya está en
+    // .gitignore y avisar sobre ella sólo entierra los avisos reales.
+    "coverage/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

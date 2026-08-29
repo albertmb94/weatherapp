@@ -172,9 +172,15 @@ export function computeAccuracyFromRaw(
 /**
  * Convenience function for API route invocation.
  */
-export async function handleBacktestRequest(request: Request): Promise<Response> {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  console.log(`[backtest] Request from ${ip}`)
+export async function handleBacktestRequest(): Promise<Response> {
+  // Aquí se leía la IP del llamante para escribirla en el log
+  // (`console.log('[backtest] Request from ...')`). Eso dejaba
+  // direcciones IP en los logs de Vercel, justo lo que el resto de la app
+  // evita: /api/consent-stats no las persiste y la analítica trabaja con
+  // un pseudónimo. Y no servía para nada más — no había ningún rate limit
+  // que la usara. Esta ruta la protege `BACKTEST_SECRET` con comparación
+  // en tiempo constante (app/api/backtest/route.ts), así que tampoco hace
+  // falta acotar por IP.
 
   try {
     const progress = await runWeeklyBacktest()

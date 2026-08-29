@@ -7,6 +7,7 @@ import {
   findEmailByToken,
 } from '@/lib/entitlements'
 import { db } from '@/lib/db'
+import { rateLimit } from '@/lib/rateLimit'
 
 /**
  * B-NBT-10: creates a Stripe Billing Portal session for the current
@@ -15,6 +16,13 @@ import { db } from '@/lib/db'
  * customer id (created at checkout).
  */
 export async function GET(req: NextRequest) {
+  // Mismo motivo que en los checkout: cada llamada crea una sesión de
+  // portal en Stripe y consume cuota de la API de la cuenta.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!rateLimit(`portal:${ip}`, 10)) {
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 })
+  }
+
   const flag = await getFeature('feature.stripe')
   const origin = req.nextUrl.origin
   if (!flag.enabled) {

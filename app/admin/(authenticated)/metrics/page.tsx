@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { getAdminMetrics, parseRange, ALLOWED_RANGES, type DailyPoint } from '@/lib/analytics'
+import { celdaValida } from '@/lib/analytics/geoCell'
+import ResolveZoneNames from '@/components/admin/ResolveZoneNames'
 
 export const dynamic = 'force-dynamic'
 
@@ -277,6 +279,13 @@ export default async function MetricsPage({
       {/* Zonas + Desktop/Mobile */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ZoneList zones={m.zones} />
+        {/* Las zonas sin nombre se muestran con sus coordenadas. Esto las
+            nombra DESPUÉS del render: la llamada al geocodificador la
+            hace el navegador de admin, no el visitante. Ver el comentario
+            del componente. */}
+        <ResolveZoneNames
+          cells={m.zones.map(z => celdaValida(z.label)).filter((c): c is string => c !== null)}
+        />
         <DeviceSplit devices={m.devices} />
       </section>
 

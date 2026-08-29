@@ -55,7 +55,7 @@ interface Fila {
   sesion: string
 }
 
-async function filasDe(marca: string): Promise<Fila[]> {
+async function leerFilas(marca: string): Promise<Fila[]> {
   const r = await db.execute({
     sql: 'SELECT anon_id, geo_cell, session_id FROM page_views WHERE day = ? AND utm_source = ?',
     args: [hoy(), marca],
@@ -65,6 +65,22 @@ async function filasDe(marca: string): Promise<Fila[]> {
     celda: x.geo_cell === null ? null : String(x.geo_cell),
     sesion: String(x.session_id),
   }))
+}
+
+/**
+ * Filas de la marca, esperando a que haya al menos `minimo`.
+ *
+ * Leer justo después de la respuesta del beacon parecía suficiente —la
+ * ingesta escribe antes de responder— pero bajo carga la suite fallaba
+ * de vez en cuando por no encontrar la fila todavía. Un sistema
+ * asíncrono se comprueba esperando, no adivinando el momento: sin esto
+ * el test culpa al producto de una condición de carrera del test.
+ */
+async function filasDe(marca: string, minimo = 1): Promise<Fila[]> {
+  await expect
+    .poll(async () => (await leerFilas(marca)).length, { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(minimo)
+  return leerFilas(marca)
 }
 
 /**
@@ -153,7 +169,7 @@ test.describe('recuento de dispositivos y ciudades', () => {
       await ctx.close()
     }
 
-    const filas = await filasDe(marca)
+    const filas = await filasDe(marca, 2)
     const dispositivos = new Set(filas.map(f => f.anon))
 
     // Si la identidad se compartiera (o no se acuñara), esto sería 1 o 0

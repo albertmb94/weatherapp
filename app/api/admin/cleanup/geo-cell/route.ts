@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentAdmin } from '@/lib/admin/auth'
 import { db } from '@/lib/db'
+import { celdaValida } from '@/lib/analytics/geoCell'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,20 +42,9 @@ export const dynamic = 'force-dynamic'
 /** La celda del bug de Null Island. Es la que se limpia por defecto. */
 export const CELDA_NULL_ISLAND = '0.00,0.00'
 
-/**
- * Formato exacto que escribe la ingesta: `lat.toFixed(2),lon.toFixed(2)`.
- * Se valida con una expresión estricta y ADEMÁS por rango, para que el
- * parámetro no pueda ser otra cosa que una celda real.
- */
-const FORMATO = /^-?\d{1,2}\.\d{2},-?\d{1,3}\.\d{2}$/
-
-function celdaValida(raw: string | null | undefined): string | null {
-  if (!raw || !FORMATO.test(raw)) return null
-  const [lat, lon] = raw.split(',').map(Number)
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
-  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null
-  return raw
-}
+// El validador vive en lib/analytics/geoCell.ts: lo comparten esta ruta,
+// la de nombrado de zonas y el panel. Duplicarlo es cómo acaban
+// divergiendo sin que nadie se entere.
 
 interface Recuento {
   pageViews: number

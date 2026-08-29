@@ -39,6 +39,7 @@
 
 import { db, DbError } from './db'
 import { migrationsReady } from './migrations'
+import { celdaValida, coordenadasDe } from './analytics/geoCell'
 import { dayKey, todayKey, rangeDayKeys, prevDayKey, dayStartMs, MS_PER_DAY } from './analytics/time'
 
 const RETENTION_DAYS = 90
@@ -203,6 +204,67 @@ async function lookupZoneNames(cells: string[]): Promise<Map<string, string>> {
  * en el cron nocturno, con presupuesto acotado y fuera del camino de
  * petición.
  */
+export async function resolveZoneName(cell: string): Promise<string | null> {
+  const coords = coordenadasDe(cell)
+  if (!coords) return null
+  try {
+    const res = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.lat}&longitude=${coords.lon}&localityLanguage=es`,
+      { signal: AbortSignal.timeout(4000) },
+    )
+    if (!res.ok) return null
+    const data = (await res.json()) as {
+      city?: string
+      locality?: string
+      principalSubdivision?: string
+      countryName?: string
+    }
+    const name =
+      [data.city || data.locality, data.principalSubdivision].filter(Boolean).join(' · ') ||
+      data.countryName ||
+      cell
+    await db.executeOrThrow(
+      'INSERT OR REPLACE INTO geo_names (cell, name, created_at) VALUES (?, ?, ?)',
+      [cell, name, Date.now()],
+    )
+    geoNameCache.set(cell, name)
+    return name
+  } catch {
+    // timeout/red: no se cachea nada, así que se reintentará.
+    return null
+  }
+}
+
+/**
+ * Resuelve una lista CONCRETA de celdas, saltándose las que ya tienen
+ * nombre. Es lo que usa el panel para nombrar en el acto lo que acaba de
+ * pintar; el cron sigue existiendo como red de seguridad.
+ */
+export async function resolveZoneNames(
+  cells: string[],
+  limit = 12,
+): Promise<Record<string, string>> {
+  const candidatas = [...new Set(cells)].filter(c => celdaValida(c)).slice(0, limit)
+  if (candidatas.length === 0) return {}
+
+  // Las que ya están nombradas no se vuelven a pedir: `geo_names` es
+  // caché permanente, cada celda se resuelve UNA vez en su vida.
+  const marcadores = candidatas.map(() => '?').join(',')
+  const yaEstan = await db.selectOrThrow<{ cell: string }>(
+    `SELECT cell FROM geo_names WHERE cell IN (${marcadores})`,
+    candidatas,
+  )
+  const conocidas = new Set(yaEstan.map(r => String(r.cell)))
+
+  const out: Record<string, string> = {}
+  for (const cell of candidatas) {
+    if (conocidas.has(cell)) continue
+    const name = await resolveZoneName(cell)
+    if (name) out[cell] = name
+  }
+  return out
+}
+
 export async function resolveMissingZoneNames(limit = 20): Promise<number> {
   const rows = await db.selectOrThrow<{ label: string }>(
     `SELECT b.label AS label
@@ -216,36 +278,9 @@ export async function resolveMissingZoneNames(limit = 20): Promise<number> {
   )
   let resolved = 0
   for (const row of rows) {
-    const cell = String(row.label)
-    const [latStr, lonStr] = cell.split(',')
-    const lat = Number(latStr)
-    const lon = Number(lonStr)
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
-    try {
-      const res = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`,
-        { signal: AbortSignal.timeout(4000) },
-      )
-      if (!res.ok) continue
-      const data = (await res.json()) as {
-        city?: string
-        locality?: string
-        principalSubdivision?: string
-        countryName?: string
-      }
-      const name =
-        [data.city || data.locality, data.principalSubdivision].filter(Boolean).join(' · ') ||
-        data.countryName ||
-        cell
-      await db.executeOrThrow(
-        'INSERT OR REPLACE INTO geo_names (cell, name, created_at) VALUES (?, ?, ?)',
-        [cell, name, Date.now()],
-      )
-      geoNameCache.set(cell, name)
-      resolved++
-    } catch {
-      /* timeout/red: se reintenta la noche siguiente */
-    }
+    // Mismo código que el camino del panel: si diverge, una vía nombraría
+    // las zonas distinto que la otra.
+    if (await resolveZoneName(String(row.label))) resolved++
   }
   return resolved
 }

@@ -285,6 +285,58 @@ export async function resolveMissingZoneNames(limit = 20): Promise<number> {
   return resolved
 }
 
+export interface ConsentStats {
+  /** Veces que se PINTÓ el banner. No son personas: ver abajo. */
+  impresiones: number
+  aceptadas: number
+  rechazadas: number
+  /** Impresiones sin respuesta: se ignoró el banner o se abandonó. */
+  ignoradas: number
+  /**
+   * Aceptadas / impresiones, en tanto por uno. `null` sin impresiones.
+   *
+   * ES POR IMPRESIÓN, NO POR PERSONA, y la diferencia no es menor: el
+   * banner reaparece en cada carga hasta que se responde, así que quien
+   * lo ignora tres veces cuenta tres. No hay forma de deduplicar sin un
+   * identificador, y usar uno aquí sería seguir a quien no ha consentido
+   * — justo lo que el banner existe para evitar. El panel lo etiqueta
+   * como "por impresión" para que nadie lo lea como "% de visitantes".
+   */
+  tasa: number | null
+}
+
+/** Tasa de aceptación del banner en la ventana pedida. */
+export async function getConsentStats(
+  rangeDays: number,
+  now: number = Date.now(),
+): Promise<ConsentStats | null> {
+  const desde = rangeDayKeys(rangeDays, now)[0]
+  try {
+    const filas = await db.selectOrThrow<{ event: string; total: number }>(
+      `SELECT event, SUM(count) AS total FROM consent_stats WHERE day >= ? GROUP BY event`,
+      [desde],
+    )
+    const por = new Map(filas.map(f => [String(f.event), toNum(f.total)]))
+    const impresiones = por.get('shown') ?? 0
+    const aceptadas = por.get('accept') ?? 0
+    const rechazadas = por.get('reject') ?? 0
+    return {
+      impresiones,
+      aceptadas,
+      rechazadas,
+      // Nunca negativo: una respuesta puede llegar sin su impresión si la
+      // pestaña se recarga entre medias.
+      ignoradas: Math.max(0, impresiones - aceptadas - rechazadas),
+      tasa: impresiones > 0 ? aceptadas / impresiones : null,
+    }
+  } catch {
+    // La tabla puede no existir todavía en un despliegue a medias. El
+    // resto del panel es válido: se devuelve null y no se pinta la
+    // tarjeta, en vez de tumbar la página entera.
+    return null
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Lectura del panel
 // ---------------------------------------------------------------------------

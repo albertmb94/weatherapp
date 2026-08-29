@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getAdminMetrics, parseRange, ALLOWED_RANGES, type DailyPoint } from '@/lib/analytics'
+import { getAdminMetrics, getConsentStats, parseRange, ALLOWED_RANGES, type DailyPoint, type ConsentStats } from '@/lib/analytics'
 import { celdaValida } from '@/lib/analytics/geoCell'
 import ResolveZoneNames from '@/components/admin/ResolveZoneNames'
 
@@ -59,6 +59,61 @@ function DeviceChart({ series, rangeDays }: { series: DailyPoint[]; rangeDays: n
         )
       })}
     </svg>
+  )
+}
+
+/* ── Tasa de aceptación del banner ──────────────────────────────────── */
+
+function ConsentCard({ stats, rangeDays }: { stats: ConsentStats | null; rangeDays: number }) {
+  if (!stats) return null
+
+  const pct = stats.tasa === null ? null : Math.round(stats.tasa * 1000) / 10
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface-raised p-4">
+      <h3 className="text-xs uppercase tracking-widest text-text-tertiary mb-3">
+        🍪 Banner de consentimiento · {rangeDays} días
+      </h3>
+      {stats.impresiones === 0 ? (
+        <p className="text-xs text-text-muted">Sin impresiones registradas aún.</p>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-2 mb-3">
+            <span className="text-2xl font-semibold tabular-nums text-text-primary">{pct}%</span>
+            <span className="text-xs text-text-tertiary">aceptan (por impresión)</span>
+          </div>
+          <ul className="space-y-1 text-xs">
+            <li className="flex justify-between gap-2">
+              <span className="text-text-secondary">Impresiones</span>
+              <span className="tabular-nums text-text-primary">{stats.impresiones.toLocaleString('es-ES')}</span>
+            </li>
+            <li className="flex justify-between gap-2">
+              <span className="text-text-secondary">Aceptan</span>
+              <span className="tabular-nums text-emerald-500">{stats.aceptadas.toLocaleString('es-ES')}</span>
+            </li>
+            <li className="flex justify-between gap-2">
+              <span className="text-text-secondary">Rechazan</span>
+              <span className="tabular-nums text-red-500">{stats.rechazadas.toLocaleString('es-ES')}</span>
+            </li>
+            <li className="flex justify-between gap-2">
+              <span className="text-text-secondary">Lo ignoran</span>
+              <span className="tabular-nums text-text-secondary">{stats.ignoradas.toLocaleString('es-ES')}</span>
+            </li>
+          </ul>
+          {/* Este aviso NO es opcional: sin él, el número se lee como
+              "% de visitantes que aceptan" y no lo es. El banner
+              reaparece en cada carga hasta que se responde, así que
+              quien lo ignora cuenta varias veces en el denominador.
+              Deduplicar exigiría identificar a quien aún no ha
+              consentido, que es justo lo que no se puede hacer. */}
+          <p className="mt-3 text-[10px] leading-relaxed text-text-muted">
+            Impresiones, no personas: el banner reaparece en cada carga hasta que se
+            responde. Sólo se cuentan las veces que llega a pintarse, sin cookie ni
+            identificador — medir esto exige contar a quien todavía no ha consentido.
+          </p>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -206,7 +261,10 @@ export default async function MetricsPage({
   searchParams: Promise<{ range?: string }>
 }) {
   const rangeDays = parseRange((await searchParams).range)
-  const result = await getAdminMetrics(rangeDays)
+  const [result, consentimiento] = await Promise.all([
+    getAdminMetrics(rangeDays),
+    getConsentStats(rangeDays),
+  ])
 
   // Antes esto era `if (!m)`, y `getAdminMetrics` no podía devolver null
   // porque `db.select` se tragaba los errores: una tabla ausente se veía
@@ -278,6 +336,7 @@ export default async function MetricsPage({
 
       {/* Zonas + Desktop/Mobile */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ConsentCard stats={consentimiento} rangeDays={rangeDays} />
         <ZoneList zones={m.zones} />
         {/* Las zonas sin nombre se muestran con sus coordenadas. Esto las
             nombra DESPUÉS del render: la llamada al geocodificador la

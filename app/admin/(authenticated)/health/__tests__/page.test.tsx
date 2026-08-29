@@ -31,6 +31,9 @@ const SALUD_CRON_CAIDO = {
   },
 }
 
+/** Nada pendiente de limpiar: la sección de Null Island no se pinta. */
+const SIN_LIMPIEZA = { pageViews: 0, breakdowns: 0, geoNames: 0 }
+
 function responder(cuerpo: unknown, status = 200) {
   return new Response(JSON.stringify(cuerpo), {
     status,
@@ -47,6 +50,9 @@ describe('/admin/health · consolidar analítica a mano', () => {
       if (u.includes('/api/health')) return responder(SALUD_CRON_CAIDO)
       if (u.includes('/api/admin/analytics-rollup')) {
         return responder({ ok: true, days: 4, purgedViews: 120 })
+      }
+      if (u.includes('/api/admin/cleanup/geo-cell')) {
+        return responder({ ok: true, cell: '0.00,0.00', afectadas: SIN_LIMPIEZA, aplicado: SIN_LIMPIEZA })
       }
       throw new Error(`fetch inesperado: ${u}`)
     })
@@ -124,5 +130,32 @@ describe('/admin/health · consolidar analítica a mano', () => {
 
     pendiente.resolver?.(responder({ ok: true, days: 0, purgedViews: 0 }))
     await waitFor(() => expect(screen.getByText(/0 día\(s\) consolidados/)).toBeTruthy())
+  })
+
+  it('el retirado de zona manda la celda al endpoint de admin, no al del cron', async () => {
+    montar()
+    await screen.findByText(/4 día\(s\) de atraso/)
+
+    await userEvent.type(screen.getByLabelText(/celda geográfica/i), '37.39,-5.98')
+    await userEvent.click(screen.getByRole('button', { name: /retirar zona/i }))
+
+    await waitFor(() => {
+      // El POST, no el GET de sondeo que hace la propia página al cargar.
+      const llamada = fetchMock.mock.calls.find(
+        c => String(c[0]).includes('geo-cell') &&
+             (c[1] as RequestInit | undefined)?.method === 'POST',
+      )
+      expect(llamada, 'debe hacer POST a /api/admin/cleanup/geo-cell').toBeTruthy()
+      expect(String(llamada![0])).toContain('cell=37.39%2C-5.98')
+      expect((llamada![1] as RequestInit | undefined)?.method).toBe('POST')
+    })
+  })
+
+  it('sin celda escrita el botón está deshabilitado', async () => {
+    montar()
+    await screen.findByText(/4 día\(s\) de atraso/)
+
+    const boton = screen.getByRole('button', { name: /retirar zona/i }) as HTMLButtonElement
+    expect(boton.disabled).toBe(true)
   })
 })

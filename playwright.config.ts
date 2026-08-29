@@ -22,7 +22,13 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Tope de concurrencia, y no por lentitud de la máquina: los tests
+  // comparten UN servidor, UNA base SQLite y un proveedor externo con
+  // límite de peticiones. Sin tope, Playwright abre tantos workers como
+  // núcleos y la suite fallaba de forma distinta en cada pasada —
+  // Open-Meteo devolviendo 429, o escrituras de analítica pisándose.
+  // Tests que fallan por contención enseñan a ignorar el rojo.
+  workers: process.env.CI ? 1 : 4,
   reporter: 'list',
   timeout: 30_000,
   use: {

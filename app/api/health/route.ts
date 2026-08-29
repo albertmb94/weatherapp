@@ -3,7 +3,7 @@ import { db, DbError } from '@/lib/db'
 import { migrationStatus } from '@/lib/migrations'
 import { getFeature } from '@/lib/features'
 import { rateLimit } from '@/lib/rateLimit'
-import { daysBetween, prevDayKey, todayKey } from '@/lib/analytics/time'
+import { todayKey } from '@/lib/analytics/time'
 
 /**
  * Estado del cron nocturno de analítica.
@@ -26,16 +26,39 @@ async function checkCron(): Promise<{ ok: boolean; detail?: string }> {
     return { ok: false, detail: 'CRON_SECRET sin definir: el rollup nunca se ejecuta' }
   }
   try {
-    const rows = await db.selectOrThrow<{ d: string | null }>(
+    const hoy = todayKey()
+    // EL ATRASO SON DÍAS CON DATOS SIN CONSOLIDAR, no la distancia hasta
+    // ayer. La primera versión comparaba MAX(date) con ayer sin más, y
+    // eso daba FALSA ALARMA en cuanto había un día sin visitas: no había
+    // nada que consolidar, el cron hacía lo correcto, y el panel lo
+    // pintaba en rojo. Una alarma que salta cuando no pasa nada enseña a
+    // ignorar el rojo, que es justo lo que esta comprobación vino a
+    // evitar.
+    const pendientes = await db.selectOrThrow<{ n: number; primero: string | null }>(
+      `SELECT COUNT(DISTINCT day) AS n, MIN(day) AS primero
+       FROM page_views
+       WHERE day < ? AND day NOT IN (SELECT DISTINCT date FROM daily_anon_stats)`,
+      [hoy],
+    )
+    const sinConsolidar = Number(pendientes[0]?.n ?? 0)
+
+    const ultimas = await db.selectOrThrow<{ d: string | null }>(
       'SELECT MAX(date) AS d FROM daily_anon_stats',
     )
-    const ultimo = rows[0]?.d ? String(rows[0].d) : null
-    // El cron consolida días CERRADOS, así que al día lo deja en "ayer".
-    const ayer = prevDayKey(todayKey())
-    if (!ultimo) return { ok: false, detail: 'sin consolidar nunca' }
-    const atraso = daysBetween(ultimo, ayer)
-    if (atraso <= 0) return { ok: true, detail: `al día (${ultimo})` }
-    return { ok: false, detail: `${atraso} día(s) de atraso · último: ${ultimo}` }
+    const ultimo = ultimas[0]?.d ? String(ultimas[0].d) : null
+
+    if (sinConsolidar > 0) {
+      return {
+        ok: false,
+        detail:
+          `${sinConsolidar} día(s) con datos sin consolidar desde ${String(pendientes[0]?.primero)}` +
+          (ultimo ? ` · último consolidado: ${ultimo}` : ' · nunca se ha consolidado'),
+      }
+    }
+    return {
+      ok: true,
+      detail: ultimo ? `al día (último: ${ultimo})` : 'al día (nada que consolidar)',
+    }
   } catch {
     return { ok: false, detail: 'no se pudo leer el estado del rollup' }
   }

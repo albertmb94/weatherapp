@@ -54,9 +54,18 @@ export async function POST(req: NextRequest) {
   let q: { lat: number; lon: number } | undefined
   if (search) {
     const sp = new URLSearchParams(search)
-    const lat = Number(sp.get('lat'))
-    const lon = Number(sp.get('lon'))
-    if (Number.isFinite(lat) && Number.isFinite(lon)) q = { lat, lon }
+    // AUSENTE no es CERO: `sp.get()` devuelve null si el parámetro no
+    // está, `Number(null)` es 0 y `Number.isFinite(0)` es true, así que
+    // cualquier URL con query pero sin coordenadas (`?view=map`) grababa
+    // la celda 0.00,0.00 — Null Island, en el Atlántico. Mismo fallo que
+    // había en lib/analytics/tracker.ts.
+    const rawLat = sp.get('lat')
+    const rawLon = sp.get('lon')
+    if (rawLat !== null && rawLat.trim() !== '' && rawLon !== null && rawLon.trim() !== '') {
+      const lat = Number(rawLat)
+      const lon = Number(rawLon)
+      if (Number.isFinite(lat) && Number.isFinite(lon)) q = { lat, lon }
+    }
   }
 
   const forwarded = new NextRequest(new URL('/api/ingest', req.url), {

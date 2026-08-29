@@ -16,6 +16,14 @@ interface RollupResult {
   reason?: string
 }
 
+interface Afectadas {
+  pageViews: number
+  breakdowns: number
+  geoNames: number
+}
+
+const CLEANUP_URL = '/api/admin/cleanup/geo-null-island'
+
 export default function HealthPage() {
   // AUDITORÍA: sin `isError`, y con un `r.json()` que lanza cuando la
   // respuesta no es JSON (un 502 del proxy, por ejemplo), la página se
@@ -54,6 +62,33 @@ export default function HealthPage() {
     // El resultado se refleja en checks.cron: se recarga para verlo.
     onSuccess: () => { void refetch() },
   })
+
+  // Cuántas filas quedan atribuidas a Null Island (celda 0.00,0.00).
+  // Sólo se pinta la sección cuando hay algo que limpiar, para que
+  // desaparezca sola una vez aplicada.
+  const nullIsland = useQuery({
+    queryKey: ['admin', 'null-island'],
+    queryFn: async (): Promise<Afectadas> => {
+      const r = await fetch(CLEANUP_URL)
+      const body = await r.json().catch(() => null)
+      if (!body?.ok) throw new Error(`No se pudo consultar (${r.status})`)
+      return body.afectadas as Afectadas
+    },
+  })
+
+  const limpiar = useMutation({
+    mutationFn: async (): Promise<Afectadas> => {
+      const r = await fetch(CLEANUP_URL, { method: 'POST' })
+      const body = await r.json().catch(() => null)
+      if (!body?.ok) throw new Error(body?.error ?? `Falló con ${r.status}`)
+      return body.aplicado as Afectadas
+    },
+    onSuccess: () => { void nullIsland.refetch() },
+  })
+
+  const hayQueLimpiar =
+    nullIsland.data !== undefined &&
+    nullIsland.data.pageViews + nullIsland.data.breakdowns + nullIsland.data.geoNames > 0
 
   return (
     <div className="p-6 space-y-6">
@@ -117,6 +152,42 @@ export default function HealthPage() {
             </div>
           ))}
         </div>
+      )}
+      {/* Sección de mantenimiento: sólo aparece si queda algo que hacer,
+          así que se va sola en cuanto se aplica. */}
+      {hayQueLimpiar && (
+        <section className="rounded-2xl border border-amber-500/40 bg-amber-500/[0.06] p-4 space-y-2">
+          <h2 className="text-sm font-medium">Visitas atribuidas a Null Island</h2>
+          <p className="text-xs text-text-tertiary">
+            Un fallo ya corregido guardaba la celda <code>0.00,0.00</code> —mitad del
+            Atlántico— cuando la URL no llevaba coordenadas. Esto sanea lo ya escrito:
+            a las visitas se les quita SÓLO la zona (no se borran, la visita fue real),
+            y se eliminan el desglose por zona y el nombre cacheado.
+          </p>
+          <p className="text-xs text-text-tertiary">
+            Afectadas: {nullIsland.data!.pageViews} visita(s) ·{' '}
+            {nullIsland.data!.breakdowns} desglose(s) · {nullIsland.data!.geoNames} nombre(s).
+          </p>
+          <button
+            type="button"
+            onClick={() => limpiar.mutate()}
+            disabled={limpiar.isPending}
+            className="px-2.5 py-1 rounded-lg border border-border text-xs hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {limpiar.isPending ? 'Limpiando…' : 'Limpiar ahora'}
+          </button>
+          {limpiar.isError && (
+            <p className="text-xs text-red-500 break-words">
+              {limpiar.error instanceof Error ? limpiar.error.message : 'Falló la limpieza'}
+            </p>
+          )}
+        </section>
+      )}
+      {limpiar.isSuccess && !hayQueLimpiar && (
+        <p className="text-xs text-emerald-500">
+          Null Island saneado: {limpiar.data.pageViews} visita(s) conservadas sin zona,{' '}
+          {limpiar.data.breakdowns} desglose(s) y {limpiar.data.geoNames} nombre(s) borrados.
+        </p>
       )}
       {data && <p className="text-xs text-text-tertiary">Última actualización: {new Date(data.ts).toLocaleTimeString()}</p>}
     </div>

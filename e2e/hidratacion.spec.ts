@@ -40,8 +40,13 @@ test('la portada hidrata y pide datos de verdad', async ({ page }) => {
 
   // Señal 1: el cliente hace la petición de previsión. La emite un efecto
   // de react-query, así que sólo puede ocurrir si React adoptó el árbol.
-  await page.waitForResponse(
-    r => new URL(r.url()).pathname === '/api/forecast' && r.status() === 200,
+  //
+  // Se espera la PETICIÓN, no un 200. Lo que demuestra la hidratación es
+  // que el cliente la haga; el código de respuesta depende de Open-Meteo,
+  // que bajo carga (la suite entera en paralelo) devuelve 429 y hacía
+  // fallar el test por un motivo ajeno a lo que comprueba.
+  await page.waitForRequest(
+    r => new URL(r.url()).pathname === '/api/forecast',
     { timeout: 25_000 },
   )
   expect(peticiones).toContain('/api/forecast')
@@ -70,14 +75,12 @@ test('la portada hidrata y pide datos de verdad', async ({ page }) => {
   expect(adoptado, 'React debe adoptar el árbol servido').toBe(true)
 })
 
-test('la portada acaba mostrando una temperatura, no guiones', async ({ page }) => {
+test('@api la portada acaba mostrando una temperatura, no guiones', async ({ page }) => {
   await page.goto(PORTADA)
-  await page.waitForResponse(
-    r => new URL(r.url()).pathname === '/api/forecast' && r.status() === 200,
-    { timeout: 25_000 },
-  )
 
-  // Un número con grados en algún sitio de la página. Es la prueba de que
-  // los datos llegaron y se pintaron, no sólo de que la petición salió.
-  await expect(page.getByText(/-?\d+\s*°/).first()).toBeVisible({ timeout: 15_000 })
+  // Sin esperar a un 200 concreto: la aserción de abajo ya exige que el
+  // dato esté PINTADO, y da igual si vino de la red o de la caché — en
+  // ambos casos significa que el cliente está vivo y los datos llegaron.
+  // Atarlo a un 200 de Open-Meteo sólo añadía fragilidad.
+  await expect(page.getByText(/-?\d+\s*°/).first()).toBeVisible({ timeout: 30_000 })
 })

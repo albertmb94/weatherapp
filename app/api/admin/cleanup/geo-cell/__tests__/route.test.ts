@@ -11,7 +11,8 @@ vi.mock('@/lib/db', () => ({
   db: { selectOrThrow: selectOrThrowMock, batchOrThrow: batchOrThrowMock },
 }))
 
-import { GET, POST } from '@/app/api/admin/cleanup/geo-null-island/route'
+import { NextRequest } from 'next/server'
+import { GET, POST } from '@/app/api/admin/cleanup/geo-cell/route'
 
 /** `contar()` hace 3 SELECT en paralelo: page_views, daily_breakdowns,
  *  geo_names. Se responde según la tabla que menciona el SQL. */
@@ -22,6 +23,13 @@ function conFilas(pv: number, bd: number, gn: number) {
     if (sql.includes('geo_names')) return [{ n: gn }]
     throw new Error('SQL inesperado: ' + sql)
   })
+}
+
+/** Petición a la ruta, opcionalmente con `?cell=`. */
+function pet(celda?: string): NextRequest {
+  const u = new URL('http://localhost:3000/api/admin/cleanup/geo-cell')
+  if (celda !== undefined) u.searchParams.set('cell', celda)
+  return new NextRequest(u)
 }
 
 describe('/api/admin/cleanup/geo-null-island', () => {
@@ -35,8 +43,8 @@ describe('/api/admin/cleanup/geo-null-island', () => {
   it('sin sesión de admin no cuenta ni borra nada', async () => {
     getCurrentAdminMock.mockResolvedValue(null)
 
-    expect((await GET()).status).toBe(401)
-    expect((await POST()).status).toBe(401)
+    expect((await GET(pet())).status).toBe(401)
+    expect((await POST(pet())).status).toBe(401)
     // Lo que importa: la ruta MODIFICA datos de producción.
     expect(batchOrThrowMock).not.toHaveBeenCalled()
     expect(selectOrThrowMock).not.toHaveBeenCalled()
@@ -46,9 +54,13 @@ describe('/api/admin/cleanup/geo-null-island', () => {
     getCurrentAdminMock.mockResolvedValue('admin@ejemplo.com')
     conFilas(31, 3, 1)
 
-    const body = await (await GET()).json()
+    const body = await (await GET(pet())).json()
 
-    expect(body).toEqual({ ok: true, afectadas: { pageViews: 31, breakdowns: 3, geoNames: 1 } })
+    expect(body).toEqual({
+      ok: true,
+      cell: '0.00,0.00',
+      afectadas: { pageViews: 31, breakdowns: 3, geoNames: 1 },
+    })
     expect(batchOrThrowMock).not.toHaveBeenCalled()
   })
 
@@ -59,7 +71,7 @@ describe('/api/admin/cleanup/geo-null-island', () => {
     getCurrentAdminMock.mockResolvedValue('admin@ejemplo.com')
     conFilas(31, 3, 1)
 
-    await POST()
+    await POST(pet())
 
     const sentencias = batchOrThrowMock.mock.calls[0][0] as { sql: string }[]
     const dePageViews = sentencias.filter(s => s.sql.includes('page_views'))
@@ -72,7 +84,7 @@ describe('/api/admin/cleanup/geo-null-island', () => {
     getCurrentAdminMock.mockResolvedValue('admin@ejemplo.com')
     conFilas(31, 3, 1)
 
-    await POST()
+    await POST(pet())
 
     const sqls = (batchOrThrowMock.mock.calls[0][0] as { sql: string }[]).map(s => s.sql)
     expect(sqls.some(s => /DELETE FROM daily_breakdowns/.test(s))).toBe(true)
@@ -85,7 +97,7 @@ describe('/api/admin/cleanup/geo-null-island', () => {
     getCurrentAdminMock.mockResolvedValue('admin@ejemplo.com')
     conFilas(31, 3, 1)
 
-    await POST()
+    await POST(pet())
 
     expect(batchOrThrowMock).toHaveBeenCalledTimes(1)
     expect(batchOrThrowMock.mock.calls[0][0]).toHaveLength(3)
@@ -95,7 +107,7 @@ describe('/api/admin/cleanup/geo-null-island', () => {
     getCurrentAdminMock.mockResolvedValue('admin@ejemplo.com')
     conFilas(31, 3, 1)
 
-    await POST()
+    await POST(pet())
 
     const sentencias = batchOrThrowMock.mock.calls[0][0] as { sql: string; args?: unknown[] }[]
     for (const s of sentencias) expect(s.args).toEqual(['0.00,0.00'])
@@ -106,7 +118,7 @@ describe('/api/admin/cleanup/geo-null-island', () => {
     conFilas(31, 3, 1)
     batchOrThrowMock.mockRejectedValue(new Error('turso caída'))
 
-    const res = await POST()
+    const res = await POST(pet())
 
     expect(res.status).toBe(500)
     expect((await res.json()).ok).toBe(false)
@@ -116,9 +128,45 @@ describe('/api/admin/cleanup/geo-null-island', () => {
     getCurrentAdminMock.mockResolvedValue('admin@ejemplo.com')
     conFilas(0, 0, 0)
 
-    const body = await (await POST()).json()
+    const body = await (await POST(pet())).json()
 
     expect(body.aplicado).toEqual({ pageViews: 0, breakdowns: 0, geoNames: 0 })
     expect(body.restante).toEqual({ pageViews: 0, breakdowns: 0, geoNames: 0 })
+  })
+
+  describe('validación del parámetro `cell`', () => {
+    // Es lo único variable de la operación, así que es lo único que
+    // podría convertirla en algo distinto de lo que dice hacer.
+    beforeEach(() => {
+      getCurrentAdminMock.mockResolvedValue('admin@ejemplo.com')
+      conFilas(2, 1, 0)
+    })
+
+    it('sin parámetro limpia Null Island por defecto', async () => {
+      const body = await (await POST(pet())).json()
+      expect(body.cell).toBe('0.00,0.00')
+    })
+
+    it('acepta una celda con el formato exacto que escribe la ingesta', async () => {
+      const body = await (await POST(pet('37.39,-5.98'))).json()
+      expect(body.cell).toBe('37.39,-5.98')
+      const sentencias = batchOrThrowMock.mock.calls[0][0] as { args?: unknown[] }[]
+      for (const s of sentencias) expect(s.args).toEqual(['37.39,-5.98'])
+    })
+
+    it.each([
+      ['SQL en el parámetro', "0.00,0.00' OR '1'='1"],
+      ['comodín', '%'],
+      ['sin decimales fijos', '37.4,-5.9'],
+      ['latitud fuera de rango', '95.00,2.00'],
+      ['longitud fuera de rango', '41.00,-200.00'],
+      ['vacío', ''],
+      ['texto', 'Sevilla'],
+    ])('rechaza %s sin tocar la base de datos', async (_caso, valor) => {
+      const res = await POST(pet(valor))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('celda_invalida')
+      expect(batchOrThrowMock).not.toHaveBeenCalled()
+    })
   })
 })

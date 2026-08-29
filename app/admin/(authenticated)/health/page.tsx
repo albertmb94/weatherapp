@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
 interface HealthCheck {
@@ -22,7 +23,8 @@ interface Afectadas {
   geoNames: number
 }
 
-const CLEANUP_URL = '/api/admin/cleanup/geo-null-island'
+const CLEANUP_URL = '/api/admin/cleanup/geo-cell'
+const CELDA_NULL_ISLAND = '0.00,0.00'
 
 export default function HealthPage() {
   // AUDITORÍA: sin `isError`, y con un `r.json()` que lanza cuando la
@@ -77,14 +79,18 @@ export default function HealthPage() {
   })
 
   const limpiar = useMutation({
-    mutationFn: async (): Promise<Afectadas> => {
-      const r = await fetch(CLEANUP_URL, { method: 'POST' })
+    mutationFn: async (celda: string): Promise<Afectadas> => {
+      const r = await fetch(`${CLEANUP_URL}?cell=${encodeURIComponent(celda)}`, { method: 'POST' })
       const body = await r.json().catch(() => null)
       if (!body?.ok) throw new Error(body?.error ?? `Falló con ${r.status}`)
       return body.aplicado as Afectadas
     },
     onSuccess: () => { void nullIsland.refetch() },
   })
+
+  // Celda a mano: sirve para retirar del desglose una zona que no es
+  // tráfico real (pruebas, bots). El formato lo valida el servidor.
+  const [celdaManual, setCeldaManual] = useState('')
 
   const hayQueLimpiar =
     nullIsland.data !== undefined &&
@@ -170,7 +176,7 @@ export default function HealthPage() {
           </p>
           <button
             type="button"
-            onClick={() => limpiar.mutate()}
+            onClick={() => limpiar.mutate(CELDA_NULL_ISLAND)}
             disabled={limpiar.isPending}
             className="px-2.5 py-1 rounded-lg border border-border text-xs hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -183,12 +189,46 @@ export default function HealthPage() {
           )}
         </section>
       )}
-      {limpiar.isSuccess && !hayQueLimpiar && (
-        <p className="text-xs text-emerald-500">
-          Null Island saneado: {limpiar.data.pageViews} visita(s) conservadas sin zona,{' '}
-          {limpiar.data.breakdowns} desglose(s) y {limpiar.data.geoNames} nombre(s) borrados.
+      {/* Retirar cualquier otra celda del desglose de ciudades: tráfico de
+          pruebas, bots, o una zona que no representa visitas reales. La
+          visita NO se borra, sólo pierde la ubicación. */}
+      <section className="rounded-2xl border border-border bg-surface-raised p-4 space-y-2">
+        <h2 className="text-sm font-medium">Retirar una zona del desglose</h2>
+        <p className="text-xs text-text-tertiary">
+          Celda en el formato del panel (<code>41.61,2.65</code>). Las visitas se conservan;
+          sólo se les quita la ubicación, junto con su desglose y su nombre cacheado.
         </p>
-      )}
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            inputMode="text"
+            value={celdaManual}
+            onChange={e => setCeldaManual(e.target.value)}
+            placeholder="41.61,2.65"
+            aria-label="Celda geográfica"
+            className="px-2 py-1 rounded-lg border border-border bg-surface text-xs font-mono w-40"
+          />
+          <button
+            type="button"
+            onClick={() => limpiar.mutate(celdaManual.trim())}
+            disabled={limpiar.isPending || celdaManual.trim() === ''}
+            className="px-2.5 py-1 rounded-lg border border-border text-xs hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {limpiar.isPending ? 'Limpiando…' : 'Retirar zona'}
+          </button>
+        </div>
+        {limpiar.isError && (
+          <p className="text-xs text-red-500 break-words">
+            {limpiar.error instanceof Error ? limpiar.error.message : 'Falló la limpieza'}
+          </p>
+        )}
+        {limpiar.isSuccess && (
+          <p className="text-xs text-emerald-500 break-words">
+            Hecho: {limpiar.data.pageViews} visita(s) conservadas sin zona,{' '}
+            {limpiar.data.breakdowns} desglose(s) y {limpiar.data.geoNames} nombre(s) borrados.
+          </p>
+        )}
+      </section>
       {data && <p className="text-xs text-text-tertiary">Última actualización: {new Date(data.ts).toLocaleTimeString()}</p>}
     </div>
   )

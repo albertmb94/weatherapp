@@ -243,9 +243,27 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
   if (!trackingAllowed) return res
 
   const now = Date.now()
+
+  // ¿Es esto una navegación real de una persona? Se calcula ANTES de
+  // tocar la identidad, y no por orden estético.
+  //
+  // El proxy acuñaba `wthr_anon` en cuanto faltaba la cookie, sin mirar
+  // qué clase de petición era. Una precarga de Next o un payload RSC
+  // —que jamás se registran— acuñaban un id nuevo y lo devolvían en un
+  // Set-Cookie que PISABA el que /api/ingest acababa de emitir para el
+  // primer pageview tras aceptar el consentimiento. Consecuencia medida:
+  // un visitante nuevo acababa con DOS identidades, contaba como dos
+  // dispositivos, y la fila ya escrita quedaba atada a un id que el
+  // navegador descartaba — así que en su siguiente visita volvía a
+  // parecer nuevo, inflando dispositivos y hundiendo "recurrentes".
+  //
+  // Si no vamos a registrar nada, no se inventa identidad: se respeta la
+  // que haya y punto.
+  const esNavegacionReal = shouldBootstrap(req.headers, pathname)
+
   let anonId = req.cookies.get(ANON_COOKIE)?.value
-  const isNewAnon = !anonId
-  if (!anonId) anonId = toHex(randomBytes(16))
+  const isNewAnon = !anonId && esNavegacionReal
+  if (!anonId && esNavegacionReal) anonId = toHex(randomBytes(16))
 
   const { sessionId, isNew: isNewSession } = resolveSession(
     req.cookies.get(SESSION_COOKIE)?.value,
@@ -261,18 +279,38 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
     path: '/',
   } as const
 
-  if (isNewAnon) {
-    res.cookies.set(ANON_COOKIE, anonId, { ...cookieBase, maxAge: 60 * 60 * 24 * 730 })
+  // TODA escritura de identidad va detrás de `esNavegacionReal`, y es el
+  // mismo motivo para las tres cookies: una precarga de Next o un payload
+  // RSC no son visitas, y aun así emitían Set-Cookie. Ese Set-Cookie
+  // pisaba el que /api/ingest acababa de escribir para el primer pageview
+  // tras aceptar, con dos efectos medidos en pruebas contra el navegador:
+  //
+  //   - identidad: el visitante acababa con DOS `anon_id` y contaba como
+  //     dos dispositivos; además, la fila ya escrita quedaba atada a un id
+  //     que el navegador descartaba, así que en su siguiente visita volvía
+  //     a parecer nuevo (dispositivos inflados, "recurrentes" hundidos).
+  //   - sesión: la sesión se rompía en dos a mitad de una visita seguida,
+  //     inflando "Sesiones hoy" y falseando vistas/sesión y rebote.
+  //
+  // Si no vamos a registrar nada, no se toca la identidad de nadie.
+  if (esNavegacionReal) {
+    if (isNewAnon && anonId) {
+      res.cookies.set(ANON_COOKIE, anonId, { ...cookieBase, maxAge: 60 * 60 * 24 * 730 })
+    }
+    // Ventana deslizante de 30 min, alineada con SESSION_TTL_MS. Antes era
+    // de 24 h y se renovaba en cada petición: no caducaba nunca.
+    res.cookies.set(SESSION_COOKIE, sessionId, { ...cookieBase, maxAge: SESSION_TTL_MS / 1000 })
+    res.cookies.set(SESSION_SEEN_COOKIE, String(now), { ...cookieBase, maxAge: SESSION_TTL_MS / 1000 })
   }
-  // Ventana deslizante de 30 min, alineada con SESSION_TTL_MS. Antes era
-  // de 24 h y se renovaba en cada petición: no caducaba nunca.
-  res.cookies.set(SESSION_COOKIE, sessionId, { ...cookieBase, maxAge: SESSION_TTL_MS / 1000 })
-  res.cookies.set(SESSION_SEEN_COOKIE, String(now), { ...cookieBase, maxAge: SESSION_TTL_MS / 1000 })
 
   // Un único registro por sesión, y sólo si esto parece una navegación
   // real de una persona. Cubre a quien tenga JS desactivado o el beacon
   // bloqueado: se pierde el detalle por página, pero la sesión cuenta.
-  if (isNewSession && shouldBootstrap(req.headers, pathname)) {
+  // `anonId` puede faltar aquí: si esto no era una navegación real no se
+  // acuñó identidad a propósito, y sin identidad no hay nada que
+  // registrar. `esNavegacionReal` ya lo cubre, pero se comprueba también
+  // para que el tipo lo refleje.
+  if (isNewSession && esNavegacionReal && anonId) {
     const secret = process.env.TRACK_INTERNAL_SECRET
     if (secret) {
       const ua = req.headers.get('user-agent') ?? ''

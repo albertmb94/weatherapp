@@ -36,7 +36,7 @@ import { test, expect } from '@playwright/test'
  */
 const SLOTS = ['slot_uv', 'slot_rain', 'slot_sunset'] as const
 
-test('si hay catálogo, la portada muestra el enlace de afiliado', async ({ page, request }) => {
+test('@api si hay catálogo, la portada muestra el enlace de afiliado', async ({ page, request }) => {
   const productos = await Promise.all(
     SLOTS.map(async slot => {
       const r = await request.get(`/api/affiliates/serve?trigger=${slot}&locale=es`)

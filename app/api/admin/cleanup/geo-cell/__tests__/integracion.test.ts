@@ -12,7 +12,8 @@ import { db } from '@/lib/db'
 import { runMigrations } from '@/lib/migrations'
 import { getAdminMetrics } from '@/lib/analytics'
 import { dayStartMs } from '@/lib/analytics/time'
-import { POST } from '@/app/api/admin/cleanup/geo-null-island/route'
+import { NextRequest } from 'next/server'
+import { POST } from '@/app/api/admin/cleanup/geo-cell/route'
 
 /**
  * La limpieza corre contra la base de datos de PRODUCCIÓN, así que aquí
@@ -39,6 +40,13 @@ async function visita(anon: string, geo: string | null): Promise<void> {
   )
 }
 
+/** Petición a la ruta, opcionalmente con `?cell=`. */
+function pet(celda?: string): NextRequest {
+  const u = new URL('http://localhost:3000/api/admin/cleanup/geo-cell')
+  if (celda !== undefined) u.searchParams.set('cell', celda)
+  return new NextRequest(u)
+}
+
 describe('limpieza de Null Island contra SQLite real', () => {
   beforeAll(async () => {
     await runMigrations()
@@ -62,7 +70,7 @@ describe('limpieza de Null Island contra SQLite real', () => {
     const antes = await db.selectOrThrow<{ n: number }>('SELECT COUNT(*) AS n FROM page_views')
     expect(Number(antes[0].n)).toBe(4)
 
-    await POST()
+    await POST(pet())
 
     const despues = await db.selectOrThrow<{ n: number }>('SELECT COUNT(*) AS n FROM page_views')
     expect(Number(despues[0].n), 'no se borra ni una visita').toBe(4)
@@ -87,7 +95,7 @@ describe('limpieza de Null Island contra SQLite real', () => {
     const antes = await getAdminMetrics(30, NOW)
     expect(antes.ok).toBe(true)
 
-    await POST()
+    await POST(pet())
 
     const despues = await getAdminMetrics(30, NOW)
     expect(despues.ok).toBe(true)
@@ -123,7 +131,7 @@ describe('limpieza de Null Island contra SQLite real', () => {
       [CELDA],
     )
 
-    await POST()
+    await POST(pet())
 
     const zonas = await db.selectOrThrow<{ label: string }>(
       "SELECT label FROM daily_breakdowns WHERE dim = 'geo_cell'",
@@ -146,8 +154,8 @@ describe('limpieza de Null Island contra SQLite real', () => {
       [CELDA],
     )
 
-    const primera = await (await POST()).json()
-    const segunda = await (await POST()).json()
+    const primera = await (await POST(pet())).json()
+    const segunda = await (await POST(pet())).json()
 
     expect(primera.aplicado).toEqual({ pageViews: 1, breakdowns: 0, geoNames: 1 })
     expect(segunda.aplicado).toEqual({ pageViews: 0, breakdowns: 0, geoNames: 0 })

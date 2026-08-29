@@ -50,6 +50,9 @@ export async function GET(request: Request) {
       const records = await getModelAccuracy(lat, lon, terrain, metric, bucket)
       return NextResponse.json({ success: true, records, timestamp: new Date().toISOString() })
     } catch (err) {
+      // Se descartaba sin dejar rastro: un 500 aquí no daba ninguna pista
+      // de por qué. Al cliente se le sigue sin contar nada.
+      console.error('[backtest] accuracy falló:', err instanceof Error ? err.message : err)
       return NextResponse.json({ success: false, error: 'accuracy failed' }, { status: 500 })
     }
   }
@@ -61,5 +64,5 @@ export async function POST(request: Request) {
   if (!authed(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  return handleBacktestRequest(request)
+  return handleBacktestRequest()
 }

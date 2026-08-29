@@ -68,10 +68,17 @@ export async function POST(req: NextRequest) {
   const sessionToken = generateToken()
   const now = Date.now()
   try {
-    await db.execute(
+    // ESTRICTO, y el comentario de abajo sólo era cierto con esto:
+    // `db.execute` no lanza nunca, así que el catch era código muerto y
+    // un INSERT fallido dejaba poner la cookie igualmente. El resultado
+    // era un BUCLE DE LOGIN sin explicación: entras, te redirige a
+    // /admin, la sesión no valida por no tener fila, y vuelves al login.
+    await db.executeOrThrow(
       'INSERT OR REPLACE INTO admin_sessions (token, email, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
       [sessionToken, email, 'session', now + ADMIN_SESSION_TTL_MS, now],
     )
+    // El último acceso es informativo: que no se pueda anotar no debe
+    // impedir entrar, así que este sigue siendo permisivo a propósito.
     await db.execute('UPDATE admin_users SET last_login_at = ? WHERE email = ?', [now, email])
   } catch (err) {
     console.error('[admin] login: no se pudo registrar la sesión:', err instanceof Error ? err.message : err)

@@ -13,6 +13,7 @@ import Stripe from 'stripe'
 import { getFeature } from '@/lib/features'
 import { listPlans } from '@/lib/plans'
 import { appOrigin } from '@/lib/appUrl'
+import { rateLimit } from '@/lib/rateLimit'
 
 interface CheckoutPayload {
   email?: string
@@ -20,6 +21,16 @@ interface CheckoutPayload {
 }
 
 export async function POST(req: NextRequest) {
+  // CADA petición aquí crea una sesión en Stripe: sin tope, cualquiera
+  // puede generarlas en bucle. No es sólo ruido en el panel de Stripe —
+  // consume la cuota de la API de la cuenta, y el día que se agote deja
+  // de poder cobrar quien sí quería pagar. Una persona real pulsa
+  // "suscribirse" una vez, no diez por minuto.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!rateLimit(`checkout:${ip}`, 10)) {
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 })
+  }
+
   const stripeFlag = await getFeature('feature.stripe')
   const checkout = await getFeature('feature.premium_checkout')
   if (!stripeFlag.enabled || !checkout.enabled) {

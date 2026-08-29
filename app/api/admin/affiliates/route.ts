@@ -78,16 +78,24 @@ export async function POST(req: NextRequest) {
     if (cfg) affiliateUrl = buildAffiliateUrl({ asin, marketplace: 'amazon.es' }, cfg)
   } catch { /* fallback a URL limpia */ }
 
-  const id = await upsertAffiliateProduct({
-    trigger: body.trigger,
-    locale: body.locale,
-    asin,
-    title: body.title,
-    description: body.description ?? null,
-    priceLabel: body.priceLabel ?? null,
-    imageUrl: body.imageUrl ?? null,
-    affiliateUrl,
-    enabled: body.enabled ?? true,
-  })
-  return NextResponse.json({ ok: true, id, affiliateUrl })
+  try {
+    const id = await upsertAffiliateProduct({
+      trigger: body.trigger,
+      locale: body.locale,
+      asin,
+      title: body.title,
+      description: body.description ?? null,
+      priceLabel: body.priceLabel ?? null,
+      imageUrl: body.imageUrl ?? null,
+      affiliateUrl,
+      enabled: body.enabled ?? true,
+    })
+    return NextResponse.json({ ok: true, id, affiliateUrl })
+  } catch (err) {
+    // El upsert pasó a lanzar: antes tragaba el fallo y esta ruta
+    // respondía { ok: true, id } con el producto SIN crear — el clásico
+    // "lo he añadido y no sale".
+    console.error('[afiliados] alta/edición fallida:', err)
+    return NextResponse.json({ ok: false, error: 'save_failed' }, { status: 500 })
+  }
 }

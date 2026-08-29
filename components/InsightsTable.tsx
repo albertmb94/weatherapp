@@ -187,9 +187,6 @@ const STORAGE_KEY = 'insights-column-order'
 // consumers and so the smallest phones (iPhone SE at 320
 // px) get a tighter 36 px override via a second media
 // query. We resolve the var to a pixel value here only as a
-// fallback for older browsers that don't honour the
-// custom property on `<col style="...">`.
-const PORTRAIT_DATA_COL_PX = 46
 
 function loadColumnOrder(): MetricCellId[] {
   if (typeof window === 'undefined') return DEFAULT_ORDER
@@ -223,10 +220,7 @@ function saveColumnOrder(order: MetricCellId[]) {
 // export below re-exposes it under the legacy local name so the
 // remaining `cellInner` callers (which still live in this file) keep
 // working without renaming.
-// eslint-disable-next-line @typescript-eslint/no-redeclare
 const heatStyle = heatStyleFn
-
-const TRANSPARENT_STYLE: React.CSSProperties = { background: 'transparent' }
 
 function WindArrow({ degrees }: { degrees: number | null }) {
   if (degrees === null) return null
@@ -309,7 +303,7 @@ export interface CellResult {
   textClassName?: string
 }
 
-function cellData(id: MetricCellId, r: Row, bucket: BucketHours): CellResult {
+function cellData(id: MetricCellId, r: Row, _bucket: BucketHours): CellResult {
   // B-NEW-15 (2026-07-26): revert the 1-decimal per-hour
   // rendering the user introduced in B-NEW-9. The user
   // reports that with `decimals: 1` the temperature strings
@@ -928,6 +922,13 @@ export default function InsightsTable({
     }
 
     return buckets
+    // `ensembleMode` NO se usa directamente aquí: llega a través de
+    // `activeModels`. Se mantiene a propósito y no se quita para callar
+    // al linter — es una dependencia de MÁS, que como mucho recalcula de
+    // sobra, mientras que quitarla ataría la corrección de este memo a
+    // cómo esté memoizado otro. Una variable "sobrante" que en realidad
+    // sostenía una decisión ya costó una regresión en este repo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModels, models, activeModelIds, allModels, currentHourMode, ensembleMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, viewStartIndex, weekDays, selectedHour, dayFilter, nowMs, usageProfile, recommendedRef])
 
   const marineColIds = useMemo(
@@ -1761,7 +1762,7 @@ export default function InsightsTable({
                     : 'var(--when-col-w, 88px)',
                 }}
               />
-              {colDefs.map((col, idx) => (
+              {colDefs.map(col => (
                 <col
                   key={col.id}
                   data-col-id={col.id}

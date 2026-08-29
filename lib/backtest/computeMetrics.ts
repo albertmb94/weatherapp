@@ -72,7 +72,6 @@ export function computePrecipitationMetrics(
   let hits = 0
   let misses = 0
   let falseAlarms = 0
-  let correctNegatives = 0
 
   for (let i = 0; i < n; i++) {
     const err = predicted[i] - observed[i]
@@ -86,7 +85,7 @@ export function computePrecipitationMetrics(
     if (predRain && obsRain) hits++
     else if (!predRain && obsRain) misses++
     else if (predRain && !obsRain) falseAlarms++
-    else correctNegatives++
+    else { /* negativo correcto: no entra en POD/FAR/CSI */ }
   }
 
   const mae = sumAbsErr / n

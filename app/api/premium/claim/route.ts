@@ -6,6 +6,7 @@ import {
   entitlementTokenExists,
 } from '@/lib/entitlements'
 import { linkVisitorIdentity } from '@/lib/analytics'
+import { rateLimit } from '@/lib/rateLimit'
 
 /**
  * Claim de entitlement (B-NBT-10 / auditoría F1).
@@ -16,6 +17,15 @@ import { linkVisitorIdentity } from '@/lib/analytics'
  * Route Handler valida el token, fija la cookie y redirige.
  */
 export async function POST(req: NextRequest) {
+  // Sin tope, cada petición es una consulta a la base y un intento de
+  // adivinar un token de entitlement. El token es largo y adivinarlo no
+  // es viable, pero nada impedía usar esta ruta para machacar la base
+  // gratis. Quien reclama de verdad lo hace una vez.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!rateLimit(`claim:${ip}`, 10)) {
+    return NextResponse.redirect(new URL('/premium/claim?error=rate', req.url), 303)
+  }
+
   let token = ''
   try {
     const form = await req.formData()

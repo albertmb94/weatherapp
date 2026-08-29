@@ -92,7 +92,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ key:
       mergedConfig[k] = v
     }
 
-    await db.execute(
+    // ESTRICTO: con el permisivo, una escritura fallida devolvía
+    // { ok: true } y el panel mostraba la flag como guardada. Estas
+    // flags gobiernan Stripe, AdSense y Cookiebot: creer que has
+    // activado un cobro que no está activo es el peor fallo posible aquí.
+    await db.executeOrThrow(
       `INSERT INTO feature_flags (key, enabled, config, description, updated_at, updated_by)
        VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(key) DO UPDATE SET

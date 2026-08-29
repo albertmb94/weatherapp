@@ -31,7 +31,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     await renderTemplate(templateId, locale, sampleVars)
   } catch (err) {
-    return NextResponse.json({ ok: false, error: 'render_failed', message: String(err) }, { status: 400 })
+    // `String(err)` incluía el stack; se conserva el valor diagnóstico
+    // (el admin está editando esa plantilla y necesita saber qué falla)
+    // pero sólo el mensaje.
+    return NextResponse.json(
+      { ok: false, error: 'render_failed', message: err instanceof Error ? err.message : 'error' },
+      { status: 400 },
+    )
   }
   const send = await sendEmail({
     to: admin,

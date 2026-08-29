@@ -93,8 +93,7 @@ describe('AirConditionsGrid', () => {
     // with the value (e.g. "32 AQI · Aceptable") so the
     // tile is 2 lines tall, matching the other tiles.
     const { container } = renderGrid({ snapshot: baseSnapshot, europeanAqi: 32 })
-    const tiles = Array.from(container.querySelectorAll('section [aria-label="Métricas"], [aria-label="Métricas"]'))
-    // Fallback: just find the EU AQI block by its label.
+    // Se localiza el bloque de AQI por su etiqueta.
     const tile = Array.from(container.querySelectorAll('div, button')).find(el => {
       const txt = el.textContent ?? ''
       return txt.startsWith('Calidad del aire') && txt.includes('32')

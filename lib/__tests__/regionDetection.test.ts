@@ -43,7 +43,6 @@ describe('getRegionForLocation', () => {
 describe('selectModelsForLocation', () => {
   it('includes regional models for Europe', () => {
     const selected = selectModelsForLocation(MODELS, 41.39, 2.17) // Barcelona
-    const ids = selected.map(m => m.id)
     // Should include at least one European regional model
     const hasEuropeanRegional = selected.some(m => m.region === 'europe' && m.resolution && m.resolution <= 10)
     expect(hasEuropeanRegional).toBe(true)

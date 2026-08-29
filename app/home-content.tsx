@@ -36,7 +36,6 @@ import { useLocale } from '@/lib/LocaleContext'
 import { useTheme } from '@/lib/ThemeContext'
 import { STRINGS } from '@/lib/i18n'
 import { exportForecastCsv, downloadCsv } from '@/lib/exportCsv'
-import { formatLocationTime, formatLocationDate, formatUtcOffset } from '@/lib/dateUtils'
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { saveLocalLocation, getLocalSavedLocations } from '@/lib/localStorageLocations'
 import { useRefresh } from '@/lib/useRefresh'
@@ -228,9 +227,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // The user explicitly wants to see the table on first paint.
   const [advancedExpanded, setAdvancedExpanded] = useState(true)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
-  const mapSectionRef = useRef<HTMLElement>(null)
   const stationsSectionRef = useRef<HTMLElement>(null)
-  const scrollToMapRef = useRef(false)
   const scrollToStationsRef = useRef(false)
   const { locale, toggleLocale, setLocale } = useLocale()
   const { theme, cycleTheme } = useTheme()
@@ -804,10 +801,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     updateUrl({ lat, lon })
   }, [updateUrl])
 
-  const handleMetricChange = useCallback((id: MetricId) => {
-    updateUrl({ metric: id })
-  }, [updateUrl])
-
   const handleModelChange = useCallback((ids: string[]) => {
     updateUrl({ models: ids })
   }, [updateUrl])
@@ -1046,19 +1039,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     [effectiveData],
   )
 
-  const hourLabel = useMemo(() => {
-    const t = viewData?.time?.[selectedHour]
-    if (!(t instanceof Date)) return `+${selectedHour}h`
-    const hh = formatLocationTime(t, locale, { hour: '2-digit', minute: '2-digit', hour12: false })
-    const dd = formatLocationDate(t, locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
-    return `${dd} ${hh}`
-  }, [viewData, selectedHour, locale])
-
-  const utcOffsetLabel = useMemo(() => {
-    if (!effectiveData) return ''
-    return formatUtcOffset(effectiveData.utcOffsetSeconds)
-  }, [effectiveData])
-
   // Keep `selectedHour` inside the valid window for the current dataset
   // and model selection. Without this, switching to a 48-hour regional
   // model could leave the slider pointing past the new max and produce
@@ -1074,11 +1054,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     selectedModels,
     viewTimesLength: viewData?.time.length ?? 0,
   })
-
-  // After trimming, hour index 0 IS the current hour by construction.
-  const jumpToNow = useCallback(() => {
-    handleHourChange(0)
-  }, [handleHourChange])
 
   // S6.3: pull-to-refresh on the main content container. Disabled on
   // desktop (`pointer: coarse` only) and on `prefers-reduced-motion`
@@ -1501,7 +1476,8 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                     The previous `{false && …}` wrapper that preserved the
                     dead JSX has been deleted — `showMap`, `handleMapToggle`,
                     `mapSectionRef`, `scrollToMapRef` and the MapPicker import
-                    are all gone with it. The URL state still carries
+                    are all gone with it. (Los dos refs seguían declarados
+                    pese a lo que decía este comentario; retirados ya.) The URL state still carries
                     `showMap` and `view: 'map'` for backwards compat with
                     saved views, but no UI flips them on. */}
 

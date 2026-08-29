@@ -129,7 +129,6 @@ interface StationMapProps {
 }
 
 export default function StationMap({ stations, position = null }: StationMapProps) {
-  const hasStations = stations.length > 0
   // Mount the map already centred on the user's location at zoom 10 so
   // the first frame matches the Estaciones tab's "Near {city}" chip.
   // When the stations fetch returns, AutoFitBounds takes over and fits

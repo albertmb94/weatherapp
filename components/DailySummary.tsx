@@ -100,7 +100,7 @@ export default function DailySummary({
   activeDayStartIndex = null,
   maxHours,
   showMarine = false,
-  showBasic = true,
+  showBasic: _showBasic = true,
   utcOffsetSeconds = 0,
   startIndex = 0,
   ensembleMode = 'models',
@@ -119,7 +119,6 @@ export default function DailySummary({
 
   const days = useMemo<DayBucket[]>(() => {
     if (activeModels.length === 0 || times.length === 0) return []
-    const modelIds = activeModels.map(m => m.id)
 
     // Build per-metric, per-hour weight arrays using ensemble presets.
     // B-NBT-9b (2026-08-22): the preset lookup now runs on the
@@ -240,7 +239,18 @@ export default function DailySummary({
     }
 
     return buckets
-  }, [activeModels, times, series, maxHours, startIndex, locale, utcOffsetSeconds])
+    // `models` se usa dentro (wedaiModels) y faltaba aquí. Hoy no rompía
+    // porque `activeModels` se recalcula cuando cambia `models` y eso ya
+    // invalida el memo, pero eso es un detalle de otra función: si algún
+    // día `resolveActiveModels` devolviera la misma referencia, este memo
+    // se quedaría con la lista de modelos vieja sin que nada avisara.
+    //
+    // `utcOffsetSeconds` es una dependencia de MÁS (el linter lo señala
+    // al desaparecer el aviso anterior, que lo tapaba). Se mantiene: como
+    // mucho recalcula de sobra al cambiar de ciudad, que es justo cuando
+    // hay que recalcular de todas formas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeModels, models, times, series, maxHours, startIndex, locale, utcOffsetSeconds])
 
   if (days.length === 0) return null
 

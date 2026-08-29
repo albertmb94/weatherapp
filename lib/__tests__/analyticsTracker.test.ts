@@ -110,6 +110,37 @@ describe('buildPageviewPayload', () => {
     expect(p?.q).toEqual({ lat: 40.42, lon: -3.7 })
   })
 
+  // --- Null Island -------------------------------------------------------
+  //
+  // `Number(sp.get('lat'))` daba 0 cuando el parámetro no estaba, y
+  // `Number.isFinite(0)` es true, así que el guard lo aceptaba y grababa
+  // la celda 0.00,0.00: mitad del Atlántico. Como `useUrlState` omite
+  // lat/lon cuando son los de la ciudad por defecto, la mayoría de las
+  // visitas caían ahí y "océano Atlántico" acabó siendo la ubicación más
+  // consultada del panel.
+  it('sin contexto NI coordenadas en la URL no inventa la celda 0,0', () => {
+    const p = buildPageviewPayload({ ...base, href: `${ORIGIN}/`, ctx: {} })
+    expect(p?.q).toBeUndefined()
+  })
+
+  it('una URL con query pero sin coordenadas tampoco cae en Null Island', () => {
+    const p = buildPageviewPayload({ ...base, href: `${ORIGIN}/?view=map&hour=13`, ctx: {} })
+    expect(p?.q).toBeUndefined()
+  })
+
+  it('coordenadas vacías o a medias se descartan enteras', () => {
+    expect(buildPageviewPayload({ ...base, href: `${ORIGIN}/?lat=&lon=`, ctx: {} })?.q).toBeUndefined()
+    // Sólo una de las dos: sin la otra no hay celda que valga.
+    expect(buildPageviewPayload({ ...base, href: `${ORIGIN}/?lat=41.45`, ctx: {} })?.q).toBeUndefined()
+    expect(buildPageviewPayload({ ...base, href: `${ORIGIN}/?lon=2.25`, ctx: {} })?.q).toBeUndefined()
+  })
+
+  it('un 0,0 EXPLÍCITO en la URL sí se respeta: es una coordenada legítima', () => {
+    // El arreglo distingue "ausente" de "cero"; no prohíbe el cero.
+    const p = buildPageviewPayload({ ...base, href: `${ORIGIN}/?lat=0&lon=0`, ctx: {} })
+    expect(p?.q).toEqual({ lat: 0, lon: 0 })
+  })
+
   it('guarda SÓLO el pathname, nunca el query string', () => {
     const p = buildPageviewPayload({
       ...base,

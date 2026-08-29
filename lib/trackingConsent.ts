@@ -29,6 +29,34 @@ export const CONSENT_COOKIE = 'wthr_consent'
 export const CONSENT_STORAGE_KEY = 'wthr_consent'
 export const CONSENT_STORAGE_TS_KEY = 'wthr_consent_ts'
 
+/**
+ * Se emite en `window` cada vez que se escribe la elección.
+ *
+ * POR QUÉ HACE FALTA
+ *
+ * `AnalyticsTracker` comprueba el consentimiento en CADA emisión, y su
+ * comentario decía que así alguien puede aceptar «sin recargar». Era
+ * verdad a medias: la comprobación estaba, pero no había nada que
+ * DISPARARA una emisión al aceptar. El tracker sólo emite al montar, al
+ * cambiar la URL y al volver del bfcache. Secuencia real de un visitante
+ * nuevo:
+ *
+ *   1. monta el tracker → sin permiso → no emite (y `lastKey` sigue null)
+ *   2. la persona pulsa «Aceptar» → se escribe la cookie → nadie escucha
+ *   3. se va → NUNCA se contó
+ *
+ * En una app que se usa en una sola carga de página, eso es casi todo el
+ * mundo: sólo quedaban registrados los que aceptaban y ADEMÁS volvían a
+ * cargar el documento. El panel mostraba un puñado de dispositivos con
+ * muchísimas más visitas reales.
+ *
+ * El evento se emite desde `writeConsentCookie`, que es el serializador
+ * único por el que pasan los tres escritores (banner propio, ConsentSync
+ * de Cookiebot y el centro de preferencias), así que ninguno puede
+ * olvidarse de avisar.
+ */
+export const CONSENT_CHANGE_EVENT = 'wthr:consent-change'
+
 export type ConsentValue = 'granted' | 'rejected'
 
 /**
@@ -111,6 +139,13 @@ export function writeConsentCookie(value: ConsentValue): void {
     document.cookie = `${CONSENT_COOKIE}=${value};max-age=${opts.maxAge};path=${opts.path};samesite=${opts.sameSite}`
   } catch {
     /* ignore */
+  }
+  // Avisar del cambio es lo que convierte "aceptar" en una visita
+  // contada. Ver CONSENT_CHANGE_EVENT.
+  try {
+    window.dispatchEvent(new CustomEvent(CONSENT_CHANGE_EVENT, { detail: value }))
+  } catch {
+    /* sin DOM (SSR) o CustomEvent no disponible */
   }
 }
 

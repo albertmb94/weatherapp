@@ -28,8 +28,15 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const lat = Number(searchParams.get('lat'))
-  const lon = Number(searchParams.get('lon'))
+  // AUSENTE no es CERO. `Number(null)` es 0 y 0,0 es una coordenada
+  // perfectamente válida (Null Island, en el Atlántico), así que una
+  // llamada SIN coordenadas no daba 400: devolvía alegremente "océano
+  // Atlántico". Así es como ese nombre acabó siendo la ubicación más
+  // consultada en el panel de métricas.
+  const rawLat = searchParams.get('lat')
+  const rawLon = searchParams.get('lon')
+  const lat = rawLat === null || rawLat.trim() === '' ? NaN : Number(rawLat)
+  const lon = rawLon === null || rawLon.trim() === '' ? NaN : Number(rawLon)
   const locale = searchParams.get('locale') === 'en' ? 'en' : 'es'
 
   if (!Number.isFinite(lat) || lat < -90 || lat > 90) {

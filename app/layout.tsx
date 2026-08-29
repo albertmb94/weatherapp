@@ -8,6 +8,7 @@ import ConsentBanner from "@/components/ConsentBanner";
 import ConsentSync from "@/components/ConsentSync";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 import { getFeature } from "@/lib/features";
+import { CONSENT_CHANGE_EVENT } from "@/lib/trackingConsent";
 import { appOrigin } from "@/lib/appUrl";
 import { headers } from "next/headers";
 import { DEFAULT_LOCALE, LOCALE_HEADER, isLocale } from "@/lib/locale/routing";
@@ -143,11 +144,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             caché del SW, deploy a medias, error de JS), los botones
             Aceptar/Rechazar siguen funcionando: este delegador en fase
             de captura persiste la elección y elimina el diálogo. Es
-            idempotente con el handler de React. */}
+            idempotente con el handler de React.
+
+            EMITE `wthr:consent-change` IGUAL QUE writeConsentCookie, y no
+            es un detalle: el banner es visible desde el HTML del
+            servidor, así que en un móvil lento se puede pulsar ANTES de
+            que ConsentBanner hidrate. En ese caso sólo corre este
+            delegador; si no avisara, el tracker —ya montado— nunca se
+            enteraría de que ahora hay permiso y la visita se perdería.
+            Es justo el escenario para el que existe la red de seguridad,
+            y sin esta línea la red dejaba pasar la mitad del trabajo. */}
         {!cookiebot.enabled ? (
           <script
             dangerouslySetInnerHTML={{
-              __html: `document.addEventListener('click',function(e){var t=e.target;if(!t||!t.closest)return;var b=t.closest('[data-consent-choice]');if(!b)return;var v=b.getAttribute('data-consent-choice')==='accept'?'granted':'rejected';try{localStorage.setItem('wthr_consent',v);localStorage.setItem('wthr_consent_ts',String(Date.now()))}catch(_){}document.cookie='wthr_consent='+v+';max-age=31536000;path=/;samesite=lax';var d=b.closest('[data-consent-dialog]');if(d)d.style.display='none'},true);`,
+              __html: `document.addEventListener('click',function(e){var t=e.target;if(!t||!t.closest)return;var b=t.closest('[data-consent-choice]');if(!b)return;var v=b.getAttribute('data-consent-choice')==='accept'?'granted':'rejected';try{localStorage.setItem('wthr_consent',v);localStorage.setItem('wthr_consent_ts',String(Date.now()))}catch(_){}document.cookie='wthr_consent='+v+';max-age=31536000;path=/;samesite=lax';try{window.dispatchEvent(new CustomEvent('${CONSENT_CHANGE_EVENT}',{detail:v}))}catch(_){}var d=b.closest('[data-consent-dialog]');if(d)d.style.display='none'},true);`,
             }}
           />
         ) : null}

@@ -94,6 +94,27 @@ export function resetTrackingContext(): void {
 
 /** Celda geográfica de ~1 km. Mismo formato que usaba la ruta anterior
  *  para no partir el histórico de `page_views.geo_cell`. */
+/**
+ * Lee un número de un parámetro de query, distinguiendo AUSENTE de CERO.
+ *
+ * `Number(sp.get('lat'))` parece correcto y no lo es: `sp.get()` devuelve
+ * `null` cuando el parámetro no está, `Number(null)` es `0`, y
+ * `Number.isFinite(0)` es `true`. El guard lo daba por válido y grababa
+ * la celda `0.00,0.00` — Null Island, en mitad del Atlántico.
+ *
+ * No era un caso raro: `useUrlState` OMITE `lat`/`lon` de la URL cuando
+ * coinciden con la ubicación por defecto, así que la mayoría de las
+ * visitas no los llevan. En el panel, "océano Atlántico" acabó siendo la
+ * ciudad más consultada del sitio.
+ *
+ * `Number('')` también es 0, así que la cadena vacía se descarta igual.
+ */
+function numeroDeParam(raw: string | null): number | null {
+  if (raw === null || raw.trim() === '') return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
+}
+
 export function geoCellFrom(lat: number | undefined, lon: number | undefined): string | null {
   if (typeof lat !== 'number' || typeof lon !== 'number') return null
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
@@ -166,9 +187,9 @@ export function buildPageviewPayload(args: {
   let lat = args.ctx.lat
   let lon = args.ctx.lon
   if (typeof lat !== 'number' || typeof lon !== 'number') {
-    const uLat = Number(sp.get('lat'))
-    const uLon = Number(sp.get('lon'))
-    if (Number.isFinite(uLat) && Number.isFinite(uLon)) {
+    const uLat = numeroDeParam(sp.get('lat'))
+    const uLon = numeroDeParam(sp.get('lon'))
+    if (uLat !== null && uLon !== null) {
       lat = uLat
       lon = uLon
     }

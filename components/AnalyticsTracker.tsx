@@ -12,7 +12,7 @@ import {
   shouldEmit,
   trackedKey,
 } from '@/lib/analytics/tracker'
-import { readConsentFromBrowser } from '@/lib/trackingConsent'
+import { CONSENT_CHANGE_EVENT, readConsentFromBrowser } from '@/lib/trackingConsent'
 
 /**
  * Emite un pageview al montar y en cada cambio de URL de la SPA.
@@ -82,6 +82,25 @@ export default function AnalyticsTracker() {
     }
     window.addEventListener('pageshow', onPageShow)
 
+    // Aceptar el consentimiento ES el momento en que empieza a poder
+    // contarse la visita. Sin esto, quien aceptaba y se iba sin volver a
+    // cargar el documento no aparecía JAMÁS: el `emit()` del montaje ya
+    // había salido de vacío por falta de permiso y nada volvía a
+    // intentarlo. Ver CONSENT_CHANGE_EVENT en lib/trackingConsent.ts.
+    //
+    // NO se reinicia `lastKey`: `emit()` sale por falta de permiso ANTES
+    // de registrar clave, así que tras un intento fallido sigue en null y
+    // esta emisión ya cuenta como la primera. Reiniciarlo saltaba el
+    // dedupe y duplicaba la visita cada vez que alguien reafirmaba su
+    // elección — el centro de preferencias al volver a guardar, o
+    // Cookiebot disparando OnConsentReady y OnAccept por una sola
+    // decisión.
+    const onConsentChange = (): void => {
+      if (readConsentFromBrowser() !== 'granted') return
+      emit()
+    }
+    window.addEventListener(CONSENT_CHANGE_EVENT, onConsentChange)
+
     // Al ocultar la pestaña se cierra la medida de tiempo en página. Se
     // usa `visibilitychange` y no `unload`, que los navegadores modernos
     // no garantizan (y rompe el bfcache).
@@ -95,6 +114,7 @@ export default function AnalyticsTracker() {
       if (timer.current) clearTimeout(timer.current)
       window.removeEventListener(URL_CHANGE_EVENT, schedule)
       window.removeEventListener('pageshow', onPageShow)
+      window.removeEventListener(CONSENT_CHANGE_EVENT, onConsentChange)
       document.removeEventListener('visibilitychange', onHide)
     }
   }, [])

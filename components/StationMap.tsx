@@ -144,9 +144,36 @@ export default function StationMap({ stations, position = null }: StationMapProp
       zoomControl={true}
       scrollWheelZoom={true}
     >
+      {/* TESELAS DE OPENSTREETMAP, sin clave de API.
+          
+          Antes se usaba el estilo `dark_all` de CARTO
+          (basemaps.cartocdn.com). CARTO cambió sus condiciones y esa
+          ruta pasó a exigir clave: el mapa seguía cargando, pero con una
+          marca de agua "API KEY REQUIRED" encima. No es algo que se
+          pueda parchear desde aquí — o se paga una clave, o se cambia de
+          proveedor.
+
+          OSM es el único proveedor serio que sirve teselas sin registro
+          ni clave. La ATRIBUCIÓN DE ABAJO ES OBLIGATORIA, no decorativa:
+          los datos son ODbL y usarlos sin acreditar incumple la licencia.
+
+          Su política de uso permite tráfico moderado de aplicaciones
+          reales, pero prohíbe el uso masivo sin caché propia. Si este
+          mapa llega a mucho volumen habrá que poner delante un proxy con
+          caché, o pasar a un proveedor de pago; no es el caso hoy.
+
+          `{s}` (subdominios) y `{r}` (retina) se retiran a propósito:
+          OSM sirve desde un único host tras CDN y no ofrece @2x, así que
+          dejarlos generaba peticiones a hosts que ya no existen.
+
+          El estilo es CLARO. El aspecto oscuro se consigue con un filtro
+          CSS sobre el panel de teselas (app/globals.css), atado a la
+          misma clase `html.light` que usa el resto de la app, así que
+          sigue el tema sin JavaScript ni un segundo proveedor. */}
       <TileLayer
-        attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        maxZoom={19}
       />
       <AutoFitBounds stations={stations} position={position} />
       {stations.map(s => (

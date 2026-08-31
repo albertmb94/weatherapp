@@ -300,6 +300,31 @@ html.light {
   z-index: 1;
 }
 
+/* MAPA OSCURO SIN SEGUNDO PROVEEDOR.
+   
+   Las teselas de OpenStreetMap sólo existen en estilo claro. En vez de
+   depender de un proveedor con estilo oscuro (que es justo lo que se
+   rompió: CARTO empezó a exigir clave y el mapa salió con una marca de
+   agua "API KEY REQUIRED"), se invierte el panel de teselas por CSS.
+
+   El filtro se aplica SÓLO a `.leaflet-tile-pane`: los marcadores, los
+   popups y los controles viven en otros paneles y conservan sus colores
+   — invertirlos dejaría los chinchetas de estaciones en negativo.
+
+   Dark por defecto y `html.light` lo desactiva, que es la misma
+   convención que el resto de globals.css. */
+.leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.75);
+}
+
+html.light .leaflet-tile-pane {
+  filter: none;
+}
+
+html.light .leaflet-container {
+  background: #e8e8ec;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }

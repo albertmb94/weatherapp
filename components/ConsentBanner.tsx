@@ -74,6 +74,14 @@ function readStoredChoice(): 'accept' | 'reject' | null {
   return null
 }
 
+/**
+ * Rutas que se pueden leer SIN haber aceptado.
+ *
+ * Sin esto, el enlace a la política de cookies del propio diálogo llevaba
+ * a una página tapada por el mismo diálogo.
+ */
+const RUTAS_EXENTAS = ['/cookies', '/privacy', '/terms', '/affiliate-disclosure']
+
 /** Session-lifetime guard: once answered IN THIS DOCUMENT the banner
  *  must never remount, even if localStorage is blocked (quota/private
  *  mode) — previously that made the banner immortal within the SPA. */
@@ -96,7 +104,22 @@ export default function ConsentBanner() {
   const locale = splitLocale(pathname ?? '/').locale ?? DEFAULT_LOCALE
 
   // `show` se deriva durante render (solo se lee storage en cliente).
-  const show = isMounted && !submitted && readStoredChoice() === null && !answeredInSession
+  // PÁGINAS LEGALES EXENTAS, y no es una concesión: el propio diálogo
+  // enlaza la política de cookies, y con el modal tapando todo no se
+  // podría leer antes de decidir. Un consentimiento que no se puede
+  // informar no vale, así que estas rutas se ven sin responder.
+  const { rest } = splitLocale(pathname ?? '/')
+  const esPaginaLegal = RUTAS_EXENTAS.some(r => rest === r || rest.startsWith(r + '/'))
+
+  // SÓLO 'accept' CIERRA. Decisión de producto: el acceso a los datos
+  // exige aceptar. Ojo a la diferencia con la versión anterior: no basta
+  // con haber RESPONDIDO, hace falta haber ACEPTADO. Si bastara con
+  // responder, rechazar una vez sería una puerta trasera —seguirías
+  // navegando sin aceptar y sin volver a ver el diálogo— y el muro no
+  // sería tal. Quien retire el consentimiento desde /cookies vuelve a
+  // encontrárselo, que es la consecuencia coherente.
+  const show =
+    isMounted && !esPaginaLegal && !submitted && readStoredChoice() !== 'accept' && !answeredInSession
 
   // Impresión del banner. Se cuenta DESDE AQUÍ y no desde el layout a
   // propósito: así impresión y respuesta se registran —o se pierden—
@@ -148,24 +171,29 @@ export default function ConsentBanner() {
       aria-label="Consentimiento de cookies"
       className="w-full max-w-sm rounded-2xl border border-border bg-surface-raised p-4 shadow-2xl"
     >
-      <p className="text-xs text-text-secondary">
-        Usamos cookies para recordar tus preferencias y, con tu consentimiento, mostrar anuncios y medir uso agregado.
-        Consulta la <a href={localizedHref('/cookies', locale)} className="text-accent hover:underline">política de cookies</a>.
+      <p className="text-sm font-medium text-text-primary">Antes de continuar</p>
+      <p className="text-xs text-text-secondary mt-1.5">
+        Para acceder a la aplicación es necesario aceptar el uso de cookies: recordamos tus
+        preferencias y medimos el uso de forma agregada. Puedes retirar tu consentimiento en
+        cualquier momento desde la{' '}
+        <a href={localizedHref('/cookies', locale)} className="text-accent hover:underline">
+          política de cookies
+        </a>
+        .
       </p>
-      <div className="flex gap-2 mt-2">
+      {/* UN SOLO BOTÓN. Mientras "Rechazar" no cerrara el diálogo, tenerlo
+          ahí sería peor que no tenerlo: una salida que no lleva a ninguna
+          parte. Quien no quiera aceptar puede cerrar la pestaña, y quien
+          acepte y se arrepienta puede retirarlo desde la política de
+          cookies, enlazada arriba (el RGPD exige que retirar sea tan
+          fácil como otorgar). */}
+      <div className="mt-3">
         <button
           data-consent-choice="accept"
           onClick={() => persist('accept')}
-          className="flex-1 py-1.5 rounded bg-accent text-white text-xs font-medium"
+          className="w-full py-2 rounded bg-accent text-white text-sm font-medium"
         >
-          Aceptar
-        </button>
-        <button
-          data-consent-choice="reject"
-          onClick={() => persist('reject')}
-          className="flex-1 py-1.5 rounded border border-border text-xs text-text-secondary"
-        >
-          Rechazar
+          Aceptar y continuar
         </button>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import TrackingSelfCheck from '@/components/admin/TrackingSelfCheck'
 
 interface HealthCheck {
   ok: boolean
@@ -189,6 +190,7 @@ export default function HealthPage() {
           )}
         </section>
       )}
+      <TrackingSelfCheck />
       {/* Retirar cualquier otra celda del desglose de ciudades: tráfico de
           pruebas, bots, o una zona que no representa visitas reales. La
           visita NO se borra, sólo pierde la ubicación. */}

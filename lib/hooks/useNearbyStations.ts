@@ -26,22 +26,31 @@ import {
   type StationObservation,
 } from '@/lib/nowcast'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
+import {
+  MINIMO_ESTACIONES,
+  RADIO_ESTACIONES_KM,
+  seleccionarEstaciones,
+} from '@/lib/stations/seleccion'
 
 interface UseNearbyStationsArgs {
   lat: number
   lon: number
-  /** km search radius. B-NBT-9b (2026-08-22): default is now 10 km,
-   *  matching StationDashboard's mobile/desktop default — the old 5 km
-   *  default silently excluded the nearest station for cities like
-   *  Badalona, so the nowcast blend never fired while the Estaciones
-   *  tab showed stations fine. Single source of truth: StationDashboard
-   *  imports THIS constant. */
+  /** Radio en km. Ver `lib/stations/seleccion.ts`: por debajo del
+   *  mínimo por conteo se devuelven igualmente las N más cercanas, así
+   *  que un radio ajustado ya no deja sin estación a ciudades como
+   *  Badalona — que fue el motivo de subirlo a 10 km en su día. */
   radius?: number
+  /** Mínimo de estaciones aunque el radio no alcance. */
+  minCount?: number
   /** Disable fetching (e.g. when lat/lon are outside reasonable bounds). */
   enabled?: boolean
 }
 
-export const NEARBY_STATIONS_DEFAULT_RADIUS_KM = 10
+// El radio y el mínimo viven en lib/stations/seleccion.ts: los comparten
+// el cliente y las dos rutas de API, para que "cerca" no signifique una
+// cosa distinta en cada sitio.
+export const NEARBY_STATIONS_DEFAULT_RADIUS_KM = RADIO_ESTACIONES_KM
+export const NEARBY_STATIONS_DEFAULT_MIN_COUNT = MINIMO_ESTACIONES
 
 const STATION_RETRY_COUNT = 2
 const STATION_RETRY_DELAY_MS = 1000
@@ -50,10 +59,15 @@ async function fetchAemetStations(
   lat: number,
   lon: number,
   radius: number,
+  minCount: number,
   signal: AbortSignal,
 ): Promise<MeteoclimaticObservation[]> {
+  // Se pide YA el conjunto final (radio + mínimo por conteo). El servidor
+  // devuelve un puñado de estaciones ordenadas por distancia en vez de la
+  // red entera para que el cliente recorte: eso es lo que hace la
+  // petición óptima, no filtrar después.
   const res = await fetch(
-    `/api/aemet?lat=${lat}&lon=${lon}&radius=${radius}`,
+    `/api/aemet?lat=${lat}&lon=${lon}&radius=${radius}&minCount=${minCount}`,
     { signal },
   )
   if (!res.ok) return []
@@ -66,10 +80,11 @@ async function fetchMeteocatStations(
   lat: number,
   lon: number,
   radius: number,
+  minCount: number,
   signal: AbortSignal,
 ): Promise<MeteoclimaticObservation[]> {
   const res = await fetch(
-    `/api/meteocat?lat=${lat}&lon=${lon}&radius=${radius}`,
+    `/api/meteocat?lat=${lat}&lon=${lon}&radius=${radius}&minCount=${minCount}`,
     { signal },
   )
   if (!res.ok) return []
@@ -90,6 +105,7 @@ export function useNearbyStations({
   lat,
   lon,
   radius = NEARBY_STATIONS_DEFAULT_RADIUS_KM,
+  minCount = NEARBY_STATIONS_DEFAULT_MIN_COUNT,
   enabled = true,
 }: UseNearbyStationsArgs): StationObservation[] {
   // Round to ~1 km so the query key is stable when the user
@@ -99,11 +115,11 @@ export function useNearbyStations({
   const posKey = `${Math.round(lat * 100) / 100},${Math.round(lon * 100) / 100}`
 
   return useQuery<StationObservation[]>({
-    queryKey: ['nearby-stations', posKey, radius],
+    queryKey: ['nearby-stations', posKey, radius, minCount],
     queryFn: async ({ signal }) => {
       const [aemet, meteocat] = await Promise.all([
-        fetchAemetStations(lat, lon, radius, signal),
-        fetchMeteocatStations(lat, lon, radius, signal),
+        fetchAemetStations(lat, lon, radius, minCount, signal),
+        fetchMeteocatStations(lat, lon, radius, minCount, signal),
       ])
       const byCell = new Map<string, StationObservation>()
       // AEMET wins ties — it has the freshest timestamps.
@@ -119,7 +135,14 @@ export function useNearbyStations({
         const key = cellKey(obs.lat, obs.lon)
         if (!byCell.has(key)) byCell.set(key, obs)
       }
-      return [...byCell.values()]
+      // Cada red aplica la regla por su cuenta, así que la unión puede
+      // traer más de `minCount`. Se vuelve a aplicar sobre el conjunto
+      // fusionado para que la lista final signifique exactamente lo
+      // mismo que promete: dentro del radio, o las N más cercanas.
+      return seleccionarEstaciones([...byCell.values()], [lat, lon], {
+        radiusKm: radius,
+        minCount,
+      })
     },
     enabled,
     // 5 min: stations are usually refreshed by their providers on

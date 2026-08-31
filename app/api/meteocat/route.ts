@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { fetchMeteocatStations } from '@/lib/meteocat'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
 import { haversineKm } from '@/lib/geoDistance'
+import { parametrosSeleccion, seleccionarEstaciones } from '@/lib/stations/seleccion'
 import { rateLimit } from '@/lib/rateLimit'
 import {
   getFreshCachedStations,
@@ -27,18 +28,24 @@ const CACHE_HEADERS = {
 let memo: { at: number; stations: MeteoclimaticObservation[] } | null = null
 const MEMO_TTL_MS = 25 * 60 * 1000
 
-function filterByRadius(stations: MeteoclimaticObservation[], lat: number, lon: number, radius: number): MeteoclimaticObservation[] {
-  const center: [number, number] = [lat, lon]
-  const margin = radius / 111
-  const latMin = lat - margin
-  const latMax = lat + margin
-  const lonMin = lon - margin
-  const lonMax = lon + margin
-  return stations.filter(s => {
-    if (s.lat < latMin || s.lat > latMax || s.lon < lonMin || s.lon > lonMax) return false
-    return haversineKm([s.lat, s.lon], center) <= radius
+/**
+ * Selección por cercanía: dentro del radio, o las N más cercanas si el
+ * radio no alcanza el mínimo. Delega en la función compartida para que
+ * "cerca" signifique lo mismo aquí, en /api/aemet y en el cliente.
+ *
+ * XEMA no permite consultar por radio —devuelve la red entera— y encima
+ * tiene cuota MENSUAL, así que la descarga completa se cachea y el
+ * recorte se hace aquí. Al cliente no se le manda nunca la red entera.
+ */
+function filterByRadius(stations: MeteoclimaticObservation[], lat: number, lon: number, radius: number, minCount: number): MeteoclimaticObservation[] {
+  return seleccionarEstaciones(stations, [lat, lon], {
+    radiusKm: radius,
+    minCount,
+    idDe: s => s.code,
+    frescuraDe: s => Date.parse(s.updatedAt),
   })
 }
+
 
 export async function GET(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
@@ -59,7 +66,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const lat = searchParams.get('lat')
   const lon = searchParams.get('lon')
-  const radius = Number(searchParams.get('radius') ?? '100')
+  const { radiusKm: radius, minCount } = parametrosSeleccion(searchParams)
 
   // Sprint 10 / B-10-5 (E5): consult the shared Turso cache first so a
   // cold lambda in serverless deployments doesn't burn the monthly
@@ -79,7 +86,7 @@ export async function GET(request: Request) {
   if (stations) {
     const filtered =
       lat && lon
-        ? filterByRadius(stations, Number(lat), Number(lon), radius)
+        ? filterByRadius(stations, Number(lat), Number(lon), radius, minCount)
         : stations
     return NextResponse.json(
       {
@@ -99,7 +106,7 @@ export async function GET(request: Request) {
     })
     let filtered = allStations
     if (lat && lon) {
-      filtered = filterByRadius(filtered, Number(lat), Number(lon), radius)
+      filtered = filterByRadius(filtered, Number(lat), Number(lon), radius, minCount)
     }
     return NextResponse.json(
       { stations: filtered, fetchedAt: new Date().toISOString() },
@@ -115,7 +122,7 @@ export async function GET(request: Request) {
       if (staleStations) {
         const filtered =
           lat && lon
-            ? filterByRadius(staleStations, Number(lat), Number(lon), radius)
+            ? filterByRadius(staleStations, Number(lat), Number(lon), radius, minCount)
             : staleStations
         return NextResponse.json(
           {
@@ -130,7 +137,7 @@ export async function GET(request: Request) {
     if (memo) {
       let filtered = memo.stations
       if (lat && lon) {
-        filtered = filterByRadius(filtered, Number(lat), Number(lon), radius)
+        filtered = filterByRadius(filtered, Number(lat), Number(lon), radius, minCount)
       }
       return NextResponse.json(
         { stations: filtered, fetchedAt: new Date(memo.at).toISOString(), stale: true },

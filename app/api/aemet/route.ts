@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchAemetStations, getStaleAemetStations, type AemetRaw } from '@/lib/aemet'
-import { haversineKm } from '@/lib/geoDistance'
+import { parametrosSeleccion, seleccionarEstaciones } from '@/lib/stations/seleccion'
 import { rateLimit } from '@/lib/rateLimit'
 import {
   getFreshCachedStations,
@@ -25,11 +25,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const lat = searchParams.get('lat')
   const lon = searchParams.get('lon')
-  // AUDITORIA: `radius` no se validaba, asi que `?radius=1e9` devolvia
-  // las ~900 estaciones de golpe en cada peticion. Se acota a un rango
-  // razonable y NaN cae al valor por defecto.
-  const radiusRaw = Number(searchParams.get('radius') ?? '100')
-  const radius = Number.isFinite(radiusRaw) ? Math.min(Math.max(radiusRaw, 1), 500) : 100
+  // El acotado (antes `?radius=1e9` devolvía las ~900 estaciones de
+  // golpe) vive ahora en `parametrosSeleccion`, junto con el mínimo por
+  // conteo, para que las dos rutas de estaciones lo hagan igual.
+  const { radiusKm: radius, minCount } = parametrosSeleccion(searchParams)
 
   // Sprint 10 / B-10-5 (E6): consult the shared Turso cache first so a
   // cold lambda in serverless deployments doesn't burn the upstream
@@ -76,23 +75,29 @@ export async function GET(request: Request) {
     }
   }
 
-  // Server-side geographic filtering: when lat/lon are provided, only return
-  // stations within the requested radius. This dramatically reduces the
-  // payload from ~900 stations to ~20-50, and offloads client-side filtering.
-  let filtered = stations
-  if (lat && lon) {
-    const center: [number, number] = [Number(lat), Number(lon)]
-    // Pre-filter with a cheap bounding-box check before the more expensive haversine
-    const margin = radius / 111 // rough km-to-degrees conversion
-    const latMin = center[0] - margin
-    const latMax = center[0] + margin
-    const lonMin = center[1] - margin
-    const lonMax = center[1] + margin
-    filtered = stations.filter(s => {
-      if (s.lat < latMin || s.lat > latMax || s.lon < lonMin || s.lon > lonMax) return false
-      return haversineKm([s.lat, s.lon], center) <= radius
-    })
-  }
+  // Selección por cercanía EN EL SERVIDOR: dentro del radio, o las N más
+  // cercanas si el radio no alcanza el mínimo. Al cliente se le manda ya
+  // el conjunto final —un puñado de estaciones, no las ~900— y ordenado
+  // por distancia, que es lo que espera el nowcast.
+  //
+  // La descarga completa desde AEMET es inevitable: su API no admite
+  // consulta por radio. Por eso se cachea el volcado entero y el recorte
+  // se hace aquí; pedirlo por radio en cada petición sería PEOR, no
+  // mejor, porque multiplicaría las llamadas contra su cuota.
+  const filtered =
+    lat && lon
+      ? seleccionarEstaciones(stations, [Number(lat), Number(lon)], {
+          radiusKm: radius,
+          minCount,
+          // AEMET publica UNA OBSERVACIÓN POR HORA por estación, así que
+          // sin colapsar por `idema` "las 5 más cercanas" devolvía 5
+          // lecturas del mismo sitio en vez de 5 estaciones. Y llegan en
+          // orden ascendente: quedarse con la primera era quedarse con la
+          // MÁS ANTIGUA.
+          idDe: s => s.idema,
+          frescuraDe: s => Date.parse(s.fint),
+        })
+      : stations
 
   return NextResponse.json(
     {

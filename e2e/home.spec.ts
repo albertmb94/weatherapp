@@ -1,11 +1,34 @@
 import { test, expect } from '@playwright/test'
 
+/**
+ * Responde al consentimiento antes de tocar la interfaz.
+ *
+ * El banner es un diálogo MODAL que bloquea la página hasta que se
+ * responde (decisión de producto: sin respuesta no se accede a los
+ * datos). Estos tests no van del consentimiento, así que se deja
+ * respondido de antemano —RECHAZANDO, para no encender el seguimiento y
+ * ensuciar la analítica de las pruebas—. El propio banner tiene sus
+ * tests en e2e/consentimiento.spec.ts y components/__tests__.
+ */
+async function sinBanner(context: import('@playwright/test').BrowserContext) {
+  await context.addCookies([
+    {
+      name: 'wthr_consent',
+      value: 'rejected',
+      domain: 'localhost',
+      path: '/',
+    },
+  ])
+}
+
+
 // B-NBT-4 (2026-08-22): the old specs waited for a "Multi-model
 // comparison" heading that was renamed to "Insights" (insightsTitle)
 // several sprints ago, so they had been failing ever since. They now
 // pin the current UI and cover the model selector end-to-end.
 
-test('home renders with the city search input', async ({ page }) => {
+test('home renders with the city search input', async ({ page, context }) => {
+  await sinBanner(context)
   await page.goto('/')
   // Mobile + desktop headers each render a search input; role locators
   // only match the accessibility tree, i.e. the visible one.
@@ -14,13 +37,15 @@ test('home renders with the city search input', async ({ page }) => {
   await expect(page.getByTestId('insights-table')).toBeVisible({ timeout: 20_000 })
 })
 
-test('URL search params drive the forecast view', async ({ page }) => {
+test('URL search params drive the forecast view', async ({ page, context }) => {
+  await sinBanner(context)
   await page.goto('/?lat=41.45&lon=2.2475&metric=temperature&range=24')
   await expect(page).toHaveURL(/lat=41\.45/)
   await expect(page).toHaveURL(/metric=temperature/)
 })
 
-test('invalid metric in URL is ignored (no crash)', async ({ page }) => {
+test('invalid metric in URL is ignored (no crash)', async ({ page, context }) => {
+  await sinBanner(context)
   // B-NEW: A3 regression. ?metric=foo must not throw.
   const errors: string[] = []
   page.on('pageerror', e => errors.push(String(e)))
@@ -29,7 +54,8 @@ test('invalid metric in URL is ignored (no crash)', async ({ page }) => {
   expect(errors).toEqual([])
 })
 
-test('model selector lists every land model and switching works', async ({ page }) => {
+test('model selector lists every land model and switching works', async ({ page, context }) => {
+  await sinBanner(context)
   await page.goto('/?lat=41.45&lon=2.2475')
   await expect(page.getByTestId('insights-table')).toBeVisible({ timeout: 20_000 })
   // Switch the advanced section into Models mode.
@@ -52,7 +78,8 @@ test('model selector lists every land model and switching works', async ({ page 
 // the × button sent focus to an invisible element. Found while writing
 // these specs: `page.locator('#city-search-input').first()` resolved to
 // the hidden input and failed with "Received: hidden".
-test('the home page has no duplicate element ids', async ({ page }) => {
+test('the home page has no duplicate element ids', async ({ page, context }) => {
+  await sinBanner(context)
   await page.goto('/')
   await expect(page.getByTestId('insights-table')).toBeVisible({ timeout: 20_000 })
 
@@ -74,7 +101,8 @@ test('the home page has no duplicate element ids', async ({ page }) => {
 // showed) and the mobile one. A single character keeps the geocode query
 // disabled (it needs 2+), so the × can't be swapped for the spinner
 // mid-test.
-test('the clear button returns focus to the visible search input', async ({ page }) => {
+test('the clear button returns focus to the visible search input', async ({ page, context }) => {
+  await sinBanner(context)
   await page.goto('/')
   const input = page.getByRole('textbox', { name: /Search|Buscar/i })
   await expect(input).toBeVisible()

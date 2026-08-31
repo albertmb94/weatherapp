@@ -44,3 +44,46 @@ test('model selector lists every land model and switching works', async ({ page 
     await expect(page.getByTestId('model-option').filter({ hasText: label })).toHaveCount(1)
   }
 })
+
+// The search input carried a hard-coded `id="city-search-input"` while
+// CitySearch mounts twice (mobile header + sticky desktop header), so the
+// page shipped two elements sharing an id. Every `getElementById` lookup
+// resolved to the first one — the mobile input, hidden on desktop — and
+// the × button sent focus to an invisible element. Found while writing
+// these specs: `page.locator('#city-search-input').first()` resolved to
+// the hidden input and failed with "Received: hidden".
+test('the home page has no duplicate element ids', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('insights-table')).toBeVisible({ timeout: 20_000 })
+
+  // Pin the premise: both headers really do render a search input, so
+  // the assertion below is not passing for want of a second instance.
+  await expect(page.locator('[data-city-search-input]')).toHaveCount(2)
+
+  const duplicates = await page.evaluate(() => {
+    const counts = new Map<string, number>()
+    for (const el of document.querySelectorAll('[id]')) {
+      counts.set(el.id, (counts.get(el.id) ?? 0) + 1)
+    }
+    return [...counts].filter(([, n]) => n > 1).map(([id, n]) => `${id} ×${n}`)
+  })
+  expect(duplicates).toEqual([])
+})
+
+// Runs in both projects, so it covers the desktop header (where the bug
+// showed) and the mobile one. A single character keeps the geocode query
+// disabled (it needs 2+), so the × can't be swapped for the spinner
+// mid-test.
+test('the clear button returns focus to the visible search input', async ({ page }) => {
+  await page.goto('/')
+  const input = page.getByRole('textbox', { name: /Search|Buscar/i })
+  await expect(input).toBeVisible()
+
+  await input.fill('B')
+  const clear = page.getByTestId('city-search-clear')
+  await expect(clear).toHaveCount(1)
+  await clear.click()
+
+  await expect(input).toHaveValue('')
+  await expect(input).toBeFocused()
+})

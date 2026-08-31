@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 
-import CitySearch from '@/components/CitySearch'
+import CitySearch, { focusVisibleCitySearch } from '@/components/CitySearch'
 import ModelSelector from '@/components/ModelSelector'
 import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours, type InsightsDayFilter } from '@/components/InsightsTable'
@@ -1075,7 +1075,9 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
         handleHourChange(Math.min(effectiveMaxHours - 1, selectedHour + 1))
       } else if (e.key === '/') {
         e.preventDefault()
-        document.getElementById('city-search-input')?.focus()
+        // Not `getElementById`: both headers render a search input, and
+        // the id-based lookup always landed on the hidden mobile one.
+        focusVisibleCitySearch()
       }
     }
     window.addEventListener('keydown', handleKey)

@@ -62,10 +62,13 @@ const STATION_RETRY_DELAY_MS = 1000
 // B-NBT-9b: single source of truth shared with useNearbyStations so
 // the nowcast blend and this tab always query the same radius.
 import { NEARBY_STATIONS_DEFAULT_RADIUS_KM } from '@/lib/hooks/useNearbyStations'
+import { MINIMO_ESTACIONES } from '@/lib/stations/seleccion'
 const MOBILE_DEFAULT_RADIUS_KM = NEARBY_STATIONS_DEFAULT_RADIUS_KM
 const DESKTOP_DEFAULT_RADIUS_KM = NEARBY_STATIONS_DEFAULT_RADIUS_KM
 const MOBILE_RADIUS_OPTIONS = [5, 10, 30, 60, 100] as const
-const DESKTOP_RADIUS_OPTIONS = [10, 30, 60, 100] as const
+// El 5 entra también en escritorio: es el radio por defecto, y sin él el
+// selector arrancaba con un valor que no estaba en su propia lista.
+const DESKTOP_RADIUS_OPTIONS = [5, 10, 30, 60, 100] as const
 const REAL_DESKTOP_MQ = '(min-width: 1024px)'
 
 /**
@@ -150,10 +153,15 @@ export default function StationDashboard({ position = null, placeName }: Station
     : null
 
   const aemetQ = useQuery<MeteoclimaticObservation[]>({
-    queryKey: posKey ? ['aemet-stations', posKey, debouncedRadius] : ['aemet-stations'],
+    queryKey: posKey ? ['aemet-stations', posKey, debouncedRadius, MINIMO_ESTACIONES] : ['aemet-stations'],
     queryFn: async () => {
       const url = posKey
-        ? `/api/aemet?lat=${position![0]}&lon=${position![1]}&radius=${debouncedRadius}`
+        // `minCount` va SIEMPRE, y no sólo con el radio por defecto: la
+        // regla es "los del radio o los N más cercanos, lo que dé más",
+        // así que con radios amplios no cambia nada y con el de 5 km
+        // evita que esta pestaña se quede casi vacía. Sin él, bajar el
+        // defecto a 5 km dejó el mapa con UN marcador.
+        ? `/api/aemet?lat=${position![0]}&lon=${position![1]}&radius=${debouncedRadius}&minCount=${MINIMO_ESTACIONES}`
         : '/api/aemet'
       const res = await fetch(url)
       const body = await res.json()
@@ -213,7 +221,7 @@ export default function StationDashboard({ position = null, placeName }: Station
     queryKey: posKey ? ['meteocat-stations', posKey, debouncedRadius] : ['meteocat-stations'],
     queryFn: async () => {
       const url = posKey
-        ? `/api/meteocat?lat=${position![0]}&lon=${position![1]}&radius=${debouncedRadius}`
+        ? `/api/meteocat?lat=${position![0]}&lon=${position![1]}&radius=${debouncedRadius}&minCount=${MINIMO_ESTACIONES}`
         : '/api/meteocat'
       const res = await fetch(url)
       const body = await res.json()

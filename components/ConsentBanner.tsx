@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useSyncExternalStore, useState } from 'react'
-import { normalizeConsentValue, persistConsent } from '@/lib/trackingConsent'
+import { normalizeConsentValue, persistConsent, writeConsentCookie } from '@/lib/trackingConsent'
 import { registrarEventoConsentimiento } from '@/lib/consentStats'
 import { usePathname } from 'next/navigation'
 import { DEFAULT_LOCALE, localizedHref, splitLocale } from '@/lib/locale/routing'
@@ -25,6 +25,25 @@ import { DEFAULT_LOCALE, localizedHref, splitLocale } from '@/lib/locale/routing
  *  and could not close. Fix: classic mounted-gate — the banner can only
  *  exist after the component mounts on the client, never in server
  *  HTML. */
+/**
+ * Elección guardada, leyendo PRIMERO la cookie.
+ *
+ * El orden importa y antes estaba al revés. localStorage decidía si se
+ * pinta el banner, pero la COOKIE es lo que el servidor mira para
+ * decidir si te cuenta. Cuando divergen —la cookie caduca antes (1 año
+ * frente a los 2 del identificador), la borra una limpieza del navegador
+ * o la bloquea una configuración estricta— pasaba lo peor de los dos
+ * mundos: el banner NO salía (el cliente creía que ya habías
+ * respondido) y el servidor NO te contaba. Silencioso y permanente.
+ *
+ * Se detectó justo así: el autodiagnóstico decía "consentimiento sin
+ * responder" e "identidad anónima: sí" a la vez, que es imposible salvo
+ * en este caso, y el banner no aparecía por ninguna parte.
+ *
+ * Ahora, si sólo queda el rastro en localStorage, se REESCRIBE la cookie
+ * en vez de ocultar el banner: la persona ya eligió, lo que se perdió
+ * fue el espejo. Eso honra su decisión sin volver a preguntársela.
+ */
 function readStoredChoice(): 'accept' | 'reject' | null {
   // AUDITORÍA: aquí había `if (window.Cookiebot) return 'accept'`, que
   // daba por ACEPTADO el consentimiento por el mero hecho de que
@@ -32,17 +51,26 @@ function readStoredChoice(): 'accept' | 'reject' | null {
   // Sólo servía para ocultar este banner, pero afirmaba algo falso. Hoy
   // el caso Cookiebot lo gestiona <ConsentSync>, y este componente ni
   // siquiera se monta en esa configuración.
-  try {
-    const v = normalizeConsentValue(localStorage.getItem('wthr_consent'))
-    if (v) return v === 'granted' ? 'accept' : 'reject'
-  } catch { /* storage blocked */ }
-  // Fallback: the cookie mirror survives even when localStorage is
-  // partitioned/blocked (Safari private mode, strict browser settings).
+  // La cookie primero: es la que gobierna de verdad el seguimiento.
+  let cookie: 'granted' | 'rejected' | null = null
   try {
     const m = document.cookie.match(/(?:^|;\s*)wthr_consent=([^;]*)/)
-    const v = normalizeConsentValue(m?.[1])
-    if (v) return v === 'granted' ? 'accept' : 'reject'
+    cookie = normalizeConsentValue(m?.[1])
   } catch { /* ignore */ }
+  if (cookie) return cookie === 'granted' ? 'accept' : 'reject'
+
+  // Sin cookie pero con rastro en localStorage: se restaura el espejo.
+  // `writeConsentCookie` emite además el aviso de cambio, así que el
+  // tracker empieza a contar en el acto si la elección era aceptar.
+  let guardado: 'granted' | 'rejected' | null = null
+  try {
+    guardado = normalizeConsentValue(localStorage.getItem('wthr_consent'))
+  } catch { /* storage bloqueado */ }
+  if (guardado) {
+    writeConsentCookie(guardado)
+    return guardado === 'granted' ? 'accept' : 'reject'
+  }
+
   return null
 }
 
@@ -95,17 +123,30 @@ export default function ConsentBanner() {
   if (!show) return null
 
   return (
+    // DIÁLOGO CENTRADO Y BLOQUEANTE, por decisión de producto: el acceso
+    // a los datos queda detrás de responder al consentimiento.
+    //
+    // Antes era una tarjeta abajo a un lado que se podía ignorar
+    // indefinidamente. Eso dejaba a mucha gente navegando sin haber
+    // respondido —ni aceptado ni rechazado—, que en la práctica es lo
+    // mismo que rechazar pero sin que nadie lo decida.
+    //
+    // El fondo tapa e intercepta: mientras no haya respuesta no se puede
+    // interactuar con la página. Cuidado con esto en móvil — la versión
+    // anterior estaba anclada abajo y llegó a solaparse con la barra de
+    // pestañas, interceptando sus pulsaciones; centrado y con la página
+    // bloqueada a propósito, ese conflicto ya no aplica.
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      // No se cierra al pulsar fuera: eso sería otra forma de ignorarlo.
+      aria-hidden={false}
+    >
     <div
       data-consent-dialog=""
       role="dialog"
+      aria-modal="true"
       aria-label="Consentimiento de cookies"
-      // `bottom-20` en móvil: con `bottom-3` el diálogo se solapaba con la
-      // barra de pestañas inferior (MobileTabBar, min-h 52px) y, al estar
-      // en z-[3000], INTERCEPTABA sus pulsaciones. En un móvil la
-      // navegación principal quedaba bloqueada hasta responder al banner,
-      // y quien lo ignorase no podía cambiar de pestaña. En pantallas
-      // grandes no hay barra inferior, así que vuelve abajo del todo.
-      className="fixed bottom-20 sm:bottom-3 left-3 right-3 sm:left-auto sm:right-3 sm:max-w-sm z-[3000] rounded-2xl border border-border bg-surface-raised p-3 shadow-xl"
+      className="w-full max-w-sm rounded-2xl border border-border bg-surface-raised p-4 shadow-2xl"
     >
       <p className="text-xs text-text-secondary">
         Usamos cookies para recordar tus preferencias y, con tu consentimiento, mostrar anuncios y medir uso agregado.
@@ -127,6 +168,7 @@ export default function ConsentBanner() {
           Rechazar
         </button>
       </div>
+    </div>
     </div>
   )
 }

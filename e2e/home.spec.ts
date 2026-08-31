@@ -6,15 +6,16 @@ import { test, expect } from '@playwright/test'
  * El banner es un diálogo MODAL que bloquea la página hasta que se
  * responde (decisión de producto: sin respuesta no se accede a los
  * datos). Estos tests no van del consentimiento, así que se deja
- * respondido de antemano —RECHAZANDO, para no encender el seguimiento y
- * ensuciar la analítica de las pruebas—. El propio banner tiene sus
- * tests en e2e/consentimiento.spec.ts y components/__tests__.
+ * ACEPTADO de antemano. Antes se sembraba un rechazo, que era mejor para
+ * no encender el seguimiento; ya no vale: sólo aceptar cierra el diálogo,
+ * así que un rechazo dejaría la página bloqueada. El propio banner tiene
+ * sus tests en e2e/consentimiento.spec.ts y components/__tests__.
  */
 async function sinBanner(context: import('@playwright/test').BrowserContext) {
   await context.addCookies([
     {
       name: 'wthr_consent',
-      value: 'rejected',
+      value: 'granted',
       domain: 'localhost',
       path: '/',
     },

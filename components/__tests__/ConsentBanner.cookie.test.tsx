@@ -59,6 +59,9 @@ describe('ConsentBanner · coherencia entre localStorage y cookie', () => {
   })
 
   it('restaura también un rechazo, no sólo una aceptación', () => {
+    // La cookie se restaura igualmente para que cliente y servidor digan
+    // lo mismo. Que el diálogo siga apareciendo es otra cosa: sólo
+    // aceptar abre el paso.
     localStorage.setItem('wthr_consent', 'rejected')
 
     render(<ConsentBanner />)
@@ -104,19 +107,61 @@ describe('ConsentBanner · diálogo bloqueante', () => {
     expect(screen.getByRole('dialog').getAttribute('aria-modal')).toBe('true')
   })
 
-  it('no se puede cerrar sin responder: no hay botón de descarte', () => {
-    // Ignorarlo indefinidamente equivalía a rechazar sin que nadie lo
-    // decidiera. Las dos únicas salidas son responder.
+  it('la única salida es aceptar: no hay botón de rechazo ni de descarte', () => {
+    // Decisión de producto: el acceso a los datos exige aceptar. Mientras
+    // "Rechazar" no cerrara el diálogo, tenerlo sería peor que no
+    // tenerlo — una salida que no lleva a ninguna parte.
     render(<Banner />)
     const botones = screen.getAllByRole('button').map(b => b.textContent?.trim())
-    expect(botones).toEqual(['Aceptar', 'Rechazar'])
+    expect(botones).toEqual(['Aceptar y continuar'])
   })
 
-  it('rechazar también cierra: el acceso no exige aceptar', () => {
-    // Deliberado. Un muro que sólo deje pasar aceptando invalida el
-    // consentimiento bajo el RGPD (no sería libre) y lo desaconseja la
-    // AEPD sin ofrecer una alternativa equivalente.
+  it('haber RECHAZADO antes no abre el paso: el diálogo vuelve', () => {
+    // Si bastara con haber respondido, rechazar una vez sería una puerta
+    // trasera: seguirías navegando sin aceptar y sin volver a verlo.
+    document.cookie = 'wthr_consent=rejected;path=/'
+
     render(<Banner />)
-    expect(screen.getByRole('button', { name: /rechazar/i })).toBeTruthy()
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('haber aceptado sí abre el paso', () => {
+    document.cookie = 'wthr_consent=granted;path=/'
+
+    render(<Banner />)
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('ConsentBanner · páginas legales exentas', () => {
+  let Banner: typeof ConsentBanner
+
+  beforeEach(async () => {
+    limpiar()
+    vi.resetModules()
+  })
+  afterEach(() => { cleanup(); limpiar() })
+
+  it('la política de cookies se puede leer SIN haber aceptado', async () => {
+    // El propio diálogo la enlaza. Con el modal tapándolo todo, no se
+    // podría leer antes de decidir — y un consentimiento que no se puede
+    // informar no vale.
+    vi.doMock('next/navigation', () => ({ usePathname: () => '/cookies' }))
+    Banner = (await import('@/components/ConsentBanner')).default
+
+    render(<Banner />)
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('en el resto de páginas sigue bloqueando', async () => {
+    vi.doMock('next/navigation', () => ({ usePathname: () => '/' }))
+    Banner = (await import('@/components/ConsentBanner')).default
+
+    render(<Banner />)
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
   })
 })

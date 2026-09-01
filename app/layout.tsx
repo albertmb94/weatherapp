@@ -122,7 +122,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             exactamente `resolveTheme()`: si ambos se desincronizan, el
             efecto de React corrige en cuanto hidrata. */}
         <script dangerouslySetInnerHTML={{ __html: "try{var p=localStorage.getItem('weather-theme');if(p!=='dark'&&p!=='light'&&p!=='auto')p='dark';var h=new Date().getHours();var t=p==='auto'?((h>=6&&h<18)?'light':'dark'):p;if(t==='light')document.documentElement.classList.add('light')}catch(e){}" }} />
-        <link rel="apple-touch-icon" href="/icon-192.svg" />
+        {/* AUDITORÍA: esto apuntaba a un SVG, e **iOS no admite SVG en
+            `apple-touch-icon`**. Quien añadía la app a la pantalla de
+            inicio de un iPhone se quedaba con un icono en blanco — en el
+            momento de mayor intención de uso que tiene la app, y sin
+            ningún error por ninguna parte. El PNG lo genera
+            `scripts/generarIconos.mjs` a partir del mismo SVG, aplanado
+            contra el fondo del tema porque iOS compone los iconos con
+            alfa sobre blanco. */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         {plausible.enabled && plausibleDomain ? (

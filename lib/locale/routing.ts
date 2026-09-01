@@ -51,6 +51,10 @@ export function isLocaleExemptPath(pathname: string): boolean {
     pathname.startsWith('/s/') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/icon-') ||
+    // AUDITORÍA: sin esto, el icono de iOS entraba en la negociación de
+    // idioma y acababa redirigido a `/en/apple-touch-icon.png`, que no
+    // existe. Es un fichero, no una página: no tiene versión por idioma.
+    pathname === '/apple-touch-icon.png' ||
     pathname === '/manifest.json' ||
     pathname === '/sw.js' ||
     pathname === '/favicon.ico' ||

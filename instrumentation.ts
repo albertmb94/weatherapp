@@ -1,12 +1,25 @@
-// M-ROB-2: Next.js instrumentation entry point. We initialise Sentry
-// on the server only when SENTRY_DSN is configured. Without the
-// `@sentry/nextjs` package installed this file is a no-op.
+// Punto de entrada de instrumentación de Next.
 //
-// To enable Sentry:
-//   1. `npm install @sentry/nextjs`
-//   2. Set SENTRY_DSN in your environment
-//   3. The next block will dynamically import @sentry/nextjs and
-//      init it with the DSN.
+// AQUÍ HABÍA UN CABLEADO DE SENTRY Y SE HA QUITADO. Llevaba tiempo
+// leyendo `SENTRY_DSN` y haciendo un import dinámico de
+// `@sentry/nextjs`... que nunca se instaló. Peor: aunque se hubiera
+// instalado, el guard `NEXT_RUNTIME !== 'nodejs'` lo dejaba SÓLO en el
+// servidor, y esta aplicación vive en el cliente. `docs/SPRINT_9.md`
+// marcaba "[x] Sentry integrado": la casilla estaba puesta y el trabajo
+// a medias.
+//
+// Mantener maquinaria que aparenta funcionar es peor que no tener nada,
+// porque quien la lee da por hecho que hay captura de errores. La que sí
+// existe ahora es propia y cubre el caso que importaba —el navegador—:
+//
+//   lib/reportarError.ts      envío desde el cliente
+//   app/api/client-errors/    recogida (sin cookies ni identidad)
+//   lib/clientErrors.ts       agrupación por huella
+//   /api/health               `checks.clientErrors`, últimas 24 h
+//
+// Si algún día se quiere Sentry de verdad, se instala el paquete y se
+// sigue su guía de App Router, que incluye la parte de cliente. No hace
+// falta dejar un esqueleto aquí esperando.
 
 export async function register(): Promise<void> {
   // Migraciones: único hook nativo de Next que corre una vez por
@@ -27,29 +40,5 @@ export async function register(): Promise<void> {
         }
       })
       .catch(err => console.error('[migrations] arranque fallido:', err))
-  }
-
-  const dsn = process.env.SENTRY_DSN
-  if (!dsn) return
-  if (process.env.NEXT_RUNTIME !== 'nodejs') return
-  try {
-    // Dynamic import so the bundle stays small when the package is
-    // absent. We resolve the module specifier through `new Function`
-    // to keep TypeScript from failing the build when @sentry/nextjs
-    // is not installed yet (no type declarations available).
-    const spec = '@sentry/nextjs'
-    type SentryModule = { init?: (opts: { dsn: string; tracesSampleRate: number }) => void }
-    // Fix (auditoría F3): la forma anterior `Function('return import(s)')()`
-    // dejaba `s` sin enlazar → ReferenceError en runtime y Sentry nunca
-    // arrancaba. Se pasa `s` como parámetro del cuerpo construido.
-    const dynImport = Function('s', 'return import(s)') as (s: string) => Promise<unknown>
-    const mod = (await dynImport(spec).catch(() => null)) as SentryModule | null
-    if (!mod || !mod.init) {
-      console.warn('[sentry] SENTRY_DSN set but @sentry/nextjs is not installed')
-      return
-    }
-    mod.init({ dsn, tracesSampleRate: 0.1 })
-  } catch (err) {
-    console.error('[sentry] init failed', err)
   }
 }

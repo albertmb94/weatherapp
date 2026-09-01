@@ -4,6 +4,7 @@ import { migrationStatus } from '@/lib/migrations'
 import { getFeature } from '@/lib/features'
 import { rateLimit } from '@/lib/rateLimit'
 import { todayKey } from '@/lib/analytics/time'
+import { resumenErroresCliente } from '@/lib/clientErrors'
 
 /**
  * Estado del cron nocturno de analítica.
@@ -137,6 +138,25 @@ export async function GET(req: NextRequest) {
   if (stripe.enabled) checks.stripe = { ok: false, detail: 'configured' }
 
   if (checks.db.ok) checks.cron = await checkCron()
+
+  // Errores de JavaScript que han roto la interfaz en las últimas 24 h.
+  //
+  // Antes esto no se podía saber: la única captura era `console.error`
+  // en el navegador de quien lo sufría. Un fallo que reventara la
+  // portada a un tercio de los visitantes era invisible hasta que
+  // alguien se quejaba — así se detectaron el problema de hidratación y
+  // el del seguimiento.
+  //
+  // No marca DOWN: un error de cliente aislado no es una caída, y hacer
+  // que lo fuera convertiría el autodiagnóstico en ruido. Lo que hace es
+  // que deje de ser invisible.
+  if (checks.db.ok) {
+    const { distintos, apariciones } = await resumenErroresCliente(Date.now() - 24 * 60 * 60 * 1000)
+    checks.clientErrors = {
+      ok: distintos === 0,
+      detail: distintos === 0 ? 'ninguno en 24 h' : `${distintos} distinto(s), ${apariciones} aparición(es) en 24 h`,
+    }
+  }
 
   checks.openmeteo = await checkOpenMeteo()
 

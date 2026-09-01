@@ -293,6 +293,43 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_consent_stats_day ON consent_stats(day)`,
     ],
   },
+  {
+    version: 8,
+    name: 'client_errors',
+    /**
+     * Errores de JavaScript que rompen la interfaz en el navegador.
+     *
+     * POR QUÉ EXISTE ESTA TABLA. Hasta ahora la única captura de errores
+     * de cliente era `console.error` — es decir, en la consola de la
+     * persona afectada, donde nadie la ve. Un fallo que reventara la
+     * portada al 30% de los visitantes era invisible hasta que alguien
+     * se quejara, y eso es literalmente lo que pasó con la hidratación y
+     * con el seguimiento. `instrumentation.ts` tenía Sentry cableado,
+     * pero el paquete no estaba instalado y el cableado sólo cubría el
+     * servidor: esta app vive en el cliente.
+     *
+     * QUÉ SE GUARDA Y QUÉ NO. Sólo lo necesario para arreglar el fallo:
+     * mensaje, pila, ruta (SIN query, que puede llevar coordenadas) y un
+     * recuento. NO se guarda IP, ni identificador, ni user-agent
+     * completo. Se agrupa por huella para que un error que le pasa a
+     * mil personas sea UNA fila con contador, no mil filas.
+     *
+     * La huella es hash(mensaje + primera línea de pila): sin ella, un
+     * error en bucle llenaría la tabla en minutos.
+     */
+    statements: [
+      `CREATE TABLE IF NOT EXISTS client_errors (
+        fingerprint TEXT PRIMARY KEY,
+        message TEXT NOT NULL,
+        stack TEXT,
+        path TEXT,
+        count INTEGER NOT NULL DEFAULT 0,
+        first_seen INTEGER NOT NULL,
+        last_seen INTEGER NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_client_errors_last_seen ON client_errors(last_seen)`,
+    ],
+  },
 ]
 
 // ---------------------------------------------------------------------------

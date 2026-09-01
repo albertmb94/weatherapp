@@ -7,6 +7,7 @@ import ConnectionStatus from "@/components/ConnectionStatus";
 import ConsentBanner from "@/components/ConsentBanner";
 import ConsentSync from "@/components/ConsentSync";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import AvisoActualizacion from "@/components/AvisoActualizacion";
 import { getFeature } from "@/lib/features";
 import { CONSENT_CHANGE_EVENT } from "@/lib/trackingConsent";
 import { appOrigin } from "@/lib/appUrl";
@@ -152,7 +153,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : null}
       </head>
       <body className="min-h-full flex flex-col">
-        <ErrorBoundary>
+        {/* El idioma se ENTREGA: ErrorBoundary está por encima de
+            `LocaleProvider` (lo envuelve todo, incluido el segmento
+            `[locale]`) y además es una clase, así que no puede leer el
+            contexto. Y si lo que ha reventado es justo el proveedor, un
+            hook aquí fallaría dentro del propio manejador de errores. */}
+        <ErrorBoundary locale={lang}>
           <ConnectionStatus />
           <Providers>{children}</Providers>
         </ErrorBoundary>
@@ -165,6 +171,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             cada emisión, así que montarlo siempre es seguro: sin
             'granted' no sale ni una petición. */}
         <AnalyticsTracker />
+        {/* `public/sw.js` aceptaba SKIP_WAITING desde hacía tiempo y
+            nadie se lo enviaba nunca: una pestaña abierta se quedaba con
+            el build viejo indefinidamente. Esto avisa y deja decidir —
+            actualizar sin preguntar recargaría la página debajo de quien
+            la está usando. */}
+        <AvisoActualizacion locale={lang} />
         {!cookiebot.enabled ? <ConsentBanner /> : null}
         {/* B-NBT-10: red de seguridad SIN React para el banner de
             consentimiento. Aunque la hidratación muera (chunk viejo en

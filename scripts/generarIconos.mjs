@@ -113,5 +113,7 @@ const salida = [
 ]
 
 for (const [nombre, bytes] of salida) {
+  // Es un script de línea de comandos: la salida por consola es el punto.
+  // eslint-disable-next-line no-console
   console.log(`${nombre.padEnd(24)} ${(bytes / 1024).toFixed(1)} KB`)
 }

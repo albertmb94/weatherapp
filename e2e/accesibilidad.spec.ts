@@ -68,8 +68,15 @@ test.describe('accesibilidad de teclado', () => {
   test('ninguna fila de la tabla se disfraza de botón', async ({ page, context }) => {
     await sinBanner(context)
     await page.goto('/?lat=41.3874&lon=2.1686')
-    // La tabla tarda en llegar: espera a que haya filas de datos.
-    await expect.poll(() => page.locator('tbody tr').count(), { timeout: 30_000 }).toBeGreaterThan(0)
+
+    // La tabla depende del pronóstico, que viaja a un proveedor externo.
+    // Con la suite entera en paralelo esto se va a bastante más de lo que
+    // tarda en solitario, así que el margen es amplio A PROPÓSITO: un
+    // test de accesibilidad que falla por lentitud de red se acaba
+    // ignorando, y entonces deja de proteger nada.
+    await expect
+      .poll(() => page.locator('tbody tr').count(), { timeout: 60_000 })
+      .toBeGreaterThan(0)
 
     const disfrazadas = await page.locator('tr[role="button"]').count()
     expect(disfrazadas, 'role="button" en un <tr> desasocia cada celda de su cabecera').toBe(0)

@@ -10,7 +10,7 @@
     }
   ],
   "regions": [
-    "iad1"
+    "fra1"
   ],
   "functions": {
     "app/api/cron/analytics-rollup/route.ts": {

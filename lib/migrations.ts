@@ -346,10 +346,16 @@ export const MIGRATIONS: Migration[] = [
      * se escribió primero. `ensureSchema` corre DENTRO de
      * `/api/forecast`, en la ruta de la petición. `CREATE INDEX` sobre
      * una tabla grande no es instantáneo, así que la primera petición
-     * tras el despliegue se comía la construcción del índice, agotaba el
-     * presupuesto de tiempo y devolvía 502: un arreglo de coste que
-     * provocaba una caída breve pero real. Las migraciones corren desde
-     * `instrumentation.ts` al arrancar la instancia, fuera de toda ruta.
+     * tras estrenar una tabla paga la construcción entera antes de mirar
+     * siquiera la caché. Las migraciones corren desde
+     * `instrumentation.ts` al arrancar la instancia, fuera de toda ruta:
+     * ese es su sitio.
+     *
+     * OJO CON LA ATRIBUCIÓN: esto se movió mientras se investigaba un 502
+     * en `/api/forecast`, y la explicación original lo daba por causa.
+     * NO lo era — el 502 venía de la región de despliegue (ver
+     * `lib/__tests__/regionDespliegue.test.ts`). El cambio sigue siendo
+     * correcto por sí mismo; simplemente no arregló aquello.
      *
      * Las tablas se crean aquí también (IF NOT EXISTS) porque la
      * migración puede ejecutarse antes de que nadie haya pedido un

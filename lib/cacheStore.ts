@@ -34,10 +34,14 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleM
     // índice merece la pena. Pero crearlo AQUÍ fue un error: esta
     // función corre dentro de `/api/forecast`, en la ruta de la
     // petición, y `CREATE INDEX` sobre una tabla grande no es
-    // instantáneo. La primera petición tras un despliegue se comía la
-    // construcción del índice y agotaba el presupuesto de tiempo del
-    // proxy, devolviendo 502 — es decir, el arreglo de coste provocaba
-    // una caída breve pero real cada vez que se estrenaba una tabla.
+    // instantáneo, así que la primera petición tras estrenar una tabla
+    // paga la construcción entera antes de mirar siquiera la caché.
+    //
+    // OJO CON LA ATRIBUCIÓN: esto se movió mientras se investigaba un 502
+    // en `/api/forecast`, y el comentario original daba por hecho que era
+    // la causa. NO lo era — el 502 venía de la región de despliegue (ver
+    // `lib/__tests__/regionDespliegue.test.ts`). Sacar el DDL de la ruta
+    // sigue siendo correcto por sí mismo; simplemente no arregló aquello.
     //
     // Ahora el índice es la migración v9, que corre en
     // `instrumentation.ts` al arrancar la instancia y FUERA de la ruta.

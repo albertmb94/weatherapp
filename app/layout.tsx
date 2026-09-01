@@ -64,9 +64,28 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * En móvil no se permite hacer zoom.
+ *
+ * `maximumScale: 1` + `userScalable: false` desactivan el pinch-zoom del
+ * navegador y el zoom por doble toque. El doble toque ya estaba cubierto
+ * por `touch-action: manipulation` sobre `html` (app/globals.css); esto
+ * cierra el pinch.
+ *
+ * Ojo con dos matices:
+ *
+ *  - Safari en iOS IGNORA `user-scalable=no` desde iOS 10 (Apple lo
+ *    revirtió por accesibilidad), así que ahí el pinch sigue disponible.
+ *    Bloquearlo requeriría interceptar `gesturestart` a mano, y eso
+ *    también rompe el zoom táctil del mapa (Leaflet). No se hace.
+ *  - El mapa NO se ve afectado: Leaflet gestiona su propio pinch sobre
+ *    el canvas, no el zoom de la página.
+ */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: "#0a0a0a",
 };
 

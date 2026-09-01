@@ -10,9 +10,36 @@
 const MAX_RETRIES = 2
 const BASE_DELAY_MS = 700
 const MAX_RETRY_AFTER_MS = 4000
-const REQUEST_TIMEOUT_MS = 8_000
-/** Tope duro de todos los intentos juntos, esperas incluidas. */
-const TOTAL_BUDGET_MS = 20_000
+
+/**
+ * Tiempo máximo de UN intento contra Open-Meteo.
+ *
+ * CORRECCIÓN DE UNA SOBRECORRECCIÓN. Esto estuvo en 8 s y era demasiado
+ * corto: la petición real de la portada son 15 modelos × 16 días + 3 de
+ * histórico, unos 400 KB, y desde Vercel tarda del orden de 4 veces más
+ * que desde una máquina en España (0,4-0,7 s medidos contra el proveedor,
+ * ~2,7 s desde la función). Cuando ese pico pasaba de 8 s abortábamos
+ * nosotros y la ruta devolvía 502 — con el proveedor respondiendo
+ * perfectamente. Para una ciudad ya cacheada se salvaba con el fallback
+ * stale; para una ciudad nueva el usuario se quedaba SIN DATOS. Es lo que
+ * se reportó: Malgrat de Mar, Madrid y otras sin cargar.
+ *
+ * El motivo de acortarlo seguía siendo válido (el presupuesto anterior
+ * llegaba a ~87 s y la plataforma mataba la función antes de poder servir
+ * caché), pero 8 s se pasó de frenada. 15 s cubre el pico con holgura.
+ */
+const REQUEST_TIMEOUT_MS = 15_000
+
+/**
+ * Tope duro de todos los intentos juntos, esperas incluidas.
+ *
+ * Se queda por DEBAJO del `maxDuration: 30` que declara vercel.json para
+ * esta ruta, y con margen suficiente para que, si agotamos el
+ * presupuesto, todavía dé tiempo a leer la caché stale y responder. Ése
+ * era el punto de tener un tope: no morir por timeout de plataforma sin
+ * haber intentado el fallback.
+ */
+const TOTAL_BUDGET_MS = 25_000
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504])
 // Open-Meteo replies with this status when a `models=` ID is no longer in
 // the catalogue. We degrade the request by retrying without the

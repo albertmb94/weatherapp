@@ -1,3 +1,4 @@
+import { roundCoordinate } from './cacheKey'
 import type { Metric, MetricId } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { parseOpenMeteoTimes } from './dateUtils'
@@ -47,8 +48,8 @@ async function fetchSeaSurfaceTemperature(
   signal?: AbortSignal
 ): Promise<(number | null)[]> {
   const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
+    latitude: roundCoordinate(lat),
+    longitude: roundCoordinate(lon),
     hourly: SST_METRIC_ID,
     cell_selection: 'sea',
     past_days: '3',
@@ -96,8 +97,8 @@ export async function fetchMarine(
   const hourlyList = waveMetrics.map(m => m.hourlyParam)
 
   const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
+    latitude: roundCoordinate(lat),
+    longitude: roundCoordinate(lon),
     hourly: hourlyList.join(','),
     cell_selection: 'sea',
     past_days: '3',

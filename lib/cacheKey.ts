@@ -30,6 +30,25 @@ export const STRIPPED_UPSTREAM_KEYS = new Set<string>(['v'])
  */
 export const STRIPPED_KEYS = STRIPPED_UPSTREAM_KEYS
 
+/**
+ * Coordenada redondeada a la rejilla de caché, para construir peticiones.
+ *
+ * POR QUÉ EXISTE. El servidor ya redondea a 2 decimales (~1,1 km) para
+ * la CLAVE de caché, pero el CDN cachea por URL CRUDA. El cliente
+ * enviaba 4 decimales (~11 m), así que dos personas en la misma manzana
+ * generaban dos URLs distintas, con dos entradas de CDN distintas, para
+ * el mismo dato exacto. Con 4 decimales hay ~10.000 URLs posibles por
+ * celda de caché: la inmensa mayoría de las peticiones fallaban en el
+ * CDN y llegaban hasta la función, que devolvía la MISMA fila de Turso.
+ *
+ * Redondear en origen alinea la URL con la clave: una celda, una URL,
+ * un acierto de CDN. No se pierde precisión real — el dato servido ya
+ * era el de la celda, y la rejilla de Open-Meteo es de 1-11 km.
+ */
+export function roundCoordinate(n: number): string {
+  return Number.isFinite(n) ? n.toFixed(LATLON_DECIMALS) : String(n)
+}
+
 function roundCoord(s: string): string {
   const n = Number(s)
   if (!Number.isFinite(n)) return s

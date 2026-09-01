@@ -104,6 +104,16 @@ export async function GET(request: Request) {
       stations: filtered,
       fetchedAt: fetchedAt ? new Date(fetchedAt).toISOString() : new Date().toISOString(),
     },
-    { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } }
+    {
+      headers: {
+        // AUDITORÍA: estaba en s-maxage=300. Cada fallo de caché lee y
+        // parsea un blob de ~2,4 MB de Turso para devolver 5
+        // estaciones, y la caché compartida de `externalStationsCache`
+        // ya retiene los datos 2 h: los 300 s no aportaban ni un dato
+        // más fresco, sólo multiplicaban por 24 los fallos de caché
+        // sobre la lectura más cara del proyecto. Se alinea con esas 2 h.
+        'Cache-Control': 'public, max-age=600, s-maxage=7200, stale-while-revalidate=3600',
+      },
+    }
   )
 }

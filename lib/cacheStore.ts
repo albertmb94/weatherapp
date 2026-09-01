@@ -26,6 +26,15 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleM
         fetched_at INTEGER NOT NULL
       )`,
     )
+    // AUDITORÍA: la purga de cada escritura es
+    // `DELETE ... WHERE fetched_at < ?`, y sin índice eso es un recorrido
+    // completo de la tabla. Las filas de esta caché son respuestas
+    // enteras de Open-Meteo —del orden de 192 KB cada una—, así que el
+    // recorrido no es "barato porque hay pocas filas": es caro por
+    // byte leído, y se pagaba en CADA petición que refrescara la caché.
+    await db.execute(
+      `CREATE INDEX IF NOT EXISTS idx_${tableName}_fetched_at ON ${tableName} (fetched_at)`,
+    )
   })
 
   async function get(cacheKey: string, now: number = Date.now()): Promise<CachedEntry | null> {

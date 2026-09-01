@@ -330,6 +330,47 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_client_errors_last_seen ON client_errors(last_seen)`,
     ],
   },
+  {
+    version: 9,
+    name: 'cache_fetched_at_indexes',
+    /**
+     * Índices de purga de las cachés de respuestas.
+     *
+     * QUÉ ARREGLA. `cacheStore` purga en cada escritura con
+     * `DELETE ... WHERE fetched_at < ?`. Sin índice eso es un recorrido
+     * completo, y las filas de estas tablas son respuestas enteras de
+     * Open-Meteo: cientos de KB cada una. El recorrido no es "barato
+     * porque hay pocas filas", es caro por byte leído.
+     *
+     * POR QUÉ ESTÁ AQUÍ Y NO EN `cacheStore.ensureSchema`, que es donde
+     * se escribió primero. `ensureSchema` corre DENTRO de
+     * `/api/forecast`, en la ruta de la petición. `CREATE INDEX` sobre
+     * una tabla grande no es instantáneo, así que la primera petición
+     * tras el despliegue se comía la construcción del índice, agotaba el
+     * presupuesto de tiempo y devolvía 502: un arreglo de coste que
+     * provocaba una caída breve pero real. Las migraciones corren desde
+     * `instrumentation.ts` al arrancar la instancia, fuera de toda ruta.
+     *
+     * Las tablas se crean aquí también (IF NOT EXISTS) porque la
+     * migración puede ejecutarse antes de que nadie haya pedido un
+     * pronóstico, y `CREATE INDEX` sobre una tabla inexistente falla.
+     * La definición es la misma que la de `createCacheStore`.
+     */
+    statements: [
+      `CREATE TABLE IF NOT EXISTS forecast_cache (
+        cache_key TEXT PRIMARY KEY,
+        body TEXT NOT NULL,
+        fetched_at INTEGER NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_forecast_cache_fetched_at ON forecast_cache (fetched_at)`,
+      `CREATE TABLE IF NOT EXISTS marine_cache (
+        cache_key TEXT PRIMARY KEY,
+        body TEXT NOT NULL,
+        fetched_at INTEGER NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_marine_cache_fetched_at ON marine_cache (fetched_at)`,
+    ],
+  },
 ]
 
 // ---------------------------------------------------------------------------

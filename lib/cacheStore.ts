@@ -26,15 +26,23 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleM
         fetched_at INTEGER NOT NULL
       )`,
     )
-    // AUDITORÍA: la purga de cada escritura es
-    // `DELETE ... WHERE fetched_at < ?`, y sin índice eso es un recorrido
-    // completo de la tabla. Las filas de esta caché son respuestas
-    // enteras de Open-Meteo —del orden de 192 KB cada una—, así que el
-    // recorrido no es "barato porque hay pocas filas": es caro por
-    // byte leído, y se pagaba en CADA petición que refrescara la caché.
-    await db.execute(
-      `CREATE INDEX IF NOT EXISTS idx_${tableName}_fetched_at ON ${tableName} (fetched_at)`,
-    )
+    // EL ÍNDICE SOBRE `fetched_at` NO SE CREA AQUÍ, Y ES DELIBERADO.
+    //
+    // La purga de cada escritura es `DELETE ... WHERE fetched_at < ?`, y
+    // sin índice eso es un recorrido completo de la tabla; las filas son
+    // respuestas enteras de Open-Meteo (cientos de KB), así que el
+    // índice merece la pena. Pero crearlo AQUÍ fue un error: esta
+    // función corre dentro de `/api/forecast`, en la ruta de la
+    // petición, y `CREATE INDEX` sobre una tabla grande no es
+    // instantáneo. La primera petición tras un despliegue se comía la
+    // construcción del índice y agotaba el presupuesto de tiempo del
+    // proxy, devolviendo 502 — es decir, el arreglo de coste provocaba
+    // una caída breve pero real cada vez que se estrenaba una tabla.
+    //
+    // Ahora el índice es la migración v9, que corre en
+    // `instrumentation.ts` al arrancar la instancia y FUERA de la ruta.
+    // Aquí queda sólo el `CREATE TABLE IF NOT EXISTS`, que sobre una
+    // tabla ya existente no cuesta nada.
   })
 
   async function get(cacheKey: string, now: number = Date.now()): Promise<CachedEntry | null> {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PLAN_FEATURES, type Plan } from '@/lib/plans'
+import { PLAN_FEATURES, type Plan } from '@/lib/plans.catalog'
 
 export default function PlansPage() {
   const queryClient = useQueryClient()

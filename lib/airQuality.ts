@@ -17,6 +17,7 @@
  * caching, retries and rate-limiting in one place (the same
  * pattern as `/api/forecast`).
  */
+import { roundCoordinate } from './cacheKey'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { parseOpenMeteoTimes } from './dateUtils'
 import { AIR_METRICS, type MetricId } from './models'
@@ -53,8 +54,8 @@ export async function fetchAirQuality(
   options: FetchAirQualityOptions = {},
 ): Promise<AirQualityResult> {
   const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
+    latitude: roundCoordinate(lat),
+    longitude: roundCoordinate(lon),
     hourly: AIR_METRICS.map(m => m.hourlyParam).join(','),
     current: AIR_METRICS.map(m => m.hourlyParam).join(','),
     timezone: 'auto',

@@ -52,9 +52,24 @@ test('newsletter subscribe returns pending (no Resend needed) @api', async ({ re
   expect(body.message).toMatch(/email/i)
 })
 
-test('manage page renders subscription status', async ({ page }) => {
-  await page.goto('/manage')
-  await expect(page.getByRole('heading', { name: /Gestionar suscripción/i })).toBeVisible()
+test.describe('gestion de suscripcion (navegador en espanol)', () => {
+  // OJO CON EL IDIOMA DEL NAVEGADOR DE PRUEBA. Chromium manda
+  // `Accept-Language: en-US` por defecto y el proxy NEGOCIA el idioma,
+  // asi que tanto `/manage` como `/es/manage` acaban en `/en/manage`
+  // (el prefijo del idioma por defecto redirige a la URL sin prefijo, y
+  // ahi vuelve a negociar). La unica forma fiable de fijar el idioma es
+  // el del propio navegador, como ya hace e2e/locale.spec.ts.
+  //
+  // Este test buscaba el titular EN ESPANOL y pasaba... porque la pagina
+  // estaba sin traducir: el titulo de la pestana si cambiaba de idioma,
+  // pero el cuerpo salia siempre en espanol pasara lo que pasara. Al
+  // traducirla se cayo, que es justo lo que tenia que hacer.
+  test.use({ locale: 'es-ES' })
+
+  test('manage page renders subscription status', async ({ page }) => {
+    await page.goto('/manage')
+    await expect(page.getByRole('heading', { name: /Gestionar suscripción/i })).toBeVisible()
+  })
 })
 
 test('legal pages render', async ({ page }) => {

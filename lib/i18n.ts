@@ -191,6 +191,35 @@ export const STRINGS: Record<Locale, {
    * ensemble (e.g. plain profile or empty backtest). */
   profileChipPrefix: string
   profileChipNeutral: string
+  /** Muro de consentimiento. Estaba escrito en español a pelo dentro
+   *  del componente: desde que el banner pasó a ser un diálogo
+   *  bloqueante, era lo primero Y LO ÚNICO que veía un visitante
+   *  anglófono, en un idioma que no entiende y con un solo botón. O
+   *  aceptaba a ciegas —consentimiento de validez dudosa, porque no se
+   *  puede consentir lo que no se comprende— o se iba. */
+  consentDialogLabel: string
+  consentTitle: string
+  consentBody: string
+  consentPolicyLink: string
+  consentAccept: string
+  /** AUDITORÍA — cadenas de interfaz que estaban escritas a fuego en el
+   *  JSX, casi todas en inglés y una en español. La más visible era el
+   *  `placeholder="Search..."` del buscador principal: el control con el
+   *  que empieza TODO el uso de la app. Las demás son etiquetas de
+   *  accesibilidad y tooltips, es decir, justo el texto que sólo lee
+   *  quien más lo necesita. */
+  clearSearch: string
+  skipToContent: string
+  toggleTheme: string
+  toggleMenu: string
+  useMyLocation: string
+  currentHour: string
+  resetColumnOrder: string
+  compactMode: string
+  dragToReorder: string
+  precipTotalTitle: string
+  windMaxTitle: string
+  waveTitle: string
 }> = {
   es: {
     today: 'Hoy',
@@ -342,6 +371,24 @@ export const STRINGS: Record<Locale, {
     profilePlain: 'Llanura',
     profileChipPrefix: 'Perfil',
     profileChipNeutral: 'Sin sesgo regional',
+    consentDialogLabel: 'Consentimiento de cookies',
+    consentTitle: 'Antes de continuar',
+    consentBody:
+      'Para acceder a la aplicación es necesario aceptar el uso de cookies: recordamos tus preferencias y medimos el uso de forma agregada. Puedes retirar tu consentimiento en cualquier momento desde la ',
+    consentPolicyLink: 'política de cookies',
+    consentAccept: 'Aceptar y continuar',
+    clearSearch: 'Borrar búsqueda',
+    skipToContent: 'Saltar al contenido',
+    toggleTheme: 'Cambiar de tema',
+    toggleMenu: 'Abrir o cerrar el menú',
+    useMyLocation: 'Usar mi ubicación',
+    currentHour: 'Hora actual',
+    resetColumnOrder: 'Restablecer el orden de columnas',
+    compactMode: 'Modo compacto',
+    dragToReorder: 'Arrastra para reordenar',
+    precipTotalTitle: 'Precipitación total',
+    windMaxTitle: 'Racha máxima de viento',
+    waveTitle: 'Altura máxima de ola / periodo medio',
   },
   en: {
     today: 'Today',
@@ -493,5 +540,23 @@ export const STRINGS: Record<Locale, {
     profilePlain: 'Plain',
     profileChipPrefix: 'Profile',
     profileChipNeutral: 'No regional bias',
+    consentDialogLabel: 'Cookie consent',
+    consentTitle: 'Before you continue',
+    consentBody:
+      'To use this app you need to accept cookies: we remember your preferences and measure usage in aggregate. You can withdraw your consent at any time from the ',
+    consentPolicyLink: 'cookie policy',
+    consentAccept: 'Accept and continue',
+    clearSearch: 'Clear search',
+    skipToContent: 'Skip to content',
+    toggleTheme: 'Toggle theme',
+    toggleMenu: 'Toggle menu',
+    useMyLocation: 'Use my location',
+    currentHour: 'Current hour',
+    resetColumnOrder: 'Reset column order',
+    compactMode: 'Compact mode',
+    dragToReorder: 'Drag to reorder',
+    precipTotalTitle: 'Total precipitation',
+    windMaxTitle: 'Max wind gusts',
+    waveTitle: 'Max wave height / mean wave period',
   },
 }

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import { FEATURE_CATALOG } from '@/lib/features'
+import { FEATURE_CATALOG } from '@/lib/features.catalog'
 
 interface FlagRow {
   key: string

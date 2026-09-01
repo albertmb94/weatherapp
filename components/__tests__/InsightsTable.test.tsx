@@ -305,7 +305,15 @@ describe('InsightsTable — pagination + sticky headers (B-10-7)', () => {
     // The CTA is the LAST row.
     const cta = tbody.querySelector('[data-testid="next-page-cta"]')
     expect(cta).not.toBeNull()
-    expect(cta!.getAttribute('role')).toBe('button')
+    // ANTES ESTO EXIGÍA role="button" SOBRE EL <tr>, es decir, fijaba el
+    // antipatrón. `role="button"` en una fila la saca del árbol de
+    // accesibilidad COMO FILA: sus celdas dejan de asociarse con sus
+    // <th> y la tabla —cuyo motivo de existir es comparar modelos
+    // columna a columna— se vuelve inservible con lector de pantalla.
+    // Ahora el control es un <button> nativo dentro de una celda: fila
+    // normal, botón de verdad, nombre y rol gratis.
+    expect(cta!.tagName.toLowerCase()).toBe('button')
+    expect(cta!.closest('tr')).not.toBeNull()
     expect(cta!.textContent).toMatch(/Mostrar siguientes 48 h|Show next 48 h/i)
     expect(cta!.textContent).toMatch(/288 filas restantes|288 rows remaining/i)
   })
@@ -624,5 +632,69 @@ describe('InsightsTable — B-NEW-2 hideClass on <col> prevents left-collapse', 
     // query matches (a sibling assertion in the mobile suite
     // covers the desktop path).
     expect(table.querySelector('colgroup col[data-col-id="pressure"]')).toBeNull()
+  })
+})
+
+describe('InsightsTable — semántica de tabla', () => {
+  const HOURS = 24 * 14
+  const series: SeriesLike = {
+    ...rampSeries('gfs_global', HOURS, 10, 0),
+    ...rampSeries('ecmwf_ifs', HOURS, 20, 0),
+  }
+
+  function pintar() {
+    return render(
+      wrap(
+        <InsightsTable
+          models={MODELS}
+          activeModelIds={['gfs_global', 'ecmwf_ifs']}
+          times={fakeTimes(0, HOURS)}
+          series={series}
+          bucket={1}
+          onBucketChange={() => {}}
+          selectedHour={0}
+          onSelectHour={() => {}}
+          maxHours={HOURS}
+          utcOffsetSeconds={0}
+          ensembleMode="wedai"
+          weekDays={14}
+        />,
+      ),
+    )
+  }
+
+  /**
+   * NINGUNA FILA PUEDE DISFRAZARSE DE BOTÓN.
+   *
+   * `role="button"` sobre un `<tr>` lo saca del árbol de accesibilidad
+   * COMO FILA: sus `<td>` dejan de tener una fila por padre y el lector
+   * de pantalla deja de asociarlos con sus `<th>`. En una tabla cuyo
+   * motivo de existir es comparar modelos columna a columna, eso la deja
+   * inservible — los números se leen sueltos, sin saber de qué modelo ni
+   * de qué métrica son.
+   *
+   * Peor todavía era el `aria-label` que lo acompañaba: sobre
+   * `role="button"` SUSTITUYE al contenido, así que el lector anunciaba
+   * sólo "Hoy 14:00" y ninguno de los datos de la fila.
+   */
+  it('no hay ningún <tr> con role="button"', () => {
+    const { container } = pintar()
+    const disfrazadas = container.querySelectorAll('tr[role="button"]')
+    expect(
+      disfrazadas.length,
+      'una fila con role="button" rompe la asociación entre celdas y cabeceras',
+    ).toBe(0)
+  })
+
+  it('ninguna fila lleva aria-label, que taparía sus celdas', () => {
+    const { container } = pintar()
+    expect(container.querySelectorAll('tr[aria-label]').length).toBe(0)
+  })
+
+  it('las filas de datos siguen siendo activables con teclado', () => {
+    // Quitar el rol no puede costar la interacción: la fila sigue
+    // enfocable y respondiendo a Enter/Espacio.
+    const { container } = pintar()
+    expect(container.querySelectorAll('tbody tr[tabindex="0"]').length).toBeGreaterThan(0)
   })
 })

@@ -35,7 +35,11 @@ describe('isLocaleExemptPath', () => {
   })
 
   it('exime a los ficheros que no son páginas', () => {
-    for (const p of ['/manifest.json', '/sw.js', '/robots.txt', '/sitemap.xml', '/favicon.ico', '/icon-192.svg', '/_next/static/x.js']) {
+    // `/apple-touch-icon.png` entra aquí desde que el icono de iOS dejó
+    // de ser un SVG: sin eximirlo, la negociación de idioma lo mandaba a
+    // `/en/apple-touch-icon.png`, que no existe, y el iPhone volvía a
+    // quedarse sin icono — el mismo fallo por otra puerta.
+    for (const p of ['/manifest.json', '/sw.js', '/robots.txt', '/sitemap.xml', '/favicon.ico', '/icon-192.svg', '/icon-192.png', '/apple-touch-icon.png', '/_next/static/x.js']) {
       expect(isLocaleExemptPath(p), p).toBe(true)
     }
   })

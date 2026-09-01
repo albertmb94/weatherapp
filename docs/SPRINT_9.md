@@ -369,7 +369,12 @@ heredada de S8).
 - [x] Features pequeñas F-10, F-11, F-12 listas.
 - [x] Features grandes F-5 (PWA), F-9 (short links), F-11 (solar) listas.
 - [x] Tests E2E con Playwright configurados y al menos 4 specs.
-- [x] Sentry integrado (condicional al DSN).
+- [~] Sentry NO llegó a integrarse. Esta casilla estuvo marcada durante
+      meses y era falsa: `instrumentation.ts` leía `SENTRY_DSN` e
+      importaba `@sentry/nextjs`, pero el paquete nunca se instaló y el
+      guard `NEXT_RUNTIME !== 'nodejs'` lo habría dejado sólo en el
+      servidor. La captura de errores de cliente se resolvió en su lugar
+      con `lib/reportarError.ts` + `/api/client-errors` (2026-09-01).
 - [x] `npm test` y `npm run lint` en verde.
 - [x] `docs/PLAN.md` actualizado con el sprint.
 - [x] Ramas + PR por tarea.

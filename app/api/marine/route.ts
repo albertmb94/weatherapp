@@ -12,7 +12,7 @@ import { validateLatLon } from '@/lib/api/params'
 // intervention. The per-instance Turso `marine_cache` table
 // still holds the body for 4h.
 const FRESH_CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=3600',
+  'Cache-Control': 'public, max-age=600, s-maxage=3600, stale-while-revalidate=3600',
 } as const
 const STALE_CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',

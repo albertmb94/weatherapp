@@ -51,6 +51,10 @@ export function isLocaleExemptPath(pathname: string): boolean {
     pathname.startsWith('/s/') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/icon-') ||
+    // AUDITORÍA: sin esto, el icono de iOS entraba en la negociación de
+    // idioma y acababa redirigido a `/en/apple-touch-icon.png`, que no
+    // existe. Es un fichero, no una página: no tiene versión por idioma.
+    pathname === '/apple-touch-icon.png' ||
     pathname === '/manifest.json' ||
     pathname === '/sw.js' ||
     pathname === '/favicon.ico' ||
@@ -89,6 +93,22 @@ export function localizedHref(path: string, locale: Locale): string {
   if (isLocaleExemptPath(clean)) return clean
   if (locale === DEFAULT_LOCALE) return clean
   return clean === '/' ? `/${locale}` : `/${locale}${clean}`
+}
+
+/**
+ * URL absoluta de la tarjeta social del idioma dado.
+ *
+ * POR QUÉ NO SE DEJA QUE NEXT LA DEDUZCA. La convención de fichero
+ * genera la URL desde el segmento de ruta, así que en español emitía
+ * `/es/opengraph-image` — y el proxy responde a `/es/...` con un 308
+ * hacia la versión sin prefijo, porque el español es el idioma por
+ * defecto y su URL canónica no lleva prefijo. La tarjeta acababa
+ * detrás de un salto que algunos rastreadores no siguen para
+ * imágenes. Apuntando a la URL canónica desde el principio, no hay
+ * salto que seguir.
+ */
+export function socialCardUrl(origin: string, locale: Locale): string {
+  return `${origin}${localizedHref('/opengraph-image', locale)}`
 }
 
 /**

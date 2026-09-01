@@ -23,8 +23,15 @@ import { validateLatLon } from '@/lib/api/params'
 // s-maxage to 1h so the version stamp purges itself naturally
 // on the next deploy; the per-instance Turso cache still
 // holds the body for 4h via the `forecast_cache` table.
+// AUDITORÍA: faltaba `max-age`. Sin él el navegador no guarda nada
+// propio, así que cada F5 —y cada vuelta atrás en el historial— se
+// traía otra vez el cuerpo entero (la respuesta de la portada ronda
+// los 192 KB). El CDN respondía rápido, pero el usuario pagaba la
+// descarga y nosotros el ancho de banda. 10 minutos es muy inferior a
+// la hora de caché compartida: nadie ve datos más viejos de lo que ya
+// veía, simplemente deja de re-descargarlos.
 const FRESH_CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=3600',
+  'Cache-Control': 'public, max-age=600, s-maxage=3600, stale-while-revalidate=3600',
 } as const
 const STALE_CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',

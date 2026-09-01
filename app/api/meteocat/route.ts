@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchMeteocatStations } from '@/lib/meteocat'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
-import { haversineKm } from '@/lib/geoDistance'
 import { parametrosSeleccion, seleccionarEstaciones } from '@/lib/stations/seleccion'
 import { rateLimit } from '@/lib/rateLimit'
 import {

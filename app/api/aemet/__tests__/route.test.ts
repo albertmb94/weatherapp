@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
 
 const MOCK_AEMET_STATIONS = [
   {
@@ -71,10 +72,23 @@ describe('/api/aemet GET', () => {
     expect(res.status).toBe(502)
   })
 
-  it('includes Cache-Control header', async () => {
+  it('la caché de CDN no dura menos que la de datos', async () => {
+    // Antes esto fijaba `s-maxage=300` a pelo, y ese número era el
+    // fallo, no el contrato. Cada fallo de caché de esta ruta lee y
+    // parsea un blob de ~2,4 MB desde Turso para devolver 5 estaciones,
+    // mientras que `externalStationsCache` considera frescos los datos
+    // durante REFRESH_WINDOW_MS (2 h). Con 300 s el CDN volvía a
+    // preguntar 24 veces por cada dato nuevo: ni una lectura más
+    // fresca, sólo la lectura más cara del proyecto repetida.
+    //
+    // Lo que hay que preservar es la RELACIÓN: el CDN no debe caducar
+    // antes que los datos que sirve.
     process.env.AEMET_API_KEY = 'test-key'
     vi.mocked(fetchAemetStations).mockResolvedValue([])
     const res = await GET(req('http://localhost/api/aemet'))
-    expect(res.headers.get('Cache-Control')).toContain('s-maxage=300')
+    const cc = res.headers.get('Cache-Control') ?? ''
+    const sMaxAge = Number(cc.match(/s-maxage=(\d+)/)?.[1])
+    expect(sMaxAge, `sin s-maxage en "${cc}"`).toBeGreaterThan(0)
+    expect(sMaxAge * 1000).toBeGreaterThanOrEqual(REFRESH_WINDOW_MS)
   })
 })

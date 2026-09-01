@@ -1,3 +1,4 @@
+import { roundCoordinate } from './cacheKey'
 import type { WeatherModel, Metric } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { fetchMarine, computeMarineDays } from './marine'
@@ -257,8 +258,8 @@ export async function fetchForecast(
   const pastDays = forecastDays <= 7 ? '1' : '3'
 
   const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
+    latitude: roundCoordinate(lat),
+    longitude: roundCoordinate(lon),
     hourly: hourlyList.join(','),
     // Daily aggregates surfaced by the dashboard in S10. `precipitation_sum`
     // is the actual accumulated mm/day (vs the mm/h hourly series that
@@ -400,8 +401,8 @@ export async function fetchCurrentUv(
   signal?: AbortSignal
 ): Promise<CurrentConditions> {
   const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
+    latitude: roundCoordinate(lat),
+    longitude: roundCoordinate(lon),
     current: 'uv_index',
     timezone: 'auto',
   })

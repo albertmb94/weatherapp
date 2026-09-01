@@ -11,7 +11,7 @@ import { validateLatLon } from '@/lib/api/params'
 // on the order of hours, so 1h shared + 1h SWR is a good
 // trade-off between freshness and upstream load.
 const FRESH_CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=3600',
+  'Cache-Control': 'public, max-age=600, s-maxage=3600, stale-while-revalidate=3600',
 } as const
 
 export async function GET(request: Request) {

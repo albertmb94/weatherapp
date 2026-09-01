@@ -37,11 +37,32 @@
   --border: #27272a;
   --border-strong: #3f3f46;
 
-  /* Text: 4 levels, all WCAG AA on the matching surface. */
+  /* Texto: 4 niveles, TODOS AA (>= 4,5:1) sobre su superficie.
+     
+     ESTE COMENTARIO ERA FALSO y llevaba tiempo siéndolo. Medido sobre
+     --surface-raised (#111114), que es el caso más exigente:
+     
+       --text-tertiary  #71717a -> 3,90:1   (AA exige 4,5)
+       --text-muted     #52525b -> 2,44:1
+     
+     Y no eran tokens decorativos: los usan InsightsTable,
+     CurrentWeatherCard y AirConditionsGrid, en algún sitio a
+     text-[10px] — por debajo del propio --min-text: 11px que declara
+     este mismo fichero. Un comentario que promete accesibilidad es peor
+     que ninguno, porque nadie vuelve a comprobarlo.
+     
+     Valores nuevos (raised / background):
+       primary   16,10 / 16,91
+       secondary  7,35 /  7,72
+       tertiary   5,58 /  5,86
+       muted      4,69 /  4,92
+     
+     Se conserva la jerarquía visual: cada nivel sigue siendo más tenue
+     que el anterior, sólo que ahora el más tenue también se lee. */
   --text-primary: #ededed;
   --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  --text-muted: #52525b;
+  --text-tertiary: #8b8b94;
+  --text-muted: #7e7e87;
 
   /* Accent: a single brand hue with 3 intensities. */
   --accent: #3b82f6;
@@ -77,10 +98,13 @@ html.light {
   --border: #e5e7eb;
   --border-strong: #d1d5db;
 
+  /* Igual que en oscuro: --text-muted estaba en 2,54:1 sobre blanco.
+     Nuevos valores (blanco / fondo): primary 17,74/16,83 ·
+     secondary 7,56/7,17 · tertiary 5,72/5,42 · muted 4,83/4,59. */
   --text-primary: #111827;
   --text-secondary: #4b5563;
-  --text-tertiary: #6b7280;
-  --text-muted: #9ca3af;
+  --text-tertiary: #5f6773;
+  --text-muted: #6b7280;
 
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
@@ -521,4 +545,48 @@ html.light .now-slot {
   border: 2px solid #fff;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4), 0 2px 6px rgba(0, 0, 0, 0.5);
   pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------
+   FOCO VISIBLE Y ENLACE DE SALTO
+   ---------------------------------------------------------------------
+   AUDITORÍA: no había NINGÚN estilo de foco global. Varios componentes
+   traen el suyo (`focus-visible:ring-1` en la tabla, en los botones de
+   paginación...), pero todo lo demás dependía del anillo por defecto del
+   navegador, que sobre fondo oscuro es prácticamente invisible.
+
+   Importa más de lo que parece aquí: la tabla de comparación tiene 336
+   filas enfocables. Sin saber DÓNDE está el foco, tabular por ella es
+   avanzar a ciegas.
+
+   Se usa `:focus-visible` y no `:focus` a propósito: el anillo aparece
+   al navegar con teclado y no al hacer clic con el ratón, que es la
+   razón por la que mucha gente acababa desactivando el foco por completo.
+   -------------------------------------------------------------------- */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Enlace de salto: primer elemento tabulable de la página, oculto hasta
+   que recibe foco. Sin él, llegar al contenido con teclado obliga a
+   atravesar la cabecera entera —buscador, selectores, menú— en CADA
+   carga. */
+.salto-contenido {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 4000;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--surface-popover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  font-size: 0.875rem;
+  transition: top 0.15s ease-in-out;
+}
+
+.salto-contenido:focus {
+  top: 0.5rem;
 }

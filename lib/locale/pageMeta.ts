@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import type { Locale } from '@/lib/i18n'
-import { DEFAULT_LOCALE, isLocale, localeAlternates, localizedHref } from './routing'
+import { DEFAULT_LOCALE, isLocale, localeAlternates, localizedHref, socialCardUrl } from './routing'
 import { appOrigin } from '@/lib/appUrl'
 
 /**
@@ -35,8 +35,17 @@ export function pageMetadata(path: string, rawLocale: string, copy: PageCopy): M
       locale: locale === 'es' ? 'es_ES' : 'en_US',
       alternateLocale: locale === 'es' ? ['en_US'] : ['es_ES'],
       ...(origin ? { url: `${origin}${localizedHref(path, locale)}` } : {}),
+      // La tarjeta se declara a mano para apuntar a la URL CANÓNICA de
+      // la imagen. Ver `socialCardUrl`: dejar que Next la dedujera del
+      // segmento metía un 308 por medio en español.
+      ...(origin ? { images: [socialCardUrl(origin, locale)] } : {}),
     },
-    twitter: { card: 'summary_large_image', title, description },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      ...(origin ? { images: [socialCardUrl(origin, locale)] } : {}),
+    },
   }
 }
 

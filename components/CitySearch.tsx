@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from '@/lib/LocaleContext'
+import { STRINGS } from '@/lib/i18n'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 
 interface GeocodeResult {
@@ -156,7 +157,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         value={query}
         onChange={handleChange}
         onFocus={() => { if (results.length > 0) setIsOpen(true) }}
-        placeholder="Search..."
+        placeholder={STRINGS[locale].searchPlaceholder}
         // Bump right padding from pr-3 → pr-9 so the typed text
         // never slides under the new clear button (or the
         // existing spinner). The clear button reserves the right
@@ -172,7 +173,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         <button
           type="button"
           onClick={handleClear}
-          aria-label="Clear search"
+          aria-label={STRINGS[locale].clearSearch}
           data-testid="city-search-clear"
           // The button sits where the spinner would be (right
           // edge) so the input never has two adornments fighting

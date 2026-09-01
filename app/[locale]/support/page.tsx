@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { getFeature } from '@/lib/features'
 import SupportButton from '@/components/SupportButton'
 import { makeGenerateMetadata } from '@/lib/locale/pageMeta'
+import { DEFAULT_LOCALE, isLocale } from '@/lib/locale/routing'
+import type { Locale } from '@/lib/i18n'
 
 const COPY = {
   title: { es: 'Soporte', en: 'Support' },
@@ -11,11 +13,47 @@ const COPY = {
   },
 }
 
+/**
+ * AUDITORÍA: la página iba entera en español. El `title` de la pestaña
+ * sí se traducía, así que un visitante inglés llegaba desde el buscador
+ * con un resultado en su idioma y se encontraba el cuerpo en otro.
+ */
+const UI: Record<
+  Locale,
+  {
+    h1: string
+    intro: string
+    desactivado: string
+    kofiDesc: string
+    sponsorsDesc: string
+  }
+> = {
+  es: {
+    h1: 'Apoya el proyecto',
+    intro: 'Weather es un proyecto personal. Si te resulta útil, considera apoyar su desarrollo.',
+    desactivado:
+      'Las donaciones están desactivadas por ahora. Activa la feature correspondiente en /admin/features.',
+    kofiDesc: 'Invítame a un café.',
+    sponsorsDesc: 'Apoyo mensual al proyecto.',
+  },
+  en: {
+    h1: 'Support the project',
+    intro: 'Weather is a personal project. If you find it useful, consider supporting its development.',
+    desactivado: 'Donations are off for now. Enable the matching feature in /admin/features.',
+    kofiDesc: 'Buy me a coffee.',
+    sponsorsDesc: 'Monthly support for the project.',
+  },
+}
+
 export const generateMetadata: (args: {
   params: Promise<{ locale: string }>
 }) => Promise<Metadata> = makeGenerateMetadata('/support', COPY)
 
-export default async function SupportPage() {
+export default async function SupportPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale: raw } = await params
+  const locale: Locale = isLocale(raw) ? raw : DEFAULT_LOCALE
+  const t = UI[locale]
+
   const kofi = await getFeature('feature.kofi')
   const sponsors = await getFeature('feature.githubsponsors')
   const kofiUrl = typeof kofi.config.url === 'string' ? kofi.config.url : null
@@ -23,16 +61,12 @@ export default async function SupportPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 space-y-6">
-      <h1 className="text-2xl font-semibold">Apoya el proyecto</h1>
-      <p className="text-sm text-text-tertiary">
-        Weather es un proyecto personal. Si te resulta útil, considera apoyar su desarrollo.
-      </p>
+      <h1 className="text-2xl font-semibold">{t.h1}</h1>
+      <p className="text-sm text-text-tertiary">{t.intro}</p>
 
       {!kofi.enabled && !sponsors.enabled && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <p className="text-sm">
-            Las donaciones están desactivadas por ahora. Activa la feature correspondiente en /admin/features.
-          </p>
+          <p className="text-sm">{t.desactivado}</p>
         </div>
       )}
 
@@ -46,7 +80,7 @@ export default async function SupportPage() {
           >
             <div className="text-3xl mb-2">☕</div>
             <div className="font-semibold">Ko-fi</div>
-            <div className="text-xs text-text-tertiary mt-1">Invítame a un café.</div>
+            <div className="text-xs text-text-tertiary mt-1">{t.kofiDesc}</div>
           </a>
         ) : null}
         {sponsors.enabled && sponsorsUrl ? (
@@ -58,7 +92,7 @@ export default async function SupportPage() {
           >
             <div className="text-3xl mb-2">💖</div>
             <div className="font-semibold">GitHub Sponsors</div>
-            <div className="text-xs text-text-tertiary mt-1">Apoyo mensual al proyecto.</div>
+            <div className="text-xs text-text-tertiary mt-1">{t.sponsorsDesc}</div>
           </a>
         ) : null}
       </div>

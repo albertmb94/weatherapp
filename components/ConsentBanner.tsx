@@ -5,6 +5,7 @@ import { normalizeConsentValue, persistConsent, writeConsentCookie } from '@/lib
 import { registrarEventoConsentimiento } from '@/lib/consentStats'
 import { usePathname } from 'next/navigation'
 import { DEFAULT_LOCALE, localizedHref, splitLocale } from '@/lib/locale/routing'
+import { STRINGS } from '@/lib/i18n'
 
 /** Lightweight consent banner that activates when feature.cookiebot is
  *  disabled and the admin needs a stop-gap. When Cookiebot is enabled
@@ -102,6 +103,7 @@ export default function ConsentBanner() {
   // siempre esta disponible.
   const pathname = usePathname()
   const locale = splitLocale(pathname ?? '/').locale ?? DEFAULT_LOCALE
+  const t = STRINGS[locale]
 
   // `show` se deriva durante render (solo se lee storage en cliente).
   // PÁGINAS LEGALES EXENTAS, y no es una concesión: el propio diálogo
@@ -168,16 +170,20 @@ export default function ConsentBanner() {
       data-consent-dialog=""
       role="dialog"
       aria-modal="true"
-      aria-label="Consentimiento de cookies"
+      aria-label={t.consentDialogLabel}
       className="w-full max-w-sm rounded-2xl border border-border bg-surface-raised p-4 shadow-2xl"
     >
-      <p className="text-sm font-medium text-text-primary">Antes de continuar</p>
+      {/* EN EL IDIOMA DE QUIEN LEE. Este texto estaba en español a
+          pelo, y desde que el diálogo pasó a bloquear la página era lo
+          primero y lo único que veía un visitante anglófono: un modal
+          impenetrable en un idioma que no entiende, con un solo botón.
+          O aceptaba a ciegas —y un consentimiento que no se comprende
+          no es consentimiento— o se iba. */}
+      <p className="text-sm font-medium text-text-primary">{t.consentTitle}</p>
       <p className="text-xs text-text-secondary mt-1.5">
-        Para acceder a la aplicación es necesario aceptar el uso de cookies: recordamos tus
-        preferencias y medimos el uso de forma agregada. Puedes retirar tu consentimiento en
-        cualquier momento desde la{' '}
+        {t.consentBody}
         <a href={localizedHref('/cookies', locale)} className="text-accent hover:underline">
-          política de cookies
+          {t.consentPolicyLink}
         </a>
         .
       </p>
@@ -193,7 +199,7 @@ export default function ConsentBanner() {
           onClick={() => persist('accept')}
           className="w-full py-2 rounded bg-accent text-white text-sm font-medium"
         >
-          Aceptar y continuar
+          {t.consentAccept}
         </button>
       </div>
     </div>

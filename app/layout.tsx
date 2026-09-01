@@ -7,6 +7,7 @@ import ConnectionStatus from "@/components/ConnectionStatus";
 import ConsentBanner from "@/components/ConsentBanner";
 import ConsentSync from "@/components/ConsentSync";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import AvisoActualizacion from "@/components/AvisoActualizacion";
 import { getFeature } from "@/lib/features";
 import { CONSENT_CHANGE_EVENT } from "@/lib/trackingConsent";
 import { appOrigin } from "@/lib/appUrl";
@@ -122,7 +123,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             exactamente `resolveTheme()`: si ambos se desincronizan, el
             efecto de React corrige en cuanto hidrata. */}
         <script dangerouslySetInnerHTML={{ __html: "try{var p=localStorage.getItem('weather-theme');if(p!=='dark'&&p!=='light'&&p!=='auto')p='dark';var h=new Date().getHours();var t=p==='auto'?((h>=6&&h<18)?'light':'dark'):p;if(t==='light')document.documentElement.classList.add('light')}catch(e){}" }} />
-        <link rel="apple-touch-icon" href="/icon-192.svg" />
+        {/* AUDITORÍA: esto apuntaba a un SVG, e **iOS no admite SVG en
+            `apple-touch-icon`**. Quien añadía la app a la pantalla de
+            inicio de un iPhone se quedaba con un icono en blanco — en el
+            momento de mayor intención de uso que tiene la app, y sin
+            ningún error por ninguna parte. El PNG lo genera
+            `scripts/generarIconos.mjs` a partir del mismo SVG, aplanado
+            contra el fondo del tema porque iOS compone los iconos con
+            alfa sobre blanco. */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         {plausible.enabled && plausibleDomain ? (
@@ -144,7 +153,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : null}
       </head>
       <body className="min-h-full flex flex-col">
-        <ErrorBoundary>
+        {/* PRIMER ELEMENTO TABULABLE DE LA PÁGINA. Sin él, llegar al
+            contenido con teclado obliga a atravesar la cabecera entera
+            —buscador, selectores de modelo, menú— en cada carga. El
+            destino es el <main> de app/home-content.tsx. */}
+        <a href="#contenido" className="salto-contenido">
+          {lang === 'en' ? 'Skip to content' : 'Saltar al contenido'}
+        </a>
+        {/* El idioma se ENTREGA: ErrorBoundary está por encima de
+            `LocaleProvider` (lo envuelve todo, incluido el segmento
+            `[locale]`) y además es una clase, así que no puede leer el
+            contexto. Y si lo que ha reventado es justo el proveedor, un
+            hook aquí fallaría dentro del propio manejador de errores. */}
+        <ErrorBoundary locale={lang}>
           <ConnectionStatus />
           <Providers>{children}</Providers>
         </ErrorBoundary>
@@ -157,6 +178,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             cada emisión, así que montarlo siempre es seguro: sin
             'granted' no sale ni una petición. */}
         <AnalyticsTracker />
+        {/* `public/sw.js` aceptaba SKIP_WAITING desde hacía tiempo y
+            nadie se lo enviaba nunca: una pestaña abierta se quedaba con
+            el build viejo indefinidamente. Esto avisa y deja decidir —
+            actualizar sin preguntar recargaría la página debajo de quien
+            la está usando. */}
+        <AvisoActualizacion locale={lang} />
         {!cookiebot.enabled ? <ConsentBanner /> : null}
         {/* B-NBT-10: red de seguridad SIN React para el banner de
             consentimiento. Aunque la hidratación muera (chunk viejo en

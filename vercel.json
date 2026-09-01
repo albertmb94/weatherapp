@@ -3,9 +3,15 @@
     {
       "path": "/api/cron/analytics-rollup",
       "schedule": "20 3 * * *"
+    },
+    {
+      "path": "/api/cron/health-check",
+      "schedule": "0 8 * * *"
     }
   ],
-  "regions": ["iad1"],
+  "regions": [
+    "iad1"
+  ],
   "functions": {
     "app/api/cron/analytics-rollup/route.ts": {
       "maxDuration": 60

@@ -4,6 +4,10 @@ import { getFeature } from '@/lib/features'
 
 import type { Metadata } from 'next'
 import { makeGenerateMetadata } from '@/lib/locale/pageMeta'
+import { DEFAULT_LOCALE, isLocale } from '@/lib/locale/routing'
+import { grafoPortada, serializarJsonLd } from '@/lib/locale/datosEstructurados'
+import { appOrigin } from '@/lib/appUrl'
+import type { Locale } from '@/lib/i18n'
 
 const COPY = {
   title: { es: 'Weather Model Comparison', en: 'Weather Model Comparison' },
@@ -19,7 +23,11 @@ export const generateMetadata: (args: {
 
 export const DEFAULT_KOFI_URL = 'https://ko-fi.com/F8C225NYMV'
 
-export default async function Home() {
+export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale: rawLocale } = await params
+  const locale: Locale = isLocale(rawLocale) ? rawLocale : DEFAULT_LOCALE
+  const origin = appOrigin()
+
   // Ko-fi URL single source of truth: feature.kofi.url (admin-editable),
   // con fallback al perfil por defecto. Se pasa como prop para que el
   // header móvil y el overlay de escritorio usen la misma fuente.
@@ -30,9 +38,19 @@ export default async function Home() {
       : DEFAULT_KOFI_URL
 
   return (
-    <Suspense fallback={<LoadingShell />}>
-      <HomeContent kofiUrl={kofiUrl} />
-    </Suspense>
+    <>
+      {/* Sólo la portada declara ser la aplicación. Ponerlo en el
+          layout haría que /cookies y /terms dijeran serlo también. */}
+      {origin ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializarJsonLd(grafoPortada(origin, locale)) }}
+        />
+      ) : null}
+      <Suspense fallback={<LoadingShell />}>
+        <HomeContent kofiUrl={kofiUrl} />
+      </Suspense>
+    </>
   )
 }
 

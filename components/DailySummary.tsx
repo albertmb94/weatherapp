@@ -311,12 +311,12 @@ export default function DailySummary({
                 <span className="text-[10px] text-text-tertiary">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
               </div>
               <div className="mt-0.5 flex items-baseline justify-center gap-0.5 text-[9px] text-text-tertiary leading-none tabular-nums">
-                <span title="Precipitation total">{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>
+                <span title={STRINGS[locale].precipTotalTitle}>{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>
                 <span className="text-text-muted">·</span>
-                <span title="Max wind gusts">{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>
+                <span title={STRINGS[locale].windMaxTitle}>{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>
               </div>
               {showMarine && d.hasMarineData && (
-                <div className="mt-0.5 flex items-center justify-center text-[9px] text-cyan-300 leading-none tabular-nums" title="Max wave height / mean wave period">
+                <div className="mt-0.5 flex items-center justify-center text-[9px] text-cyan-300 leading-none tabular-nums" title={STRINGS[locale].waveTitle}>
                   {d.waveHeightMax !== null ? d.waveHeightMax.toFixed(1) : '–'}
                   {d.wavePeriodMean !== null && <span className="ml-0.5 text-text-tertiary">/{Math.round(d.wavePeriodMean)}s</span>}
                 </div>

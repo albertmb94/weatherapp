@@ -19,6 +19,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CitySearch, { focusVisibleCitySearch } from '../CitySearch'
 import { LocaleProvider } from '@/lib/LocaleContext'
 
+// AUDITORÍA: estas consultas buscaban el placeholder "Search", que
+// estaba escrito en inglés A FUEGO en el componente — el control con el
+// que empieza todo el uso de la app, en inglés para todo el mundo. Ahora
+// sale de STRINGS, así que la consulta acepta los dos idiomas en vez de
+// dar por hecho uno.
+const PLACEHOLDER_BUSCADOR = /Search|Buscar/i
+
+
 function renderTwoInstances() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -30,7 +38,7 @@ function renderTwoInstances() {
       </LocaleProvider>
     </QueryClientProvider>,
   )
-  const [mobile, desktop] = screen.getAllByPlaceholderText(/Search/i) as HTMLInputElement[]
+  const [mobile, desktop] = screen.getAllByPlaceholderText(PLACEHOLDER_BUSCADOR) as HTMLInputElement[]
   return { mobile, desktop }
 }
 

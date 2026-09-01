@@ -147,7 +147,7 @@ export default function SettingsPanel(props: SettingsPanelProps) {
             <button
               onClick={cycleTheme}
               className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-text-primary hover:bg-surface-popover transition-colors"
-              aria-label="Toggle theme"
+              aria-label={s.toggleTheme}
             >
               {theme === 'dark' ? '🌙' : '☀️'}
             </button>

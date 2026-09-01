@@ -1,17 +1,24 @@
 'use client'
 
+import { useLocale } from '@/lib/LocaleContext'
+
 /**
  * B-NBT-23: botón flotante de Ko-fi minimalista (solo desktop ≥1024px).
  * La URL viene de feature.kofi.url (gestionada en /admin/donations),
  * con fallback al perfil por defecto si el admin no la configuró.
  */
 export default function KoFiOverlay({ url }: { url: string }) {
+  // AUDITORÍA: la etiqueta iba en español a fuego. Es un enlace SIN
+  // texto visible —sólo el logo—, así que el `aria-label` es lo único
+  // que un lector de pantalla puede anunciar: en inglés se oía una
+  // frase en español y nada más.
+  const { locale } = useLocale()
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label="Apoya el proyecto en Ko-fi"
+      aria-label={locale === 'en' ? 'Support the project on Ko-fi' : 'Apoya el proyecto en Ko-fi'}
       className="hidden real-desktop:flex fixed bottom-4 right-4 z-[1500] w-12 h-12 rounded-full bg-[#323842] items-center justify-center shadow-lg hover:scale-105 transition-transform cursor-pointer"
     >
       {/* Ko-fi logo SVG inline */}

@@ -153,6 +153,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : null}
       </head>
       <body className="min-h-full flex flex-col">
+        {/* PRIMER ELEMENTO TABULABLE DE LA PÁGINA. Sin él, llegar al
+            contenido con teclado obliga a atravesar la cabecera entera
+            —buscador, selectores de modelo, menú— en cada carga. El
+            destino es el <main> de app/home-content.tsx. */}
+        <a href="#contenido" className="salto-contenido">
+          {lang === 'en' ? 'Skip to content' : 'Saltar al contenido'}
+        </a>
         {/* El idioma se ENTREGA: ErrorBoundary está por encima de
             `LocaleProvider` (lo envuelve todo, incluido el segmento
             `[locale]`) y además es una clase, así que no puede leer el

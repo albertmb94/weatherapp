@@ -1229,8 +1229,8 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
             onClick={handleGeolocate}
             disabled={geoLoading}
             className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50"
-            title="Use my location"
-            aria-label="Use my location"
+            title={STRINGS[locale].useMyLocation}
+            aria-label={STRINGS[locale].useMyLocation}
           >
             {geoLoading ? (
               <div className="w-3.5 h-3.5 border-2 border-border-strong border-t-transparent rounded-full animate-spin" />
@@ -1244,7 +1244,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
           <button
             onClick={cycleTheme}
             className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
-            aria-label="Toggle theme"
+            aria-label={STRINGS[locale].toggleTheme}
           >
             {theme === 'dark' ? (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1282,7 +1282,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
           <button
             onClick={() => setMobileMenuOpen(o => !o)}
             className="min-h-[36px] min-w-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary cursor-pointer ml-auto"
-            aria-label="Toggle menu"
+            aria-label={STRINGS[locale].toggleMenu}
             aria-expanded={mobileMenuOpen}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1363,7 +1363,11 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
           }}
         />
 
-        <main className="flex-1 min-w-0 min-h-0 flex">
+        {/* `id` y `tabIndex={-1}`: destino del enlace de salto del
+            layout. Sin `tabIndex`, saltar aquí mueve el scroll pero NO
+            el foco, así que la siguiente pulsación de Tab volvería al
+            principio de la cabecera y el enlace no serviría de nada. */}
+        <main id="contenido" tabIndex={-1} className="flex-1 min-w-0 min-h-0 flex">
           <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
             {/* Sticky search + range on tablet/desktop, sitting at the top of
                 the main column. The metric pills are NOT rendered here — they

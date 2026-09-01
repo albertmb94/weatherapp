@@ -1498,7 +1498,7 @@ export default function InsightsTable({
             <button
               onClick={resetColumnOrder}
               className="shrink-0 px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] text-text-tertiary hover:text-text-secondary ml-0.5"
-              title="Reset column order"
+              title={STRINGS[locale].resetColumnOrder}
             >
               ↺
             </button>
@@ -1516,7 +1516,7 @@ export default function InsightsTable({
             <button
               onClick={() => setCompact(c => !c)}
               className={`shrink-0 real-desktop:hidden px-2 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors min-h-[28px] ${compact ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'}`}
-              title="Compact mode"
+              title={STRINGS[locale].compactMode}
               data-testid="compact-toggle"
             >
               ≡
@@ -1915,7 +1915,7 @@ export default function InsightsTable({
                     // Tailwind 4's JIT doesn't generate the
                     // calc-with-var arbitrary class.
                     style={isMobilePortrait ? { top: 'calc(var(--mobile-header-h, 0px) + 44px)' } : undefined}
-                    title="Drag to reorder"
+                    title={STRINGS[locale].dragToReorder}
                   >
                     {STRINGS[locale][col.labelKey]}
                   </th>
@@ -1932,26 +1932,29 @@ export default function InsightsTable({
                 // first. The container scrolls to top so the new page
                 // starts under the sticky headers.
                 key="__prev-page-cta__"
-                role="button"
-                tabIndex={0}
-                onClick={handlePrevClick}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handlePrevClick()
-                  }
-                }}
-                aria-label="Previous 48 hours"
-                className="cursor-pointer bg-surface-popover/40 hover:bg-accent/10 transition-colors focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                data-testid="prev-page-cta"
+                className="bg-surface-popover/40"
               >
+                {/* UN BOTÓN DE VERDAD DENTRO DE LA CELDA. Antes el <tr>
+                    llevaba role="button", que lo sacaba del árbol como
+                    fila. Aquí no hay datos que perder —es un control
+                    puro—, así que la forma correcta es una fila normal
+                    que contiene un botón: nombre, rol y activación por
+                    teclado salen gratis del elemento nativo. */}
                 <td
                   colSpan={colDefs.length + 1}
-                  className="text-center px-2 py-2 text-[11px] text-text-secondary tabular-nums border-b border-border"
+                  className="p-0 border-b border-border"
                 >
-                  <span className="font-semibold text-accent">
-                    {locale === 'en' ? '← Previous 48 h' : '← 48 h anteriores'}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handlePrevClick}
+                    aria-label={locale === 'en' ? 'Previous 48 hours' : '48 horas anteriores'}
+                    className="w-full cursor-pointer px-2 py-2 text-center text-[11px] text-text-secondary tabular-nums hover:bg-accent/10 transition-colors focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                    data-testid="prev-page-cta"
+                  >
+                    <span className="font-semibold text-accent">
+                      {locale === 'en' ? '← Previous 48 h' : '← 48 h anteriores'}
+                    </span>
+                  </button>
                 </td>
               </tr>
             ) : null}
@@ -1989,8 +1992,28 @@ export default function InsightsTable({
                     }
                   }}
                   tabIndex={0}
-                  role="button"
-                  aria-label={r.label}
+                  // AQUÍ HABÍA role="button" Y aria-label, Y ROMPÍAN LA TABLA.
+                  //
+                  // `role="button"` sobre un <tr> lo saca del árbol de
+                  // accesibilidad COMO FILA: sus <td> dejan de tener una
+                  // fila por padre y el lector de pantalla deja de
+                  // asociarlos con sus <th>. En una tabla cuyo motivo de
+                  // existir es comparar modelos columna a columna, eso la
+                  // deja inservible: los números se leen sueltos, sin
+                  // saber de qué modelo ni de qué métrica son.
+                  //
+                  // Peor todavía era el `aria-label`: sobre role="button"
+                  // SUSTITUYE al contenido, así que el lector anunciaba
+                  // sólo "Hoy 14:00" y NINGUNO de los datos de la fila.
+                  //
+                  // Sin ellos la fila vuelve a ser una fila, con sus
+                  // cabeceras, y sigue siendo enfocable y activable con
+                  // Enter/Espacio. Limitación que queda: se anuncia como
+                  // fila, no como botón. Resolverlo del todo pide
+                  // `role="grid"` con `gridcell`, que es una reescritura
+                  // de la tabla entera y no cabe aquí; entre una tabla
+                  // legible sin rol de botón y una tabla ilegible con él,
+                  // la elección está clara.
                   // Sprint 10 / B-10-6: `content-visibility: auto` +
                   // `contain-intrinsic-size: auto 28px` lets the
                   // browser skip painting rows that are off-screen.
@@ -2081,7 +2104,7 @@ export default function InsightsTable({
                        reserved even when empty. */}
                     <div
                       className="text-[9px] uppercase tracking-wider font-semibold text-accent mb-0.5 leading-tight min-h-[14px]"
-                      aria-label="Hora actual"
+                      aria-label={STRINGS[locale].currentHour}
                       data-testid="ahora-chip"
                     >
                       {isActive && bucket === 24 && selectedHour === 0 && r.tempMean !== null
@@ -2110,33 +2133,30 @@ export default function InsightsTable({
                 // PAGE_SIZE rows mount; the container scrolls back to
                 // the top so the headers stay in view.
                 key="__next-page-cta__"
-                role="button"
-                tabIndex={0}
-                onClick={handleNextClick}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handleNextClick()
-                  }
-                }}
-                aria-label={
-                  locale === 'en'
-                    ? `Show next ${Math.min(INSIGHTS_PAGE_SIZE, remaining)} hours`
-                    : `Mostrar siguientes ${Math.min(INSIGHTS_PAGE_SIZE, remaining)} horas`
-                }
-                className="cursor-pointer bg-surface-popover/40 hover:bg-accent/10 transition-colors focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                data-testid="next-page-cta"
+                className="bg-surface-popover/40"
               >
-                <td
-                  colSpan={colDefs.length + 1}
-                  className="text-center px-2 py-3 text-[11px] text-text-secondary tabular-nums border-t border-border"
-                >
-                  <span className="font-semibold text-accent">
-                    {STRINGS[locale].insightsShowNext.replace('{n}', String(Math.min(INSIGHTS_PAGE_SIZE, remaining)))}
-                  </span>
-                  <span className="ml-2 text-text-muted">
-                    {STRINGS[locale].insightsRowsRemaining.replace('{n}', String(remaining))}
-                  </span>
+                {/* Mismo criterio que la fila de "anteriores": un botón
+                    nativo dentro de una fila normal, en vez de un <tr>
+                    disfrazado de botón. */}
+                <td colSpan={colDefs.length + 1} className="p-0 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={handleNextClick}
+                    aria-label={
+                      locale === 'en'
+                        ? `Show next ${Math.min(INSIGHTS_PAGE_SIZE, remaining)} hours`
+                        : `Mostrar siguientes ${Math.min(INSIGHTS_PAGE_SIZE, remaining)} horas`
+                    }
+                    className="w-full cursor-pointer px-2 py-3 text-center text-[11px] text-text-secondary tabular-nums hover:bg-accent/10 transition-colors focus-visible:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                    data-testid="next-page-cta"
+                  >
+                    <span className="font-semibold text-accent">
+                      {STRINGS[locale].insightsShowNext.replace('{n}', String(Math.min(INSIGHTS_PAGE_SIZE, remaining)))}
+                    </span>
+                    <span className="ml-2 text-text-muted">
+                      {STRINGS[locale].insightsRowsRemaining.replace('{n}', String(remaining))}
+                    </span>
+                  </button>
                 </td>
               </tr>
             ) : null}

@@ -10,6 +10,8 @@
  * Regla para este fichero: nada con efectos de servidor.
  */
 
+import type { Locale } from '@/lib/i18n'
+
 export interface Plan {
   id: string
   kind: 'premium' | 'stations' | 'bundle'
@@ -44,3 +46,55 @@ export const PLAN_FEATURES = [
 ] as const
 
 export type PlanFeatureKey = (typeof PLAN_FEATURES)[number]['key']
+
+/**
+ * Textos de un plan en el idioma pedido.
+ *
+ * POR QUÉ HACE FALTA. Las filas ya guardan las dos versiones
+ * (`nameEs`/`nameEn`, `descriptionEs`/`descriptionEn`,
+ * `badgeEs`/`badgeEn`) y `PLAN_FEATURES` ya tiene `labelEs`/`labelEn`,
+ * pero las páginas leían SIEMPRE la española. La traducción existía y
+ * no se usaba: Google indexaba /en/premium con el título en inglés y el
+ * cuerpo en español, y quien llegaba en inglés se encontraba la página
+ * de pago sin entenderla.
+ */
+export function planCopy(
+  plan: Plan,
+  locale: Locale,
+): { name: string; description: string | null; badge: string | null } {
+  const es = locale === 'es'
+  return {
+    name: es ? plan.nameEs : plan.nameEn,
+    description: es ? plan.descriptionEs : plan.descriptionEn,
+    badge: es ? plan.badgeEs : plan.badgeEn,
+  }
+}
+
+/** Etiqueta de una prestación del catálogo, en el idioma pedido. */
+export function planFeatureLabel(key: string, locale: Locale): string | null {
+  const f = PLAN_FEATURES.find(x => x.key === key)
+  if (!f) return null
+  return locale === 'es' ? f.labelEs : f.labelEn
+}
+
+/**
+ * Precio formateado en la convención del idioma.
+ *
+ * Los importes se guardan en céntimos de euro. La MONEDA no cambia
+ * —cobramos en euros a todo el mundo—, sólo cómo se escribe:
+ * `12,00 €` en español, `€12.00` en inglés. Antes se hacía
+ * `(cents / 100).toFixed(2) + ' €'` a pelo, que en inglés se lee raro.
+ */
+export function formatearPrecio(cents: number, locale: Locale): string {
+  return new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-IE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(cents / 100)
+}
+
+/** Sufijo del periodo de facturación. */
+export const PERIODO: Record<Locale, { mes: string; ano: string }> = {
+  es: { mes: '/ mes', ano: '/ año' },
+  en: { mes: '/ mo', ano: '/ yr' },
+}
+

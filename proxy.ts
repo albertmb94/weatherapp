@@ -67,7 +67,19 @@ const ADMIN_COOKIE = 'wthr_admin'
  *  and the SW. */
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|icon-.*\\.svg|sw\\.js|api/ingest|api/track|api/health|api/features|api/affiliate/redirect).*)',
+    // AUDITORIA: dos añadidos.
+    //  - `icon-.*\.png`: los iconos de la PWA pasaron a ser PNG,
+    //    y con el patron anterior (solo .svg) el proxy se ejecutaba en
+    //    cada peticion de icono. `isLocaleExemptPath` los dejaba pasar,
+    //    pero el trabajo se hacia igual. Se añade tambien
+    //    `apple-touch-icon.png`, que no empieza por `icon-`. Ojo: van
+    //    como alternativas sueltas y no como `\.(svg|png)` porque el
+    //    parser de rutas de Next lee los parentesis como grupo de
+    //    captura y rechaza el patron entero en el build.
+    //  - `api/client-errors`: telemetria de errores, que llega justo
+    //    cuando la app esta rota y puede llegar a rafagas. No necesita
+    //    nada del proxy y no debe pagarlo.
+    '/((?!_next/static|_next/image|favicon.ico|icon-.*\\.svg|icon-.*\\.png|apple-touch-icon\\.png|sw\\.js|api/ingest|api/track|api/health|api/features|api/client-errors|api/affiliate/redirect).*)',
   ],
 }
 

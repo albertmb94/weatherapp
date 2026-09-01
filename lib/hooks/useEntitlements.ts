@@ -1,8 +1,8 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import type { Entitlements } from '@/lib/entitlements'
-import { FREE_ENTITLEMENTS } from '@/lib/entitlements'
+import type { Entitlements } from '@/lib/entitlements.catalog'
+import { FREE_ENTITLEMENTS } from '@/lib/entitlements.catalog'
 
 /**
  * B-NBT-11: resolve the visitor's plan limits client-side.

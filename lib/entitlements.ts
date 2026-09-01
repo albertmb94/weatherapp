@@ -75,42 +75,15 @@ const ensureSchema = memoizeSchema('entitlements', async () => {
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_stripe_events_at ON stripe_events(received_at)`)
 })
 
-export interface Entitlements {
-  premium: boolean
-  stations: boolean
-  /** Derived convenience flags. */
-  hasAny: boolean
-  // Feature flags derived from entitlements
-  maxModels: number
-  maxDays: number
-  maxSavedCities: number
-  maxAffiliateSectionsPerDay: number
-  showAds: boolean
-  pushAlerts: boolean
-  exportHistorical: boolean
-  canViewStationsTab: boolean
-}
+// El tipo y los valores por defecto viven en
+// `entitlements.catalog.ts` para que `useEntitlements` (cliente)
+// pueda importarlos sin arrastrar `./db` → `@libsql/client` al
+// navegador. Se reexportan para no romper a quien ya importaba de aquí.
+export { FREE_ENTITLEMENTS, featuresFor } from './entitlements.catalog'
+export type { Entitlements } from './entitlements.catalog'
+import { featuresFor, FREE_ENTITLEMENTS } from './entitlements.catalog'
+import type { Entitlements } from './entitlements.catalog'
 
-function featuresFor(p: { premium: boolean; stations: boolean }): Entitlements {
-  // B-NBT-14 (2026-08-22): TODOS los usuarios ven TODO — sin restricciones.
-  // El owner pidió explícitamente que nadie tenga limitaciones mientras
-  // la monetización no esté activa. Cuando se quiera reintroducir el
-  // paywall, restaurar las matrices por plan (ver git history).
-  void p
-  return {
-    premium: true,
-    stations: true,
-    hasAny: true,
-    maxModels: 999,
-    maxDays: 14,
-    maxSavedCities: 999,
-    maxAffiliateSectionsPerDay: 3,
-    showAds: false,
-    pushAlerts: true,
-    exportHistorical: true,
-    canViewStationsTab: true,
-  }
-}
 
 export function computeEntitlements(
   premium: boolean,
@@ -119,7 +92,6 @@ export function computeEntitlements(
   return featuresFor({ premium, stations })
 }
 
-export const FREE_ENTITLEMENTS = featuresFor({ premium: false, stations: false })
 
 /** Margen tras el fin de periodo: Stripe puede tardar en emitir la
  *  renovacion y no queremos cortarle el servicio a quien ha pagado. */

@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import type { Locale } from '@/lib/i18n'
-import { LOCALES, DEFAULT_LOCALE, isLocale, localizedHref } from '@/lib/locale/routing'
+import { LOCALES, DEFAULT_LOCALE, isLocale, localizedHref, socialCardUrl } from '@/lib/locale/routing'
+import { grafoSitio, serializarJsonLd } from '@/lib/locale/datosEstructurados'
 import { appOrigin } from '@/lib/appUrl'
 import { LocaleProvider } from '@/lib/LocaleContext'
 
@@ -65,11 +66,13 @@ export async function generateMetadata({
       locale: locale === 'es' ? 'es_ES' : 'en_US',
       alternateLocale: locale === 'es' ? ['en_US'] : ['es_ES'],
       ...(origin ? { url: `${origin}${localizedHref('/', locale)}` } : {}),
+      ...(origin ? { images: [socialCardUrl(origin, locale)] } : {}),
     },
     twitter: {
       card: 'summary_large_image',
       title: copy.title,
       description: copy.description,
+      ...(origin ? { images: [socialCardUrl(origin, locale)] } : {}),
     },
   }
 }
@@ -91,5 +94,22 @@ export default async function LocaleLayout({
   // sitio del árbol que lo conoce sin deducirlo, y montarlo aquí evita
   // el hook de ruta en el layout raíz que rompía la hidratación (ver
   // lib/LocaleContext.tsx).
-  return <LocaleProvider locale={locale}>{children}</LocaleProvider>
+  // JSON-LD del SITIO (Organization + WebSite). Va aquí porque
+  // describe el sitio, no la página, así que corresponde a todas. La
+  // portada añade además su propio `WebApplication`.
+  const origin = appOrigin()
+
+  return (
+    <LocaleProvider locale={locale}>
+      {origin ? (
+        <script
+          type="application/ld+json"
+          // El contenido es JSON generado por nosotros y escapado en
+          // `serializarJsonLd`; no hay entrada de usuario por medio.
+          dangerouslySetInnerHTML={{ __html: serializarJsonLd(grafoSitio(origin, locale)) }}
+        />
+      ) : null}
+      {children}
+    </LocaleProvider>
+  )
 }

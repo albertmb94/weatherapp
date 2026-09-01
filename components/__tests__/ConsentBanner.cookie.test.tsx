@@ -165,3 +165,62 @@ describe('ConsentBanner · páginas legales exentas', () => {
     expect(screen.getByRole('dialog')).toBeTruthy()
   })
 })
+
+describe('ConsentBanner · idioma de quien lee', () => {
+  /**
+   * El muro estaba escrito en español a pelo dentro del componente.
+   *
+   * Mientras fue una tarjeta esquinada que se podía ignorar, era feo
+   * pero inocuo. Al convertirlo en diálogo bloqueante pasó a ser lo
+   * PRIMERO y lo ÚNICO que veía un visitante anglófono: un modal
+   * impenetrable, en un idioma que no entiende, con un solo botón. O
+   * aceptaba a ciegas —y un consentimiento que no se comprende no vale
+   * como consentimiento informado— o cerraba la pestaña. Afectaba al
+   * 100% del tráfico en inglés, justo en la puerta de entrada.
+   */
+  let Banner: typeof ConsentBanner
+
+  afterEach(() => { cleanup(); limpiar() })
+
+  it('en /en el diálogo se lee en inglés', async () => {
+    limpiar()
+    vi.resetModules()
+    vi.doMock('next/navigation', () => ({ usePathname: () => '/en' }))
+    Banner = (await import('@/components/ConsentBanner')).default
+
+    render(<Banner />)
+
+    const dialogo = screen.getByRole('dialog')
+    expect(dialogo.textContent).toContain('Before you continue')
+    expect(dialogo.textContent).toContain('cookie policy')
+    expect(screen.getByRole('button').textContent?.trim()).toBe('Accept and continue')
+    // Y no puede quedar ni un resto del texto anterior.
+    expect(dialogo.textContent).not.toContain('Antes de continuar')
+    expect(dialogo.textContent).not.toContain('Aceptar')
+  })
+
+  it('en la raíz sigue en español', async () => {
+    limpiar()
+    vi.resetModules()
+    vi.doMock('next/navigation', () => ({ usePathname: () => '/' }))
+    Banner = (await import('@/components/ConsentBanner')).default
+
+    render(<Banner />)
+
+    const dialogo = screen.getByRole('dialog')
+    expect(dialogo.textContent).toContain('Antes de continuar')
+    expect(screen.getByRole('button').textContent?.trim()).toBe('Aceptar y continuar')
+  })
+
+  it('el enlace a la política apunta al idioma activo', async () => {
+    limpiar()
+    vi.resetModules()
+    vi.doMock('next/navigation', () => ({ usePathname: () => '/en' }))
+    Banner = (await import('@/components/ConsentBanner')).default
+
+    render(<Banner />)
+
+    const enlace = screen.getByRole('link') as HTMLAnchorElement
+    expect(enlace.getAttribute('href')).toBe('/en/cookies')
+  })
+})

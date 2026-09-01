@@ -191,6 +191,17 @@ export const STRINGS: Record<Locale, {
    * ensemble (e.g. plain profile or empty backtest). */
   profileChipPrefix: string
   profileChipNeutral: string
+  /** Muro de consentimiento. Estaba escrito en español a pelo dentro
+   *  del componente: desde que el banner pasó a ser un diálogo
+   *  bloqueante, era lo primero Y LO ÚNICO que veía un visitante
+   *  anglófono, en un idioma que no entiende y con un solo botón. O
+   *  aceptaba a ciegas —consentimiento de validez dudosa, porque no se
+   *  puede consentir lo que no se comprende— o se iba. */
+  consentDialogLabel: string
+  consentTitle: string
+  consentBody: string
+  consentPolicyLink: string
+  consentAccept: string
 }> = {
   es: {
     today: 'Hoy',
@@ -342,6 +353,12 @@ export const STRINGS: Record<Locale, {
     profilePlain: 'Llanura',
     profileChipPrefix: 'Perfil',
     profileChipNeutral: 'Sin sesgo regional',
+    consentDialogLabel: 'Consentimiento de cookies',
+    consentTitle: 'Antes de continuar',
+    consentBody:
+      'Para acceder a la aplicación es necesario aceptar el uso de cookies: recordamos tus preferencias y medimos el uso de forma agregada. Puedes retirar tu consentimiento en cualquier momento desde la ',
+    consentPolicyLink: 'política de cookies',
+    consentAccept: 'Aceptar y continuar',
   },
   en: {
     today: 'Today',
@@ -493,5 +510,11 @@ export const STRINGS: Record<Locale, {
     profilePlain: 'Plain',
     profileChipPrefix: 'Profile',
     profileChipNeutral: 'No regional bias',
+    consentDialogLabel: 'Cookie consent',
+    consentTitle: 'Before you continue',
+    consentBody:
+      'To use this app you need to accept cookies: we remember your preferences and measure usage in aggregate. You can withdraw your consent at any time from the ',
+    consentPolicyLink: 'cookie policy',
+    consentAccept: 'Accept and continue',
   },
 }

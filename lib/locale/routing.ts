@@ -92,6 +92,22 @@ export function localizedHref(path: string, locale: Locale): string {
 }
 
 /**
+ * URL absoluta de la tarjeta social del idioma dado.
+ *
+ * POR QUÉ NO SE DEJA QUE NEXT LA DEDUZCA. La convención de fichero
+ * genera la URL desde el segmento de ruta, así que en español emitía
+ * `/es/opengraph-image` — y el proxy responde a `/es/...` con un 308
+ * hacia la versión sin prefijo, porque el español es el idioma por
+ * defecto y su URL canónica no lleva prefijo. La tarjeta acababa
+ * detrás de un salto que algunos rastreadores no siguen para
+ * imágenes. Apuntando a la URL canónica desde el principio, no hay
+ * salto que seguir.
+ */
+export function socialCardUrl(origin: string, locale: Locale): string {
+  return `${origin}${localizedHref('/opengraph-image', locale)}`
+}
+
+/**
  * Cambia el idioma de una URL COMPLETA conservando ruta y query.
  * Es lo que usa el selector de idioma.
  */

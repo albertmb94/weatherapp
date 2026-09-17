@@ -173,8 +173,16 @@ const AI_SHARE_BY_BUCKET: Record<string, number> = {
 function blendAiWeights(
   bucketKey: string,
   bucket: Record<string, number>,
+  aiShareOverride?: number,
 ): Record<string, number> {
-  const aiShare = AI_SHARE_BY_BUCKET[bucketKey] ?? 0.2
+  // B-NBT-12 (2026-08-24): an AI share of 0 means "leave the calibrated
+  // bucket alone". The AI blend was justified for TEMPERATURE (large-scale
+  // pattern skill at long leads) but applying it to precipitation put
+  // `ecmwf_aifs025` — a model the provider serves all-null — at the TOP
+  // of the rain weights, which read as "the ensemble is AIFS" and hid the
+  // fact that no AI model contributes to rain at all.
+  const aiShare = aiShareOverride ?? AI_SHARE_BY_BUCKET[bucketKey] ?? 0.2
+  if (aiShare <= 0) return { ...bucket }
   const legacySum = Object.values(bucket).reduce((a, b) => a + b, 0) || 1
   const aiDeclaredSum = Object.values(AI_MODEL_WEIGHTS).reduce((a, b) => a + b, 0)
   const out: Record<string, number> = {}
@@ -188,13 +196,23 @@ function blendAiWeights(
 }
 
 function blendAllBuckets(
-  buckets: Record<string, Record<string, number>>
+  buckets: Record<string, Record<string, number>>,
+  aiShareOverride?: number,
 ): Record<string, Record<string, number>> {
   const out: Record<string, Record<string, number>> = {}
   for (const [key, bucket] of Object.entries(buckets)) {
-    out[key] = blendAiWeights(key, bucket)
+    out[key] = blendAiWeights(key, bucket, aiShareOverride)
   }
   return out
+}
+
+/** Fully calibrated buckets, deliberately WITHOUT the AI share. Used by
+ *  every non-temperature profile: the AI models the provider serves
+ *  all-null must not appear in the rain/wind weights at all. */
+function calibratedBuckets(
+  buckets: Record<string, Record<string, number>>,
+): Record<string, Record<string, number>> {
+  return blendAllBuckets(buckets, 0)
 }
 
 export type EnsemblePreset =
@@ -273,7 +291,7 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     id: 'precipitation',
     label: 'Precipitation',
     description: 'Optimized for precipitation amount accuracy (mm/h)',
-    weights: blendAllBuckets({
+    weights: calibratedBuckets({
       '0-48h': {
         ncep_aigfs025: 0.093, meteofrance_arome_france: 0.089, icon_eu: 0.082,
         meteofrance_arpege_europe: 0.081, meteofrance_arome_france_hd: 0.08,
@@ -341,7 +359,7 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     // Calibrated with the same precipitation verification signal (there
     // is no direct observation of "probability"); the ordering is what
     // matters, not the absolute scale.
-    weights: blendAllBuckets({
+    weights: calibratedBuckets({
       '0-48h': {
         ncep_aigfs025: 0.093, meteofrance_arome_france: 0.089, icon_eu: 0.082,
         meteofrance_arpege_europe: 0.081, meteofrance_arome_france_hd: 0.08,

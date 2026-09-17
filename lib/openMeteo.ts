@@ -1,10 +1,11 @@
 import { roundCoordinate } from './cacheKey'
-import type { WeatherModel, Metric } from './models'
+import type { WeatherModel, Metric, MetricId } from './models'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { fetchMarine, computeMarineDays } from './marine'
 import { parseOpenMeteoTimes, getLocationNow } from './dateUtils'
 import { selectModelsForLocation } from './regionDetection'
 import { weightedAvg } from './ensemble'
+import { weightsFor } from './ensemble/central'
 import { detectModelsWithNoData } from './api/openMeteoProxy'
 
 // v4-mixed-models: the previous cap of 10 dropped European regional
@@ -114,8 +115,13 @@ export function aggregateDailySeries(
   daily: Record<string, unknown>,
   variable: string,
   models: WeatherModel[],
+  /** Optional CALIBRATED per-model weight resolver (model, dayIndex).
+   *  Defaults to the model's static `weight`, which is NOT the same
+   *  weighting the hourly ensemble uses — callers that care about
+   *  consistency must pass the metric's calibrated weights. */
+  weightForModel?: (model: WeatherModel, dayIndex: number) => number,
 ): (number | null)[] {
-  const perModel: { arr: (number | null)[]; weight: number }[] = []
+  const perModel: { model: WeatherModel; arr: (number | null)[] }[] = []
   let maxLen = 0
   for (const m of models) {
     const raw = daily[`${variable}_${m.id}`]
@@ -123,7 +129,7 @@ export function aggregateDailySeries(
     const arr = raw.map((v: unknown) =>
       typeof v === 'number' && Number.isFinite(v) ? v : null)
     if (arr.length === 0) continue
-    perModel.push({ arr, weight: m.weight > 0 ? m.weight : 1 })
+    perModel.push({ model: m, arr })
     if (arr.length > maxLen) maxLen = arr.length
   }
   if (perModel.length === 0) {
@@ -133,13 +139,27 @@ export function aggregateDailySeries(
     return plain.map((v: unknown) =>
       typeof v === 'number' && Number.isFinite(v) ? v : null)
   }
-  const weights = perModel.map(p => p.weight)
   const out: (number | null)[] = []
   for (let i = 0; i < maxLen; i++) {
     const vals = perModel.map(p => (i < p.arr.length ? p.arr[i] : null))
+    const weights = perModel.map(p =>
+      weightForModel
+        ? weightForModel(p.model, i)
+        : (p.model.weight > 0 ? p.model.weight : 1))
     out.push(weightedAvg(vals, weights))
   }
   return out
+}
+
+/** Calibrated per-model weight for a DAILY aggregate: the ensemble weight
+ *  for that metric at the day's lead time. Keeps the daily tiles on the
+ *  same weighting the hourly ensemble uses. */
+function dailyWeight(metric: MetricId, models: WeatherModel[]) {
+  const indexById = new Map(models.map((m, i) => [m.id, i]))
+  return (model: WeatherModel, dayIndex: number): number => {
+    const w = weightsFor(metric, dayIndex * 24, 1, models)
+    return w[indexById.get(model.id) ?? -1] ?? 0.01
+  }
 }
 
 /**
@@ -380,10 +400,10 @@ export async function fetchForecast(
     series,
     utcOffsetSeconds: data.utc_offset_seconds ?? 0,
     fetchedAt,
-    dailyPrecipitationSum: aggregateDailySeries(daily, 'precipitation_sum', capped),
-    dailyPrecipitationProbabilityMax: aggregateDailySeries(daily, 'precipitation_probability_max', capped),
+    dailyPrecipitationSum: aggregateDailySeries(daily, 'precipitation_sum', capped, dailyWeight('precipitation', capped)),
+    dailyPrecipitationProbabilityMax: aggregateDailySeries(daily, 'precipitation_probability_max', capped, dailyWeight('precipitation_probability', capped)),
     dailyTime,
-    dailyPrecipitationHours: aggregateDailySeries(daily, 'precipitation_hours', capped),
+    dailyPrecipitationHours: aggregateDailySeries(daily, 'precipitation_hours', capped, dailyWeight('precipitation', capped)),
     modelsWithNoData,
     todaySunsetTs: parseTodaySunset(data.daily),
   }

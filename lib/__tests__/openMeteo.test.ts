@@ -260,6 +260,19 @@ describe('aggregateDailySeries (B-NEW-41)', () => {
   it('returns [] when nothing usable exists', () => {
     expect(aggregateDailySeries({}, 'precipitation_sum', models)).toEqual([])
   })
+
+  it('uses the supplied calibrated weight resolver when given (B-NBT-12)', () => {
+    const daily = {
+      precipitation_sum_a: [1, 2],
+      precipitation_sum_b: [3, 6],
+    }
+    // Calibrated resolver: model a gets 1, model b gets 3.
+    // Row 0: (1*1 + 3*3)/4 = 2.5; row 1: (2*1 + 6*3)/4 = 5.
+    const out = aggregateDailySeries(daily, 'precipitation_sum', models, (m) =>
+      m.id === 'a' ? 1 : 3,
+    )
+    expect(out).toEqual([2.5, 5])
+  })
 })
 
 describe('detectModelsWithNoData (B-NEW-41)', () => {

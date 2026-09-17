@@ -118,15 +118,26 @@ describe('calibrated preset prioritization (B-NBT-8)', () => {
   it('wind has its own calibrated, wind-specific weights (B-NBT-11)', () => {
     const wind = ENSEMBLE_PRESETS.find(p => p.id === 'wind_speed')!
     const rain = ENSEMBLE_PRESETS.find(p => p.id === 'precipitation')!
-    // Same bucket, so the AI-share rescale factors out: the RAW
-    // ratios must differ from the precipitation profile. ECMWF and
-    // UKMO both carry more wind mass than rain mass.
+    // ECMWF and UKMO both carry more wind mass than rain mass.
     expect(wind.weights['0-48h'].ecmwf_ifs as number).toBeGreaterThan(
       rain.weights['0-48h'].ecmwf_ifs as number
     )
     expect(wind.weights['0-48h'].ukmo_global_deterministic_10km as number).toBeGreaterThan(
       rain.weights['0-48h'].ukmo_global_deterministic_10km as number
     )
+  })
+
+  it('no AI-only model appears in the precipitation profiles (B-NBT-12)', () => {
+    // ecmwf_aifs025 / gfs_graphcast025 are served all-null by the
+    // provider; the old AI share put one of them at the TOP of the rain
+    // weights, which made the ensemble read as "it is just AIFS".
+    for (const id of ['precipitation', 'precipitation_probability'] as const) {
+      const preset = ENSEMBLE_PRESETS.find(p => p.id === id)!
+      for (const bucket of Object.values(preset.weights)) {
+        expect(bucket.ecmwf_aifs025).toBeUndefined()
+        expect(bucket.gfs_graphcast025).toBeUndefined()
+      }
+    }
   })
 
   it('every backtest metric has a provider parameter mapped', () => {

@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 
 import CitySearch, { focusVisibleCitySearch } from '@/components/CitySearch'
-import ConsultaSearch, { type ConsultaApply, type ConsultaCandidato } from '@/components/ConsultaSearch'
 import ModelSelector from '@/components/ModelSelector'
 import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours, type InsightsDayFilter } from '@/components/InsightsTable'
@@ -56,7 +55,6 @@ import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
 import { shouldAutoRefresh } from '@/lib/autoRefresh'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { computeInsightsStartIndex } from '@/lib/insightsTime'
-import { findHourIndexForLocalHour } from '@/lib/consultaUi'
 import type { BiasTable } from '@/lib/ensemble/central'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
@@ -1110,42 +1108,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     viewTimesLength: viewData?.time.length ?? 0,
   })
 
-  // Candidates for the natural-language box: the current city plus the
-  // user's saved places. Jev only *selects* among these — it never invents
-  // a place name. Coordinates stay client-side; only id + name are sent.
-  const consultaCandidatos = useMemo<ConsultaCandidato[]>(() => {
-    const out: ConsultaCandidato[] = []
-    const seen = new Set<string>()
-    const push = (id: string, nombre: string, lat: number, lon: number) => {
-      if (!nombre || seen.has(id)) return
-      seen.add(id)
-      out.push({ id, nombre, lat, lon })
-    }
-    if (cityName) push(`actual:${cityName}`, cityName, position[0], position[1])
-    for (const loc of savedLocations ?? []) {
-      push(`saved:${loc.id}`, loc.name, loc.latitude, loc.longitude)
-    }
-    return out
-  }, [cityName, position, savedLocations])
-
-  const handleConsultaApply = useCallback((apply: ConsultaApply) => {
-    if (apply.lugar) {
-      setCityName(apply.lugar.nombre)
-      setPosition([apply.lugar.lat, apply.lugar.lon])
-    }
-    updateUrl({
-      ...apply.patch,
-      ...(apply.lugar ? { lat: apply.lugar.lat, lon: apply.lugar.lon } : {}),
-    })
-    // `franja` → a local hour → the matching index in the view-relative
-    // hourly series. `bucket` is deliberately untouched: it is an
-    // aggregation width, not something a natural-language query expresses.
-    if (apply.localHour !== null && viewData) {
-      const index = findHourIndexForLocalHour(viewData.time, apply.localHour)
-      if (index !== null) handleHourChange(index)
-    }
-  }, [updateUrl, viewData, handleHourChange])
-
   // S6.3: pull-to-refresh on the main content container. Disabled on
   // desktop (`pointer: coarse` only) and on `prefers-reduced-motion`
   // (the gesture would be janky anyway without an animation).
@@ -1260,9 +1222,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
           <div className="relative flex-1 min-w-0 z-50">
             <CitySearch onSelect={handleCitySelect} />
           </div>
-        </div>
-        <div className="px-3 pb-1.5">
-          <ConsultaSearch candidatos={consultaCandidatos} onApply={handleConsultaApply} />
         </div>
         {/* B-NEW-29 (2026-07-30): the saved-locations strip now
             lives directly under the search bar (instead of being
@@ -1456,9 +1415,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                     <path d="m20 20-3.5-3.5" strokeLinecap="round" />
                   </svg>
                   <CitySearch onSelect={handleCitySelect} />
-                </div>
-                <div className="w-80 shrink-0">
-                  <ConsultaSearch candidatos={consultaCandidatos} onApply={handleConsultaApply} />
                 </div>
               </div>
               {/* B-NEW-29 (2026-07-30): saved-locations strip

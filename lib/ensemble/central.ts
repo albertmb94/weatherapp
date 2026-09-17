@@ -32,11 +32,50 @@ import type { WeatherModel, MetricId } from '../models'
 import {
   ENSEMBLE_PRESETS,
   METRIC_TO_ENSEMBLE,
+  BIAS_CORRECTED_METRICS,
   getLeadTimeBucket,
 } from '../models'
 import { weightedAvg } from '../ensemble'
 
 export type EnsembleMode = 'wedai' | 'models'
+
+/**
+ * Additive bias correction table, as served by `/api/model-bias` and
+ * produced from the backtest's `model_accuracy.bias` column.
+ *
+ * Shape: metric → lead-time bucket → model_id → bias (in the metric's
+ * own unit). `weightedAvg` subtracts the bias from each model's value
+ * before weighting, so a model that runs systematically warm contributes
+ * its de-biased value instead of dragging the mean.
+ *
+ * Absent entries mean "no measured bias" (the metric/bucket has no
+ * verification rows) and leave the value untouched — the system degrades
+ * to exactly today's behaviour.
+ */
+export type BiasTable = Partial<
+  Record<string, Partial<Record<string, Record<string, number>>>>
+>
+
+/**
+ * Resolve the per-model bias for a metric at a given lead time.
+ * Returns `undefined` (not `{}`) when nothing is measured, so callers
+ * can skip the correction entirely.
+ */
+export function biasForMetricBucket(
+  table: BiasTable | null | undefined,
+  metric: string,
+  leadTimeHours: number
+): Record<string, number> | undefined {
+  if (!table) return undefined
+  // Evidence-gated: only metrics where the holdout evaluator measured a
+  // benefit get de-biased (see BIAS_CORRECTED_METRICS). For the rest the
+  // correction is skipped even if a bias table is supplied.
+  if (!BIAS_CORRECTED_METRICS.has(metric)) return undefined
+  const byBucket = table[metric]
+  if (!byBucket) return undefined
+  const bucket = getLeadTimeBucket(Math.max(0, leadTimeHours))
+  return byBucket[bucket] ?? byBucket['0-48h']
+}
 
 /** A single time-series bucket (full forecast or marine payload). */
 export interface SeriesBag {
@@ -198,13 +237,18 @@ export function meanAtHour(
   metric: MetricId,
   hourIndex: number,
   activeModels: WeatherModel[],
-  weights: number[]
+  weights: number[],
+  /** Optional per-model additive bias (see {@link biasForMetricBucket}).
+   *  When given, each model's value is de-biased before weighting, so the
+   *  ensemble is consistent everywhere the same table is supplied. */
+  bias?: Record<string, number> | null
 ): number | null {
   if (activeModels.length === 0) return null
   const vals = activeModels.map(
     m => bag.series[m.id]?.[metric]?.[hourIndex] ?? null
   )
-  return weightedAvg(vals, weights)
+  if (!bias) return weightedAvg(vals, weights)
+  return weightedAvg(vals, weights, null, activeModels.map(m => m.id), bias)
 }
 
 /**
@@ -296,10 +340,14 @@ export function ensembleWithFallback(
    *  hours-since-now. Callers iterating absolute indices (DailySummary
    *  over fullTimes) pass their relative lead so both tiers land in
    *  the same preset bucket. */
-  fallbackLeadTimeHours?: number
+  fallbackLeadTimeHours?: number,
+  /** Optional per-model additive bias; applied to both the primary and
+   *  the WedAI fallback (the map is keyed by model id, so it covers
+   *  whichever set is being averaged). */
+  bias?: Record<string, number> | null
 ): number | null {
   if (activeModels.length === 0) return null
-  const v = meanAtHourFromSeries(series, metric as MetricId, index, activeModels, weights)
+  const v = meanAtHourFromSeries(series, metric as MetricId, index, activeModels, weights, bias)
   if (v !== null) return v
   // The user's selection returned null — fall back to WedAI so the
   // user always sees data when at least one model has a value.
@@ -312,7 +360,7 @@ export function ensembleWithFallback(
   if (allLandModels.length === 0) return null
   const lead = Math.max(0, fallbackLeadTimeHours ?? index)
   const fallbackWeights = weightsFor(metric as MetricId, lead, 1, allLandModels)
-  return meanAtHourFromSeries(series, metric as MetricId, index, allLandModels, fallbackWeights)
+  return meanAtHourFromSeries(series, metric as MetricId, index, allLandModels, fallbackWeights, bias)
 }
 
 /**
@@ -325,11 +373,13 @@ function meanAtHourFromSeries(
   metric: MetricId,
   hourIndex: number,
   activeModels: WeatherModel[],
-  weights: number[]
+  weights: number[],
+  bias?: Record<string, number> | null
 ): number | null {
   if (activeModels.length === 0) return null
   const vals = activeModels.map(
     m => series[m.id]?.[metric]?.[hourIndex] ?? null
   )
-  return weightedAvg(vals, weights)
+  if (!bias) return weightedAvg(vals, weights)
+  return weightedAvg(vals, weights, null, activeModels.map(m => m.id), bias)
 }

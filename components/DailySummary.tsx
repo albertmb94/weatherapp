@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
 import type { MetricId } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
-import { ensembleWithFallback, resolveActiveModels, weightsForAbsolute } from '@/lib/ensemble/central'
+import { ensembleWithFallback, resolveActiveModels, weightsForAbsolute, biasForMetricBucket, type BiasTable } from '@/lib/ensemble/central'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import WeatherConditionIcon from './WeatherConditionIcon'
@@ -54,6 +54,9 @@ interface DailySummaryProps {
    *  was hardcoded to "respect the user's selection" which leaked
    *  into the friendly cards even after the user clicked WedAI. */
   ensembleMode?: 'wedai' | 'models'
+  /** Phase 3: terrain-wide bias correction table, applied to the same
+   *  day aggregates the InsightsTable/friendly cards compute. */
+  biasTable?: BiasTable | null
 }
 
 interface DayBucket {
@@ -104,6 +107,7 @@ export default function DailySummary({
   utcOffsetSeconds = 0,
   startIndex = 0,
   ensembleMode = 'models',
+  biasTable = null,
 }: DailySummaryProps) {
   const { locale } = useLocale()
 
@@ -200,19 +204,19 @@ export default function DailySummary({
         // the preset bucket for the fallback mean.
         const lead = Math.max(0, i - startIndex)
         const tWeights = getWeightsForMetricAndHour('temperature', i)
-        const t = ensembleWithFallback(series, 'temperature', i, activeModels, wedaiModels, tWeights, lead)
+        const t = ensembleWithFallback(series, 'temperature', i, activeModels, wedaiModels, tWeights, lead, biasForMetricBucket(biasTable, 'temperature', lead))
         if (t !== null) {
           if (bucket.tMin === null || t < bucket.tMin) bucket.tMin = t
           if (bucket.tMax === null || t > bucket.tMax) bucket.tMax = t
         }
         const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const p = ensembleWithFallback(series, 'precipitation', i, activeModels, wedaiModels, pWeights, lead)
+        const p = ensembleWithFallback(series, 'precipitation', i, activeModels, wedaiModels, pWeights, lead, biasForMetricBucket(biasTable, 'precipitation', lead))
         if (p !== null) bucket.precipTotal = (bucket.precipTotal ?? 0) + p
         const wWeights = getWeightsForMetricAndHour('wind_gusts', i)
-        const w = ensembleWithFallback(series, 'wind_gusts', i, activeModels, wedaiModels, wWeights, lead)
+        const w = ensembleWithFallback(series, 'wind_gusts', i, activeModels, wedaiModels, wWeights, lead, biasForMetricBucket(biasTable, 'wind_gusts', lead))
         if (w !== null && (bucket.windMax === null || w > bucket.windMax)) bucket.windMax = w
         const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
-        const c = ensembleWithFallback(series, 'cloud_cover', i, activeModels, wedaiModels, cWeights, lead)
+        const c = ensembleWithFallback(series, 'cloud_cover', i, activeModels, wedaiModels, cWeights, lead, biasForMetricBucket(biasTable, 'cloud_cover', lead))
         if (c !== null) {
           cloudSum += c
           cloudCount += 1
@@ -250,7 +254,7 @@ export default function DailySummary({
     // mucho recalcula de sobra al cambiar de ciudad, que es justo cuando
     // hay que recalcular de todas formas.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModels, models, times, series, maxHours, startIndex, locale, utcOffsetSeconds])
+  }, [activeModels, models, times, series, maxHours, startIndex, locale, utcOffsetSeconds, biasTable])
 
   if (days.length === 0) return null
 

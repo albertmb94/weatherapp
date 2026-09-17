@@ -197,7 +197,11 @@ function blendAllBuckets(
   return out
 }
 
-export type EnsemblePreset = 'temperature' | 'precipitation' | 'precipitation_probability'
+export type EnsemblePreset =
+  | 'temperature'
+  | 'precipitation'
+  | 'precipitation_probability'
+  | 'wind_speed'
 
 export interface EnsembleDefinition {
   id: EnsemblePreset
@@ -295,6 +299,42 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     }),
   },
   {
+    id: 'wind_speed',
+    label: 'Wind',
+    description: 'Optimized for 10 m wind-speed accuracy (MAE, RMSE)',
+    // B-NBT-11 (2026-08-24): wind is now calibrated on its OWN
+    // verification signal (`model_accuracy.metric = 'wind_speed'`,
+    // measured against ERA5 over the same 90 locations / 2026-08-15..22
+    // window). Before this it reused the precipitation profile, so wind
+    // was weighted by rain skill even though the wind rows were sitting
+    // in the table unused. The two profiles differ materially: ECMWF
+    // carries ~0.097 of the 0-48h wind mass (vs 0.074 in rain), UKMO is
+    // a strong wind performer at every lead, and ICON-EU — the
+    // temperature leader — only takes over wind at 48-96h.
+    weights: blendAllBuckets({
+      '0-48h': {
+        dwd_icon_d2: 0.102, ecmwf_ifs: 0.097, ukmo_global_deterministic_10km: 0.088,
+        gem_global: 0.083, icon_global: 0.082, ncep_aigfs025: 0.081, icon_eu: 0.079,
+        meteofrance_arome_france_hd: 0.077, meteofrance_arome_france: 0.076,
+        dmi_harmonie_arome_europe: 0.063, gfs_global: 0.058,
+        knmi_harmonie_arome_europe: 0.057, meteofrance_arpege_europe: 0.056,
+      },
+      '48-96h': {
+        icon_eu: 0.154, ecmwf_ifs: 0.148, icon_global: 0.136, gem_global: 0.135,
+        ukmo_global_deterministic_10km: 0.135, ncep_aigfs025: 0.123,
+        gfs_global: 0.09, meteofrance_arpege_europe: 0.08,
+      },
+      '96-168h': {
+        ecmwf_ifs: 0.2, ukmo_global_deterministic_10km: 0.184, icon_global: 0.179,
+        gem_global: 0.171, ncep_aigfs025: 0.146, gfs_global: 0.121,
+      },
+      // Unmeasured extrapolation: Previous Runs only archives 7 days, so
+      // the far buckets keep the same structure as the other profiles.
+      '168-240h': { ecmwf_ifs: 0.34, icon_global: 0.28, gfs_global: 0.24, gem_global: 0.14 },
+      '240-360h': { ecmwf_ifs: 0.34, gfs_global: 0.28, icon_global: 0.22, gem_global: 0.16 },
+    }),
+  },
+  {
     id: 'precipitation_probability',
     label: 'Rain Probability',
     description: 'Optimized for rain detection accuracy (POD, FAR, CSI)',
@@ -329,28 +369,65 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
 ]
 
 /**
- * Maps each metric to the ensemble preset that should be used for it.
+ * Metrics for which the additive bias correction is ALLOWED.
+ *
+ * Not every metric benefits: `scripts/evalEnsemble.ts` (5-fold
+ * leave-locations-out, raw `forecast_archive` × `observations_era5`)
+ * measured, per metric, the ensemble RMSE with and without de-biasing:
+ *
+ *   temperature  RMSE 1.5038 → 1.5035   helps (tiny)
+ *   wind_speed   RMSE 3.6316 → 3.7087   HURTS (+2.1 %)
+ *
+ * The wind regression is why this is a whitelist and not "apply
+ * everywhere": a terrain-wide signed bias that cancels across locations
+ * adds error when subtracted per instance. Re-run the evaluator before
+ * adding a metric here.
+ */
+export const BIAS_CORRECTED_METRICS: ReadonlySet<string> = new Set(['temperature'])
+
+/**
+ * Maps each metric to the ensemble weights profile that should be used
+ * for it.
+ *
+ * Two kinds of entry live here, and the distinction matters:
+ *
+ *   - MEASURED: the metric has its own `model_accuracy` verification
+ *     signal, so the profile is calibrated on exactly that signal.
+ *     Today: `temperature`, `precipitation`, `precipitation_probability`
+ *     (from the precipitation signal — probability has no direct
+ *     observation), `wind_speed`.
+ *   - PROXY: no verification for this metric yet, so it borrows the
+ *     profile of the closest *physical* sibling instead of silently
+ *     inheriting an unrelated one. The chosen sibling is named in the
+ *     comment on each line so the next backtest extension knows what to
+ *     replace. Adding the metric to `BACKTEST_METRICS` + the provider
+ *     param maps turns a proxy into a measured profile with no change
+ *     here beyond pointing it at its own id.
  */
 export const METRIC_TO_ENSEMBLE: Record<string, EnsemblePreset> = {
   temperature: 'temperature',
+  // Proxy → temperature: same thermodynamic signal.
   dewpoint: 'temperature',
   humidity: 'temperature',
   cloud_cover: 'temperature',
   uv_index: 'temperature',
   pressure: 'temperature',
   visibility: 'temperature',
+  sea_surface_temperature: 'temperature',
   precipitation: 'precipitation',
   precipitation_probability: 'precipitation_probability',
-  wind_speed: 'precipitation',
-  wind_gusts: 'precipitation',
-  sea_surface_temperature: 'temperature',
-  wave_height: 'precipitation',
-  wave_period: 'precipitation',
-  wave_direction: 'precipitation',
-  wind_wave_height: 'precipitation',
-  wind_wave_period: 'precipitation',
-  swell_wave_height: 'precipitation',
-  swell_wave_period: 'precipitation',
+  // Measured wind profile (B-NBT-11).
+  wind_speed: 'wind_speed',
+  // Proxy → wind_speed: same boundary-layer wind field; gusts are the
+  // wind profile's extreme tail, waves are wind-driven.
+  wind_gusts: 'wind_speed',
+  wave_height: 'wind_speed',
+  wave_period: 'wind_speed',
+  wave_direction: 'wind_speed',
+  wind_wave_height: 'wind_speed',
+  wind_wave_period: 'wind_speed',
+  swell_wave_height: 'wind_speed',
+  swell_wave_period: 'wind_speed',
 }
 
 /**

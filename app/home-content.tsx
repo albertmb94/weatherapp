@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 
 import CitySearch, { focusVisibleCitySearch } from '@/components/CitySearch'
+import ConsultaSearch, { type ConsultaApply, type ConsultaCandidato } from '@/components/ConsultaSearch'
 import ModelSelector from '@/components/ModelSelector'
 import DailySummary from '@/components/DailySummary'
 import InsightsTable, { type BucketHours, type InsightsDayFilter } from '@/components/InsightsTable'
@@ -55,6 +56,8 @@ import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
 import { shouldAutoRefresh } from '@/lib/autoRefresh'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { computeInsightsStartIndex } from '@/lib/insightsTime'
+import { findHourIndexForLocalHour } from '@/lib/consultaUi'
+import type { BiasTable } from '@/lib/ensemble/central'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
 // in the background. The user asked for this to kick in at 2h for
@@ -970,6 +973,11 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // here because the alternative (deriving `recommendedSet` from
   // props) is impossible: the backtest result is async by design.
   const [recommendedSet, setRecommendedSet] = useState<Set<string>>(() => new Set())
+  // Phase 3: terrain-wide bias correction table. Same reason as the
+  // recommendation above — `model_accuracy` is server-only, so the client
+  // reads the aggregated map from `/api/model-bias` instead of the DB.
+  // `null` (default) means "no correction", i.e. today's behaviour.
+  const [biasTable, setBiasTable] = useState<BiasTable | null>(null)
   // The setState calls below are inside a useEffect that synchronises
   // the backtest result (async by design) with the React state. The
   // `react-hooks/set-state-in-effect` rule flags this pattern but
@@ -1034,6 +1042,28 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
       cancelled = true
     }
   }, [effectiveProfile.terrain, selectedMetric])
+
+  useEffect(() => {
+    const terrain = effectiveProfile.terrain
+    if (!terrain) {
+      setBiasTable(null)
+      return
+    }
+    let cancelled = false
+    void fetch(`/api/model-bias?terrain=${encodeURIComponent(terrain.type)}`)
+      .then(r => (r.ok ? r.json() : { bias: {} }))
+      .then((data: { bias?: BiasTable }) => {
+        if (cancelled) return
+        const table = data?.bias
+        setBiasTable(table && Object.keys(table).length > 0 ? table : null)
+      })
+      .catch(() => {
+        if (!cancelled) setBiasTable(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [effectiveProfile.terrain])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // The number of recommendation entries that actually overlap with
@@ -1079,6 +1109,42 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     selectedModels,
     viewTimesLength: viewData?.time.length ?? 0,
   })
+
+  // Candidates for the natural-language box: the current city plus the
+  // user's saved places. Jev only *selects* among these — it never invents
+  // a place name. Coordinates stay client-side; only id + name are sent.
+  const consultaCandidatos = useMemo<ConsultaCandidato[]>(() => {
+    const out: ConsultaCandidato[] = []
+    const seen = new Set<string>()
+    const push = (id: string, nombre: string, lat: number, lon: number) => {
+      if (!nombre || seen.has(id)) return
+      seen.add(id)
+      out.push({ id, nombre, lat, lon })
+    }
+    if (cityName) push(`actual:${cityName}`, cityName, position[0], position[1])
+    for (const loc of savedLocations ?? []) {
+      push(`saved:${loc.id}`, loc.name, loc.latitude, loc.longitude)
+    }
+    return out
+  }, [cityName, position, savedLocations])
+
+  const handleConsultaApply = useCallback((apply: ConsultaApply) => {
+    if (apply.lugar) {
+      setCityName(apply.lugar.nombre)
+      setPosition([apply.lugar.lat, apply.lugar.lon])
+    }
+    updateUrl({
+      ...apply.patch,
+      ...(apply.lugar ? { lat: apply.lugar.lat, lon: apply.lugar.lon } : {}),
+    })
+    // `franja` → a local hour → the matching index in the view-relative
+    // hourly series. `bucket` is deliberately untouched: it is an
+    // aggregation width, not something a natural-language query expresses.
+    if (apply.localHour !== null && viewData) {
+      const index = findHourIndexForLocalHour(viewData.time, apply.localHour)
+      if (index !== null) handleHourChange(index)
+    }
+  }, [updateUrl, viewData, handleHourChange])
 
   // S6.3: pull-to-refresh on the main content container. Disabled on
   // desktop (`pointer: coarse` only) and on `prefers-reduced-motion`
@@ -1194,6 +1260,9 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
           <div className="relative flex-1 min-w-0 z-50">
             <CitySearch onSelect={handleCitySelect} />
           </div>
+        </div>
+        <div className="px-3 pb-1.5">
+          <ConsultaSearch candidatos={consultaCandidatos} onApply={handleConsultaApply} />
         </div>
         {/* B-NEW-29 (2026-07-30): the saved-locations strip now
             lives directly under the search bar (instead of being
@@ -1388,6 +1457,9 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                   </svg>
                   <CitySearch onSelect={handleCitySelect} />
                 </div>
+                <div className="w-80 shrink-0">
+                  <ConsultaSearch candidatos={consultaCandidatos} onApply={handleConsultaApply} />
+                </div>
               </div>
               {/* B-NEW-29 (2026-07-30): saved-locations strip
                   sticks directly under the search input on
@@ -1466,6 +1538,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                   // to the pre-Sprint-13 behaviour byte-for-byte.
                   usageProfile={effectiveProfile.profile}
                   usageProfileRecommended={recommendedSet}
+                  biasTable={biasTable}
                   // F5 (revised): the EU AQI value is rendered
                   // inside the Métricas block (via AirConditionsGrid)
                   // so it shows on every viewport including mobile
@@ -1542,6 +1615,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                   locationKey={`${position[0].toFixed(2)}:${position[1].toFixed(2)}`}
                   usageProfile={effectiveProfile.profile}
                   usageProfileRecommended={recommendedSet}
+                  biasTable={biasTable}
                 />
               )}
 
@@ -1653,6 +1727,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                 // use the calibrated ensemble when the Avanzado
                 // toggle is on WedAI.
                 ensembleMode={ensembleMode}
+                biasTable={biasTable}
               />
             </div>
           </aside>
@@ -1732,6 +1807,7 @@ const AdvancedSection = memo(function AdvancedSection({
   locationKey,
   usageProfile,
   usageProfileRecommended,
+  biasTable,
 }: {
   expanded: boolean
   onToggle: () => void
@@ -1767,6 +1843,8 @@ const AdvancedSection = memo(function AdvancedSection({
   /** B-NBT-9b: Sprint-13 boost threading for the InsightsTable active row. */
   usageProfile: import('@/lib/profiles').UsageProfile | null
   usageProfileRecommended: ReadonlySet<string>
+  /** Phase 3: bias correction table, threaded to DailySummary/InsightsTable. */
+  biasTable: BiasTable | null
 }) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -1949,6 +2027,7 @@ const AdvancedSection = memo(function AdvancedSection({
             // Resumen diario uses the calibrated full ensemble when
             // the Avanzado toggle is on WedAI.
             ensembleMode={ensembleMode}
+            biasTable={biasTable}
           />
           <ModelSelector
             models={displayModels}
@@ -1991,6 +2070,7 @@ const AdvancedSection = memo(function AdvancedSection({
             // too, so card / AHORA / active row always agree.
             usageProfile={usageProfile}
             usageProfileRecommended={usageProfileRecommended}
+            biasTable={biasTable}
           />
         </div>
       ) : null}

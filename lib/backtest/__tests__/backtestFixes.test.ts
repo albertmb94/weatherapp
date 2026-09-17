@@ -19,7 +19,12 @@
 import { describe, it, expect } from 'vitest'
 import { shiftWallClockDays, leadTimeBucket } from '../fetchPreviousRuns'
 import { computeAccuracyFromRaw } from '../runWeeklyBacktest'
-import { uiBucketToBacktestBuckets, type BacktestLocation } from '../config'
+import {
+  uiBucketToBacktestBuckets,
+  BACKTEST_METRICS,
+  BACKTEST_METRIC_TO_PARAM,
+  type BacktestLocation,
+} from '../config'
 import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket, MODELS } from '@/lib/models'
 
 /**
@@ -90,13 +95,47 @@ describe('calibrated preset prioritization (B-NBT-8)', () => {
     }
   })
 
-  it('metric→preset routing keeps wind on precipitation and dewpoint on temperature', () => {
-    expect(METRIC_TO_ENSEMBLE.wind_speed).toBe('precipitation')
+  it('metric→profile routing: wind has its own profile, dewpoint proxies temperature', () => {
+    // B-NBT-11 (2026-08-24): wind is calibrated on its own wind_speed
+    // verification instead of borrowing the precipitation profile.
+    expect(METRIC_TO_ENSEMBLE.wind_speed).toBe('wind_speed')
+    expect(METRIC_TO_ENSEMBLE.wind_gusts).toBe('wind_speed')
     expect(METRIC_TO_ENSEMBLE.dewpoint).toBe('temperature')
     expect(getLeadTimeBucket(200)).toBe('168-240h')
-    // Sanity: all routed ids exist in MODELS.
+    // Every routed profile id must exist in ENSEMBLE_PRESETS, otherwise
+    // `weightsFor` silently falls back to the first preset and the
+    // metric loses its calibration.
+    const presetIds = new Set(ENSEMBLE_PRESETS.map(p => p.id))
+    for (const profileId of new Set(Object.values(METRIC_TO_ENSEMBLE))) {
+      expect(presetIds.has(profileId)).toBe(true)
+    }
+    // Sanity: all routed metric ids exist in MODELS (or are metric ids).
     for (const id of Object.keys(METRIC_TO_ENSEMBLE)) {
       expect(MODELS.some(m => m.id === id) || typeof id === 'string').toBe(true)
+    }
+  })
+
+  it('wind has its own calibrated, wind-specific weights (B-NBT-11)', () => {
+    const wind = ENSEMBLE_PRESETS.find(p => p.id === 'wind_speed')!
+    const rain = ENSEMBLE_PRESETS.find(p => p.id === 'precipitation')!
+    // Same bucket, so the AI-share rescale factors out: the RAW
+    // ratios must differ from the precipitation profile. ECMWF and
+    // UKMO both carry more wind mass than rain mass.
+    expect(wind.weights['0-48h'].ecmwf_ifs as number).toBeGreaterThan(
+      rain.weights['0-48h'].ecmwf_ifs as number
+    )
+    expect(wind.weights['0-48h'].ukmo_global_deterministic_10km as number).toBeGreaterThan(
+      rain.weights['0-48h'].ukmo_global_deterministic_10km as number
+    )
+  })
+
+  it('every backtest metric has a provider parameter mapped', () => {
+    // Guards the failure mode where a metric is added to
+    // BACKTEST_METRICS without its Open-Meteo param, which would send
+    // `hourly=undefined` and fail the whole weekly run.
+    for (const metric of BACKTEST_METRICS) {
+      expect(typeof BACKTEST_METRIC_TO_PARAM[metric]).toBe('string')
+      expect(BACKTEST_METRIC_TO_PARAM[metric].length).toBeGreaterThan(0)
     }
   })
 })

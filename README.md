@@ -34,6 +34,7 @@ when external sources are not configured.
 | `TURSO_AUTH_TOKEN` | Token for the Turso instance above. |
 | `AEMET_API_KEY` | AEMET open-data API key (JWT). Without it, the Stations tab hides AEMET but Meteoclimatic + Meteocat keep working. |
 | `METEOCAT_API_KEY` | Meteocat XEMA network token. Same graceful degradation. |
+| `TYPESAFE_API_KEY` | TypeSafe System One (Jev) for typed, probabilistic decisions (e.g. parsing natural-language queries). **Server-only** — never expose it to the client. Without it, the features that use it degrade gracefully. |
 | `SENTRY_DSN` | Optional; `@sentry/nextjs` is loaded only when set (and must be installed). |
 | `ADMIN_EMAIL` | Owner superadmin seeded into `admin_users`. See `docs/ADMIN.md`. |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Seed the initial `admin_credentials` row (only when the table is empty). No seed is created without `ADMIN_PASSWORD`. |

@@ -112,8 +112,54 @@ export const BACKTEST_LOCATIONS: BacktestLocation[] = [
   { name: 'Rio de Janeiro', lat: -22.91, lon: -43.17, terrain: 'coastal', country: 'BR' },
 ]
 
-/** Metrics to verify during backtesting */
-export const BACKTEST_METRICS = ['temperature', 'wind_speed', 'precipitation'] as const
+/**
+ * Metrics to verify during backtesting.
+ *
+ * B-NBT-11 (2026-08-24): extended from 3 to 8 so the ensemble can be
+ * calibrated PER METRIC instead of reusing the temperature/precipitation
+ * profiles. The five additions (`wind_gusts`, `cloud_cover`, `humidity`,
+ * `dewpoint`, `pressure`) were verified live against BOTH providers
+ * (previous-runs AND the ERA5 archive) before being added here, so the
+ * weekly cron cannot 400 on them.
+ *
+ * `precipitation_probability` is deliberately absent: there is no
+ * probability observation, so it stays calibrated from the precipitation
+ * signal (`scripts/calibrateEnsemble.ts`).
+ *
+ * Promotion path for a proxy metric (see `METRIC_TO_ENSEMBLE` in
+ * `lib/models.ts`): once a backtest run has written rows for it, add a
+ * `PRESET_METRIC` entry in `scripts/calibrateEnsemble.ts` and an
+ * `ENSEMBLE_PRESETS` profile in `lib/models.ts`, then point
+ * `METRIC_TO_ENSEMBLE` at it.
+ */
+export const BACKTEST_METRICS = [
+  'temperature',
+  'wind_speed',
+  'wind_gusts',
+  'precipitation',
+  'cloud_cover',
+  'humidity',
+  'dewpoint',
+  'pressure',
+] as const
+
+/**
+ * Single source of truth for the Open-Meteo hourly parameter that
+ * verifies each backtest metric. Both providers (Previous Runs and the
+ * ERA5 archive) are queried through this map, so a metric added to
+ * `BACKTEST_METRICS` without a parameter here is caught by the guard
+ * test rather than sending `hourly=undefined` to the API.
+ */
+export const BACKTEST_METRIC_TO_PARAM: Record<string, string> = {
+  temperature: 'temperature_2m',
+  wind_speed: 'wind_speed_10m',
+  wind_gusts: 'wind_gusts_10m',
+  precipitation: 'precipitation',
+  cloud_cover: 'cloud_cover',
+  humidity: 'relative_humidity_2m',
+  dewpoint: 'dewpoint_2m',
+  pressure: 'surface_pressure',
+}
 
 /** Lead time buckets for verification */
 export const LEAD_TIME_BUCKETS = ['0-24h', '24-48h', '48-72h', '72-96h', '96-120h', '120-168h'] as const
@@ -175,4 +221,21 @@ export function uiBucketToBacktestBuckets(uiBucket: string): string[] {
       // '168-240h' / '240-360h': beyond the previous-runs horizon.
       return []
   }
+}
+
+/**
+ * Inverse of {@link uiBucketToBacktestBuckets}: which UI ensemble
+ * bucket each FINE verification bucket rolls up into. The bias reader
+ * (`getBiasByTerrain`) uses this to key its output with the UI buckets
+ * that `biasForMetricBucket` looks up — deriving the bias table with the
+ * raw fine keys would silently never match and apply no correction at
+ * all.
+ */
+export const BACKTEST_BUCKET_TO_UI: Record<string, string> = {
+  '0-24h': '0-48h',
+  '24-48h': '0-48h',
+  '48-72h': '48-96h',
+  '72-96h': '48-96h',
+  '96-120h': '96-168h',
+  '120-168h': '96-168h',
 }

@@ -5,6 +5,8 @@ import {
   weightsFor,
   weightsForProfile,
   meanAtHour,
+  biasForMetricBucket,
+  type BiasTable,
   type EnsembleMode,
   type SeriesBag,
 } from './ensemble/central'
@@ -51,14 +53,18 @@ function meanAcrossModels(
    *  the same profile (otherwise the boost would silently
    *  disappear when the user's selection returns null). */
   profile: UsageProfile | null = null,
-  recommended: ReadonlySet<string> = new Set()
+  recommended: ReadonlySet<string> = new Set(),
+  /** Phase 3: optional terrain-wide bias table (metric → bucket → model
+   *  → bias). When supplied, every ensemble average here is de-biased so
+   *  the friendly cards stay consistent with the InsightsTable. */
+  biasTable: BiasTable | null = null
 ): number | null {
   const active = resolveActiveModels(models, selectedIds, mode)
   if (active.length === 0) {
-    return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended)
+    return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended, biasTable)
   }
   const weights = weightsForProfile(metric, leadTimeHours, 1, active, recommended, profile)
-  const v = meanAtHour(bag, metric, index, active, weights)
+  const v = meanAtHour(bag, metric, index, active, weights, biasForMetricBucket(biasTable, metric, leadTimeHours))
   if (v !== null) return v
   // B-NEW-5: user's selection returned no data for this hour —
   // surface the WedAI value instead of an em-dash. We only do this
@@ -67,7 +73,7 @@ function meanAcrossModels(
   // selection (so the user can still see "no model I selected has
   // data" if that's the point they want to inspect).
   if (mode === 'models') {
-    return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended)
+    return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended, biasTable)
   }
   return null
 }
@@ -79,12 +85,13 @@ function fallbackToWedai(
   models: WeatherModel[],
   leadTimeHours: number,
   profile: UsageProfile | null = null,
-  recommended: ReadonlySet<string> = new Set()
+  recommended: ReadonlySet<string> = new Set(),
+  biasTable: BiasTable | null = null
 ): number | null {
   const wedai = resolveActiveModels(models, [], 'wedai')
   if (wedai.length === 0) return null
   const weights = weightsForProfile(metric, leadTimeHours, 1, wedai, recommended, profile)
-  return meanAtHour(bag, metric, index, wedai, weights)
+  return meanAtHour(bag, metric, index, wedai, weights, biasForMetricBucket(biasTable, metric, leadTimeHours))
 }
 
 /**
@@ -295,7 +302,8 @@ export function computeCurrentSnapshot(
    *  values preserve the pre-Sprint-13 behaviour byte-for-byte:
    *  no profile, empty recommendation set, plain weightsFor. */
   profile: UsageProfile | null = null,
-  recommended: ReadonlySet<string> = new Set()
+  recommended: ReadonlySet<string> = new Set(),
+  biasTable: BiasTable | null = null
 ): CurrentSnapshot | null {
   if (!bag.time[hourIndex]) return null
   // Sprint 10 / B-10-1: the "current hour" snapshot is always the
@@ -304,14 +312,14 @@ export function computeCurrentSnapshot(
   // "AHORA" slot of the hourly strip must agree with the InsightsTable
   // active row, which also uses WedAI for the current hour.
   const mode: EnsembleMode = 'wedai'
-  const temp = meanAcrossModels(bag, 'temperature', hourIndex, models, activeIds, mode, 0, profile, recommended)
-  const wind = meanAcrossModels(bag, 'wind_speed', hourIndex, models, activeIds, mode, 0, profile, recommended)
-  const gusts = meanAcrossModels(bag, 'wind_gusts', hourIndex, models, activeIds, mode, 0, profile, recommended)
-  const precip = meanAcrossModels(bag, 'precipitation', hourIndex, models, activeIds, mode, 0, profile, recommended)
+  const temp = meanAcrossModels(bag, 'temperature', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
+  const wind = meanAcrossModels(bag, 'wind_speed', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
+  const gusts = meanAcrossModels(bag, 'wind_gusts', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
+  const precip = meanAcrossModels(bag, 'precipitation', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
   const uvHourly = allModelAverage(bag, 'uv_index', hourIndex)
   const uv = liveUvOverride ?? uvHourly
-  const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds, mode, 0, profile, recommended)
-  const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds, mode, 0, profile, recommended)
+  const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
+  const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
   const peak = dailyUvPeak(bag, hourIndex)
   // Prefer the calibrated `precipitation_probability` series from the
   // provider. If every model returned null we degrade to the intensity
@@ -336,7 +344,7 @@ export function computeCurrentSnapshot(
       const ti = bag.time[i]
       if (!(ti instanceof Date)) continue
       if (`${ti.getUTCFullYear()}-${ti.getUTCMonth()}-${ti.getUTCDate()}` !== dayKey) break
-      const tv = meanAcrossModels(bag, 'temperature', i, models, activeIds, mode, 0, profile, recommended)
+      const tv = meanAcrossModels(bag, 'temperature', i, models, activeIds, mode, 0, profile, recommended, biasTable)
       if (tv === null) continue
       if (dailyHigh === null || tv > dailyHigh) dailyHigh = tv
       if (dailyLow === null || tv < dailyLow) dailyLow = tv
@@ -433,7 +441,8 @@ export function computeHourlySlots(
    *  agree on the current hour. Previously only the big card was boosted,
    *  so the slot right below it showed an unboosted number. */
   profile: UsageProfile | null = null,
-  recommended: ReadonlySet<string> = new Set()
+  recommended: ReadonlySet<string> = new Set(),
+  biasTable: BiasTable | null = null
 ): HourlySlot[] {
   const out: HourlySlot[] = []
   if (!bag.time[nowIndex]) return out
@@ -473,10 +482,10 @@ export function computeHourlySlots(
   // value agrees with the "Tiempo actual" card and the InsightsTable
   // active row. B-NBT-9b: the Sprint-13 boost now applies here too.
   const nowMode: EnsembleMode = 'wedai'
-  const nowTemp = meanAcrossModels(bag, 'temperature', nowIndex, models, activeIds, nowMode, 0, profile, recommended)
-  const nowPrecip = meanAcrossModels(bag, 'precipitation', nowIndex, models, activeIds, nowMode, 0, profile, recommended)
-  const nowCloud = meanAcrossModels(bag, 'cloud_cover', nowIndex, models, activeIds, nowMode, 0, profile, recommended)
-  const nowGusts = meanAcrossModels(bag, 'wind_gusts', nowIndex, models, activeIds, nowMode, 0, profile, recommended)
+  const nowTemp = meanAcrossModels(bag, 'temperature', nowIndex, models, activeIds, nowMode, 0, profile, recommended, biasTable)
+  const nowPrecip = meanAcrossModels(bag, 'precipitation', nowIndex, models, activeIds, nowMode, 0, profile, recommended, biasTable)
+  const nowCloud = meanAcrossModels(bag, 'cloud_cover', nowIndex, models, activeIds, nowMode, 0, profile, recommended, biasTable)
+  const nowGusts = meanAcrossModels(bag, 'wind_gusts', nowIndex, models, activeIds, nowMode, 0, profile, recommended, biasTable)
   const nowIcon = pickWeatherIcon({
     cloudCoverPct: nowCloud, precipitationMmDay: nowPrecip,
     windGustsKmh: nowGusts, minTempC: nowTemp,
@@ -508,10 +517,10 @@ export function computeHourlySlots(
     if (!(t instanceof Date)) break
 
     const leadHours = Math.max(0, idx - nowIndex)
-    const temp = meanAcrossModels(bag, 'temperature', idx, models, activeIds, futureMode, leadHours, profile, recommended)
-    const precip = meanAcrossModels(bag, 'precipitation', idx, models, activeIds, futureMode, leadHours, profile, recommended)
-    const cloud = meanAcrossModels(bag, 'cloud_cover', idx, models, activeIds, futureMode, leadHours, profile, recommended)
-    const gusts = meanAcrossModels(bag, 'wind_gusts', idx, models, activeIds, futureMode, leadHours, profile, recommended)
+    const temp = meanAcrossModels(bag, 'temperature', idx, models, activeIds, futureMode, leadHours, profile, recommended, biasTable)
+    const precip = meanAcrossModels(bag, 'precipitation', idx, models, activeIds, futureMode, leadHours, profile, recommended, biasTable)
+    const cloud = meanAcrossModels(bag, 'cloud_cover', idx, models, activeIds, futureMode, leadHours, profile, recommended, biasTable)
+    const gusts = meanAcrossModels(bag, 'wind_gusts', idx, models, activeIds, futureMode, leadHours, profile, recommended, biasTable)
 
     const icon = pickWeatherIcon({
       cloudCoverPct: cloud, precipitationMmDay: precip,
@@ -558,7 +567,8 @@ export function computeWeekSummaries(
    *  passes `'wedai'` so the panel uses the calibrated full ensemble —
    *  otherwise selecting a single model in Models mode would leak into
    *  Próximos días even after the user clicked WedAI. */
-  mode: EnsembleMode = 'models'
+  mode: EnsembleMode = 'models',
+  biasTable: BiasTable | null = null
 ): DaySummary[] {
   interface Bucket { key: string; dayIdx: number; start: number; end: number }
   const buckets: Bucket[] = []
@@ -638,16 +648,16 @@ export function computeWeekSummaries(
       // calibrated preset bucket matching the InsightsTable for the
       // same hour (previously every day used the '0-48h' shares).
       const leadHours = Math.max(0, i - nowIndex)
-      const t = meanAcrossModels(bag, 'temperature', i, models, activeIds, weekMode, leadHours)
+      const t = meanAcrossModels(bag, 'temperature', i, models, activeIds, weekMode, leadHours, null, undefined, biasTable)
       if (t !== null) {
         if (high === null || t > high) high = t
         if (low === null || t < low) low = t
       }
-      const p = meanAcrossModels(bag, 'precipitation', i, models, activeIds, weekMode, leadHours)
+      const p = meanAcrossModels(bag, 'precipitation', i, models, activeIds, weekMode, leadHours, null, undefined, biasTable)
       if (p !== null) precip += p
-      const c = meanAcrossModels(bag, 'cloud_cover', i, models, activeIds, weekMode, leadHours)
+      const c = meanAcrossModels(bag, 'cloud_cover', i, models, activeIds, weekMode, leadHours, null, undefined, biasTable)
       if (c !== null) { cloudSum += c; cloudCount++ }
-      const g = meanAcrossModels(bag, 'wind_gusts', i, models, activeIds, weekMode, leadHours)
+      const g = meanAcrossModels(bag, 'wind_gusts', i, models, activeIds, weekMode, leadHours, null, undefined, biasTable)
       if (g !== null && (gustsMax === null || g > gustsMax)) gustsMax = g
       const ti = bag.time[i]
       if (ti instanceof Date && ti.getUTCHours() === 12) noonIndex = i

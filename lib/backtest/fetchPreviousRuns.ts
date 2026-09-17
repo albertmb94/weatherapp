@@ -5,15 +5,9 @@
 
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import type { ForecastArchiveRow } from './db'
-import { BACKTEST_MODEL_IDS, BACKTEST_METRICS, type BacktestLocation } from './config'
+import { BACKTEST_MODEL_IDS, BACKTEST_METRICS, BACKTEST_METRIC_TO_PARAM, type BacktestLocation } from './config'
 
 const PREVIOUS_RUNS_BASE = 'https://previous-runs-api.open-meteo.com/v1/forecast'
-
-const METRIC_TO_PARAM: Record<string, string> = {
-  temperature: 'temperature_2m',
-  wind_speed: 'wind_speed_10m',
-  precipitation: 'precipitation',
-}
 
 /**
  * Fetch previous-day forecasts for a location and date range.
@@ -27,11 +21,11 @@ export async function fetchPreviousRuns(
 ): Promise<ForecastArchiveRow[]> {
   const rows: ForecastArchiveRow[] = []
   const models = BACKTEST_MODEL_IDS.join(',')
-  const hourlyParams = BACKTEST_METRICS.map(m => METRIC_TO_PARAM[m]).join(',')
+  const hourlyParams = BACKTEST_METRICS.map(m => BACKTEST_METRIC_TO_PARAM[m]).join(',')
 
   // Build previous-day params: _previous_day1 through _previous_day7
   const previousParams = Array.from({ length: 7 }, (_, i) =>
-    BACKTEST_METRICS.map(m => `${METRIC_TO_PARAM[m]}_previous_day${i + 1}`).join(',')
+    BACKTEST_METRICS.map(m => `${BACKTEST_METRIC_TO_PARAM[m]}_previous_day${i + 1}`).join(',')
   ).join(',')
 
   const params = new URLSearchParams({
@@ -63,7 +57,7 @@ export async function fetchPreviousRuns(
     const validTime = times[i]
 
     for (const metric of BACKTEST_METRICS) {
-      const param = METRIC_TO_PARAM[metric]
+      const param = BACKTEST_METRIC_TO_PARAM[metric]
 
       // Current forecast (lead time 0): emit a row only when we
       // actually got a per-model value for that hour. Falling back

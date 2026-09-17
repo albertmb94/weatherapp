@@ -9,7 +9,7 @@ import {
   computeCurrentSnapshot,
   type CurrentSnapshot,
 } from '@/lib/friendlyForecast'
-import { resolveActiveModels, weightsFor } from '@/lib/ensemble/central'
+import { resolveActiveModels, weightsFor, type BiasTable } from '@/lib/ensemble/central'
 import { useNowcast } from '@/lib/hooks/useNowcast'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 // ProfileChip is no longer rendered inline (the user asked us
@@ -131,6 +131,10 @@ interface FriendlyHomeProps {
    *  An empty Set means no boost — the snapshot degrades to the
    *  pre-Sprint-13 behaviour byte-for-byte. */
   usageProfileRecommended?: ReadonlySet<string>
+  /** Phase 3: terrain-wide bias correction table, threaded to every
+   *  friendly-forecast call so the cards stay consistent with the
+   *  InsightsTable / DailySummary (B-10-1 invariant). */
+  biasTable?: BiasTable | null
   /** F5 (revised): the EU AQI value for the current hour.
    *  Surfaced inside the Métricas block as a 5th tile. The
    *  parent (home-content) supplies the value from the
@@ -168,6 +172,7 @@ export default function FriendlyHome({
   userLon = 0,
   usageProfile = null,
   usageProfileRecommended = new Set(),
+  biasTable = null,
   europeanAqi = null,
   grassPollen = null,
   birchPollen = null,
@@ -207,8 +212,9 @@ export default function FriendlyHome({
       // skip the boost and use the pre-Sprint-13 weights exactly.
       usageProfile,
       usageProfileRecommended,
+      biasTable,
     ),
-    [models, activeIds, time, series, nowIndex, liveUvIndex, isLiveNow, usageProfile, usageProfileRecommended]
+    [models, activeIds, time, series, nowIndex, liveUvIndex, isLiveNow, usageProfile, usageProfileRecommended, biasTable]
   )
 
   const isViewingToday = useMemo(() => {
@@ -290,6 +296,7 @@ export default function FriendlyHome({
         ensembleMode={ensembleMode}
         usageProfile={usageProfile}
         usageProfileRecommended={usageProfileRecommended}
+        biasTable={biasTable}
       />
       <AirConditionsGrid
         snapshot={snapshot}

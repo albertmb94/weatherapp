@@ -169,12 +169,61 @@ weightedAvg(values, weights, dynamicWeights?, modelIds?, biasCorrection?)
 ```
 - Ignora valores null/undefined y renormaliza sobre los modelos con datos
 - Si todos son null, devuelve null
-- Pesos por métrica × bucket de lead time en `ENSEMBLE_PRESETS`
-  (lib/models.ts): **calibrados por backtest** con Borda win-rate sobre
-  `model_accuracy` — regenerar con
+- Perfiles de pesos **por métrica** × bucket de lead time: `ENSEMBLE_PRESETS`
+  (lib/models.ts) + el enrutado `METRIC_TO_ENSEMBLE`. Regenerar con
   `npm run backtest && npx tsx scripts/calibrateEnsemble.ts`.
   Los regionales de alta resolución lideran corto plazo dentro de su
   huella de cobertura; los globales toman el relevo desde 96h.
+- Perfiles **medidos** (calibrados sobre su propia verificación en
+  `model_accuracy`): `temperature`, `precipitation`,
+  `precipitation_probability` (derivada de precipitación) y `wind_speed`.
+  El resto de métricas usa un perfil **proxy** documentado en
+  `METRIC_TO_ENSEMBLE` (p. ej. nubes → temperatura; rachas y olas →
+  wind_speed) hasta que un backtest las mida. Promoción de proxy a
+  medido: `BACKTEST_METRICS` + `BACKTEST_METRIC_TO_PARAM`
+  (lib/backtest/config.ts) → `PRESET_METRIC` (calibrateEnsemble.ts) →
+  `ENSEMBLE_PRESETS` + `METRIC_TO_ENSEMBLE`.
+- El backtest verifica 8 métricas (temperatura, viento, rachas, lluvia,
+  nubes, humedad, rocío, presión); ambos proveedores validados en vivo.
+- **Corrección de sesgo (Fase 3)**: `weightedAvg` resta el sesgo por
+  modelo antes de ponderar (`biasCorrection`). El mapa lo sirve
+  `/api/model-bias?terrain=` desde `model_accuracy` (agregado
+  terreno×(métrica, bucket de UI)×modelo, ponderado por muestras) y se
+  hila por `friendlyForecast`, `InsightsTable` y `DailySummary` para
+  mantener el invariante B-10-1. Sin filas medidas, `bias: {}` y el
+  ensemble queda igual.
+- **Evaluación holdout (Fase 0)**: `npm run eval:ensemble <metric> [folds]`
+  (`scripts/evalEnsemble.ts`) hace leave-locations-out: deriva pesos solo
+  con los folds de entrenamiento y puntúa sobre el fold apartado con los
+  pares crudos `forecast_archive` × `observations_era5` (RMSE real de
+  ensemble, no media de RMSEs). Resultados medidos (5 folds, 90 locs):
+  · temperatura: ensemble −5.3 % RMSE vs mejor modelo único; `borda:train`
+    ≈ preset (la calibración generaliza).
+  · viento: perfil propio (Fase 2) −2.9 % vs el antiguo perfil de
+    precipitación.
+  · sesgo: ayuda en temperatura (~0.02 %) y EMPEORA viento (+2.1 %), por
+    lo que `BIAS_CORRECTED_METRICS` lo limita a temperatura. Re-evaluar
+    antes de añadir una métrica.
+- **Verdad real (estaciones)**: la calibración y el ranking usan ERA5,
+  pero ERA5 en el punto de una estación difiere mucho de la medida
+  (medido 2026-08-15, 30 estaciones XEMA: **+2.1 °C** de sesgo y **×3.4**
+  la lluvia; no es altitud — Δelevación −4 m). Por eso:
+  · `station_observations` archiva la medida real
+    (`npm run archive:stations <from> [to]`; XEMA horario, hora local
+    Europe/Madrid).
+  · El evaluador acepta `--truth=era5|station|both` y **no mezcla**:
+    ERA5 da ranking global; la estación verifica precisión absoluta.
+    `station:skill` rankea por skill de estación (CSI para lluvia, RMSE
+    para temperatura).
+  · Recalibración de LLUVIA con verdad de estación (14 días, 39 estaciones,
+    leave-STATIONS-out, `npm run calibrate:precip-stations`): los pesos por
+    skill de estación apenas superan al preset ERA5 (RMSE 0.441→0.439,
+    CSI 5 % igual). **El preset NO se cambió**: la ganancia de 1 día era
+    ruido. El problema real de lluvia es el **FAR ≈ 95 %** (falsas alarmas,
+    llovizna sobre-predicha), no los pesos.
+  · Cache de forecasts en coordenadas de estación:
+    `npm run archive:station-forecasts` (1 request × estación para toda la
+    ventana) → la verificación/calibración no vuelve a tocar la red.
 - La reserva IA explícita solo cubre modelos aún no verificables
   (ecmwf_aifs025 / gfs_graphcast025); ncep_aigfs025 ya es calibrado.
 

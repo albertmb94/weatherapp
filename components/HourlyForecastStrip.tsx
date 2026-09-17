@@ -5,6 +5,7 @@ import type { WeatherModel } from '@/lib/models'
 import { useLocale } from '@/lib/LocaleContext'
 import type { HourlySlot } from '@/lib/friendlyForecast'
 import { computeHourlySlots } from '@/lib/friendlyForecast'
+import type { BiasTable } from '@/lib/ensemble/central'
 import WeatherConditionIcon from './WeatherConditionIcon'
 
 /** Stable empty-set singleton so the default prop doesn't create a new
@@ -35,6 +36,10 @@ interface HourlyForecastStripProps {
    *  InsightsTable row (B-10-1 invariant). */
   usageProfile?: import('@/lib/profiles').UsageProfile | null
   usageProfileRecommended?: ReadonlySet<string>
+  /** Phase 3: terrain-wide bias table, threaded to every slot so the
+   *  AHORA number stays consistent with the big card and the InsightsTable
+   *  active row (B-10-1 invariant). */
+  biasTable?: BiasTable | null
 }
 
 function fmtTemp(value: number | null): string {
@@ -52,6 +57,7 @@ export default function HourlyForecastStrip({
   ensembleMode = 'models',
   usageProfile = null,
   usageProfileRecommended,
+  biasTable = null,
 }: HourlyForecastStripProps) {
   const { locale } = useLocale()
   const recommendedRef = usageProfileRecommended ?? EMPTY_SET
@@ -59,9 +65,9 @@ export default function HourlyForecastStrip({
   const slots = useMemo<HourlySlot[]>(
     () => computeHourlySlots(
       { time, series }, models, activeIds, nowIndex, locale, 7, 4, isViewingToday, ensembleMode,
-      usageProfile, recommendedRef,
+      usageProfile, recommendedRef, biasTable,
     ),
-    [models, activeIds, time, series, nowIndex, locale, isViewingToday, ensembleMode, usageProfile, recommendedRef]
+    [models, activeIds, time, series, nowIndex, locale, isViewingToday, ensembleMode, usageProfile, recommendedRef, biasTable]
   )
 
   if (slots.length === 0) return null

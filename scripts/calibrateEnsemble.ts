@@ -39,13 +39,23 @@ import { uiBucketToBacktestBuckets } from '../lib/backtest/config'
 const DB_URL = process.env.BACKTEST_DB_URL ?? 'file:local.db'
 const MIN_MODELS_PER_LOCATION = 3
 
-/** UI preset id → which backtest metric feeds it. */
+/**
+ * Ensemble profile id → which backtest metric feeds it.
+ *
+ * B-NBT-11 (2026-08-24): wind_speed is now its own profile. Until this
+ * change `METRIC_TO_ENSEMBLE` mapped wind onto the *precipitation*
+ * profile, so wind was weighted with rain skill even though
+ * `model_accuracy` has carried `wind_speed` verification rows all
+ * along (measured against ERA5 like the others). The mapping now
+ * matches the measurement.
+ */
 const PRESET_METRIC: Record<string, string> = {
   temperature: 'temperature',
   precipitation: 'precipitation',
   // Rain probability has no direct observation; calibrate it with the
   // same signal as precipitation amount.
   precipitation_probability: 'precipitation',
+  wind_speed: 'wind_speed',
 }
 
 interface Row {

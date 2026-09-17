@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, useRef, useEffect, memo } from 'react'
 import type { WeatherModel, MetricId } from '@/lib/models'
 import type { ScaleMetric } from '@/lib/colorScales'
 import { weightedAvg } from '@/lib/ensemble'
-import { resolveActiveModels, weightsForAbsolute, weightsForProfile, ensembleWithFallback } from '@/lib/ensemble/central'
+import { resolveActiveModels, weightsForAbsolute, weightsForProfile, ensembleWithFallback, biasForMetricBucket, type BiasTable } from '@/lib/ensemble/central'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
@@ -80,6 +80,10 @@ interface InsightsTableProps {
    *  all agree (B-10-1 invariant). */
   usageProfile?: import('@/lib/profiles').UsageProfile | null
   usageProfileRecommended?: ReadonlySet<string>
+  /** Phase 3: terrain-wide bias correction table (metric → bucket →
+   *  model → bias). Applied to every ensemble cell so the table agrees
+   *  with the friendly cards for the same hour (B-10-1 invariant). */
+  biasTable?: BiasTable | null
 }
 
 interface Row {
@@ -422,6 +426,7 @@ export default function InsightsTable({
   onClearDayFilter,
   usageProfile = null,
   usageProfileRecommended,
+  biasTable = null,
 }: InsightsTableProps) {
   const { locale } = useLocale()
   // Stable identity for the default empty recommendation set so the
@@ -593,6 +598,12 @@ export default function InsightsTable({
       // fixtures pass the un-trimmed array directly.
       weightsForAbsolute(metric as MetricId, hourIndex + viewStartIndex, bucket, activeModels)
 
+    // Phase 3: matching bias lookup, on the SAME absolute lead the
+    // weights use (absolute hour + mid-bucket), so the bias bucket can
+    // never diverge from the weights' bucket.
+    const biasForMetricAt = (metric: MetricId, hourIndex: number) =>
+      biasForMetricBucket(biasTable, metric, hourIndex + viewStartIndex + (bucket - 1) / 2)
+
     const buckets: Row[] = []
     let cursor = 0
 
@@ -730,7 +741,7 @@ export default function InsightsTable({
       for (let i = b.startIdx; i <= b.endIdx; i++) {
         // Use per-metric, per-hour weights for proper ensemble selection
         const tWeights = getWeightsForMetricAndHour('temperature', i)
-        const tEns = ensembleWithFallback(s, 'temperature', i, activeModels, wedaiModels, tWeights)
+        const tEns = ensembleWithFallback(s, 'temperature', i, activeModels, wedaiModels, tWeights, undefined, biasForMetricAt('temperature', i))
         if (tEns !== null) {
           tSum += tEns
           tCount += 1
@@ -738,28 +749,28 @@ export default function InsightsTable({
           if (b.tempMax === null || tEns > b.tempMax) b.tempMax = tEns
         }
         const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
-        const cEns = ensembleWithFallback(s, 'cloud_cover', i, activeModels, wedaiModels, cWeights)
+        const cEns = ensembleWithFallback(s, 'cloud_cover', i, activeModels, wedaiModels, cWeights, undefined, biasForMetricAt('cloud_cover', i))
         if (cEns !== null) { cSum += cEns; cCount += 1 }
         const wWeights = getWeightsForMetricAndHour('wind_speed', i)
-        const wEns = ensembleWithFallback(s, 'wind_speed', i, activeModels, wedaiModels, wWeights)
+        const wEns = ensembleWithFallback(s, 'wind_speed', i, activeModels, wedaiModels, wWeights, undefined, biasForMetricAt('wind_speed', i))
         if (wEns !== null) { wSum += wEns; wCount += 1 }
         const gWeights = getWeightsForMetricAndHour('wind_gusts', i)
-        const gEns = ensembleWithFallback(s, 'wind_gusts', i, activeModels, wedaiModels, gWeights)
+        const gEns = ensembleWithFallback(s, 'wind_gusts', i, activeModels, wedaiModels, gWeights, undefined, biasForMetricAt('wind_gusts', i))
         if (gEns !== null && (b.gustsMax === null || gEns > b.gustsMax)) b.gustsMax = gEns
         const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const pEns = ensembleWithFallback(s, 'precipitation', i, activeModels, wedaiModels, pWeights)
+        const pEns = ensembleWithFallback(s, 'precipitation', i, activeModels, wedaiModels, pWeights, undefined, biasForMetricAt('precipitation', i))
         if (pEns !== null) b.precipSum = (b.precipSum ?? 0) + pEns
         const hWeights = getWeightsForMetricAndHour('humidity', i)
-        const hEns = ensembleWithFallback(s, 'humidity', i, activeModels, wedaiModels, hWeights)
+        const hEns = ensembleWithFallback(s, 'humidity', i, activeModels, wedaiModels, hWeights, undefined, biasForMetricAt('humidity', i))
         if (hEns !== null) { hSum += hEns; hCount += 1 }
         const uWeights = getWeightsForMetricAndHour('uv_index', i)
-        const uEns = ensembleWithFallback(s, 'uv_index', i, activeModels, wedaiModels, uWeights)
+        const uEns = ensembleWithFallback(s, 'uv_index', i, activeModels, wedaiModels, uWeights, undefined, biasForMetricAt('uv_index', i))
         if (uEns !== null) { uSum += uEns; uCount += 1 }
         const prWeights = getWeightsForMetricAndHour('pressure', i)
-        const prEns = ensembleWithFallback(s, 'pressure', i, activeModels, wedaiModels, prWeights)
+        const prEns = ensembleWithFallback(s, 'pressure', i, activeModels, wedaiModels, prWeights, undefined, biasForMetricAt('pressure', i))
         if (prEns !== null) { prSum += prEns; prCount += 1 }
         const dpWeights = getWeightsForMetricAndHour('dewpoint', i)
-        const dpEns = ensembleWithFallback(s, 'dewpoint', i, activeModels, wedaiModels, dpWeights)
+        const dpEns = ensembleWithFallback(s, 'dewpoint', i, activeModels, wedaiModels, dpWeights, undefined, biasForMetricAt('dewpoint', i))
         if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
         const visWeights = getWeightsForMetricAndHour('visibility', i)
         // Visibility values in `series[modelId]['visibility']` are
@@ -770,7 +781,7 @@ export default function InsightsTable({
         // divided by 1000 here, which double-converted 10 km → 0.01
         // km → 0.0 on screen (rounded to 1 decimal). We now just
         // call `ensembleWithFallback` like every other metric.
-        const visEns = ensembleWithFallback(s, 'visibility', i, activeModels, wedaiModels, visWeights)
+        const visEns = ensembleWithFallback(s, 'visibility', i, activeModels, wedaiModels, visWeights, undefined, biasForMetricAt('visibility', i))
         if (visEns !== null) { visSum += visEns; visCount += 1 }
         const dirWeights = getWeightsForMetricAndHour('wind_direction', i)
         let hCos = 0, hSin = 0, hW = 0
@@ -905,7 +916,13 @@ export default function InsightsTable({
           const tVals = wedaiModels.map(
             m => activeSeries[m.id]?.['temperature']?.[selectedHour] ?? null
           )
-          const tEns = weightedAvg(tVals, tWeights)
+          const tEns = weightedAvg(
+            tVals,
+            tWeights,
+            null,
+            wedaiModels.map(m => m.id),
+            biasForMetricBucket(biasTable, 'temperature', activeLead)
+          )
           if (tEns !== null) {
             b.tempMean = tEns
             // For bucket=1 the row covers exactly one hour so

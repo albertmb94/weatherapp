@@ -5,15 +5,9 @@
 
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import type { ObservationRow } from './db'
-import { BACKTEST_METRICS, type BacktestLocation } from './config'
+import { BACKTEST_METRICS, BACKTEST_METRIC_TO_PARAM, type BacktestLocation } from './config'
 
 const ERA5_BASE = 'https://archive-api.open-meteo.com/v1/archive'
-
-const METRIC_TO_PARAM: Record<string, string> = {
-  temperature: 'temperature_2m',
-  wind_speed: 'wind_speed_10m',
-  precipitation: 'precipitation',
-}
 
 /**
  * Fetch ERA5 observations for a location and date range.
@@ -26,7 +20,7 @@ export async function fetchERA5Observations(
   signal?: AbortSignal
 ): Promise<ObservationRow[]> {
   const rows: ObservationRow[] = []
-  const hourlyParams = BACKTEST_METRICS.map(m => METRIC_TO_PARAM[m]).join(',')
+  const hourlyParams = BACKTEST_METRICS.map(m => BACKTEST_METRIC_TO_PARAM[m]).join(',')
 
   const params = new URLSearchParams({
     latitude: location.lat.toString(),
@@ -62,7 +56,7 @@ export async function fetchERA5Observations(
     const validTime = times[i]
 
     for (const metric of BACKTEST_METRICS) {
-      const param = METRIC_TO_PARAM[metric]
+      const param = BACKTEST_METRIC_TO_PARAM[metric]
       const value = hourly[param]?.[i] ?? null
       if (value !== null) {
         rows.push({

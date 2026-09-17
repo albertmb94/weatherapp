@@ -1,4 +1,5 @@
 import { getDb } from '@/lib/db'
+import { BACKTEST_BUCKET_TO_UI } from './config'
 
 let initPromise: Promise<void> | null = null
 
@@ -82,6 +83,25 @@ export function ensureBacktestSchema(): Promise<void> {
           lead_time_bucket TEXT NOT NULL,
           computed_at TEXT DEFAULT (datetime('now')),
           UNIQUE(lat, lon, terrain_type, model_id, metric, lead_time_bucket)
+        )
+      `)
+      })
+      .then(() => {
+        const fresh = getDb()
+        if (!fresh) throw new Error('DB unavailable')
+        return fresh.execute(`
+        CREATE TABLE IF NOT EXISTS station_observations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          source TEXT NOT NULL,
+          station_id TEXT NOT NULL,
+          station_name TEXT,
+          lat REAL NOT NULL,
+          lon REAL NOT NULL,
+          valid_time TEXT NOT NULL,
+          metric TEXT NOT NULL,
+          observed_value REAL,
+          archived_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(source, station_id, valid_time, metric)
         )
       `)
       })
@@ -356,6 +376,86 @@ export async function getModelAccuracyByTerrain(
 }
 
 /**
+ * Terrain-wide additive bias per (metric, lead bucket, model), for the
+ * ensemble's bias correction (Phase 3).
+ *
+ * `weightedAvg` subtracts this from each model's value before weighting,
+ * removing systematic over/under-prediction. Measured magnitudes are not
+ * marginal: over the 2026-08-15..22 window the mean |bias| is ≈1.0 °C for
+ * temperature (RMSE ≈1.94 °C) and ≈2.2 km/h for wind (RMSE ≈4.6 km/h) —
+ * i.e. bias is roughly half the typical error, so leaving it uncorrected
+ * leaves real skill on the table.
+ *
+ * Shape: metric → lead_time_bucket → model_id → bias. Empty when no DB or
+ * no measured rows, which the caller treats as "no correction".
+ */
+export async function getBiasByTerrain(
+  terrainType: string,
+  metrics: readonly string[],
+  buckets: readonly string[],
+  options: { windowDays?: number } = {}
+): Promise<Record<string, Record<string, Record<string, number>>>> {
+  const { windowDays = 90 } = options
+  const db = getDb()
+  if (!db) return {}
+  if (metrics.length === 0 || buckets.length === 0) return {}
+  const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString()
+  const metricPh = metrics.map(() => '?').join(', ')
+  const bucketPh = buckets.map(() => '?').join(', ')
+  const result = await db.execute({
+    sql: `SELECT metric, lead_time_bucket, model_id,
+                 SUM(bias * sample_count) AS bias_num,
+                 SUM(sample_count) AS n
+          FROM model_accuracy
+          WHERE terrain_type = ?
+            AND metric IN (${metricPh})
+            AND lead_time_bucket IN (${bucketPh})
+            AND computed_at >= ?
+            AND bias IS NOT NULL
+            AND sample_count > 0
+          GROUP BY metric, lead_time_bucket, model_id`,
+    args: [terrainType, ...metrics, ...buckets, cutoff],
+  })
+
+  // Fold the FINE verification buckets ('0-24h', …) into the UI buckets
+  // the ensemble looks up ('0-48h', …), weighting each fine bucket by its
+  // sample count so a 16-sample bucket can't outweigh a 540-sample one.
+  // Keying the table with the raw fine buckets would make
+  // `biasForMetricBucket` miss every lookup and apply no correction.
+  const num: Record<string, Record<string, Record<string, number>>> = {}
+  const den: Record<string, Record<string, number>> = {}
+  for (const row of result.rows) {
+    const uiBucket = BACKTEST_BUCKET_TO_UI[String(row.lead_time_bucket)]
+    if (!uiBucket) continue
+    const metric = String(row.metric)
+    const modelId = String(row.model_id)
+    const biasNum = Number(row.bias_num)
+    const n = Number(row.n)
+    if (!Number.isFinite(biasNum) || !Number.isFinite(n) || n <= 0) continue
+    num[metric] ??= {}
+    num[metric][uiBucket] ??= {}
+    den[metric] ??= {}
+    den[metric][uiBucket] = (den[metric][uiBucket] ?? 0) + n
+    num[metric][uiBucket][modelId] = (num[metric][uiBucket][modelId] ?? 0) + biasNum
+  }
+
+  const table: Record<string, Record<string, Record<string, number>>> = {}
+  for (const metric of Object.keys(num)) {
+    for (const uiBucket of Object.keys(num[metric])) {
+      const total = den[metric]?.[uiBucket] ?? 0
+      if (total <= 0) continue
+      table[metric] ??= {}
+      table[metric][uiBucket] = {}
+      for (const modelId of Object.keys(num[metric][uiBucket])) {
+        table[metric][uiBucket][modelId] =
+          Math.round((num[metric][uiBucket][modelId] / total) * 1000) / 1000
+      }
+    }
+  }
+  return table
+}
+
+/**
  * Fetch the most recent dynamic-weights row for a (lat, lon, terrain,
  * metric, lead-time-bucket) tuple. Production ensemble weighting falls
  * back to the calibration presets (`lib/models.ts`) when no row exists
@@ -378,4 +478,90 @@ export async function getDynamicWeights(
     args: [lat, lon, terrainType, metric, leadTimeBucket],
   })
   return result.rows as unknown as DynamicWeightRow[]
+}
+
+/**
+ * A real station measurement (XEMA / AEMET), archived so the ensemble can
+ * be verified against what actually happened instead of only against ERA5
+ * reanalysis — which at a point diverges by ~2 °C and 3.4× the rain (see
+ * `scripts/evalAgainstStations.ts`).
+ */
+export interface StationObservationRow {
+  source: string
+  station_id: string
+  station_name: string | null
+  lat: number
+  lon: number
+  valid_time: string
+  metric: string
+  observed_value: number | null
+}
+
+export async function insertStationObservations(rows: StationObservationRow[]): Promise<void> {
+  if (rows.length === 0) return
+  const db = getDb()
+  if (!db) throw new Error('DB unavailable')
+  for (let i = 0; i < rows.length; i += 500) {
+    const chunk = rows.slice(i, i + 500)
+    const placeholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ')
+    const flat = chunk.flatMap(r => [
+      r.source, r.station_id, r.station_name, r.lat, r.lon, r.valid_time, r.metric, r.observed_value,
+    ])
+    await db.execute({
+      sql: `INSERT OR REPLACE INTO station_observations
+            (source, station_id, station_name, lat, lon, valid_time, metric, observed_value)
+            VALUES ${placeholders}`,
+      args: flat,
+    })
+  }
+}
+
+/**
+ * Archived Previous-Runs forecasts at a REAL station coordinate (as
+ * opposed to the 100 reference `BACKTEST_LOCATIONS`). Populated by
+ * `scripts/archiveStationForecasts.ts`; lets station-truth verification
+ * and calibration run without touching the network again.
+ */
+export async function getStationForecastArchive(
+  lat: number,
+  lon: number,
+  metric: string,
+  from: string,
+  to: string
+): Promise<ForecastArchiveRow[]> {
+  const db = getDb()
+  if (!db) return []
+  const result = await db.execute({
+    sql: `SELECT model_id, lat, lon, init_time, valid_time, lead_time_hours, metric, predicted_value
+          FROM forecast_archive
+          WHERE lat = ? AND lon = ? AND metric = ? AND valid_time >= ? AND valid_time <= ?`,
+    args: [lat, lon, metric, from, to],
+  })
+  return result.rows as unknown as ForecastArchiveRow[]
+}
+
+export async function getStationObservations(opts: {
+  from: string
+  to: string
+  metrics?: readonly string[]
+  sources?: readonly string[]
+}): Promise<StationObservationRow[]> {
+  const db = getDb()
+  if (!db) return []
+  const clauses = ['valid_time >= ?', 'valid_time <= ?']
+  const args: (string | number)[] = [opts.from, opts.to]
+  if (opts.metrics && opts.metrics.length > 0) {
+    clauses.push(`metric IN (${opts.metrics.map(() => '?').join(', ')})`)
+    args.push(...opts.metrics)
+  }
+  if (opts.sources && opts.sources.length > 0) {
+    clauses.push(`source IN (${opts.sources.map(() => '?').join(', ')})`)
+    args.push(...opts.sources)
+  }
+  const result = await db.execute({
+    sql: `SELECT source, station_id, station_name, lat, lon, valid_time, metric, observed_value
+          FROM station_observations WHERE ${clauses.join(' AND ')}`,
+    args,
+  })
+  return result.rows as unknown as StationObservationRow[]
 }

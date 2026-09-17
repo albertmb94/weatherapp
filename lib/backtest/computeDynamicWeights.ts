@@ -5,7 +5,7 @@
  */
 
 import type { ModelAccuracyRow } from './db'
-import { ENSEMBLE_PRESETS, type EnsemblePreset } from '@/lib/models'
+import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, type EnsemblePreset } from '@/lib/models'
 
 /**
  * Compute dynamic weights for a set of models based on their accuracy records.
@@ -88,12 +88,12 @@ export function getMetricWeights(
   decayFactor: number = 0.95,
   leadTimeBucket: string = '0-48h'
 ): Record<string, number> {
-  const presetId: EnsemblePreset =
-    metricId === 'precipitation' || metricId === 'wind_speed' || metricId === 'wind_gusts'
-      ? 'precipitation'
-      : metricId === 'precipitation_probability'
-        ? 'precipitation_probability'
-        : 'temperature'
+  // B-NBT-11 (2026-08-24): resolve the baseline through the single
+  // source of truth (`METRIC_TO_ENSEMBLE`) instead of a local ternary
+  // that sent wind to the precipitation profile — the same mismatch
+  // `lib/ensemble/central.ts` had. Every metric now lands on the same
+  // profile in both the read path and this blending helper.
+  const presetId: EnsemblePreset = METRIC_TO_ENSEMBLE[metricId] ?? 'temperature'
   const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
   const presetWeights = preset.weights[leadTimeBucket] ?? preset.weights['0-48h'] ?? {}
   if (accuracyRecords.length === 0) {

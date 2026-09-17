@@ -6,6 +6,7 @@ import { useLocale } from '@/lib/LocaleContext'
 import { CONDITION_LABEL, STRINGS } from '@/lib/i18n'
 import type { DaySummary } from '@/lib/friendlyForecast'
 import { computeWeekSummaries } from '@/lib/friendlyForecast'
+import type { BiasTable } from '@/lib/ensemble/central'
 import WeatherConditionIcon from './WeatherConditionIcon'
 
 interface WeekForecastPanelProps {
@@ -37,6 +38,8 @@ interface WeekForecastPanelProps {
    *  previous behaviour for callers that haven't been updated
    *  yet. */
   ensembleMode?: 'wedai' | 'models'
+  /** Phase 3: terrain-wide bias table for the day aggregates. */
+  biasTable?: BiasTable | null
 }
 
 function fmtTemp(value: number | null): string {
@@ -55,13 +58,14 @@ export default function WeekForecastPanel({
   onWeekDaysChange,
   onSelectHour,
   ensembleMode = 'models',
+  biasTable = null,
 }: WeekForecastPanelProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
 
   const days = useMemo<DaySummary[]>(
-    () => computeWeekSummaries({ time, series }, models, activeIds, nowIndex, maxHours, locale, weekDays, ensembleMode),
-    [models, activeIds, time, series, nowIndex, maxHours, locale, weekDays, ensembleMode]
+    () => computeWeekSummaries({ time, series }, models, activeIds, nowIndex, maxHours, locale, weekDays, ensembleMode, biasTable),
+    [models, activeIds, time, series, nowIndex, maxHours, locale, weekDays, ensembleMode, biasTable]
   )
 
   if (days.length === 0) return null

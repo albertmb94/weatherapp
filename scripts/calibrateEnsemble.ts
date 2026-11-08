@@ -5,12 +5,12 @@
  *
  * Reads `model_accuracy` from local.db and derives calibrated ensemble
  * weights per metric × UI lead-time bucket using PER-LOCATION
- * inverse-RMSE weighting:
+ * Borda ranking:
  *
  *   1. For every reference location that has verification rows for at
  *      least MIN_MODELS_PER_LOCATION models in the bucket's backtest
- *      windows, each present model gets w = 1/rmse, normalised to sum
- *      to 1 within that location.
+ *      windows, pool squared errors by sample count, then rank distinct
+ *      models. Equal errors receive the same mean-rank score.
  *   2. A model's final weight is the MEAN of its per-location weights,
  *      taken only over locations where the model has data.
  *   3. Weights are re-normalised over all measured models and rounded
@@ -27,9 +27,9 @@
  * Europe...).
  *
  * The output replaces the hand-authored legacy buckets in
- * ENSEMBLE_PRESETS (lib/models.ts); the AI share is blended on top of
- * them exactly as before. Re-run weekly after the backtest cron to
- * keep the calibration fresh.
+ * ENSEMBLE_PRESETS (lib/models.ts) after independent validation. No weight
+ * is reserved by model architecture. The script emits candidate weights;
+ * it does not update the production presets automatically.
  */
 
 import { createClient } from '@libsql/client'
@@ -88,11 +88,12 @@ async function main() {
       const placeholders = btBuckets.map(() => '?').join(', ')
       const rows = await db.execute({
         sql: `SELECT model_id, lat, lon,
-                     AVG(rmse) AS rmse
+                     SQRT(SUM(rmse * rmse * sample_count) / SUM(sample_count)) AS rmse
               FROM model_accuracy
               WHERE metric = ?
                 AND lead_time_bucket IN (${placeholders})
                 AND rmse IS NOT NULL
+                AND rmse >= 0 AND sample_count > 0
               GROUP BY lat, lon, model_id`,
         args: [metric, ...btBuckets],
       })
@@ -129,13 +130,16 @@ async function main() {
       const locationCounts = new Map<string, number>()
       let usedLocations = 0
       for (const list of byLocation.values()) {
-        const usable = list.filter(r => r.rmse !== null && r.rmse > 0 && Number.isFinite(r.rmse))
+        const usable = list.filter(r => r.rmse !== null && r.rmse >= 0 && Number.isFinite(r.rmse))
         if (usable.length < MIN_MODELS_PER_LOCATION) continue
         usedLocations++
         const sorted = [...usable].sort((a, b) => (a.rmse as number) - (b.rmse as number))
         const n = sorted.length
         for (let i = 0; i < n; i++) {
-          const points = (n - i) / n
+          let first = i, last = i
+          while (first > 0 && sorted[first - 1].rmse === sorted[i].rmse) first--
+          while (last + 1 < n && sorted[last + 1].rmse === sorted[i].rmse) last++
+          const points = (n - (first + last) / 2) / n
           const { model_id } = sorted[i]
           scoreSums.set(model_id, (scoreSums.get(model_id) ?? 0) + points)
           locationCounts.set(model_id, (locationCounts.get(model_id) ?? 0) + 1)

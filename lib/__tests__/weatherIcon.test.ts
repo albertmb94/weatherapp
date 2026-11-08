@@ -18,12 +18,13 @@ describe('pickWeatherIcon', () => {
     expect(pickWeatherIcon({ cloudCoverPct: 80, precipitationMmDay: 5, windGustsKmh: 10, minTempC: 15 })).toBe('rainy')
   })
 
-  it('returns stormy for heavy precipitation', () => {
-    expect(pickWeatherIcon({ cloudCoverPct: 90, precipitationMmDay: 10, windGustsKmh: 10, minTempC: 15 })).toBe('stormy')
+  it('does not infer thunder from daily rainfall totals', () => {
+    expect(pickWeatherIcon({ cloudCoverPct: 90, precipitationMmDay: 10, windGustsKmh: 10, minTempC: 15 })).toBe('rainy')
   })
 
-  it('returns stormy for high gusts', () => {
-    expect(pickWeatherIcon({ cloudCoverPct: 50, precipitationMmDay: 0, windGustsKmh: 90, minTempC: 15 })).toBe('stormy')
+  it('does not infer thunder from gusts without convective evidence', () => {
+    expect(pickWeatherIcon({ cloudCoverPct: 50, precipitationMmDay: 0, windGustsKmh: 90, minTempC: 15 })).toBe('partly')
+    expect(pickWeatherIcon({ cloudCoverPct: 90, precipitationMmDay: 2, windGustsKmh: 10, minTempC: 15, weatherCode: 95 })).toBe('stormy')
   })
 
   it('returns snowy for precip with low temp', () => {

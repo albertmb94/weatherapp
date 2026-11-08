@@ -6,6 +6,7 @@
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import type { ObservationRow } from './db'
 import { BACKTEST_METRICS, BACKTEST_METRIC_TO_PARAM, type BacktestLocation } from './config'
+import { archiveTime } from './archiveTime'
 
 const ERA5_BASE = 'https://archive-api.open-meteo.com/v1/archive'
 
@@ -17,10 +18,11 @@ export async function fetchERA5Observations(
   location: BacktestLocation,
   startDate: string, // YYYY-MM-DD
   endDate: string,   // YYYY-MM-DD
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  metrics: readonly string[] = BACKTEST_METRICS,
 ): Promise<ObservationRow[]> {
   const rows: ObservationRow[] = []
-  const hourlyParams = BACKTEST_METRICS.map(m => BACKTEST_METRIC_TO_PARAM[m]).join(',')
+  const hourlyParams = metrics.map(m => BACKTEST_METRIC_TO_PARAM[m]).join(',')
 
   const params = new URLSearchParams({
     latitude: location.lat.toString(),
@@ -34,7 +36,8 @@ export async function fetchERA5Observations(
     models: 'era5_seamless',
     start_date: startDate,
     end_date: endDate,
-    timezone: 'auto',
+    timezone: 'GMT',
+    timeformat: 'unixtime',
   })
 
   const res = await fetchWithTimeout(`${ERA5_BASE}?${params}`, {
@@ -50,15 +53,15 @@ export async function fetchERA5Observations(
   const hourly = data.hourly
   if (!hourly?.time) return rows
 
-  const times: string[] = hourly.time
+  const times: (string | number)[] = hourly.time
 
   for (let i = 0; i < times.length; i++) {
-    const validTime = times[i]
+    const validTime = archiveTime(times[i])
 
-    for (const metric of BACKTEST_METRICS) {
+    for (const metric of metrics) {
       const param = BACKTEST_METRIC_TO_PARAM[metric]
       const value = hourly[param]?.[i] ?? null
-      if (value !== null) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
         rows.push({
           lat: location.lat,
           lon: location.lon,

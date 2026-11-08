@@ -65,7 +65,7 @@ describe('computeCurrentSnapshot profile boost', () => {
     expect(boosted?.temperatureC).toBeCloseTo(baseline?.temperatureC ?? NaN, 5)
   })
 
-  it('biases the ensemble toward the recommended model when both inputs are provided', () => {
+  it('keeps validated weights unchanged when recommendations are provided', () => {
     // Build a series where the recommended model (ecmwf_ifs)
     // reports a value 1°C *higher* than the rest. With the boost,
     // the snapshot's temperature should shift slightly higher than
@@ -96,7 +96,7 @@ describe('computeCurrentSnapshot profile boost', () => {
     expect(boosted?.temperatureC).toBeDefined()
     // The boosted average must shift UP because ecmwf_ifs is the
     // 1°C-warmer model and we just gave it more weight.
-    expect(boosted!.temperatureC!).toBeGreaterThan(baseline!.temperatureC!)
+    expect(boosted!.temperatureC!).toBe(baseline!.temperatureC!)
     // And it must stay BELOW ecmwf_ifs's raw value (21) — we
     // didn't 100%-weight the recommended model, just nudged it.
     expect(boosted!.temperatureC!).toBeLessThan(21)

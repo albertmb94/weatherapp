@@ -30,20 +30,23 @@ export function computeContinuousMetrics(
   predicted: number[],
   observed: number[]
 ): MetricResult {
-  const n = Math.min(predicted.length, observed.length)
-  if (n === 0) return { mae: null, rmse: null, bias: null, sampleCount: 0 }
+  const limit = Math.min(predicted.length, observed.length)
+  let n = 0
 
   let sumAbsErr = 0
   let sumSqErr = 0
   let sumErr = 0
 
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < limit; i++) {
+    if (!Number.isFinite(predicted[i]) || !Number.isFinite(observed[i])) continue
+    n++
     const err = predicted[i] - observed[i]
     sumAbsErr += Math.abs(err)
     sumSqErr += err * err
     sumErr += err
   }
 
+  if (n === 0) return { mae: null, rmse: null, bias: null, sampleCount: 0 }
   return {
     mae: sumAbsErr / n,
     rmse: Math.sqrt(sumSqErr / n),
@@ -60,10 +63,8 @@ export function computePrecipitationMetrics(
   predicted: number[],
   observed: number[]
 ): PrecipitationMetricResult {
-  const n = Math.min(predicted.length, observed.length)
-  if (n === 0) {
-    return { mae: null, rmse: null, bias: null, pod: null, far: null, csi: null, sampleCount: 0 }
-  }
+  const limit = Math.min(predicted.length, observed.length)
+  let n = 0
 
   // Continuous metrics
   let sumAbsErr = 0
@@ -73,7 +74,10 @@ export function computePrecipitationMetrics(
   let misses = 0
   let falseAlarms = 0
 
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < limit; i++) {
+    if (!Number.isFinite(predicted[i]) || !Number.isFinite(observed[i])) continue
+    if (predicted[i] < 0 || observed[i] < 0) continue
+    n++
     const err = predicted[i] - observed[i]
     sumAbsErr += Math.abs(err)
     sumSqErr += err * err
@@ -88,6 +92,9 @@ export function computePrecipitationMetrics(
     else { /* negativo correcto: no entra en POD/FAR/CSI */ }
   }
 
+  if (n === 0) {
+    return { mae: null, rmse: null, bias: null, pod: null, far: null, csi: null, sampleCount: 0 }
+  }
   const mae = sumAbsErr / n
   const rmse = Math.sqrt(sumSqErr / n)
   const bias = sumErr / n

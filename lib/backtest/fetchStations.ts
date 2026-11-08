@@ -2,14 +2,14 @@
  * Real station observations (XEMA / Catalonia) for the truth archive.
  *
  * XEMA's historical endpoint returns a whole day of one variable for the
- * whole network. Readings are timestamps in UTC; the ERA5 and Previous
- * Runs archives we compare against use the location's LOCAL wall clock
- * (`timezone=auto`), so every reading is converted to Europe/Madrid
- * before it is stored — otherwise a 2 h offset silently corrupts the join.
+ * whole network. Readings are UTC stamps at the START of the interval.
+ * Complete hours are aggregated and stored at their UTC END, matching
+ * the preceding-hour precipitation convention of the model archive.
  */
 
 import { parseStationsMetadata, parseVariableReadings, XEMA_VAR, type StationMeta } from '../meteocat'
 import type { StationObservationRow } from './db'
+import { archiveTime } from './archiveTime'
 
 const XEMA_BASE = 'https://api.meteo.cat/xema/v1'
 
@@ -24,6 +24,8 @@ export const METRIC_TO_XEMA: Record<string, number> = {
 interface XemaReading {
   data: string
   valor: number
+  baseHoraria?: string
+  estat?: string
 }
 
 /**
@@ -62,19 +64,37 @@ export function xemaReadingsToRows(
     for (const [code, list] of byStation) {
       const station = meta.get(code)
       if (!station) continue
+      const hours = new Map<number, Map<number, { value: number; minutes: number }>>()
       for (const reading of list) {
-        const validTime = madridWallClock(reading.data)
-        if (!validTime || !Number.isFinite(reading.valor)) continue
+        if (!Number.isFinite(Date.parse(reading.data)) || !Number.isFinite(reading.valor)) continue
+        if (reading.estat && reading.estat !== 'V') continue
+        const minutes = reading.baseHoraria === 'SH' ? 30 : 60
+        if (reading.baseHoraria && !['SH', 'HO', 'H'].includes(reading.baseHoraria)) continue
+        // XEMA stamps the START of each interval; Open-Meteo rainfall
+        // stamps the END of the preceding hour. Require complete hours.
+        const start = Date.parse(archiveTime(reading.data))
+        if (start % (minutes * 60_000) !== 0) continue
+        const end = Math.floor(start / 3600_000) * 3600_000 + 3600_000
+        const intervals = hours.get(end) ?? new Map()
+        intervals.set(start, { value: reading.valor, minutes })
+        hours.set(end, intervals)
+      }
+      for (const [end, intervals] of hours) {
+        const values = [...intervals.values()]
+        if (values.reduce((sum, v) => sum + v.minutes, 0) !== 60) continue
+        const value = metric === 'precipitation'
+          ? values.reduce((sum, v) => sum + v.value, 0)
+          : values.reduce((sum, v) => sum + v.value * v.minutes, 0) / 60
         rows.push({
           source,
           station_id: code,
           station_name: station.name,
           lat: station.lat,
           lon: station.lon,
-          valid_time: validTime,
+          valid_time: archiveTime(end / 1000),
           metric,
           // XEMA wind is m/s; the app's `wind_speed` is km/h.
-          observed_value: metric === 'wind_speed' ? reading.valor * 3.6 : reading.valor,
+          observed_value: metric === 'wind_speed' ? value * 3.6 : value,
         })
       }
     }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
-import { getModelAccuracyByTerrain } from '@/lib/backtest/db'
+import { getModelAccuracyByTerrain, ensureBacktestSchema } from '@/lib/backtest/db'
 import { BACKTEST_METRICS, LEAD_TIME_BUCKETS, type TerrainType } from '@/lib/backtest/config'
 
 /**
@@ -69,6 +69,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await ensureBacktestSchema()
     const rows = await getModelAccuracyByTerrain(terrain, metric, buckets, { topN: 5 })
     return NextResponse.json(
       { models: rows.map(r => r.model_id) },

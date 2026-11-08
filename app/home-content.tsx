@@ -18,8 +18,6 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import FriendlyHome from '@/components/FriendlyHome'
 import WeekForecastPanel from '@/components/WeekForecastPanel'
 import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar'
-import SettingsPanel from '@/components/SettingsPanel'
-import CitiesList from '@/components/CitiesList'
 // AirQualityCard was removed in the F5 second pass (2026-07-27):
 // the air-quality and pollen tiles now live inside the Métricas
 // block (see <AirQualityTile> in `AirConditionsGrid.tsx`), so
@@ -134,17 +132,11 @@ function importWithChunkReload<T>(factory: () => Promise<T>): Promise<T> {
 function pickPollenAtHour(
   data: AirQualityResult | undefined,
   series: (number | null)[] | undefined,
+  nowMs?: number,
 ): number | null {
   if (!data || !series || series.length === 0) return null
-  const referenceMs = data.fetchedAt ?? Date.now()
-  const referenceLocal = new Date(referenceMs + data.utcOffsetSeconds * 1000)
-  const target = referenceLocal.getUTCHours()
-  for (let i = 0; i < data.time.length; i++) {
-    const t = data.time[i]
-    if (!(t instanceof Date)) continue
-    if (t.getUTCHours() === target) return series[i] ?? null
-  }
-  return series[0] ?? null
+  const index = computeInsightsStartIndex(data.time, data.utcOffsetSeconds, nowMs || data.fetchedAt)
+  return series[index] ?? null
 }
 
 const StationDashboard = dynamic(() => importWithChunkReload(() => import('@/components/StationDashboard')), {
@@ -155,6 +147,10 @@ const StationDashboard = dynamic(() => importWithChunkReload(() => import('@/com
     </div>
   ),
 })
+
+// These panels are mounted only after navigation to their tab.
+const SettingsPanel = dynamic(() => import('@/components/SettingsPanel'))
+const CitiesList = dynamic(() => import('@/components/CitiesList'))
 
 const DEFAULT_POS: [number, number] = [41.4500, 2.2475]
 const DEFAULT_CITY = 'Badalona'
@@ -633,43 +629,22 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // wall clock floored to the hour. When the data hasn't
   // arrived yet we return `null` so the Métricas tile stays
   // hidden rather than showing a misleading "—".
-  const currentEuropeanAqi = useMemo<number | null>(() => {
-    const data = airQualityQuery.data
-    if (!data) return null
-    const arr = data.series.european_aqi
-    if (!arr || arr.length === 0) return null
-    // Anchor the lookup on the forecast's `fetchedAt` so
-    // server and client agree on the row (same trick the
-    // forecast uses via `startIndex`). Fall back to the
-    // shared `currentTickMs` (the same wall-clock value
-    // every other consumer in this file reads) instead of
-    // `Date.now()` so the React purity rule is satisfied
-    // and SSR / hydration stay consistent — `currentTickMs`
-    // is 0 on the first client render and starts ticking
-    // once the `useClientNow` effect runs.
-    const referenceMs = data.fetchedAt ?? currentTickMs
-    const referenceLocal = new Date(referenceMs + data.utcOffsetSeconds * 1000)
-    const target = referenceLocal.getUTCHours()
-    for (let i = 0; i < data.time.length; i++) {
-      const t = data.time[i]
-      if (!(t instanceof Date)) continue
-      if (t.getUTCHours() === target) return arr[i] ?? null
-    }
-    return arr[0] ?? null
-  }, [airQualityQuery.data, currentTickMs])
-
+  const currentEuropeanAqi = useMemo(
+    () => pickPollenAtHour(airQualityQuery.data, airQualityQuery.data?.series.european_aqi, currentTickMs),
+    [airQualityQuery.data, currentTickMs],
+  )
   // F5 (revised, second pass): same hour-aligned lookup for
   // the two pollen readings surfaced in the Métricas block.
   // Each tile consumes its own value so the parent stays a
   // pure view; the toggle state lives inside
   // `AirConditionsGrid`.
   const currentGrassPollen = useMemo(
-    () => pickPollenAtHour(airQualityQuery.data, airQualityQuery.data?.series.grass_pollen),
-    [airQualityQuery.data],
+    () => pickPollenAtHour(airQualityQuery.data, airQualityQuery.data?.series.grass_pollen, currentTickMs),
+    [airQualityQuery.data, currentTickMs],
   )
   const currentBirchPollen = useMemo(
-    () => pickPollenAtHour(airQualityQuery.data, airQualityQuery.data?.series.birch_pollen),
-    [airQualityQuery.data],
+    () => pickPollenAtHour(airQualityQuery.data, airQualityQuery.data?.series.birch_pollen, currentTickMs),
+    [airQualityQuery.data, currentTickMs],
   )
 
   // F5: viewport detection — desktop or mobile landscape.
@@ -1662,6 +1637,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                 time={effectiveData?.time ?? []}
                 series={effectiveData?.series ?? {}}
                 nowIndex={startIndex + safeSelectedHour}
+                baseLeadTimeHours={safeSelectedHour}
                 // B-NBT-9: day clicks must land relative to the sliced
                 // view's origin, not to the current-hour index.
                 baseIndex={startIndex}

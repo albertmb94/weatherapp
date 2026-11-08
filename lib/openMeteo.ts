@@ -5,7 +5,8 @@ import { fetchMarine, computeMarineDays } from './marine'
 import { parseOpenMeteoTimes, getLocationNow } from './dateUtils'
 import { selectModelsForLocation } from './regionDetection'
 import { weightedAvg } from './ensemble'
-import { weightsFor } from './ensemble/central'
+import { weightsFor, meanAtHour } from './ensemble/central'
+import { attachRainCalibration } from './ensemble/rainCalibration'
 import { detectModelsWithNoData } from './api/openMeteoProxy'
 
 // v4-mixed-models: the previous cap of 10 dropped European regional
@@ -154,10 +155,19 @@ export function aggregateDailySeries(
 /** Calibrated per-model weight for a DAILY aggregate: the ensemble weight
  *  for that metric at the day's lead time. Keeps the daily tiles on the
  *  same weighting the hourly ensemble uses. */
-function dailyWeight(metric: MetricId, models: WeatherModel[]) {
+function dailyWeight(metric: MetricId, models: WeatherModel[], dates: Date[], offset: number, referenceMs: number) {
   const indexById = new Map(models.map((m, i) => [m.id, i]))
+  const localNow = referenceMs + offset * 1000
+  const byDay = new Map<number, number[]>()
   return (model: WeatherModel, dayIndex: number): number => {
-    const w = weightsFor(metric, dayIndex * 24, 1, models)
+    // daily.time includes past_days. Array index is NOT forecast lead time.
+    // Use the real date's midpoint and cache the vector once per day.
+    let w = byDay.get(dayIndex)
+    if (!w) {
+      const lead = Math.max(0, ((dates[dayIndex]?.getTime() ?? localNow) + 12 * 3600_000 - localNow) / 3600_000)
+      w = weightsFor(metric, lead, 1, models)
+      byDay.set(dayIndex, w)
+    }
     return w[indexById.get(model.id) ?? -1] ?? 0.01
   }
 }
@@ -301,7 +311,9 @@ export async function fetchForecast(
     v: CACHE_KEY_VERSION,
   })
 
-  const res = await fetchWithTimeout(`/api/forecast?${params}`, { signal, timeoutMs: 20_000 })
+  // The proxy has a 25 s upstream budget plus stale-cache lookup. A 20 s
+  // client timeout discarded valid responses before that fallback completed.
+  const res = await fetchWithTimeout(`/api/forecast?${params}`, { signal, timeoutMs: 32_000 })
   if (!res.ok) throw new Error(`Forecast API error: ${res.status}`)
   const data = await res.json()
 
@@ -314,15 +326,21 @@ export async function fetchForecast(
   const headerFetchedAtMs = headerFetchedAt !== null ? Number(headerFetchedAt) : NaN
   const fetchedAt = Number.isFinite(headerFetchedAtMs) ? headerFetchedAtMs : Date.now()
 
+  if (!Array.isArray(data.hourly?.time) || data.hourly.time.length === 0) throw new Error('Forecast API returned no hourly time axis')
   const timeStrings = data.hourly.time as string[]
   const time = parseOpenMeteoTimes(timeStrings)
+  if (time.some(t => !Number.isFinite(t.getTime()))) throw new Error('Forecast API returned an invalid time axis')
   const series: Record<string, Record<string, (number | null)[]>> = {}
 
   for (const model of capped) {
     series[model.id] = {}
     for (const metric of metrics) {
       const key = `${metric.hourlyParam}_${model.id}`
-      const arr = data.hourly[key]
+      const raw = data.hourly[key]
+      // Preserve the provider's index exactly: missing/invalid values become
+      // null, never zero, another model's best-match, or a shifted array.
+      const arr = Array.from({ length: time.length }, (_, i) =>
+        Array.isArray(raw) && typeof raw[i] === 'number' && Number.isFinite(raw[i]) ? raw[i] as number : null)
       // Visibility comes back in metres from Open-Meteo; normalize once
       // here to km so every consumer (table, chart, CSV, map) reads the
       // same unit. Previously the model was advertised as `km` but the
@@ -387,6 +405,29 @@ export async function fetchForecast(
   const dailyTimeStrings: string[] = Array.isArray(daily.time) ? (daily.time as string[]) : []
   const dailyTime = parseOpenMeteoTimes(dailyTimeStrings)
   const modelsWithNoData = detectModelsWithNoData(data, capped.map(m => m.id))
+  const calibratedRain = attachRainCalibration(series, time, lat, lon, data.utc_offset_seconds ?? 0, fetchedAt)
+  const rainDaily = aggregateDailySeries(daily, 'precipitation_sum', capped, dailyWeight('precipitation', capped, dailyTime, data.utc_offset_seconds ?? 0, fetchedAt))
+  const rainHours = aggregateDailySeries(daily, 'precipitation_hours', capped, dailyWeight('precipitation', capped, dailyTime, data.utc_offset_seconds ?? 0, fetchedAt))
+  if (calibratedRain) {
+    // Derive the adjusted daily amount from the SAME hourly ensemble used
+    // by cards and tables. Raw model columns and provider probabilities stay raw.
+    const byDate = new Map<string, { sum: number; wet: number; n: number }>()
+    const localReference = fetchedAt + (data.utc_offset_seconds ?? 0) * 1000
+    for (let i = 0; i < time.length; i++) {
+      const lead = Math.max(0, (time[i].getTime() - localReference) / 3600_000)
+      const value = meanAtHour({ time, series }, 'precipitation', i, capped, weightsFor('precipitation', lead, 1, capped))
+      if (value === null) continue
+      const date = timeStrings[i].slice(0, 10)
+      const cell = byDate.get(date) ?? { sum: 0, wet: 0, n: 0 }
+      cell.sum += value; cell.wet += value >= 0.1 ? 1 : 0; cell.n++
+      byDate.set(date, cell)
+    }
+    dailyTimeStrings.forEach((date, i) => {
+      const cell = byDate.get(date.slice(0, 10))
+      rainDaily[i] = cell?.n === 24 ? cell.sum : null
+      rainHours[i] = cell?.n === 24 ? cell.wet : null
+    })
+  }
   if (modelsWithNoData.length > 0) {
     console.warn(
       `[openMeteo] provider returned all-null payload for model(s): ${modelsWithNoData.join(', ')}; ` +
@@ -400,10 +441,10 @@ export async function fetchForecast(
     series,
     utcOffsetSeconds: data.utc_offset_seconds ?? 0,
     fetchedAt,
-    dailyPrecipitationSum: aggregateDailySeries(daily, 'precipitation_sum', capped, dailyWeight('precipitation', capped)),
-    dailyPrecipitationProbabilityMax: aggregateDailySeries(daily, 'precipitation_probability_max', capped, dailyWeight('precipitation_probability', capped)),
+    dailyPrecipitationSum: rainDaily,
+    dailyPrecipitationProbabilityMax: aggregateDailySeries(daily, 'precipitation_probability_max', capped, dailyWeight('precipitation_probability', capped, dailyTime, data.utc_offset_seconds ?? 0, fetchedAt)),
     dailyTime,
-    dailyPrecipitationHours: aggregateDailySeries(daily, 'precipitation_hours', capped, dailyWeight('precipitation', capped)),
+    dailyPrecipitationHours: rainHours,
     modelsWithNoData,
     todaySunsetTs: parseTodaySunset(data.daily),
   }

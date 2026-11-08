@@ -39,16 +39,21 @@ export function computeDynamicWeights(
     let weightSum = 0
 
     for (const record of records) {
-      if (record.rmse === null) continue
-      const computedAt = new Date(record.computed_at).getTime()
-      const daysAgo = (now - computedAt) / (86400 * 1000)
-      const recencyWeight = Math.pow(decayFactor, daysAgo)
-      weightedRmse += record.rmse * recencyWeight
+      if (record.rmse === null || !Number.isFinite(record.rmse) || record.rmse < 0) continue
+      if (!Number.isFinite(record.sample_count) || record.sample_count <= 0) continue
+      // SQLite datetime('now') is UTC, although it contains no timezone suffix.
+      const timestamp = record.computed_at.includes('T')
+        ? record.computed_at : record.computed_at.replace(' ', 'T') + 'Z'
+      const computedAt = new Date(timestamp).getTime()
+      if (!Number.isFinite(computedAt)) continue
+      const daysAgo = Math.max(0, (now - computedAt) / (86400 * 1000))
+      const recencyWeight = Math.pow(decayFactor, daysAgo) * record.sample_count
+      weightedRmse += record.rmse * record.rmse * recencyWeight
       weightSum += recencyWeight
     }
 
     if (weightSum > 0) {
-      const avgRmse = weightedRmse / weightSum
+      const avgRmse = Math.sqrt(weightedRmse / weightSum)
       // Weight is inverse of RMSE (lower RMSE = higher weight)
       rawWeights.set(modelId, 1 / Math.max(avgRmse, 0.1))
     }
@@ -99,7 +104,11 @@ export function getMetricWeights(
   if (accuracyRecords.length === 0) {
     return { ...presetWeights }
   }
-  const dynamicWeights = computeDynamicWeights(accuracyRecords, decayFactor)
+  // Never mix errors in different units or at different forecast horizons.
+  // Proxy metrics borrow a static prior, not unrelated dynamic evidence.
+  const dynamicWeights = computeDynamicWeights(accuracyRecords.filter(row =>
+    row.metric === metricId && row.lead_time_bucket === leadTimeBucket
+  ), decayFactor)
   if (Object.keys(dynamicWeights).length === 0) {
     return { ...presetWeights }
   }
@@ -176,7 +185,7 @@ export function getEnsembleConfidence(
   const validWeights: number[] = []
 
   for (let i = 0; i < values.length; i++) {
-    if (values[i] !== null && values[i] !== undefined) {
+    if (typeof values[i] === 'number' && Number.isFinite(values[i]) && Number.isFinite(weights[i]) && weights[i] > 0) {
       validValues.push(values[i]!)
       validWeights.push(weights[i])
     }

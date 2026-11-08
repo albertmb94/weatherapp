@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/rateLimit', () => ({ rateLimit: vi.fn(() => true) }))
 
 vi.mock('@/lib/backtest/db', () => ({
+  ensureBacktestSchema: vi.fn(async () => {}),
   getBiasByTerrain: vi.fn(async () => ({
     temperature: { '0-48h': { ecmwf_ifs: 0.9 } },
   })),

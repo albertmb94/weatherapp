@@ -1,0 +1,4240 @@
+{
+  "from": "2026-10-11",
+  "to": "2026-11-07",
+  "note": "UTC hours ending at timestamp. Offset 0 is the stitched historical current run, not an issued short-lead archive.",
+  "cities": {
+    "WU": {
+      "name": "Badalona - Museu",
+      "lat": 41.45215,
+      "lon": 2.24757,
+      "leads": {
+        "0": {
+          "observedMm": 28.400000000000002,
+          "forecastMm": 74.16634240901955,
+          "ratio": 2.611490929895054,
+          "baseline": {
+            "rmse": 0.5184239258804372,
+            "mae": 0.12027096644815091,
+            "n": 624,
+            "hits": 24,
+            "misses": 1,
+            "falseAlarms": 62,
+            "pod": 0.96,
+            "far": 0.7209302325581395,
+            "csi": 0.27586206896551724
+          },
+          "release": {
+            "rmse": 0.4274657428646947,
+            "mae": 0.11019545059742264,
+            "n": 624,
+            "hits": 24,
+            "misses": 1,
+            "falseAlarms": 63,
+            "pod": 0.96,
+            "far": 0.7241379310344828,
+            "csi": 0.2727272727272727
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0.0553895085559039,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.2608969226653057,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0.016157562427037923,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.01964710148675455,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 3.8,
+              "forecastMm": 24.07997819974111,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 8.5,
+              "forecastMm": 9.523700074056901,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 8.1,
+              "forecastMm": 15.855152603205354,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 0.9296974601062002,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.2835655029018,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.3114505875871355,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.19977528842638131,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 1.5778796396051125,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.013643313675478039,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.1612188941207573,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.008078781213518961,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0.5,
+              "forecastMm": 1.6041921150795564,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.199999999999999,
+              "forecastMm": 16.111352871572596,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.30000000000000004,
+              "forecastMm": 2.9263175909068644,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0.2282483916857835,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "24": {
+          "observedMm": 28.400000000000002,
+          "forecastMm": 79.42468526878359,
+          "ratio": 2.79664384749238,
+          "baseline": {
+            "rmse": 0.5279166364212131,
+            "mae": 0.12476298647415149,
+            "n": 624,
+            "hits": 25,
+            "misses": 0,
+            "falseAlarms": 76,
+            "pod": 1,
+            "far": 0.7524752475247525,
+            "csi": 0.24752475247524752
+          },
+          "release": {
+            "rmse": 0.4420656419168404,
+            "mae": 0.12274897756579321,
+            "n": 624,
+            "hits": 25,
+            "misses": 0,
+            "falseAlarms": 79,
+            "pod": 1,
+            "far": 0.7596153846153846,
+            "csi": 0.2403846153846154
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0.008033601233004355,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.11586966549918148,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 3.8,
+              "forecastMm": 16.715109822102455,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 8.5,
+              "forecastMm": 12.742955416695366,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 8.1,
+              "forecastMm": 20.52977781492856,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 2.1215837332292207,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.5231606979152729,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.24970026998361136,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.04197860927754976,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 1.425181900918106,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.16335317578134406,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.016157562427037923,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0.5,
+              "forecastMm": 1.0620455967867097,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.199999999999999,
+              "forecastMm": 21.27780585665477,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.30000000000000004,
+              "forecastMm": 1.715879324731412,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0.7160922206200298,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "48": {
+          "observedMm": 28.400000000000002,
+          "forecastMm": 97.0192093300306,
+          "ratio": 3.416169342606711,
+          "baseline": {
+            "rmse": 0.4612618402106903,
+            "mae": 0.15183889655749364,
+            "n": 624,
+            "hits": 23,
+            "misses": 2,
+            "falseAlarms": 88,
+            "pod": 0.92,
+            "far": 0.7927927927927928,
+            "csi": 0.20353982300884957
+          },
+          "release": {
+            "rmse": 0.4586330654946628,
+            "mae": 0.14973798803614785,
+            "n": 624,
+            "hits": 23,
+            "misses": 2,
+            "falseAlarms": 89,
+            "pod": 0.92,
+            "far": 0.7946428571428571,
+            "csi": 0.20175438596491227
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0.022609062594995576,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 3.8,
+              "forecastMm": 10.224134602088515,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 8.5,
+              "forecastMm": 11.210149257360918,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 8.1,
+              "forecastMm": 38.94178411756009,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 9.979030286652385,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.3278083570033643,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.694599270760408,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.5279506554115259,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.8567888354331719,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.08205797956222154,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.06763446866387196,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.08116136239664636,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0.5,
+              "forecastMm": 0.25925615287421583,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.199999999999999,
+              "forecastMm": 19.398382165981108,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.30000000000000004,
+              "forecastMm": 2.1266792179262217,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 2.136345408882961,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.08283812887794888,
+              "hours": 1
+            }
+          }
+        },
+        "72": {
+          "observedMm": 28.400000000000002,
+          "forecastMm": 90.77990434706486,
+          "ratio": 3.19647550517834,
+          "baseline": {
+            "rmse": 0.39505746853239326,
+            "mae": 0.14260258971797432,
+            "n": 624,
+            "hits": 24,
+            "misses": 1,
+            "falseAlarms": 100,
+            "pod": 0.96,
+            "far": 0.8064516129032258,
+            "csi": 0.192
+          },
+          "release": {
+            "rmse": 0.39359925748240754,
+            "mae": 0.1419111269917304,
+            "n": 624,
+            "hits": 24,
+            "misses": 1,
+            "falseAlarms": 99,
+            "pod": 0.96,
+            "far": 0.8048780487804879,
+            "csi": 0.1935483870967742
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0.03821966020938335,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 3.8,
+              "forecastMm": 18.55113335593181,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 8.5,
+              "forecastMm": 14.149536275237503,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 8.1,
+              "forecastMm": 17.538054066205188,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 11.249424476941131,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.5772828026091932,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.7035161566127347,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.6021657801626363,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.9085901380378507,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.036782203604717956,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.024967318478823556,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0.5,
+              "forecastMm": 0.3709990800575856,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.199999999999999,
+              "forecastMm": 17.496667321028838,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.30000000000000004,
+              "forecastMm": 7.666520009561515,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0.8660457023860199,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "96": {
+          "observedMm": 28.400000000000002,
+          "forecastMm": 93.82914084966849,
+          "ratio": 3.303842987664383,
+          "baseline": {
+            "rmse": 0.42725099276826384,
+            "mae": 0.161112045006276,
+            "n": 624,
+            "hits": 23,
+            "misses": 2,
+            "falseAlarms": 121,
+            "pod": 0.92,
+            "far": 0.8402777777777778,
+            "csi": 0.15753424657534246
+          },
+          "release": {
+            "rmse": 0.4233547567084572,
+            "mae": 0.15991150381241734,
+            "n": 624,
+            "hits": 23,
+            "misses": 2,
+            "falseAlarms": 120,
+            "pod": 0.92,
+            "far": 0.8391608391608392,
+            "csi": 0.15862068965517243
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0.043543969338116814,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.12812171877572062,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 3.8,
+              "forecastMm": 15.716547993786179,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 8.5,
+              "forecastMm": 26.20963904668935,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 8.1,
+              "forecastMm": 18.003639722082607,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 9.181680649046845,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.2370500781164396,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.3307939573094859,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.5929011759378877,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 2.208070565492248,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.24428286114339365,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.18424910883696183,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.03843651563271619,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0.5,
+              "forecastMm": 0.22631934476105947,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.199999999999999,
+              "forecastMm": 9.984264687306032,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.30000000000000004,
+              "forecastMm": 3.9513976574092426,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 6.304770532330375,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.2434312656738692,
+              "hours": 1
+            }
+          }
+        },
+        "120": {
+          "observedMm": 28.400000000000002,
+          "forecastMm": 101.94165834165825,
+          "ratio": 3.58949501203022,
+          "baseline": {
+            "rmse": 0.46487751799750093,
+            "mae": 0.16867875714029545,
+            "n": 624,
+            "hits": 25,
+            "misses": 0,
+            "falseAlarms": 117,
+            "pod": 1,
+            "far": 0.823943661971831,
+            "csi": 0.176056338028169
+          },
+          "release": {
+            "rmse": 0.46487751799750093,
+            "mae": 0.16867875714029545,
+            "n": 624,
+            "hits": 25,
+            "misses": 0,
+            "falseAlarms": 117,
+            "pod": 1,
+            "far": 0.823943661971831,
+            "csi": 0.176056338028169
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0.015584415584415584,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0.05334665334665335,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.13346653346653348,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.29630369630369635,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 3.8,
+              "forecastMm": 14.610389610389612,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 8.5,
+              "forecastMm": 22.185514485514485,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 8.1,
+              "forecastMm": 25.428771228771232,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 8.16993006993007,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.019380619380619385,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.5083916083916085,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.3494505494505495,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.5984015984015985,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0.06673326673326674,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.09690309690309692,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.1356643356643357,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0.5,
+              "forecastMm": 0.8802197802197802,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.199999999999999,
+              "forecastMm": 10.02107892107892,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.30000000000000004,
+              "forecastMm": 16.35574425574426,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 1.8996003996003998,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.11678321678321678,
+              "hours": 1
+            }
+          }
+        },
+        "144": {
+          "observedMm": 28.400000000000002,
+          "forecastMm": 73.23676323676334,
+          "ratio": 2.5787592689001175,
+          "baseline": {
+            "rmse": 0.37889477354626905,
+            "mae": 0.13373709623709631,
+            "n": 624,
+            "hits": 17,
+            "misses": 8,
+            "falseAlarms": 103,
+            "pod": 0.68,
+            "far": 0.8583333333333333,
+            "csi": 0.1328125
+          },
+          "release": {
+            "rmse": 0.37889477354626905,
+            "mae": 0.13373709623709631,
+            "n": 624,
+            "hits": 17,
+            "misses": 8,
+            "falseAlarms": 103,
+            "pod": 0.68,
+            "far": 0.8583333333333333,
+            "csi": 0.1328125
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.03336663336663337,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0.10009990009990011,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.20019980019980022,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 3.8,
+              "forecastMm": 6.460439560439561,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 8.5,
+              "forecastMm": 15.089610389610387,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 8.1,
+              "forecastMm": 22.569630369630367,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 3.15894105894106,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.499000999000999,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.3336663336663337,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.15584415584415584,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.34735264735264737,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.06673326673326674,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0.5993006993006994,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0.5,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.199999999999999,
+              "forecastMm": 4.569830169830171,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.30000000000000004,
+              "forecastMm": 6.206193806193806,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 12.83096903096903,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.015584415584415584,
+              "hours": 1
+            }
+          }
+        },
+        "168": {
+          "observedMm": 28.400000000000002,
+          "forecastMm": 52.65942446043168,
+          "ratio": 1.8542050866349182,
+          "baseline": {
+            "rmse": 0.46063947673184935,
+            "mae": 0.12043465227817758,
+            "n": 624,
+            "hits": 9,
+            "misses": 16,
+            "falseAlarms": 104,
+            "pod": 0.36,
+            "far": 0.9203539823008849,
+            "csi": 0.06976744186046512
+          },
+          "release": {
+            "rmse": 0.46063947673184935,
+            "mae": 0.12043465227817758,
+            "n": 624,
+            "hits": 9,
+            "misses": 16,
+            "falseAlarms": 104,
+            "pod": 0.36,
+            "far": 0.9203539823008849,
+            "csi": 0.06976744186046512
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.9130935251798558,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 3.8,
+              "forecastMm": 4.546187050359712,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 8.5,
+              "forecastMm": 7.435107913669063,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 8.1,
+              "forecastMm": 3.6902158273381285,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 11.764460431654676,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 14.20705035971223,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.3012949640287769,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.025611510791366907,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 1.155251798561151,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0.04647482014388489,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0.12014388489208633,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0.12014388489208633,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.3585611510791368,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.11223021582733812,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0.4084892086330935,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0.5,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.199999999999999,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.30000000000000004,
+              "forecastMm": 1.500575539568345,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 5.954532374100719,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        }
+      },
+      "calibration": {
+        "0-48h": {
+          "factor": 0.2660361075143585,
+          "accepted": true,
+          "wetFit": 30,
+          "wetTest": 20,
+          "trainN": 670,
+          "testN": 578,
+          "raw": {
+            "rmse": 0.3174125295009926,
+            "mae": 0.08238719255393612,
+            "n": 578,
+            "hits": 18,
+            "misses": 2,
+            "falseAlarms": 47,
+            "pod": 0.9,
+            "far": 0.7230769230769231,
+            "csi": 0.26865671641791045
+          },
+          "adjusted": {
+            "rmse": 0.21710080997125505,
+            "mae": 0.035747328043902245,
+            "n": 578,
+            "hits": 14,
+            "misses": 6,
+            "falseAlarms": 26,
+            "pod": 0.7,
+            "far": 0.65,
+            "csi": 0.30434782608695654
+          }
+        },
+        "48-96h": {
+          "factor": 0.29591346012352904,
+          "accepted": true,
+          "wetFit": 30,
+          "wetTest": 20,
+          "trainN": 670,
+          "testN": 578,
+          "raw": {
+            "rmse": 0.2930145051493397,
+            "mae": 0.08952982305678399,
+            "n": 578,
+            "hits": 17,
+            "misses": 3,
+            "falseAlarms": 74,
+            "pod": 0.85,
+            "far": 0.8131868131868132,
+            "csi": 0.18085106382978725
+          },
+          "adjusted": {
+            "rmse": 0.2244244981757077,
+            "mae": 0.0428931302512031,
+            "n": 578,
+            "hits": 13,
+            "misses": 7,
+            "falseAlarms": 41,
+            "pod": 0.65,
+            "far": 0.7592592592592593,
+            "csi": 0.21311475409836064
+          }
+        },
+        "96-168h": {
+          "factor": 0.25,
+          "accepted": true,
+          "wetFit": 45,
+          "wetTest": 30,
+          "trainN": 1005,
+          "testN": 867,
+          "raw": {
+            "rmse": 0.3033127267056441,
+            "mae": 0.09012437646576722,
+            "n": 867,
+            "hits": 12,
+            "misses": 18,
+            "falseAlarms": 130,
+            "pod": 0.4,
+            "far": 0.9154929577464789,
+            "csi": 0.075
+          },
+          "adjusted": {
+            "rmse": 0.23189468477107747,
+            "mae": 0.04231004642134561,
+            "n": 867,
+            "hits": 7,
+            "misses": 23,
+            "falseAlarms": 53,
+            "pod": 0.23333333333333334,
+            "far": 0.8833333333333333,
+            "csi": 0.08433734939759036
+          }
+        }
+      }
+    },
+    "X4": {
+      "name": "Barcelona - el Raval",
+      "lat": 41.38386,
+      "lon": 2.16774,
+      "leads": {
+        "0": {
+          "observedMm": 51.90000000000001,
+          "forecastMm": 73.02790937153009,
+          "ratio": 1.4070888125535659,
+          "baseline": {
+            "rmse": 0.6377548173066133,
+            "mae": 0.12741058833291843,
+            "n": 624,
+            "hits": 35,
+            "misses": 2,
+            "falseAlarms": 48,
+            "pod": 0.9459459459459459,
+            "far": 0.5783132530120482,
+            "csi": 0.4117647058823529
+          },
+          "release": {
+            "rmse": 0.5754158877968276,
+            "mae": 0.11992049790615969,
+            "n": 624,
+            "hits": 35,
+            "misses": 2,
+            "falseAlarms": 48,
+            "pod": 0.9459459459459459,
+            "far": 0.5783132530120482,
+            "csi": 0.4117647058823529
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0.0648516540243809,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.5425963935090257,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0.016157562427037923,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.013643313675478039,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 10.6,
+              "forecastMm": 20.67453871891917,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 13.099999999999998,
+              "forecastMm": 10.809425515079655,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 17.000000000000004,
+              "forecastMm": 15.576141633848763,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 0.696512259950385,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.13098684036137265,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.19053467803947363,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.17261949457504122,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.9339226542448098,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.034057284091200415,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.02098930463877488,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.06612459295707743,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.008033601233004355,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 2.7,
+              "forecastMm": 1.0822373621906711,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.700000000000001,
+              "forecastMm": 18.60172168739429,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.8,
+              "forecastMm": 3.131362354605949,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0.2614524657645638,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "24": {
+          "observedMm": 51.90000000000001,
+          "forecastMm": 83.3676419954597,
+          "ratio": 1.6063129478893967,
+          "baseline": {
+            "rmse": 0.5244029768227567,
+            "mae": 0.12666393521976035,
+            "n": 624,
+            "hits": 35,
+            "misses": 2,
+            "falseAlarms": 63,
+            "pod": 0.9459459459459459,
+            "far": 0.6428571428571429,
+            "csi": 0.35
+          },
+          "release": {
+            "rmse": 0.5238734361518327,
+            "mae": 0.1291385774518492,
+            "n": 624,
+            "hits": 35,
+            "misses": 2,
+            "falseAlarms": 63,
+            "pod": 0.9459459459459459,
+            "far": 0.6428571428571429,
+            "csi": 0.35
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.12390326673218584,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 10.6,
+              "forecastMm": 14.475594565867034,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 13.099999999999998,
+              "forecastMm": 15.15574417576955,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 17.000000000000004,
+              "forecastMm": 20.201763552300726,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 2.306453614948942,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.18160139146797566,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.14116723009338528,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 1.892387636301261,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.06937751267516083,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.08404616697080551,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.016157562427037923,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 2.7,
+              "forecastMm": 4.1957704492552415,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.700000000000001,
+              "forecastMm": 22.50608176494941,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.8,
+              "forecastMm": 1.2947065633526318,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0.7228865423483941,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "48": {
+          "observedMm": 51.90000000000001,
+          "forecastMm": 98.24613675117658,
+          "ratio": 1.8929891474215135,
+          "baseline": {
+            "rmse": 0.5749022924558163,
+            "mae": 0.16269371941272423,
+            "n": 624,
+            "hits": 33,
+            "misses": 4,
+            "falseAlarms": 77,
+            "pod": 0.8918918918918919,
+            "far": 0.7,
+            "csi": 0.2894736842105263
+          },
+          "release": {
+            "rmse": 0.57527555871923,
+            "mae": 0.16157858387098126,
+            "n": 624,
+            "hits": 33,
+            "misses": 4,
+            "falseAlarms": 77,
+            "pod": 0.8918918918918919,
+            "far": 0.7,
+            "csi": 0.2894736842105263
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0.012196062560328041,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0.010413000034667535,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 10.6,
+              "forecastMm": 10.076479612421249,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 13.099999999999998,
+              "forecastMm": 13.8573754638404,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 17.000000000000004,
+              "forecastMm": 37.26345849334407,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 10.458670987401076,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.17713903807637837,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.6430177926150235,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.3671947926680992,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.4742521103928716,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.04058068119832318,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.023939893767441926,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.10821514986219515,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.06763446866387196,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 2.7,
+              "forecastMm": 0.22136108497185392,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.700000000000001,
+              "forecastMm": 20.38179201753371,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.8,
+              "forecastMm": 1.4906873067746964,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 2.5613740289405755,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.01035476610974361,
+              "hours": 1
+            }
+          }
+        },
+        "72": {
+          "observedMm": 51.90000000000001,
+          "forecastMm": 95.45019889729001,
+          "ratio": 1.8391175124718686,
+          "baseline": {
+            "rmse": 0.5766355190465039,
+            "mae": 0.17215476830861454,
+            "n": 624,
+            "hits": 34,
+            "misses": 3,
+            "falseAlarms": 87,
+            "pod": 0.918918918918919,
+            "far": 0.71900826446281,
+            "csi": 0.27419354838709675
+          },
+          "release": {
+            "rmse": 0.5728330279159435,
+            "mae": 0.1706746561178894,
+            "n": 624,
+            "hits": 34,
+            "misses": 3,
+            "falseAlarms": 86,
+            "pod": 0.918918918918919,
+            "far": 0.7166666666666667,
+            "csi": 0.2764227642276423
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0.03821966020938335,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 10.6,
+              "forecastMm": 21.4766308548217,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 13.099999999999998,
+              "forecastMm": 14.648129323710041,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 17.000000000000004,
+              "forecastMm": 17.082142697352232,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 11.23046303118616,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.509901562090903,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.5720348641442928,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.5001256646037308,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.5442116053717387,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.04834059919654317,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.049042938139623946,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.012739886736461118,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 2.7,
+              "forecastMm": 0.22876924426561698,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.700000000000001,
+              "forecastMm": 20.576087339955098,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.8,
+              "forecastMm": 6.971602291844905,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0.9392661890486638,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.02249114461305557,
+              "hours": 1
+            }
+          }
+        },
+        "96": {
+          "observedMm": 51.90000000000001,
+          "forecastMm": 96.83953302810549,
+          "ratio": 1.865886956225539,
+          "baseline": {
+            "rmse": 0.6121147899579119,
+            "mae": 0.18364656177156194,
+            "n": 624,
+            "hits": 34,
+            "misses": 3,
+            "falseAlarms": 103,
+            "pod": 0.918918918918919,
+            "far": 0.7518248175182481,
+            "csi": 0.24285714285714285
+          },
+          "release": {
+            "rmse": 0.6111497293358366,
+            "mae": 0.1835056469627763,
+            "n": 624,
+            "hits": 34,
+            "misses": 3,
+            "falseAlarms": 100,
+            "pod": 0.918918918918919,
+            "far": 0.746268656716418,
+            "csi": 0.24817518248175183
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0.043543969338116814,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0.02793750890122578,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.1024973750205765,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 10.6,
+              "forecastMm": 18.03446500033006,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 13.099999999999998,
+              "forecastMm": 28.580934333308644,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 17.000000000000004,
+              "forecastMm": 17.787243793109287,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 8.034664137396064,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.2498622499940117,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.38718795395692035,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.5115225831620992,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.6839238825374345,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.22103183463602555,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.12953067360755108,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.04190626335183867,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 2.7,
+              "forecastMm": 0.24144468178471315,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.700000000000001,
+              "forecastMm": 11.050399189829127,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.8,
+              "forecastMm": 4.542228793613158,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 5.938589710432346,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.23061909379629714,
+              "hours": 1
+            }
+          }
+        },
+        "120": {
+          "observedMm": 51.90000000000001,
+          "forecastMm": 101.14955044955035,
+          "ratio": 1.948931607891143,
+          "baseline": {
+            "rmse": 0.6005858581679506,
+            "mae": 0.18176086733779023,
+            "n": 624,
+            "hits": 35,
+            "misses": 2,
+            "falseAlarms": 97,
+            "pod": 0.9459459459459459,
+            "far": 0.7348484848484849,
+            "csi": 0.26119402985074625
+          },
+          "release": {
+            "rmse": 0.6005858581679506,
+            "mae": 0.18176086733779023,
+            "n": 624,
+            "hits": 35,
+            "misses": 2,
+            "falseAlarms": 97,
+            "pod": 0.9459459459459459,
+            "far": 0.7348484848484849,
+            "csi": 0.26119402985074625
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0.015584415584415584,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0.05334665334665335,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.10009990009990011,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0.016683316683316685,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.31498501498501497,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 10.6,
+              "forecastMm": 15.974425574425574,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 13.099999999999998,
+              "forecastMm": 24.521778221778227,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 17.000000000000004,
+              "forecastMm": 23.897502497502494,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 8.81768231768232,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.019380619380619385,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.3415584415584416,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.3494505494505495,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.403896103896104,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.09690309690309692,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.1356643356643357,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.05334665334665335,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 2.7,
+              "forecastMm": 1.1464535464535466,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.700000000000001,
+              "forecastMm": 7.719980019980022,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.8,
+              "forecastMm": 15.431668331668337,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 1.6557442557442559,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.08341658341658342,
+              "hours": 1
+            }
+          }
+        },
+        "144": {
+          "observedMm": 51.90000000000001,
+          "forecastMm": 75.64055944055947,
+          "ratio": 1.4574288909549027,
+          "baseline": {
+            "rmse": 0.5750465129856274,
+            "mae": 0.1602434424549809,
+            "n": 624,
+            "hits": 30,
+            "misses": 7,
+            "falseAlarms": 94,
+            "pod": 0.8108108108108109,
+            "far": 0.7580645161290323,
+            "csi": 0.22900763358778625
+          },
+          "release": {
+            "rmse": 0.5750465129856274,
+            "mae": 0.1602434424549809,
+            "n": 624,
+            "hits": 30,
+            "misses": 7,
+            "falseAlarms": 94,
+            "pod": 0.8108108108108109,
+            "far": 0.7580645161290323,
+            "csi": 0.22900763358778625
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.03336663336663337,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0.016683316683316685,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.2168831168831169,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 10.6,
+              "forecastMm": 6.037962037962038,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 13.099999999999998,
+              "forecastMm": 17.00709290709291,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 17.000000000000004,
+              "forecastMm": 21.296703296703292,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 3.20899100899101,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 0.4656343656343656,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.23356643356643358,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.15584415584415584,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.29730269730269737,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.06253746253746255,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.017782217782217783,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0.6373626373626373,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 2.7,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.700000000000001,
+              "forecastMm": 4.818081918081917,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.8,
+              "forecastMm": 6.107792207792208,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 15.011388611388615,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.015584415584415584,
+              "hours": 1
+            }
+          }
+        },
+        "168": {
+          "observedMm": 51.90000000000001,
+          "forecastMm": 50.423741007194266,
+          "ratio": 0.9715557034141474,
+          "baseline": {
+            "rmse": 0.6692995563894463,
+            "mae": 0.15121702637889703,
+            "n": 624,
+            "hits": 16,
+            "misses": 21,
+            "falseAlarms": 89,
+            "pod": 0.43243243243243246,
+            "far": 0.8476190476190476,
+            "csi": 0.12698412698412698
+          },
+          "release": {
+            "rmse": 0.6692995563894463,
+            "mae": 0.15121702637889703,
+            "n": 624,
+            "hits": 16,
+            "misses": 21,
+            "falseAlarms": 89,
+            "pod": 0.43243243243243246,
+            "far": 0.8476190476190476,
+            "csi": 0.12698412698412698
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.9611510791366906,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 10.6,
+              "forecastMm": 4.017553956834531,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 13.099999999999998,
+              "forecastMm": 7.5103597122302155,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 17.000000000000004,
+              "forecastMm": 3.209640287769784,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0,
+              "forecastMm": 9.62,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0,
+              "forecastMm": 15.324172661870502,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0,
+              "forecastMm": 0.20517985611510786,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0,
+              "forecastMm": 0.10244604316546763,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0,
+              "forecastMm": 0.8909352517985614,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0.022446043165467625,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0.0720863309352518,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.43539568345323754,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.11223021582733812,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0.19223021582733812,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 2.7,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 7.700000000000001,
+              "forecastMm": 0.025611510791366907,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 0.8,
+              "forecastMm": 1.7677697841726618,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 5.954532374100719,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        }
+      },
+      "calibration": {
+        "0-48h": {
+          "factor": 0.6470841099854779,
+          "accepted": true,
+          "wetFit": 48,
+          "wetTest": 26,
+          "trainN": 670,
+          "testN": 578,
+          "raw": {
+            "rmse": 0.2553320131560501,
+            "mae": 0.07095123149373382,
+            "n": 578,
+            "hits": 20,
+            "misses": 6,
+            "falseAlarms": 46,
+            "pod": 0.7692307692307693,
+            "far": 0.696969696969697,
+            "csi": 0.2777777777777778
+          },
+          "adjusted": {
+            "rmse": 0.17848578385842587,
+            "mae": 0.05051670078222264,
+            "n": 578,
+            "hits": 20,
+            "misses": 6,
+            "falseAlarms": 39,
+            "pod": 0.7692307692307693,
+            "far": 0.6610169491525424,
+            "csi": 0.3076923076923077
+          }
+        },
+        "48-96h": {
+          "factor": 0.5028988706977442,
+          "accepted": true,
+          "wetFit": 48,
+          "wetTest": 26,
+          "trainN": 670,
+          "testN": 578,
+          "raw": {
+            "rmse": 0.2804788733269108,
+            "mae": 0.09427754075518287,
+            "n": 578,
+            "hits": 20,
+            "misses": 6,
+            "falseAlarms": 74,
+            "pod": 0.7692307692307693,
+            "far": 0.7872340425531915,
+            "csi": 0.2
+          },
+          "adjusted": {
+            "rmse": 0.21626925558983637,
+            "mae": 0.06328975317565752,
+            "n": 578,
+            "hits": 17,
+            "misses": 9,
+            "falseAlarms": 57,
+            "pod": 0.6538461538461539,
+            "far": 0.7702702702702703,
+            "csi": 0.20481927710843373
+          }
+        },
+        "96-168h": {
+          "factor": 0.37250635647120395,
+          "accepted": true,
+          "wetFit": 72,
+          "wetTest": 39,
+          "trainN": 1005,
+          "testN": 867,
+          "raw": {
+            "rmse": 0.27968971285085426,
+            "mae": 0.09456931126593329,
+            "n": 867,
+            "hits": 18,
+            "misses": 21,
+            "falseAlarms": 119,
+            "pod": 0.46153846153846156,
+            "far": 0.8686131386861314,
+            "csi": 0.11392405063291139
+          },
+          "adjusted": {
+            "rmse": 0.2219678187116144,
+            "mae": 0.05800949505961724,
+            "n": 867,
+            "hits": 12,
+            "misses": 27,
+            "falseAlarms": 55,
+            "pod": 0.3076923076923077,
+            "far": 0.8208955223880597,
+            "csi": 0.1276595744680851
+          }
+        }
+      }
+    },
+    "WT": {
+      "name": "Malgrat de Mar",
+      "lat": 41.64706,
+      "lon": 2.75659,
+      "leads": {
+        "0": {
+          "observedMm": 26.10000000000001,
+          "forecastMm": 56.64850818907961,
+          "ratio": 2.1704409267846585,
+          "baseline": {
+            "rmse": 0.34545157113056213,
+            "mae": 0.08881628080657208,
+            "n": 624,
+            "hits": 27,
+            "misses": 3,
+            "falseAlarms": 53,
+            "pod": 0.9,
+            "far": 0.6625,
+            "csi": 0.3253012048192771
+          },
+          "release": {
+            "rmse": 0.3308833089117669,
+            "mae": 0.08754646094343556,
+            "n": 624,
+            "hits": 27,
+            "misses": 3,
+            "falseAlarms": 59,
+            "pod": 0.9,
+            "far": 0.686046511627907,
+            "csi": 0.30337078651685395
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.026319232507918025,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 6.8999999999999995,
+              "forecastMm": 14.296224074187693,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 4.3,
+              "forecastMm": 2.382176877957539,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 7.799999999999999,
+              "forecastMm": 18.94239838497832,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0.4,
+              "forecastMm": 3.6156955473063546,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0.5,
+              "forecastMm": 0.4797111599905485,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0.1,
+              "forecastMm": 0.21051103687682243,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0.8999999999999999,
+              "forecastMm": 1.9265362121279637,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0.2,
+              "forecastMm": 2.9757144588844944,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.016112382446523316,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.13807090457639792,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.03868360481435452,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0.008078781213518961,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0,
+              "forecastMm": 0.4355633841497661,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 1.2000000000000002,
+              "forecastMm": 5.4791492047030985,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 3.8000000000000003,
+              "forecastMm": 5.677562942358313,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "24": {
+          "observedMm": 26.10000000000001,
+          "forecastMm": 55.84293291555398,
+          "ratio": 2.139575973776014,
+          "baseline": {
+            "rmse": 0.34708238353843257,
+            "mae": 0.09306592813874368,
+            "n": 624,
+            "hits": 26,
+            "misses": 4,
+            "falseAlarms": 58,
+            "pod": 0.8666666666666667,
+            "far": 0.6904761904761905,
+            "csi": 0.29545454545454547
+          },
+          "release": {
+            "rmse": 0.35403026659111675,
+            "mae": 0.09898968620520261,
+            "n": 624,
+            "hits": 26,
+            "misses": 4,
+            "falseAlarms": 66,
+            "pod": 0.8666666666666667,
+            "far": 0.717391304347826,
+            "csi": 0.2708333333333333
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0.008621685054900028,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0.018924290936953976,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 6.8999999999999995,
+              "forecastMm": 9.605395505997304,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 4.3,
+              "forecastMm": 2.4966374862682588,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 7.799999999999999,
+              "forecastMm": 16.71696226541764,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0.4,
+              "forecastMm": 8.75543168643962,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0.5,
+              "forecastMm": 1.0700433936102223,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0.1,
+              "forecastMm": 0.15470988659647417,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0.8999999999999999,
+              "forecastMm": 1.9507578586595213,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0.2,
+              "forecastMm": 2.519279967012428,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.020110171281448118,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.24508244147209324,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.026433471261212184,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0,
+              "forecastMm": 0.4314348194785831,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 1.2000000000000002,
+              "forecastMm": 9.580657632238639,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 3.8000000000000003,
+              "forecastMm": 1.9125749281522624,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0.329875425676423,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "48": {
+          "observedMm": 26.10000000000001,
+          "forecastMm": 75.09935623280727,
+          "ratio": 2.8773699706056415,
+          "baseline": {
+            "rmse": 0.45676378962809333,
+            "mae": 0.12862446145480427,
+            "n": 624,
+            "hits": 26,
+            "misses": 4,
+            "falseAlarms": 77,
+            "pod": 0.8666666666666667,
+            "far": 0.7475728155339806,
+            "csi": 0.24299065420560748
+          },
+          "release": {
+            "rmse": 0.4469916319471559,
+            "mae": 0.126305871491403,
+            "n": 624,
+            "hits": 26,
+            "misses": 4,
+            "falseAlarms": 77,
+            "pod": 0.8666666666666667,
+            "far": 0.7475728155339806,
+            "csi": 0.24299065420560748
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 6.8999999999999995,
+              "forecastMm": 11.294854133397147,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 4.3,
+              "forecastMm": 1.977213043180746,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 7.799999999999999,
+              "forecastMm": 28.18762163293539,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0.4,
+              "forecastMm": 16.72977556155592,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0.5,
+              "forecastMm": 1.5208869331833044,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0.1,
+              "forecastMm": 0.22215823480996652,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0.8999999999999999,
+              "forecastMm": 2.217169484579637,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0.2,
+              "forecastMm": 1.6123432627438483,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.04497396561105957,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.197324697843663,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.10059829736861114,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0,
+              "forecastMm": 0.14711498745093993,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 1.2000000000000002,
+              "forecastMm": 7.646022103456422,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 3.8000000000000003,
+              "forecastMm": 2.825832190404064,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 0.375467704286565,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "72": {
+          "observedMm": 26.10000000000001,
+          "forecastMm": 83.54510478918617,
+          "ratio": 3.2009618693174766,
+          "baseline": {
+            "rmse": 0.437229940703401,
+            "mae": 0.1433324688132381,
+            "n": 624,
+            "hits": 26,
+            "misses": 4,
+            "falseAlarms": 95,
+            "pod": 0.8666666666666667,
+            "far": 0.7851239669421488,
+            "csi": 0.208
+          },
+          "release": {
+            "rmse": 0.43456237895050176,
+            "mae": 0.14237282708959043,
+            "n": 624,
+            "hits": 26,
+            "misses": 4,
+            "falseAlarms": 94,
+            "pod": 0.8666666666666667,
+            "far": 0.7833333333333333,
+            "csi": 0.20967741935483872
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 6.8999999999999995,
+              "forecastMm": 19.049559459668092,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 4.3,
+              "forecastMm": 9.454845796940022,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 7.799999999999999,
+              "forecastMm": 21.41644412183072,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0.4,
+              "forecastMm": 14.381122937193027,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0.5,
+              "forecastMm": 0.11877283192034395,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0.1,
+              "forecastMm": 0.19262916709309139,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0.8999999999999999,
+              "forecastMm": 2.2001449105654536,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0.2,
+              "forecastMm": 1.1764731916323663,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.08579183895179837,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.20015069153007758,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0,
+              "forecastMm": 0.23132269290661178,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 1.2000000000000002,
+              "forecastMm": 10.507123419020292,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 3.8000000000000003,
+              "forecastMm": 3.349501873730192,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 1.1812218562040773,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "96": {
+          "observedMm": 26.10000000000001,
+          "forecastMm": 93.96195146871057,
+          "ratio": 3.6000747689161123,
+          "baseline": {
+            "rmse": 0.45821813451821797,
+            "mae": 0.1656010922837843,
+            "n": 624,
+            "hits": 28,
+            "misses": 2,
+            "falseAlarms": 124,
+            "pod": 0.9333333333333333,
+            "far": 0.8157894736842105,
+            "csi": 0.18181818181818182
+          },
+          "release": {
+            "rmse": 0.4552603898003798,
+            "mae": 0.1651612401199389,
+            "n": 624,
+            "hits": 28,
+            "misses": 2,
+            "falseAlarms": 124,
+            "pod": 0.9333333333333333,
+            "far": 0.8157894736842105,
+            "csi": 0.18181818181818182
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0.07093557624391654,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.1793704062860089,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 6.8999999999999995,
+              "forecastMm": 9.687126608923844,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 4.3,
+              "forecastMm": 19.908534866947324,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 7.799999999999999,
+              "forecastMm": 21.40081034536264,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0.4,
+              "forecastMm": 7.974164568025246,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0.5,
+              "forecastMm": 2.2386719376207553,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0.1,
+              "forecastMm": 0.3483517547049345,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0.8999999999999999,
+              "forecastMm": 1.481082406824357,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0.2,
+              "forecastMm": 2.8840433044873124,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.16762505340735467,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.04190626335183867,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.07087079766172781,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0,
+              "forecastMm": 0.10481054016665817,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 1.2000000000000002,
+              "forecastMm": 7.409810727901709,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 3.8000000000000003,
+              "forecastMm": 5.315297209859585,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 14.435107835261437,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.2434312656738692,
+              "hours": 1
+            }
+          }
+        },
+        "120": {
+          "observedMm": 26.10000000000001,
+          "forecastMm": 98.36053946053939,
+          "ratio": 3.7686030444651095,
+          "baseline": {
+            "rmse": 0.4786183783515812,
+            "mae": 0.16927367504290572,
+            "n": 624,
+            "hits": 24,
+            "misses": 6,
+            "falseAlarms": 115,
+            "pod": 0.8,
+            "far": 0.8273381294964028,
+            "csi": 0.16551724137931034
+          },
+          "release": {
+            "rmse": 0.4786183783515812,
+            "mae": 0.16927367504290572,
+            "n": 624,
+            "hits": 24,
+            "misses": 6,
+            "falseAlarms": 115,
+            "pod": 0.8,
+            "far": 0.8273381294964028,
+            "csi": 0.16551724137931034
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0.0979020979020979,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 6.8999999999999995,
+              "forecastMm": 10.554445554445554,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 4.3,
+              "forecastMm": 15.67032967032967,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 7.799999999999999,
+              "forecastMm": 34.51508491508492,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0.4,
+              "forecastMm": 12.830269730269729,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0.5,
+              "forecastMm": 0.250949050949051,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0.1,
+              "forecastMm": 0.8481518481518482,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0.8999999999999999,
+              "forecastMm": 0.7056943056943057,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0.2,
+              "forecastMm": 1.8489510489510497,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.03336663336663337,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0.2826173826173827,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 1.2000000000000002,
+              "forecastMm": 4.865734265734266,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 3.8000000000000003,
+              "forecastMm": 13.144755244755242,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 2.3401598401598407,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.37212787212787213,
+              "hours": 1
+            }
+          }
+        },
+        "144": {
+          "observedMm": 26.10000000000001,
+          "forecastMm": 78.75094905094917,
+          "ratio": 3.0172777414156764,
+          "baseline": {
+            "rmse": 0.40286623476420014,
+            "mae": 0.14204737570122197,
+            "n": 624,
+            "hits": 15,
+            "misses": 15,
+            "falseAlarms": 123,
+            "pod": 0.5,
+            "far": 0.8913043478260869,
+            "csi": 0.09803921568627451
+          },
+          "release": {
+            "rmse": 0.40286623476420014,
+            "mae": 0.14204737570122197,
+            "n": 624,
+            "hits": 15,
+            "misses": 15,
+            "falseAlarms": 123,
+            "pod": 0.5,
+            "far": 0.8913043478260869,
+            "csi": 0.09803921568627451
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 0.316983016983017,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 6.8999999999999995,
+              "forecastMm": 5.406493506493506,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 4.3,
+              "forecastMm": 8.349350649350649,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 7.799999999999999,
+              "forecastMm": 31.778221778221774,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0.4,
+              "forecastMm": 3.2896103896103894,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0.5,
+              "forecastMm": 0.016683316683316685,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0.1,
+              "forecastMm": 0.08031968031968033,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0.8999999999999999,
+              "forecastMm": 0.23376623376623373,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0.2,
+              "forecastMm": 1.7954045954045952,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0.04705294705294706,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0.016683316683316685,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0.14225774225774226,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0.05334665334665335,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 2.1667332667332664,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0,
+              "forecastMm": 0.04705294705294706,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 1.2000000000000002,
+              "forecastMm": 2.094705294705295,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 3.8000000000000003,
+              "forecastMm": 8.02737262737263,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 14.888911088911092,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 1
+            }
+          }
+        },
+        "168": {
+          "observedMm": 26.10000000000001,
+          "forecastMm": 67.22532374100709,
+          "ratio": 2.5756829019542935,
+          "baseline": {
+            "rmse": 0.46137937834231674,
+            "mae": 0.14365730492529047,
+            "n": 624,
+            "hits": 6,
+            "misses": 24,
+            "falseAlarms": 95,
+            "pod": 0.2,
+            "far": 0.9405940594059405,
+            "csi": 0.048
+          },
+          "release": {
+            "rmse": 0.46137937834231674,
+            "mae": 0.14365730492529047,
+            "n": 624,
+            "hits": 6,
+            "misses": 24,
+            "falseAlarms": 95,
+            "pod": 0.2,
+            "far": 0.9405940594059405,
+            "csi": 0.048
+          },
+          "days": {
+            "2026-10-11": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 23
+            },
+            "2026-10-12": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-13": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-14": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-15": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-16": {
+              "observedMm": 0,
+              "forecastMm": 1.2014388489208634,
+              "hours": 24
+            },
+            "2026-10-17": {
+              "observedMm": 6.8999999999999995,
+              "forecastMm": 4.089928057553956,
+              "hours": 24
+            },
+            "2026-10-18": {
+              "observedMm": 4.3,
+              "forecastMm": 7.716258992805751,
+              "hours": 24
+            },
+            "2026-10-19": {
+              "observedMm": 7.799999999999999,
+              "forecastMm": 5.275395683453238,
+              "hours": 24
+            },
+            "2026-10-20": {
+              "observedMm": 0.4,
+              "forecastMm": 23.52848920863309,
+              "hours": 24
+            },
+            "2026-10-21": {
+              "observedMm": 0.5,
+              "forecastMm": 14.867769784172662,
+              "hours": 24
+            },
+            "2026-10-22": {
+              "observedMm": 0.1,
+              "forecastMm": 0.881726618705036,
+              "hours": 24
+            },
+            "2026-10-23": {
+              "observedMm": 0.8999999999999999,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-24": {
+              "observedMm": 0.2,
+              "forecastMm": 1.4047482014388486,
+              "hours": 24
+            },
+            "2026-10-25": {
+              "observedMm": 0,
+              "forecastMm": 0.15712230215827339,
+              "hours": 24
+            },
+            "2026-10-26": {
+              "observedMm": 0,
+              "forecastMm": 0.359136690647482,
+              "hours": 24
+            },
+            "2026-10-27": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-28": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-29": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-30": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-10-31": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-01": {
+              "observedMm": 0,
+              "forecastMm": 0.04805755395683453,
+              "hours": 24
+            },
+            "2026-11-02": {
+              "observedMm": 0,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-03": {
+              "observedMm": 1.2000000000000002,
+              "forecastMm": 0,
+              "hours": 24
+            },
+            "2026-11-04": {
+              "observedMm": 3.8000000000000003,
+              "forecastMm": 0.5061870503597122,
+              "hours": 24
+            },
+            "2026-11-05": {
+              "observedMm": 0,
+              "forecastMm": 6.560575539568346,
+              "hours": 24
+            },
+            "2026-11-06": {
+              "observedMm": 0,
+              "forecastMm": 0.6284892086330934,
+              "hours": 1
+            }
+          }
+        }
+      },
+      "calibration": {
+        "0-48h": {
+          "factor": 0.25,
+          "accepted": true,
+          "wetFit": 46,
+          "wetTest": 14,
+          "trainN": 670,
+          "testN": 578,
+          "raw": {
+            "rmse": 0.18811221600182598,
+            "mae": 0.04432559544521669,
+            "n": 578,
+            "hits": 14,
+            "misses": 0,
+            "falseAlarms": 42,
+            "pod": 1,
+            "far": 0.75,
+            "csi": 0.25
+          },
+          "adjusted": {
+            "rmse": 0.1625784426112335,
+            "mae": 0.02165681278285671,
+            "n": 578,
+            "hits": 10,
+            "misses": 4,
+            "falseAlarms": 10,
+            "pod": 0.7142857142857143,
+            "far": 0.5,
+            "csi": 0.4166666666666667
+          }
+        },
+        "48-96h": {
+          "factor": 0.25,
+          "accepted": true,
+          "wetFit": 46,
+          "wetTest": 14,
+          "trainN": 670,
+          "testN": 578,
+          "raw": {
+            "rmse": 0.2603940593989366,
+            "mae": 0.07550149543709944,
+            "n": 578,
+            "hits": 14,
+            "misses": 0,
+            "falseAlarms": 67,
+            "pod": 1,
+            "far": 0.8271604938271605,
+            "csi": 0.1728395061728395
+          },
+          "adjusted": {
+            "rmse": 0.16740724018069772,
+            "mae": 0.02947063411154879,
+            "n": 578,
+            "hits": 12,
+            "misses": 2,
+            "falseAlarms": 22,
+            "pod": 0.8571428571428571,
+            "far": 0.6470588235294118,
+            "csi": 0.3333333333333333
+          }
+        },
+        "96-168h": {
+          "factor": 0.25,
+          "accepted": true,
+          "wetFit": 69,
+          "wetTest": 21,
+          "trainN": 1005,
+          "testN": 867,
+          "raw": {
+            "rmse": 0.24103014810513135,
+            "mae": 0.07639791340570515,
+            "n": 867,
+            "hits": 7,
+            "misses": 14,
+            "falseAlarms": 114,
+            "pod": 0.3333333333333333,
+            "far": 0.9421487603305785,
+            "csi": 0.05185185185185185
+          },
+          "adjusted": {
+            "rmse": 0.17247432641788932,
+            "mae": 0.031292821340617005,
+            "n": 867,
+            "hits": 7,
+            "misses": 14,
+            "falseAlarms": 52,
+            "pod": 0.3333333333333333,
+            "far": 0.8813559322033898,
+            "csi": 0.0958904109589041
+          }
+        }
+      }
+    }
+  }
+}

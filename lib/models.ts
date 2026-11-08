@@ -1,3 +1,5 @@
+import calibration from './ensemble/calibration.generated.json'
+
 export interface WeatherModel {
   id: string
   label: string
@@ -134,87 +136,16 @@ export const MARINE_METRIC_IDS: MetricId[] = METRICS.filter(m => m.group === 'ma
  *
  * Each horizon tier uses only models available at that lead time.
  */
-/**
- * B-NBT-8 (2026-08-22): explicit AI-model weights, reserved ONLY for
- * models the backtest cannot verify yet. `ncep_aigfs025` moved out of
- * this reserve once the Previous Runs API proved to serve it: it is
- * now calibrated from measured RMSE like every other model (mixing a
- * declared share on top of a measured one would double-count it).
- * `ecmwf_aifs025` / `gfs_graphcast025` stay here because the provider
- * currently serves those catalogue entries empty (verified live on
- * both /v1/forecast and previous-runs); when they come back with data,
- * move them to the calibrated set.
- *
- * The share grows with lead time: at hour 0 the high-resolution
- * regional models are hard to beat, while from day ~4 onward the AI
- * models' large-scale pattern skill carries relatively more signal.
- */
-const AI_MODEL_WEIGHTS: Record<string, number> = {
-  ecmwf_aifs025: 22,
-  gfs_graphcast025: 12,
-}
-
-const AI_SHARE_BY_BUCKET: Record<string, number> = {
-  '0-48h': 0.2,
-  '48-96h': 0.24,
-  '96-168h': 0.3,
-  '168-240h': 0.32,
-  '240-360h': 0.34,
-}
-
-/**
- * Rescale one hand-authored bucket to make room for the AI share and
- * append the AI entries (proportional to their declared weights).
- * Legacy models that are not currently fetched (icon_global, gem_global,
- * ...) keep their relative weight — `weightedAvg` simply skips them
- * while they have no data, and they slot straight back in if the
- * provider repopulates them.
- */
-function blendAiWeights(
-  bucketKey: string,
-  bucket: Record<string, number>,
-  aiShareOverride?: number,
-): Record<string, number> {
-  // B-NBT-12 (2026-08-24): an AI share of 0 means "leave the calibrated
-  // bucket alone". The AI blend was justified for TEMPERATURE (large-scale
-  // pattern skill at long leads) but applying it to precipitation put
-  // `ecmwf_aifs025` — a model the provider serves all-null — at the TOP
-  // of the rain weights, which read as "the ensemble is AIFS" and hid the
-  // fact that no AI model contributes to rain at all.
-  const aiShare = aiShareOverride ?? AI_SHARE_BY_BUCKET[bucketKey] ?? 0.2
-  if (aiShare <= 0) return { ...bucket }
-  const legacySum = Object.values(bucket).reduce((a, b) => a + b, 0) || 1
-  const aiDeclaredSum = Object.values(AI_MODEL_WEIGHTS).reduce((a, b) => a + b, 0)
-  const out: Record<string, number> = {}
-  for (const [id, w] of Object.entries(bucket)) {
-    out[id] = (w / legacySum) * (1 - aiShare)
-  }
-  for (const [id, declared] of Object.entries(AI_MODEL_WEIGHTS)) {
-    out[id] = (out[id] ?? 0) + (declared / aiDeclaredSum) * aiShare
-  }
-  return out
-}
-
-function blendAllBuckets(
-  buckets: Record<string, Record<string, number>>,
-  aiShareOverride?: number,
-): Record<string, Record<string, number>> {
-  const out: Record<string, Record<string, number>> = {}
-  for (const [key, bucket] of Object.entries(buckets)) {
-    out[key] = blendAiWeights(key, bucket, aiShareOverride)
-  }
-  return out
-}
-
-/** Fully calibrated buckets, deliberately WITHOUT the AI share. Used by
- *  every non-temperature profile: the AI models the provider serves
- *  all-null must not appear in the rain/wind weights at all. */
+/** Preserve measured relative skill without reserving weight by model type.
+ * Unverified models use the small fallback in weightsFor until validated. */
 function calibratedBuckets(
   buckets: Record<string, Record<string, number>>,
 ): Record<string, Record<string, number>> {
-  return blendAllBuckets(buckets, 0)
+  return Object.fromEntries(Object.entries(buckets).map(([key, weights]) => {
+    const total = Object.values(weights).reduce((sum, w) => sum + w, 0)
+    return [key, Object.fromEntries(Object.entries(weights).map(([id, w]) => [id, w / total]))]
+  }))
 }
-
 export type EnsemblePreset =
   | 'temperature'
   | 'precipitation'
@@ -257,12 +188,12 @@ export interface EnsembleDefinition {
  * (the provider archives 7 days); they keep the previous hand-authored
  * structure as an unmeasured extrapolation of the same ranking.
  */
-export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
+export const BASELINE_ENSEMBLE_PRESETS: EnsembleDefinition[] = [
   {
     id: 'temperature',
     label: 'Temperature',
     description: 'Optimized for temperature accuracy (MAE, RMSE)',
-    weights: blendAllBuckets({
+    weights: calibratedBuckets({
       '0-48h': {
         icon_eu: 0.114, dwd_icon_d2: 0.107, ecmwf_ifs: 0.102,
         icon_global: 0.097, ncep_aigfs025: 0.075, meteofrance_arpege_europe: 0.075,
@@ -329,7 +260,7 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
     // carries ~0.097 of the 0-48h wind mass (vs 0.074 in rain), UKMO is
     // a strong wind performer at every lead, and ICON-EU — the
     // temperature leader — only takes over wind at 48-96h.
-    weights: blendAllBuckets({
+    weights: calibratedBuckets({
       '0-48h': {
         dwd_icon_d2: 0.102, ecmwf_ifs: 0.097, ukmo_global_deterministic_10km: 0.088,
         gem_global: 0.083, icon_global: 0.082, ncep_aigfs025: 0.081, icon_eu: 0.079,
@@ -401,7 +332,18 @@ export const ENSEMBLE_PRESETS: EnsembleDefinition[] = [
  * adds error when subtracted per instance. Re-run the evaluator before
  * adding a metric here.
  */
-export const BIAS_CORRECTED_METRICS: ReadonlySet<string> = new Set(['temperature'])
+// The release was validated without terrain boosts or additive corrections.
+// Applying either on top would be a different, unvalidated forecast.
+export const BIAS_CORRECTED_METRICS: ReadonlySet<string> = new Set()
+
+export const VALIDATED_ENSEMBLE_PROFILES: ReadonlySet<string> = new Set(Object.keys(calibration.weights))
+export const ENSEMBLE_PRESETS: EnsembleDefinition[] = BASELINE_ENSEMBLE_PRESETS.map(preset => ({
+  ...preset,
+  weights: {
+    ...preset.weights,
+    ...(calibration.weights as Record<string, Record<string, Record<string, number>>>)[preset.id],
+  },
+}))
 
 /**
  * Maps each metric to the ensemble weights profile that should be used

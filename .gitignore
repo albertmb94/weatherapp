@@ -78,3 +78,4 @@ scripts/screenshots/
 
 # Qdrant indexer cache (vocab + transient artifacts)
 .qdrant-cache/
+.recalibration-cache/

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { MetricId, WeatherModel } from '@/lib/models'
+import type { WeatherModel } from '@/lib/models'
 import { useLocale } from '@/lib/LocaleContext'
 import { STRINGS } from '@/lib/i18n'
 import { getLocationNow } from '@/lib/dateUtils'
@@ -9,7 +9,7 @@ import {
   computeCurrentSnapshot,
   type CurrentSnapshot,
 } from '@/lib/friendlyForecast'
-import { resolveActiveModels, weightsFor, type BiasTable } from '@/lib/ensemble/central'
+import type { BiasTable } from '@/lib/ensemble/central'
 import { useNowcast } from '@/lib/hooks/useNowcast'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 // ProfileChip is no longer rendered inline (the user asked us
@@ -23,51 +23,6 @@ import AirConditionsGrid from './AirConditionsGrid'
 import AdSlot from './AdSlot'
 import SponsoredSection from './SponsoredSection'
 import { pickActiveSlot, type SponsoredSlotKey } from '@/lib/sponsored'
-
-/**
- * Build a per-hour "mean across contributing models" series for a
- * given metric. Used by the nowcast hook so we can compare the
- * ensemble average with the closest station reading without having
- * to recompute the weights on every render. `null` for hours with no
- * contributing model.
- */
-function buildMeanSeries(
-  time: Date[],
-  series: Record<string, Record<string, (number | null)[]>>,
-  metric: MetricId,
-  models: WeatherModel[],
-  nowIndex: number,
-): (number | null)[] {
-  // B-NBT-9b (2026-08-22): the average is the WEIGHTED WedAI mean
-  // (calibrated presets, per-hour lead) instead of a flat unweighted
-  // average over every series key — the same number every other
-  // surface shows for that hour, so the station blend on the headline
-  // card starts from a consistent baseline.
-  const active = resolveActiveModels(models, [], 'wedai')
-  if (active.length === 0) return []
-  let maxLen = 0
-  for (const modelId of Object.keys(series)) {
-    const arr = series[modelId]?.[metric]
-    if (Array.isArray(arr) && arr.length > maxLen) maxLen = arr.length
-  }
-  maxLen = Math.min(maxLen, time.length || Infinity)
-  const out: (number | null)[] = []
-  for (let i = 0; i < maxLen; i++) {
-    const lead = Math.max(0, i - nowIndex)
-    const weights = weightsFor(metric, lead, 1, active)
-    let sum = 0
-    let wSum = 0
-    active.forEach((m, j) => {
-      const v = series[m.id]?.[metric]?.[i]
-      if (typeof v === 'number') {
-        sum += v * weights[j]
-        wSum += weights[j]
-      }
-    })
-    out.push(wSum > 0 ? sum / wSum : null)
-  }
-  return out
-}
 
 interface FriendlyHomeProps {
   city: string
@@ -213,8 +168,9 @@ export default function FriendlyHome({
       usageProfile,
       usageProfileRecommended,
       biasTable,
+      selectedHourOffset,
     ),
-    [models, activeIds, time, series, nowIndex, liveUvIndex, isLiveNow, usageProfile, usageProfileRecommended, biasTable]
+    [models, activeIds, time, series, nowIndex, liveUvIndex, isLiveNow, usageProfile, usageProfileRecommended, biasTable, selectedHourOffset]
   )
 
   const isViewingToday = useMemo(() => {
@@ -231,21 +187,18 @@ export default function FriendlyHome({
   // S10: blend the closest fresh station with the first hour of the
   // ensemble. Only effective while the user is on "now" (`isLiveNow`).
   // On future hours we hide the result so the user sees the pure ensemble.
-  const hourlyTemperatureC = useMemo(
-    () => buildMeanSeries(time, series, 'temperature', models, nowIndex),
-    [time, series, models, nowIndex],
-  )
-  const hourlyPrecipitationMm = useMemo(
-    () => buildMeanSeries(time, series, 'precipitation', models, nowIndex),
-    [time, series, models, nowIndex],
-  )
+  // The nowcast needs only the current point, with the exact profile and bias
+  // already applied to the snapshot. Avoid recomputing two full forecasts.
+  const hourlyTemperatureC = useMemo(() => [snapshot?.temperatureC ?? null], [snapshot?.temperatureC])
+  const hourlyPrecipitationMm = useMemo(() => [snapshot?.precipitationMm ?? null], [snapshot?.precipitationMm])
   const nowcastResult = useNowcast({
     userLat,
     userLon,
-    nowIndex,
+    nowIndex: 0,
     hourlyTemperatureC,
     hourlyPrecipitationMm,
     stations,
+    nowMs: currentTickMs,
   })
 
   // B-NBT-15: evalúa los 3 slots patrocinados según la hora local.
@@ -277,13 +230,14 @@ export default function FriendlyHome({
       <CurrentWeatherCard
         city={city}
         snapshot={snapshot}
+        isForecast={!isLiveNow}
         loading={cityIsLoading && snapshot === null}
-        nowcastTemperatureC={isLiveNow ? nowcastResult.temperatureC : null}
+        nowcastTemperatureC={isLiveNow && nowcastResult.freshness === 'fresh' && nowcastResult.observationDeltaC !== null ? nowcastResult.temperatureC : null}
         // BUG FIX: wallClockMs was declared in the prop type but
         // never threaded down from the parent, so the weekday label
         // was always empty in production. Use the same wall-clock
         // tick the rest of the home view reads.
-        wallClockMs={currentTickMs}
+        wallClockMs={isLiveNow ? currentTickMs + utcOffsetSeconds * 1000 : time[nowIndex]?.getTime()}
       />
       <HourlyForecastStrip
         models={models}
@@ -291,7 +245,8 @@ export default function FriendlyHome({
         time={time}
         series={series}
         nowIndex={nowIndex}
-        isViewingToday={isViewingToday}
+        isViewingToday={isViewingToday && isLiveNow}
+        baseLeadTimeHours={selectedHourOffset}
         title={s.hourlyTitle}
         ensembleMode={ensembleMode}
         usageProfile={usageProfile}

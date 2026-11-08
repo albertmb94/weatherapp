@@ -51,7 +51,7 @@ describe('bordaWeights', () => {
     expect(bordaWeights(rows, 3)).toEqual({})
   })
 
-  it('ignores non-positive / non-finite RMSE rows', () => {
+  it('keeps perfect zero-error models and ignores missing RMSE', () => {
     const rows: AccuracySample[] = [
       { model_id: 'a', lat: 1, lon: 1, rmse: 1 },
       { model_id: 'b', lat: 1, lon: 1, rmse: 2 },
@@ -60,7 +60,7 @@ describe('bordaWeights', () => {
       { model_id: 'null', lat: 1, lon: 1, rmse: null },
     ]
     const w = bordaWeights(rows)
-    expect(w.zero).toBeUndefined()
+    expect(w.zero).toBeGreaterThan(w.a)
     expect(w.null).toBeUndefined()
   })
 })

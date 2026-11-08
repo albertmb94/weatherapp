@@ -36,6 +36,7 @@ import {
   getLeadTimeBucket,
 } from '../models'
 import { weightedAvg } from '../ensemble'
+import { adjustedEnsembleValue } from './rainCalibration'
 
 export type EnsembleMode = 'wedai' | 'models'
 
@@ -74,7 +75,8 @@ export function biasForMetricBucket(
   const byBucket = table[metric]
   if (!byBucket) return undefined
   const bucket = getLeadTimeBucket(Math.max(0, leadTimeHours))
-  return byBucket[bucket] ?? byBucket['0-48h']
+  // Never extrapolate a measured short-lead bias into an unmeasured horizon.
+  return byBucket[bucket]
 }
 
 /** A single time-series bucket (full forecast or marine payload). */
@@ -137,36 +139,8 @@ export function weightsFor(
   return activeModels.map(m => bucketWeights[m.id] ?? 0.01)
 }
 
-/**
- * Profile-boosted variant of `weightsFor`. Sprint 13: applies a
- * small multiplicative boost to the models that the backtest has
- * identified as the most accurate on the current location's terrain
- * (`recommended` list, already filtered to the active model set by
- * the caller). The boost is intentionally tiny — it nudges the
- * ranking without changing the calibrated ensemble by a meaningful
- * amount.
- *
- * Rules:
- *   - `profile === 'plain'` or `recommended` empty → returns the
- *     unmodified `weightsFor` result. Plain never applies a profile
- *     bias because there's no signal to apply.
- *   - For each model in `recommended` AND `activeModels`, the
- *     weight is multiplied by `(1 + BOOST)`. The boost is the
- *     BOOST_PER_MODEL constant (5%).
- *   - The boosted weights are clamped to at most 2× the original
- *     weight, so a zero-weight fallback never gets a free boost.
- *   - After the boost the weights are renormalised to sum to 1 so
- *     the `weightedAvg` helper still produces a convex combination.
- *
- * The recommended list is a subset of the active set; the caller
- * (typically `home-content.tsx` via the `useEffectiveProfile` hook)
- * is responsible for intersecting the backtest output with the
- * models the user has currently selected. This keeps the function
- * pure and easy to test.
- */
-export const BOOST_PER_MODEL = 0.05
-export const MAX_BOOST_RATIO = 2.0
-
+/** Compatibility entry point. The released calibration was verified without
+ * terrain multipliers, so recommendations cannot alter it after validation. */
 export function weightsForProfile(
   metric: MetricId,
   hourIndex: number,
@@ -175,28 +149,10 @@ export function weightsForProfile(
   recommended: ReadonlySet<string>,
   profile: import('@/lib/profiles').UsageProfile | null
 ): number[] {
-  const base = weightsFor(metric, hourIndex, bucketHours, activeModels)
-  // Profile 'plain' (and missing/null) short-circuit to the
-  // un-boosted weight vector. Plain is the "we don't know" profile;
-  // `null` means the caller hasn't yet derived a profile (the
-  // classifier hasn't returned). An empty recommendation means the
-  // backtest hasn't written any rows yet.
-  if (!profile || profile === 'plain' || recommended.size === 0) return base
-  if (activeModels.length === 0) return base
-
-  const boosted = activeModels.map((m, i) => {
-    if (!recommended.has(m.id)) return base[i]
-    const original = base[i]
-    if (original <= 0) return original
-    const capped = Math.min(original * MAX_BOOST_RATIO, original * (1 + BOOST_PER_MODEL))
-    return capped
-  })
-
-  const sum = boosted.reduce((acc, w) => acc + w, 0)
-  if (sum <= 0) return base
-  return boosted.map(w => w / sum)
+  void recommended
+  void profile
+  return weightsFor(metric, hourIndex, bucketHours, activeModels)
 }
-
 /**
  * Same as `weightsFor`, but takes an ABSOLUTE hour index (already
  * offset by `startIndex`). Use this in callers that consume a
@@ -241,14 +197,15 @@ export function meanAtHour(
   /** Optional per-model additive bias (see {@link biasForMetricBucket}).
    *  When given, each model's value is de-biased before weighting, so the
    *  ensemble is consistent everywhere the same table is supplied. */
-  bias?: Record<string, number> | null
+  bias?: Record<string, number> | null,
+  applyCalibration = true
 ): number | null {
   if (activeModels.length === 0) return null
   const vals = activeModels.map(
     m => bag.series[m.id]?.[metric]?.[hourIndex] ?? null
   )
-  if (!bias) return weightedAvg(vals, weights)
-  return weightedAvg(vals, weights, null, activeModels.map(m => m.id), bias)
+  const value = weightedAvg(vals, weights, null, activeModels.map(m => m.id), bias)
+  return applyCalibration ? adjustedEnsembleValue(bag.series, metric, hourIndex, value) : value
 }
 
 /**
@@ -277,7 +234,7 @@ export function meanOverBucket(
     const vals = activeModels.map(
       m => bag.series[m.id]?.[metric]?.[i] ?? null
     )
-    const v = weightedAvg(vals, weights)
+    const v = adjustedEnsembleValue(bag.series, metric, i, weightedAvg(vals, weights))
     if (v !== null) {
       // Equal weight per hour: each hour contributes 1/N so the
       // resulting average is the simple mean of the per-hour
@@ -344,10 +301,11 @@ export function ensembleWithFallback(
   /** Optional per-model additive bias; applied to both the primary and
    *  the WedAI fallback (the map is keyed by model id, so it covers
    *  whichever set is being averaged). */
-  bias?: Record<string, number> | null
+  bias?: Record<string, number> | null,
+  applyCalibration = true
 ): number | null {
   if (activeModels.length === 0) return null
-  const v = meanAtHourFromSeries(series, metric as MetricId, index, activeModels, weights, bias)
+  const v = meanAtHourFromSeries(series, metric as MetricId, index, activeModels, weights, bias, applyCalibration)
   if (v !== null) return v
   // The user's selection returned null — fall back to WedAI so the
   // user always sees data when at least one model has a value.
@@ -374,12 +332,13 @@ function meanAtHourFromSeries(
   hourIndex: number,
   activeModels: WeatherModel[],
   weights: number[],
-  bias?: Record<string, number> | null
+  bias?: Record<string, number> | null,
+  applyCalibration = true
 ): number | null {
   if (activeModels.length === 0) return null
   const vals = activeModels.map(
     m => series[m.id]?.[metric]?.[hourIndex] ?? null
   )
-  if (!bias) return weightedAvg(vals, weights)
-  return weightedAvg(vals, weights, null, activeModels.map(m => m.id), bias)
+  const value = weightedAvg(vals, weights, null, activeModels.map(m => m.id), bias)
+  return applyCalibration ? adjustedEnsembleValue(series, metric, hourIndex, value) : value
 }

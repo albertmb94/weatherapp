@@ -32,14 +32,17 @@ export function weightedAvg(
   let wSum = 0
   for (let i = 0; i < values.length; i++) {
     const v = values[i]
-    if (v === null || v === undefined) continue
+    const weight = effectiveWeights[i]
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue
+    if (!Number.isFinite(weight) || weight <= 0) continue
     let adjusted = v
     if (biasCorrection && modelIds) {
       const bias = modelIds[i] ? biasCorrection[modelIds[i]] : undefined
       if (typeof bias === 'number' && Number.isFinite(bias)) adjusted = v - bias
     }
-    sum += adjusted * effectiveWeights[i]
-    wSum += effectiveWeights[i]
+    if (!Number.isFinite(adjusted)) continue
+    sum += adjusted * weight
+    wSum += weight
   }
   return wSum > 0 ? sum / wSum : null
 }

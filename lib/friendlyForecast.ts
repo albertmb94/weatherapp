@@ -64,7 +64,7 @@ function meanAcrossModels(
     return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended, biasTable)
   }
   const weights = weightsForProfile(metric, leadTimeHours, 1, active, recommended, profile)
-  const v = meanAtHour(bag, metric, index, active, weights, biasForMetricBucket(biasTable, metric, leadTimeHours))
+  const v = meanAtHour(bag, metric, index, active, weights, biasForMetricBucket(biasTable, metric, leadTimeHours), mode === 'wedai')
   if (v !== null) return v
   // B-NEW-5: user's selection returned no data for this hour —
   // surface the WedAI value instead of an em-dash. We only do this
@@ -104,7 +104,7 @@ function allModelAverage(bag: SeriesBag, metric: string, index: number): number 
   let sum = 0, count = 0
   for (const id of ids) {
     const v = bag.series[id]?.[metric]?.[index]
-    if (v !== null && v !== undefined) {
+    if (typeof v === 'number' && Number.isFinite(v)) {
       sum += v
       count++
     }
@@ -151,17 +151,16 @@ export function ensembleSpread(
     wSum += weights[i]
   }
   const mean = wSum > 0 ? sum / wSum : 0
-  // Standard deviation is computed against the contributing models
-  // unweighted (each model contributes equally to "uncertainty"
-  // regardless of its ensemble weight). The result is a robust
-  // estimator of model-to-model disagreement that's easy for users
-  // to interpret.
+  // Use the same weights for both moments. Mixing a weighted mean with
+  // unweighted squared deviations is neither population variance.
   let sq = 0
-  for (const v of vals) {
+  for (let i = 0; i < active.length; i++) {
+    const v = bag.series[active[i].id]?.[metric]?.[index]
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue
     const d = v - mean
-    sq += d * d
+    sq += weights[i] * d * d
   }
-  const stdDev = Math.sqrt(sq / vals.length)
+  const stdDev = Math.sqrt(sq / wSum)
   return {
     stdDev,
     min: Math.min(...vals),
@@ -195,44 +194,6 @@ export interface CurrentSnapshot {
   dailyLowC: number | null
 }
 
-/**
- * Map a raw precipitation value (mm/h) into a 0-100 "rain intensity" indicator.
- * This used to be labelled in the UI as "probabilidad de lluvia" and was a
- * pure heuristic that could produce values >100 % for >1.25 mm/h. We now
- * clamp + cap and render it as an intensity indicator (with fallback name
- * "chanceOfRainPct" preserved for backwards compatibility with i18n/UI).
- *
- * Prefer the calibrated `precipitation_probability` series when available;
- * only fall back to the heuristic when every model returned null for that
- * hour (which happens during degraded data windows).
- */
-function precipChanceFromIntensity(precipMm: number | null): number | null {
-  if (precipMm === null) return null
-  if (precipMm <= 0) return 0
-  if (precipMm >= 2) return 100
-  const pct = Math.round(precipMm * 80)
-  return Math.max(0, Math.min(100, pct))
-}
-
-function ensembleProbability(bag: SeriesBag, hourIndex: number, fallback: number | null): number | null {
-  // Media aritmética (sin pesos) de la probabilidad pronosticada por cada
-  // modelo no-marino. NO es una probabilidad "calibrada" por el backtest —
-  // auditoría F2/B10: se deja el nombre por compatibilidad interna, pero
-  // la UI la etiqueta como "Prob. lluvia" (honesto) y no como calibrada.
-  let sum = 0
-  let count = 0
-  for (const id of Object.keys(bag.series)) {
-    if (id === 'marine_global') continue
-    const arr = bag.series[id]?.['precipitation_probability']
-    const v = arr?.[hourIndex]
-    if (typeof v !== 'number' || Number.isNaN(v)) continue
-    sum += v
-    count += 1
-  }
-  if (count === 0) return fallback
-  return Math.max(0, Math.min(100, Math.round(sum / count)))
-}
-
 const CONDITION_KEY: Record<WeatherIconId, 'conditionSunny' | 'conditionPartly' | 'conditionCloudy' | 'conditionRainy' | 'conditionStormy' | 'conditionSnowy'> = {
   sunny: 'conditionSunny',
   partly: 'conditionPartly',
@@ -250,7 +211,7 @@ const CONDITION_KEY: Record<WeatherIconId, 'conditionSunny' | 'conditionPartly' 
  */
 function feelsLike(tempC: number | null, windKmh: number | null, humidityPct: number | null): number | null {
   if (tempC === null) return null
-  if (tempC <= 10 && windKmh !== null) {
+  if (tempC <= 10 && windKmh !== null && windKmh >= 4.8) {
     const v = Math.pow(windKmh, 0.16)
     return Math.round((13.12 + 0.6215 * tempC - 11.37 * v + 0.3965 * tempC * v) * 10) / 10
   }
@@ -303,7 +264,8 @@ export function computeCurrentSnapshot(
    *  no profile, empty recommendation set, plain weightsFor. */
   profile: UsageProfile | null = null,
   recommended: ReadonlySet<string> = new Set(),
-  biasTable: BiasTable | null = null
+  biasTable: BiasTable | null = null,
+  leadTimeHours: number = 0
 ): CurrentSnapshot | null {
   if (!bag.time[hourIndex]) return null
   // Sprint 10 / B-10-1: the "current hour" snapshot is always the
@@ -312,19 +274,19 @@ export function computeCurrentSnapshot(
   // "AHORA" slot of the hourly strip must agree with the InsightsTable
   // active row, which also uses WedAI for the current hour.
   const mode: EnsembleMode = 'wedai'
-  const temp = meanAcrossModels(bag, 'temperature', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
-  const wind = meanAcrossModels(bag, 'wind_speed', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
-  const gusts = meanAcrossModels(bag, 'wind_gusts', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
-  const precip = meanAcrossModels(bag, 'precipitation', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
+  const temp = meanAcrossModels(bag, 'temperature', hourIndex, models, activeIds, mode, leadTimeHours, profile, recommended, biasTable)
+  const wind = meanAcrossModels(bag, 'wind_speed', hourIndex, models, activeIds, mode, leadTimeHours, profile, recommended, biasTable)
+  const gusts = meanAcrossModels(bag, 'wind_gusts', hourIndex, models, activeIds, mode, leadTimeHours, profile, recommended, biasTable)
+  const precip = meanAcrossModels(bag, 'precipitation', hourIndex, models, activeIds, mode, leadTimeHours, profile, recommended, biasTable)
   const uvHourly = allModelAverage(bag, 'uv_index', hourIndex)
   const uv = liveUvOverride ?? uvHourly
-  const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
-  const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds, mode, 0, profile, recommended, biasTable)
+  const cloud = meanAcrossModels(bag, 'cloud_cover', hourIndex, models, activeIds, mode, leadTimeHours, profile, recommended, biasTable)
+  const humidity = meanAcrossModels(bag, 'humidity', hourIndex, models, activeIds, mode, leadTimeHours, profile, recommended, biasTable)
   const peak = dailyUvPeak(bag, hourIndex)
-  // Prefer the calibrated `precipitation_probability` series from the
-  // provider. If every model returned null we degrade to the intensity
-  // heuristic so the UI never goes blank.
-  const rainProbability = ensembleProbability(bag, hourIndex, precipChanceFromIntensity(precip))
+  // Amount (mm/h) cannot replace event probability. Missing probability
+  // remains unknown; the current card uses the same weights as other views.
+  const probability = meanAcrossModels(bag, 'precipitation_probability', hourIndex, models, activeIds, mode, leadTimeHours, profile, recommended, biasTable)
+  const rainProbability = probability === null ? null : Math.round(Math.max(0, Math.min(100, probability)))
 
   let dailyHigh: number | null = null
   let dailyLow: number | null = null
@@ -344,7 +306,7 @@ export function computeCurrentSnapshot(
       const ti = bag.time[i]
       if (!(ti instanceof Date)) continue
       if (`${ti.getUTCFullYear()}-${ti.getUTCMonth()}-${ti.getUTCDate()}` !== dayKey) break
-      const tv = meanAcrossModels(bag, 'temperature', i, models, activeIds, mode, 0, profile, recommended, biasTable)
+      const tv = meanAcrossModels(bag, 'temperature', i, models, activeIds, mode, Math.max(0, leadTimeHours + i - hourIndex), profile, recommended, biasTable)
       if (tv === null) continue
       if (dailyHigh === null || tv > dailyHigh) dailyHigh = tv
       if (dailyLow === null || tv < dailyLow) dailyLow = tv
@@ -354,14 +316,13 @@ export function computeCurrentSnapshot(
   const icon = pickWeatherIcon({
     cloudCoverPct: cloud,
     precipitationMmDay: precip,
+    precipitationThresholdMm: 0.1,
     windGustsKmh: gusts,
-    minTempC: dailyLow,
+    minTempC: temp,
   })
 
-  // S10 confidence: surface the spread of the contributing models.
-  // `leadTimeHours` is left at 0 here — the snapshot always reflects the
-  // current hour, never a future lead time.
-  const temperatureSpread = ensembleSpread(bag, 'temperature', hourIndex, models, 0)
+  // Model disagreement at the actual selected forecast horizon.
+  const temperatureSpread = ensembleSpread(bag, 'temperature', hourIndex, models, leadTimeHours)
 
   return {
     temperatureC: temp,
@@ -442,7 +403,8 @@ export function computeHourlySlots(
    *  so the slot right below it showed an unboosted number. */
   profile: UsageProfile | null = null,
   recommended: ReadonlySet<string> = new Set(),
-  biasTable: BiasTable | null = null
+  biasTable: BiasTable | null = null,
+  baseLeadTimeHours: number = 0
 ): HourlySlot[] {
   const out: HourlySlot[] = []
   if (!bag.time[nowIndex]) return out
@@ -482,12 +444,13 @@ export function computeHourlySlots(
   // value agrees with the "Tiempo actual" card and the InsightsTable
   // active row. B-NBT-9b: the Sprint-13 boost now applies here too.
   const nowMode: EnsembleMode = 'wedai'
-  const nowTemp = meanAcrossModels(bag, 'temperature', nowIndex, models, activeIds, nowMode, 0, profile, recommended, biasTable)
-  const nowPrecip = meanAcrossModels(bag, 'precipitation', nowIndex, models, activeIds, nowMode, 0, profile, recommended, biasTable)
-  const nowCloud = meanAcrossModels(bag, 'cloud_cover', nowIndex, models, activeIds, nowMode, 0, profile, recommended, biasTable)
-  const nowGusts = meanAcrossModels(bag, 'wind_gusts', nowIndex, models, activeIds, nowMode, 0, profile, recommended, biasTable)
+  const nowTemp = meanAcrossModels(bag, 'temperature', nowIndex, models, activeIds, nowMode, baseLeadTimeHours, profile, recommended, biasTable)
+  const nowPrecip = meanAcrossModels(bag, 'precipitation', nowIndex, models, activeIds, nowMode, baseLeadTimeHours, profile, recommended, biasTable)
+  const nowCloud = meanAcrossModels(bag, 'cloud_cover', nowIndex, models, activeIds, nowMode, baseLeadTimeHours, profile, recommended, biasTable)
+  const nowGusts = meanAcrossModels(bag, 'wind_gusts', nowIndex, models, activeIds, nowMode, baseLeadTimeHours, profile, recommended, biasTable)
   const nowIcon = pickWeatherIcon({
     cloudCoverPct: nowCloud, precipitationMmDay: nowPrecip,
+    precipitationThresholdMm: 0.1,
     windGustsKmh: nowGusts, minTempC: nowTemp,
   })
   out.push({
@@ -516,7 +479,7 @@ export function computeHourlySlots(
     const t = bag.time[idx]
     if (!(t instanceof Date)) break
 
-    const leadHours = Math.max(0, idx - nowIndex)
+    const leadHours = Math.max(0, baseLeadTimeHours + idx - nowIndex)
     const temp = meanAcrossModels(bag, 'temperature', idx, models, activeIds, futureMode, leadHours, profile, recommended, biasTable)
     const precip = meanAcrossModels(bag, 'precipitation', idx, models, activeIds, futureMode, leadHours, profile, recommended, biasTable)
     const cloud = meanAcrossModels(bag, 'cloud_cover', idx, models, activeIds, futureMode, leadHours, profile, recommended, biasTable)
@@ -524,6 +487,7 @@ export function computeHourlySlots(
 
     const icon = pickWeatherIcon({
       cloudCoverPct: cloud, precipitationMmDay: precip,
+      precipitationThresholdMm: 0.1,
       windGustsKmh: gusts, minTempC: temp,
     })
 
@@ -568,7 +532,8 @@ export function computeWeekSummaries(
    *  otherwise selecting a single model in Models mode would leak into
    *  Próximos días even after the user clicked WedAI. */
   mode: EnsembleMode = 'models',
-  biasTable: BiasTable | null = null
+  biasTable: BiasTable | null = null,
+  baseLeadTimeHours: number = 0
 ): DaySummary[] {
   interface Bucket { key: string; dayIdx: number; start: number; end: number }
   const buckets: Bucket[] = []
@@ -647,7 +612,7 @@ export function computeWeekSummaries(
       // B-NBT-9b: real lead time per hour so day buckets use the
       // calibrated preset bucket matching the InsightsTable for the
       // same hour (previously every day used the '0-48h' shares).
-      const leadHours = Math.max(0, i - nowIndex)
+      const leadHours = Math.max(0, baseLeadTimeHours + i - nowIndex)
       const t = meanAcrossModels(bag, 'temperature', i, models, activeIds, weekMode, leadHours, null, undefined, biasTable)
       if (t !== null) {
         if (high === null || t > high) high = t

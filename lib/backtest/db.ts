@@ -105,6 +105,14 @@ export function ensureBacktestSchema(): Promise<void> {
         )
       `)
       })
+      .then(async () => {
+        const fresh = getDb()
+        if (!fresh) throw new Error('DB unavailable')
+        const columns = await fresh.execute('PRAGMA table_info(model_accuracy)')
+        if (!columns.rows.some(r => r.name === 'verification_version')) {
+          await fresh.execute('ALTER TABLE model_accuracy ADD COLUMN verification_version INTEGER NOT NULL DEFAULT 1')
+        }
+      })
       .then(() => undefined)
       .catch(err => {
         initPromise = null
@@ -118,6 +126,8 @@ export interface ForecastArchiveRow {
   model_id: string
   lat: number
   lon: number
+  /** Reference instant valid_time - offset; Previous Runs does NOT expose
+   * the actual model initialization. Stored as explicit UTC ISO-8601. */
   init_time: string
   valid_time: string
   lead_time_hours: number
@@ -134,6 +144,7 @@ export interface ObservationRow {
 }
 
 export interface ModelAccuracyRow {
+  verification_version?: number
   model_id: string
   lat: number
   lon: number
@@ -161,6 +172,14 @@ export interface DynamicWeightRow {
 
 export async function insertForecastArchive(rows: ForecastArchiveRow[]): Promise<void> {
   if (rows.length === 0) return
+  for (const row of rows) {
+    const valid = Date.parse(row.valid_time), reference = Date.parse(row.init_time)
+    if (!row.valid_time.endsWith('Z') || !row.init_time.endsWith('Z') || !Number.isFinite(valid) || !Number.isFinite(reference)
+      || valid - reference !== row.lead_time_hours * 3600_000
+      || (row.predicted_value !== null && !Number.isFinite(row.predicted_value))) {
+      throw new Error(`Invalid UTC forecast archive row: ${row.model_id}/${row.metric}`)
+    }
+  }
   const db = getDb()
   if (!db) throw new Error('DB unavailable')
   // Batch insert in chunks of 500
@@ -182,6 +201,8 @@ export async function insertForecastArchive(rows: ForecastArchiveRow[]): Promise
 
 export async function insertObservations(rows: ObservationRow[]): Promise<void> {
   if (rows.length === 0) return
+  if (rows.some(row => !row.valid_time.endsWith('Z') || !Number.isFinite(Date.parse(row.valid_time))
+    || (row.observed_value !== null && !Number.isFinite(row.observed_value)))) throw new Error('Invalid UTC observation archive row')
   const db = getDb()
   if (!db) throw new Error('DB unavailable')
   for (let i = 0; i < rows.length; i += 500) {
@@ -207,11 +228,11 @@ export async function insertModelAccuracy(rows: ModelAccuracyRow[]): Promise<voi
     await db.execute({
       sql: `INSERT OR REPLACE INTO model_accuracy
             (model_id, lat, lon, terrain_type, metric, lead_time_bucket,
-             mae, rmse, bias, sample_count, window_start, window_end)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             mae, rmse, bias, sample_count, window_start, window_end, verification_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         r.model_id, r.lat, r.lon, r.terrain_type, r.metric, r.lead_time_bucket,
-        r.mae, r.rmse, r.bias, r.sample_count, r.window_start, r.window_end,
+        r.mae, r.rmse, r.bias, r.sample_count, r.window_start, r.window_end, r.verification_version ?? 1,
       ],
     })
   }
@@ -243,7 +264,8 @@ export async function getModelAccuracy(
   const result = await db.execute({
     sql: `SELECT * FROM model_accuracy
           WHERE lat = ? AND lon = ? AND terrain_type = ? AND metric = ? AND lead_time_bucket = ?
-          ORDER BY computed_at DESC LIMIT 20`,
+            AND verification_version = 2
+          ORDER BY computed_at DESC`,
     args: [lat, lon, terrainType, metric, leadTimeBucket],
   })
   return result.rows as unknown as ModelAccuracyRow[]
@@ -348,7 +370,7 @@ export async function getModelAccuracyByTerrain(
                  ? AS terrain_type,
                  metric,
                  'aggregated' AS lead_time_bucket,
-                 AVG(rmse) AS rmse,
+                 SQRT(SUM(rmse * rmse * sample_count) / SUM(sample_count)) AS rmse,
                  NULL AS bias,
                  SUM(sample_count) AS sample_count,
                  MIN(window_start) AS window_start,
@@ -359,6 +381,7 @@ export async function getModelAccuracyByTerrain(
             AND metric = ?
             AND lead_time_bucket IN (${placeholders})
             AND computed_at >= ?
+            AND verification_version = 2
             AND rmse IS NOT NULL
           GROUP BY model_id
           ORDER BY rmse ASC
@@ -412,6 +435,7 @@ export async function getBiasByTerrain(
             AND lead_time_bucket IN (${bucketPh})
             AND computed_at >= ?
             AND bias IS NOT NULL
+            AND verification_version = 2
             AND sample_count > 0
           GROUP BY metric, lead_time_bucket, model_id`,
     args: [terrainType, ...metrics, ...buckets, cutoff],
@@ -423,7 +447,7 @@ export async function getBiasByTerrain(
   // Keying the table with the raw fine buckets would make
   // `biasForMetricBucket` miss every lookup and apply no correction.
   const num: Record<string, Record<string, Record<string, number>>> = {}
-  const den: Record<string, Record<string, number>> = {}
+  const den: Record<string, Record<string, Record<string, number>>> = {}
   for (const row of result.rows) {
     const uiBucket = BACKTEST_BUCKET_TO_UI[String(row.lead_time_bucket)]
     if (!uiBucket) continue
@@ -435,18 +459,19 @@ export async function getBiasByTerrain(
     num[metric] ??= {}
     num[metric][uiBucket] ??= {}
     den[metric] ??= {}
-    den[metric][uiBucket] = (den[metric][uiBucket] ?? 0) + n
+    den[metric][uiBucket] ??= {}
+    den[metric][uiBucket][modelId] = (den[metric][uiBucket][modelId] ?? 0) + n
     num[metric][uiBucket][modelId] = (num[metric][uiBucket][modelId] ?? 0) + biasNum
   }
 
   const table: Record<string, Record<string, Record<string, number>>> = {}
   for (const metric of Object.keys(num)) {
     for (const uiBucket of Object.keys(num[metric])) {
-      const total = den[metric]?.[uiBucket] ?? 0
-      if (total <= 0) continue
       table[metric] ??= {}
       table[metric][uiBucket] = {}
       for (const modelId of Object.keys(num[metric][uiBucket])) {
+        const total = den[metric]?.[uiBucket]?.[modelId] ?? 0
+        if (total <= 0) continue
         table[metric][uiBucket][modelId] =
           Math.round((num[metric][uiBucket][modelId] / total) * 1000) / 1000
       }
@@ -534,7 +559,8 @@ export async function getStationForecastArchive(
   const result = await db.execute({
     sql: `SELECT model_id, lat, lon, init_time, valid_time, lead_time_hours, metric, predicted_value
           FROM forecast_archive
-          WHERE lat = ? AND lon = ? AND metric = ? AND valid_time >= ? AND valid_time <= ?`,
+          WHERE lat = ? AND lon = ? AND metric = ? AND valid_time >= ? AND valid_time <= ?
+            AND valid_time LIKE '%Z'`,
     args: [lat, lon, metric, from, to],
   })
   return result.rows as unknown as ForecastArchiveRow[]
@@ -548,7 +574,7 @@ export async function getStationObservations(opts: {
 }): Promise<StationObservationRow[]> {
   const db = getDb()
   if (!db) return []
-  const clauses = ['valid_time >= ?', 'valid_time <= ?']
+  const clauses = ['valid_time >= ?', 'valid_time <= ?', "valid_time LIKE '%Z'"]
   const args: (string | number)[] = [opts.from, opts.to]
   if (opts.metrics && opts.metrics.length > 0) {
     clauses.push(`metric IN (${opts.metrics.map(() => '?').join(', ')})`)

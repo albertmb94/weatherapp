@@ -28,6 +28,7 @@ interface CurrentWeatherCardProps {
    *  `new Date()` itself — that would break React 19 Strict Mode
    *  purity rules when the parent's value drifts between renders. */
   wallClockMs?: number
+  isForecast?: boolean
 }
 
 function formatTemp(value: number | null): string {
@@ -55,6 +56,7 @@ export default function CurrentWeatherCard({
   loading,
   nowcastTemperatureC = null,
   wallClockMs,
+  isForecast = false,
 }: CurrentWeatherCardProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -80,7 +82,7 @@ export default function CurrentWeatherCard({
 
   return (
     <section
-      aria-label={locale === 'en' ? 'Current weather' : 'Tiempo actual'}
+      aria-label={isForecast ? (locale === 'en' ? 'Weather forecast' : 'Previsión del tiempo') : (locale === 'en' ? 'Current weather' : 'Tiempo actual')}
       className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-surface-raised via-surface-raised to-surface-raised/60 p-5 md:p-7"
     >
       <div
@@ -91,6 +93,7 @@ export default function CurrentWeatherCard({
         <div className="min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
             <h2 className="text-2xl md:text-3xl font-semibold text-text-primary tracking-tight">{city}</h2>
+            {isForecast ? <span className="text-xs text-accent">{locale === 'en' ? 'Forecast' : 'Previsión'}</span> : null}
             {showHighLow && snapshot ? (
               <span className="text-sm text-text-secondary tabular-nums">
                 {Math.round(snapshot.dailyHighC as number)}° / {Math.round(snapshot.dailyLowC as number)}°
@@ -123,7 +126,7 @@ export default function CurrentWeatherCard({
           </p>
         </div>
           <div className="flex items-end gap-3 md:gap-5">
-          <div className="flex flex-col items-end">
+          <div className="flex min-w-0 flex-col items-end">
             {loading ? (
               <div className="h-16 w-24 rounded bg-surface-popover animate-pulse" />
             ) : (
@@ -136,7 +139,7 @@ export default function CurrentWeatherCard({
             </span>
             {isLiveStation ? (
               <span
-                className="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-300"
+                className="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-300 whitespace-nowrap"
                 title={locale === 'en'
                   ? 'Blended with the closest fresh weather station reading'
                   : 'Mezclado con la lectura de la estación más cercana'}

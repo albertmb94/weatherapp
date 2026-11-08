@@ -6,6 +6,7 @@
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import type { ForecastArchiveRow } from './db'
 import { BACKTEST_MODEL_IDS, BACKTEST_METRICS, BACKTEST_METRIC_TO_PARAM, type BacktestLocation } from './config'
+import { archiveTime, shiftArchiveHours } from './archiveTime'
 
 const PREVIOUS_RUNS_BASE = 'https://previous-runs-api.open-meteo.com/v1/forecast'
 
@@ -17,15 +18,18 @@ export async function fetchPreviousRuns(
   location: BacktestLocation,
   startDate: string, // YYYY-MM-DD
   endDate: string,   // YYYY-MM-DD
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: { metrics?: readonly string[]; modelIds?: readonly string[] } = {},
 ): Promise<ForecastArchiveRow[]> {
   const rows: ForecastArchiveRow[] = []
-  const models = BACKTEST_MODEL_IDS.join(',')
-  const hourlyParams = BACKTEST_METRICS.map(m => BACKTEST_METRIC_TO_PARAM[m]).join(',')
+  const modelIds = options.modelIds ?? BACKTEST_MODEL_IDS
+  const metrics = options.metrics ?? BACKTEST_METRICS
+  const models = modelIds.join(',')
+  const hourlyParams = metrics.map(m => BACKTEST_METRIC_TO_PARAM[m]).join(',')
 
   // Build previous-day params: _previous_day1 through _previous_day7
   const previousParams = Array.from({ length: 7 }, (_, i) =>
-    BACKTEST_METRICS.map(m => `${BACKTEST_METRIC_TO_PARAM[m]}_previous_day${i + 1}`).join(',')
+    metrics.map(m => `${BACKTEST_METRIC_TO_PARAM[m]}_previous_day${i + 1}`).join(',')
   ).join(',')
 
   const params = new URLSearchParams({
@@ -35,7 +39,8 @@ export async function fetchPreviousRuns(
     models,
     start_date: startDate,
     end_date: endDate,
-    timezone: 'auto',
+    timezone: 'GMT',
+    timeformat: 'unixtime',
   })
 
   const res = await fetchWithTimeout(`${PREVIOUS_RUNS_BASE}?${params}`, {
@@ -51,12 +56,12 @@ export async function fetchPreviousRuns(
   const hourly = data.hourly
   if (!hourly?.time) return rows
 
-  const times: string[] = hourly.time
+  const times: (string | number)[] = hourly.time
 
   for (let i = 0; i < times.length; i++) {
-    const validTime = times[i]
+    const validTime = archiveTime(times[i])
 
-    for (const metric of BACKTEST_METRICS) {
+    for (const metric of metrics) {
       const param = BACKTEST_METRIC_TO_PARAM[metric]
 
       // Current forecast (lead time 0): emit a row only when we
@@ -66,10 +71,10 @@ export async function fetchPreviousRuns(
       // per-model entry was missing, which produced RMSE=0 cells
       // and over-weighted models with sparse coverage (HRRR outside
       // CONUS, AIGFS over polar regions, …).
-      for (const modelId of BACKTEST_MODEL_IDS) {
+      for (const modelId of modelIds) {
         const modelKey = `${param}_${modelId}`
         const value = hourly[modelKey]?.[i]
-        if (value === null || value === undefined) continue
+        if (typeof value !== 'number' || !Number.isFinite(value)) continue
         rows.push({
           model_id: modelId,
           lat: location.lat,
@@ -85,19 +90,18 @@ export async function fetchPreviousRuns(
       // Previous day forecasts (lead time 1-7 days)
       for (let day = 1; day <= 7; day++) {
         const prevParam = `${param}_previous_day${day}`
-        for (const modelId of BACKTEST_MODEL_IDS) {
+        for (const modelId of modelIds) {
           const modelKey = `${prevParam}_${modelId}`
           const value = hourly[modelKey]?.[i] ?? null
-          if (value !== null) {
-            // The "init_time" for a previous_dayN forecast is N calendar
-            // days before valid_time. B-NBT-1: shifted on the wall-clock
-            // string (see shiftWallClockDays) — the old Date round-trip
-            // skewed every init_time by the host UTC offset.
+          if (typeof value === 'number' && Number.isFinite(value)) {
+            // Reference time for this fixed offset, NOT the actual model
+            // initialization (which this API does not expose). UTC elapsed
+            // hours avoid ambiguity at daylight-saving transitions.
             rows.push({
               model_id: modelId,
               lat: location.lat,
               lon: location.lon,
-              init_time: shiftWallClockDays(validTime, -day),
+              init_time: shiftArchiveHours(validTime, -day * 24),
               valid_time: validTime,
               lead_time_hours: day * 24,
               metric,

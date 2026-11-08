@@ -156,8 +156,10 @@ body {
 
 /* S7.4: enforce min text size for inline / paragraph content.
     We don't enforce inside icons (text length 0) or badges (intentional). */
-.text-min, p, span, li, td, th, button, label, input, select, textarea {
-  font-size: max(var(--min-text), 0.875rem);
+@layer base {
+  .text-min, p, span, li, td, th, button, label, input, select, textarea {
+    font-size: max(var(--min-text), 0.875rem);
+  }
 }
 
 /* S7.4: min touch target on coarse pointers (mobile). */

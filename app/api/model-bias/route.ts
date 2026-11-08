@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rateLimit'
-import { getBiasByTerrain } from '@/lib/backtest/db'
+import { getBiasByTerrain, ensureBacktestSchema } from '@/lib/backtest/db'
 import { BACKTEST_METRICS, LEAD_TIME_BUCKETS, type TerrainType } from '@/lib/backtest/config'
 
 /**
@@ -43,6 +43,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await ensureBacktestSchema()
     const bias = await getBiasByTerrain(terrain, BACKTEST_METRICS, LEAD_TIME_BUCKETS)
     return NextResponse.json(
       { terrain, bias },

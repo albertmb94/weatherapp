@@ -102,7 +102,7 @@ export async function runStationTruth(opts: RunStationTruthOptions): Promise<Sta
   // Group observations per station coordinate.
   const stations = new Map<string, { lat: number; lon: number; name: string; byTime: Map<string, number> }>()
   for (const row of obs) {
-    if (row.observed_value === null) continue
+    if (row.observed_value === null || !row.valid_time.endsWith('Z')) continue
     const key = stationKey(row)
     let entry = stations.get(key)
     if (!entry) {
@@ -150,7 +150,7 @@ export async function runStationTruth(opts: RunStationTruthOptions): Promise<Sta
     }
 
     for (const row of rows) {
-      if (row.metric !== metric || row.predicted_value === null) continue
+      if (row.metric !== metric || row.predicted_value === null || row.lead_time_hours === 0 || !row.valid_time.endsWith('Z')) continue
       const observed = station.byTime.get(row.valid_time)
       if (observed === undefined) continue
       const bucket = getLeadTimeBucket(row.lead_time_hours)

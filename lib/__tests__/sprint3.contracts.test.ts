@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest'
 import { getMetricWeights, computeDynamicWeights } from '@/lib/backtest/computeDynamicWeights'
 import { weightedAvg } from '@/lib/ensemble'
+import { ENSEMBLE_PRESETS } from '@/lib/models'
 import {
   buildForecastCacheKey,
   buildUpstreamParams,
@@ -41,14 +42,9 @@ function makeRow(overrides: Partial<ModelAccuracyRow> = {}): ModelAccuracyRow {
 describe('getMetricWeights', () => {
   it('returns the temperature preset when no accuracy records exist', () => {
     const w = getMetricWeights('temperature', [], 0.95, '0-48h')
-    // B-NBT-8: calibrated bucket (backtest 2026-08-15..22) rescaled by
-    // the AI reserve of 0.20: ecmwf_ifs 0.102 → 0.0816, gfs_global
-    // 0.062 → 0.0496. The AI reserve now only holds the unverifiable
-    // models (aifs025 22/34, graphcast025 12/34): aifs gets
-    // (22/34) Ã— 0.20 â‰ˆ 0.1294.
-    expect(w.ecmwf_ifs).toBeCloseTo(0.102 * 0.8, 3)
-    expect(w.gfs_global).toBeCloseTo(0.062 * 0.8, 3)
-    expect(w.ecmwf_aifs025).toBeCloseTo((22 / 34) * 0.2, 5)
+    // Measured skill is used without reserving a share by model type.
+    expect(w).toEqual(ENSEMBLE_PRESETS.find(p => p.id === 'temperature')!.weights['0-48h'])
+    expect(w.ecmwf_aifs025).toBeUndefined()
     const sum = Object.values(w).reduce((a, b) => a + b, 0)
     expect(sum).toBeCloseTo(1, 5)
   })

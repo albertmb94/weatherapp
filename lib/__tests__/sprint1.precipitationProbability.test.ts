@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   METRICS,
+  ENSEMBLE_PRESETS,
   type MetricId,
   type WeatherModel,
 } from '@/lib/models'
@@ -20,6 +21,7 @@ import {
   weightsFor,
 } from '@/lib/ensemble/central'
 import { computeCurrentSnapshot, type SeriesBag } from '@/lib/friendlyForecast'
+import { weightedAvg } from '@/lib/ensemble'
 
 const MODELS: WeatherModel[] = [
   { id: 'ecmwf_ifs', label: 'ECMWF', color: '#000', maxHours: 240, weight: 30, type: 'deterministic', region: 'global', resolution: 9 },
@@ -70,11 +72,11 @@ describe('precipitation_probability', () => {
       ['ecmwf_ifs'],
       1,
     )
-    // Mean of [20, 50] = 35.
-    expect(snapshot?.chanceOfRainPct).toBe(35)
+    const weights = weightsFor('precipitation_probability', 0, 1, MODELS)
+    expect(snapshot?.chanceOfRainPct).toBe(Math.round(weightedAvg([20, 50], weights)!))
   })
 
-  it('falls back to the intensity heuristic when no model has a probability', () => {
+  it('keeps probability unknown when the provider supplies only an amount', () => {
     const bag = makeBag([
       [null, null, null],
       [null, null, null],
@@ -85,7 +87,7 @@ describe('precipitation_probability', () => {
       bag.series[id].precipitation = [0, 1, 1]
     }
     const snapshot = computeCurrentSnapshot(bag, MODELS, ['ecmwf_ifs'], 1)
-    expect(snapshot?.chanceOfRainPct).toBe(80)
+    expect(snapshot?.chanceOfRainPct).toBeNull()
   })
 })
 
@@ -108,8 +110,8 @@ describe('weightsForAbsolute', () => {
     const weights = weightsFor('temperature', 0, 1, active)
     const aromeIdx = active.findIndex(m => m.id === 'meteofrance_arome_france_hd')
     // B-NBT-8: calibrated bucket (AROME-FR HD normalised win-rate
-    // 0.064 in temperature 0-48h) rescaled by the AI share of 0.20.
-    expect(weights[aromeIdx]).toBeCloseTo(0.064 * 0.8)
+    // 0.064 in temperature 0-48h) without a model-type reserve.
+    expect(weights[aromeIdx]).toBe(ENSEMBLE_PRESETS.find(p => p.id === 'temperature')!.weights['0-48h'].meteofrance_arome_france_hd)
   })
 })
 

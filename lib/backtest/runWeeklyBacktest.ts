@@ -51,8 +51,9 @@ export async function runWeeklyBacktest(
   // Calculate date range: last 7 days, computed in absolute ms
   // (not via `setDate`) so DST boundaries in the host timezone
   // can't shift the window by an hour.
-  const endDate = new Date()
-  const startDate = new Date(endDate.getTime() - 7 * 86_400_000)
+  // ERA5 arrives with a delay; today's incomplete values must not calibrate.
+  const endDate = new Date(Date.now() - 7 * 86_400_000)
+  const startDate = new Date(endDate.getTime() - 6 * 86_400_000)
 
   const startDateStr = startDate.toISOString().slice(0, 10)
   const endDateStr = endDate.toISOString().slice(0, 10)
@@ -163,6 +164,7 @@ export function computeAccuracyFromRaw(
       window_start: windowStart,
       window_end: windowEnd,
       computed_at: new Date().toISOString(),
+      verification_version: 2,
     })
   }
 

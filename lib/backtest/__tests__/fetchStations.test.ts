@@ -34,7 +34,7 @@ describe('xemaReadingsToRows', () => {
       station_name: 'Barcelona',
       lat: 41.39,
       lon: 2.18,
-      valid_time: '2026-08-15T02:00',
+      valid_time: '2026-08-15T01:00:00.000Z',
       metric: 'temperature',
       observed_value: 21.5,
     })

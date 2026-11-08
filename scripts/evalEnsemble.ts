@@ -75,7 +75,7 @@ function addTo(p: Pool, s: ErrorStats): void {
   p.falseAlarms += s.falseAlarms
 }
 
-function report(title: string, totals: Record<string, Pool>, baseKey: string): void {
+function report(title: string, totals: Record<string, Pool>, baseKey: string, isRain: boolean): void {
   const base = totals[baseKey]
   const baseRmse = base && base.n > 0 ? Math.sqrt(base.sq / base.n) : null
   console.log(`\n=== ${title} ===`)
@@ -84,10 +84,10 @@ function report(title: string, totals: Record<string, Pool>, baseKey: string): v
     const rmse = Math.sqrt(p.sq / p.n)
     const mae = p.abs / p.n
     const delta = baseRmse ? ((rmse - baseRmse) / baseRmse) * 100 : 0
-    const cat = p.hits + p.misses + p.falseAlarms > 0
+    const cat = isRain && p.hits + p.misses + p.falseAlarms > 0
       ? `  POD ${((p.hits / (p.hits + p.misses || 1)) * 100).toFixed(1)}%  FAR ${((p.falseAlarms / (p.hits + p.falseAlarms || 1)) * 100).toFixed(1)}%  CSI ${((p.hits / (p.hits + p.misses + p.falseAlarms)) * 100).toFixed(1)}%`
       : ''
-    const rel = scheme === baseKey ? '' : `  (${delta >= 0 ? '+' : ''}${delta.toFixed(2)}% RMSE)`
+    const rel = scheme === baseKey || p.n !== base?.n ? '' : `  (${delta >= 0 ? '+' : ''}${delta.toFixed(2)}% RMSE)`
     console.log(`${scheme.padEnd(18)} RMSE ${rmse.toFixed(4)}  MAE ${mae.toFixed(4)}  n=${p.n}${rel}${cat}`)
   }
 }
@@ -159,6 +159,7 @@ async function main() {
   const altPreset = ENSEMBLE_PRESETS.find((p) => p.id === (metric === 'wind_speed' ? 'precipitation' : 'temperature'))!
 
   console.log(`\nmetric=${metric}  folds=${folds}  locations=${locations.length}`)
+  console.log('Only train-derived schemes are spatial holdouts. Fixed presets may have been fitted to these locations/dates; no temporal holdout is implied.')
 
   const totals: Record<string, Pool> = {}
   const common: Record<string, Pool> = {}
@@ -230,6 +231,9 @@ async function main() {
 
       const schemes: [string, (xs: JoinedSample[]) => ErrorStats][] = [
         ['single:best', (xs) => ensembleError(xs, bestModel ? { [bestModel]: 1 } : {})],
+        ['ensemble:equal', (xs) => ensembleError(xs, Object.fromEntries(
+          [...new Set(xs.flatMap(s => Object.keys(s.byModel)))].map(id => [id, 1]),
+        ))],
         ['preset:alt', (xs) => ensembleError(xs, altWeights)],
         ['preset:wedai', (xs) => ensembleError(xs, presetWeights)],
         ['borda:train', (xs) => ensembleError(xs, borda)],
@@ -242,8 +246,8 @@ async function main() {
     }
   }
 
-  report('held-out totals (all instances)', totals, 'single:best')
-  report('held-out totals · COMMON subset (same instances for every scheme)', common, 'single:best')
+  report('all instances · coverage differs by scheme', totals, 'single:best', metric === 'precipitation')
+  report('COMMON subset (same instances for every scheme)', common, 'single:best', metric === 'precipitation')
 }
 
 main().catch((err) => {

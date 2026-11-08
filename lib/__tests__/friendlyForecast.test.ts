@@ -54,17 +54,17 @@ describe('computeCurrentSnapshot', () => {
     expect(out).not.toBeNull()
     expect(out?.temperatureC).toBeCloseTo(20, 0)
     expect(out?.windKmh).toBeCloseTo(5, 0)
-    expect(out?.chanceOfRainPct).toBe(0)
+    expect(out?.chanceOfRainPct).toBeNull()
     expect(out?.uvIndex).toBeCloseTo(3, 0)
   })
 
-  it('counts >0mm/h precipitation as a non-zero rain chance', () => {
+  it('does not invent rain probability from precipitation amount', () => {
     const series = flatSeries(20, 4)
     for (const id of Object.keys(series) as Array<keyof typeof series>) {
       series[id].precipitation[1] = 2 // mm/h, well above the 1mm/h = 80% threshold
     }
     const out = computeCurrentSnapshot({ time: fakeTimes(4), series }, MODELS, ['gfs_global', 'icon_global'], 1)
-    expect(out?.chanceOfRainPct).toBe(100)
+    expect(out?.chanceOfRainPct).toBeNull()
   })
 
   it('returns null when the index is past the data', () => {

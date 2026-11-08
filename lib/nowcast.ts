@@ -1,5 +1,6 @@
 import { haversineKm } from './geoDistance'
 import type { MeteoclimaticObservation } from './meteoclimatic-types'
+import type { AemetRaw } from './aemet'
 
 export interface StationObservation {
   /** Provider-specific id ("08001" for AEMET, "XEMA-X" for Meteocat). */
@@ -89,7 +90,7 @@ export function blendNowcast(input: NowcastInput): NowcastResult {
   }
   const observationAgeMs = Math.abs(nowMs - station.observedAt)
   const freshness: NowcastResult['freshness'] =
-    observationAgeMs > freshnessMs ? 'stale' : 'fresh'
+    !Number.isFinite(observationAgeMs) || observationAgeMs > freshnessMs ? 'stale' : 'fresh'
 
   // Stale observations are still useful for the "real-world anchor"
   // but we lower the weight so a 3-hour-old AEMET reading doesn't
@@ -175,14 +176,34 @@ export function pickClosestStation(
   for (const { stations } of sources) {
     for (const s of stations) {
       const age = Math.abs(now - s.observedAt)
-      if (age > maxAgeMs) continue
+      // Missing timestamps/coordinates must never win the nearest lookup.
+      // The display list can expand geographically; the nowcast cannot.
+      if (!Number.isFinite(age) || age > Math.min(maxAgeMs, 90 * 60 * 1000)) continue
+      if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) continue
+      if (s.temperatureC === null || !Number.isFinite(s.temperatureC)) continue
       const distance = haversineKm([userLat, userLon], [s.lat, s.lon])
+      if (distance > 10) continue
       if (best === null || distance < best.distanceKm) {
         best = { ...s, distanceKm: distance }
       }
     }
   }
   return best
+}
+
+/** AEMET's route returns raw observations, unlike Meteocat's normalized payload. */
+export function aemetToStationObservation(m: AemetRaw): StationObservation | null {
+  if (!Number.isFinite(m.lat) || !Number.isFinite(m.lon)) return null
+  const timestamp = /(?:Z|[+-]\d{2}:?\d{2})$/.test(m.fint) ? m.fint : m.fint + 'Z'
+  return {
+    id: m.idema, source: 'aemet', lat: m.lat, lon: m.lon,
+    distanceKm: 0, observedAt: Date.parse(timestamp),
+    temperatureC: m.ta, humidityPct: m.hr, pressureHpa: null,
+    windKmh: m.vv === null ? null : m.vv * 3.6,
+    windDirDeg: m.dv,
+    // Accumulation over a different interval cannot be mixed with mm/h.
+    precipitationMm: null,
+  }
 }
 
 /**

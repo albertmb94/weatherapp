@@ -40,6 +40,7 @@ interface HourlyForecastStripProps {
    *  AHORA number stays consistent with the big card and the InsightsTable
    *  active row (B-10-1 invariant). */
   biasTable?: BiasTable | null
+  baseLeadTimeHours?: number
 }
 
 function fmtTemp(value: number | null): string {
@@ -58,6 +59,7 @@ export default function HourlyForecastStrip({
   usageProfile = null,
   usageProfileRecommended,
   biasTable = null,
+  baseLeadTimeHours = 0,
 }: HourlyForecastStripProps) {
   const { locale } = useLocale()
   const recommendedRef = usageProfileRecommended ?? EMPTY_SET
@@ -65,9 +67,9 @@ export default function HourlyForecastStrip({
   const slots = useMemo<HourlySlot[]>(
     () => computeHourlySlots(
       { time, series }, models, activeIds, nowIndex, locale, 7, 4, isViewingToday, ensembleMode,
-      usageProfile, recommendedRef, biasTable,
+      usageProfile, recommendedRef, biasTable, baseLeadTimeHours,
     ),
-    [models, activeIds, time, series, nowIndex, locale, isViewingToday, ensembleMode, usageProfile, recommendedRef, biasTable]
+    [models, activeIds, time, series, nowIndex, locale, isViewingToday, ensembleMode, usageProfile, recommendedRef, biasTable, baseLeadTimeHours]
   )
 
   if (slots.length === 0) return null
@@ -82,7 +84,7 @@ export default function HourlyForecastStrip({
       </h3>
       <ol className="flex gap-1.5 md:gap-2 overflow-x-auto scrollbar-none pb-1">
         {slots.map((slot, i) => {
-          const isNowSlot = i === 0 && slot.hourLabel.toLowerCase() === 'ahora'
+          const isNowSlot = i === 0 && isViewingToday
           return (
             <li
               key={`${slot.index}-${i}`}

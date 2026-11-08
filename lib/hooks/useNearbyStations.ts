@@ -23,9 +23,11 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   meteoclimaticToStationObservation,
+  aemetToStationObservation,
   type StationObservation,
 } from '@/lib/nowcast'
 import type { MeteoclimaticObservation } from '@/lib/meteoclimatic-types'
+import type { AemetRaw } from '@/lib/aemet'
 import {
   MINIMO_ESTACIONES,
   RADIO_ESTACIONES_KM,
@@ -61,7 +63,7 @@ async function fetchAemetStations(
   radius: number,
   minCount: number,
   signal: AbortSignal,
-): Promise<MeteoclimaticObservation[]> {
+): Promise<AemetRaw[]> {
   // Se pide YA el conjunto final (radio + mínimo por conteo). El servidor
   // devuelve un puñado de estaciones ordenadas por distancia en vez de la
   // red entera para que el cliente recorte: eso es lo que hace la
@@ -73,7 +75,7 @@ async function fetchAemetStations(
   if (!res.ok) return []
   const body = await res.json()
   if (body.error || !Array.isArray(body.stations)) return []
-  return body.stations as MeteoclimaticObservation[]
+  return body.stations as AemetRaw[]
 }
 
 async function fetchMeteocatStations(
@@ -117,23 +119,27 @@ export function useNearbyStations({
   return useQuery<StationObservation[]>({
     queryKey: ['nearby-stations', posKey, radius, minCount],
     queryFn: async ({ signal }) => {
-      const [aemet, meteocat] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchAemetStations(lat, lon, radius, minCount, signal),
         fetchMeteocatStations(lat, lon, radius, minCount, signal),
       ])
+      const aemet = results[0].status === 'fulfilled' ? results[0].value : []
+      const meteocat = results[1].status === 'fulfilled' ? results[1].value : []
       const byCell = new Map<string, StationObservation>()
       // AEMET wins ties — it has the freshest timestamps.
       for (const m of aemet) {
-        const obs = meteoclimaticToStationObservation(m, 'aemet')
+        const obs = aemetToStationObservation(m)
         if (!obs) continue
         const key = cellKey(obs.lat, obs.lon)
-        if (!byCell.has(key)) byCell.set(key, obs)
+        const existing = byCell.get(key)
+        if (!existing || obs.observedAt > existing.observedAt) byCell.set(key, obs)
       }
       for (const m of meteocat) {
         const obs = meteoclimaticToStationObservation(m, 'meteocat')
         if (!obs) continue
         const key = cellKey(obs.lat, obs.lon)
-        if (!byCell.has(key)) byCell.set(key, obs)
+        const existing = byCell.get(key)
+        if (!existing || obs.observedAt > existing.observedAt) byCell.set(key, obs)
       }
       // Cada red aplica la regla por su cuenta, así que la unión puede
       // traer más de `minCount`. Se vuelve a aplicar sobre el conjunto

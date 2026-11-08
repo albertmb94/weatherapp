@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   computeDynamicWeights,
   mergeWeights,
+  getMetricWeights,
   getEnsembleConfidence,
 } from '../computeDynamicWeights'
 import type { ModelAccuracyRow } from '../db'
@@ -31,6 +32,31 @@ function makeAccuracyRecord(
 }
 
 describe('computeDynamicWeights', () => {
+  it('pools squared errors by sample count rather than averaging RMSEs', () => {
+    const records = [
+      { ...makeAccuracyRecord('a', 1), sample_count: 99 },
+      { ...makeAccuracyRecord('a', 10), sample_count: 1 },
+      { ...makeAccuracyRecord('b', 2), sample_count: 100 },
+    ]
+    expect(computeDynamicWeights(records).a).toBeGreaterThan(computeDynamicWeights(records).b)
+  })
+
+  it('ignores malformed and empty verification records', () => {
+    expect(computeDynamicWeights([
+      makeAccuracyRecord('a', NaN), makeAccuracyRecord('b', -1),
+      { ...makeAccuracyRecord('c', 1), computed_at: 'invalid' },
+      { ...makeAccuracyRecord('d', 1), sample_count: 0 },
+    ])).toEqual({})
+  })
+
+  it('does not apply dynamic weights from a different variable or horizon', () => {
+    const baseline = getMetricWeights('temperature', [], 0.95, '0-48h')
+    const records = [
+      { ...makeAccuracyRecord('a', 1), metric: 'precipitation', lead_time_bucket: '0-48h' },
+      { ...makeAccuracyRecord('b', 1), lead_time_bucket: '96-168h' },
+    ]
+    expect(getMetricWeights('temperature', records)).toEqual(baseline)
+  })
   it('returns empty for no records', () => {
     const result = computeDynamicWeights([])
     expect(result).toEqual({})

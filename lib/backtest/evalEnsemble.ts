@@ -86,24 +86,34 @@ export function bordaWeights(
   rows: readonly AccuracySample[],
   minModels = 3
 ): Record<string, number> {
-  const byLocation = new Map<string, { model_id: string; rmse: number }[]>()
+  const pooled = new Map<string, Map<string, { sq: number; n: number }>>()
   for (const row of rows) {
-    if (row.rmse === null || !Number.isFinite(row.rmse) || row.rmse <= 0) continue
+    if (row.rmse === null || !Number.isFinite(row.rmse) || row.rmse < 0) continue
     const key = locationKey(row.lat, row.lon)
-    const list = byLocation.get(key) ?? []
-    list.push({ model_id: row.model_id, rmse: row.rmse })
-    byLocation.set(key, list)
+    const n = row.sample_count ?? 1
+    if (!Number.isFinite(n) || n <= 0) continue
+    const models = pooled.get(key) ?? new Map<string, { sq: number; n: number }>()
+    const cell = models.get(row.model_id) ?? { sq: 0, n: 0 }
+    cell.sq += row.rmse * row.rmse * n
+    cell.n += n
+    models.set(row.model_id, cell)
+    pooled.set(key, models)
   }
 
   const sums = new Map<string, number>()
   const counts = new Map<string, number>()
-  for (const list of byLocation.values()) {
+  for (const models of pooled.values()) {
+    const list = [...models].map(([model_id, cell]) => ({ model_id, rmse: Math.sqrt(cell.sq / cell.n) }))
     if (list.length < minModels) continue
     const sorted = [...list].sort((a, b) => a.rmse - b.rmse)
     const n = sorted.length
     for (let i = 0; i < n; i++) {
       const { model_id } = sorted[i]
-      sums.set(model_id, (sums.get(model_id) ?? 0) + (n - i) / n)
+      // Equal errors receive the mean rank, independent of input order.
+      let first = i, last = i
+      while (first > 0 && sorted[first - 1].rmse === sorted[i].rmse) first--
+      while (last + 1 < n && sorted[last + 1].rmse === sorted[i].rmse) last++
+      sums.set(model_id, (sums.get(model_id) ?? 0) + (n - (first + last) / 2) / n)
       counts.set(model_id, (counts.get(model_id) ?? 0) + 1)
     }
   }
@@ -139,15 +149,16 @@ export function bestSingleModel(rows: readonly AccuracySample[]): string | null 
   const num = new Map<string, number>()
   const den = new Map<string, number>()
   for (const row of rows) {
-    if (row.rmse === null || !Number.isFinite(row.rmse)) continue
+    if (row.rmse === null || !Number.isFinite(row.rmse) || row.rmse < 0) continue
     const n = row.sample_count ?? 1
-    num.set(row.model_id, (num.get(row.model_id) ?? 0) + row.rmse * n)
+    if (!Number.isFinite(n) || n <= 0) continue
+    num.set(row.model_id, (num.get(row.model_id) ?? 0) + row.rmse * row.rmse * n)
     den.set(row.model_id, (den.get(row.model_id) ?? 0) + n)
   }
   let best: string | null = null
   let bestRmse = Infinity
   for (const [modelId, value] of num) {
-    const mean = value / (den.get(modelId) ?? 1)
+    const mean = Math.sqrt(value / (den.get(modelId) ?? 1))
     if (mean < bestRmse) {
       bestRmse = mean
       best = modelId
@@ -176,13 +187,15 @@ export function ensembleError(
   let misses = 0
   let falseAlarms = 0
   for (const sample of samples) {
+    if (!Number.isFinite(sample.observed)) continue
     let sum = 0
     let wSum = 0
     for (const [modelId, value] of Object.entries(sample.byModel)) {
       if (!Number.isFinite(value)) continue
       const w = weights[modelId]
-      if (w === undefined || w <= 0) continue
-      const corrected = bias?.[modelId] !== undefined ? value - (bias[modelId] as number) : value
+      if (!Number.isFinite(w) || w <= 0) continue
+      const offset = bias?.[modelId]
+      const corrected = typeof offset === 'number' && Number.isFinite(offset) ? value - offset : value
       sum += corrected * w
       wSum += w
     }

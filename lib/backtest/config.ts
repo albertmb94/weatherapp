@@ -155,6 +155,7 @@ export const BACKTEST_METRIC_TO_PARAM: Record<string, string> = {
   wind_speed: 'wind_speed_10m',
   wind_gusts: 'wind_gusts_10m',
   precipitation: 'precipitation',
+  precipitation_probability: 'precipitation_probability',
   cloud_cover: 'cloud_cover',
   humidity: 'relative_humidity_2m',
   dewpoint: 'dewpoint_2m',
@@ -175,10 +176,8 @@ export const LEAD_TIME_BUCKETS = ['0-24h', '24-48h', '48-72h', '72-96h', '96-120
  * backtest, short-lead weights stay biased towards globals even where
  * regionals measure better.
  *
- * Deliberately EXCLUDED: ecmwf_aifs025 / gfs_graphcast025 — the
- * provider currently serves those catalogue entries as all-null rows
- * (verified 2026-08-22 on both /v1/forecast and previous-runs), so
- * they would only produce empty groups.
+ * Missing payloads remain missing: no best-match substitutions. The live
+ * coverage report, not the architecture name, decides eligibility.
  */
 export const BACKTEST_MODEL_IDS = [
   'ecmwf_ifs',

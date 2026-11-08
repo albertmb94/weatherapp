@@ -9,17 +9,20 @@ export interface IconInput {
   precipitationMmDay: number | null
   windGustsKmh: number | null
   minTempC: number | null
+  /** Explicit WMO code; rain totals and wind alone cannot identify thunder. */
+  weatherCode?: number | null
+  /** Threshold in the same accumulation interval as precipitationMmDay. */
+  precipitationThresholdMm?: number
 }
 
-export function pickWeatherIcon({ cloudCoverPct, precipitationMmDay, windGustsKmh, minTempC }: IconInput): WeatherIconId {
+export function pickWeatherIcon({ cloudCoverPct, precipitationMmDay, minTempC, weatherCode, precipitationThresholdMm = 1 }: IconInput): WeatherIconId {
   const precip = precipitationMmDay ?? 0
-  const gusts = windGustsKmh ?? 0
   const cloud = cloudCoverPct ?? 0
   const tMin = minTempC ?? 99
 
-  if (precip >= 1 && tMin <= 1) return 'snowy'
-  if (precip >= 8 || gusts >= 80) return 'stormy'
-  if (precip >= 1) return 'rainy'
+  if (weatherCode === 95 || weatherCode === 96 || weatherCode === 99) return 'stormy'
+  if (precip >= precipitationThresholdMm && tMin <= 1) return 'snowy'
+  if (precip >= precipitationThresholdMm) return 'rainy'
   if (cloud >= 75) return 'cloudy'
   if (cloud >= 30) return 'partly'
   return 'sunny'

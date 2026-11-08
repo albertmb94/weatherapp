@@ -210,7 +210,7 @@ export default function DailySummary({
           if (bucket.tMax === null || t > bucket.tMax) bucket.tMax = t
         }
         const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const p = ensembleWithFallback(series, 'precipitation', i, activeModels, wedaiModels, pWeights, lead, biasForMetricBucket(biasTable, 'precipitation', lead))
+        const p = ensembleWithFallback(series, 'precipitation', i, activeModels, wedaiModels, pWeights, lead, biasForMetricBucket(biasTable, 'precipitation', lead), ensembleMode === 'wedai')
         if (p !== null) bucket.precipTotal = (bucket.precipTotal ?? 0) + p
         const wWeights = getWeightsForMetricAndHour('wind_gusts', i)
         const w = ensembleWithFallback(series, 'wind_gusts', i, activeModels, wedaiModels, wWeights, lead, biasForMetricBucket(biasTable, 'wind_gusts', lead))
@@ -269,7 +269,7 @@ export default function DailySummary({
       <h3 className="text-sm font-semibold text-text-primary mb-2">{STRINGS[locale].dailyTitle}</h3>
       <div
         className="grid gap-1 overflow-x-auto scrollbar-none"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(4.5rem, 1fr))` }}
       >
         {days.map((d, i) => {
           // The active state comes from two sources, in priority order:

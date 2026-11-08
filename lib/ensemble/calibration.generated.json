@@ -1,0 +1,119 @@
+{
+  "version": 2,
+  "from": "2026-09-20",
+  "trainEnd": "2026-10-18",
+  "to": "2026-11-01",
+  "weights": {
+    "temperature": {
+      "0-48h": {
+        "icon_eu": 0.09967606800957765,
+        "dwd_icon_d2": 0.07879201956848193,
+        "ecmwf_ifs": 0.10759764009976142,
+        "icon_global": 0.08423161996038417,
+        "ncep_aigfs025": 0.07172779400135326,
+        "meteofrance_arpege_europe": 0.07704246192930303,
+        "gem_global": 0.050367115235205456,
+        "meteofrance_arome_france": 0.05222501593742451,
+        "meteofrance_arome_france_hd": 0.05313909049671579,
+        "gfs_global": 0.058869656308007626,
+        "ukmo_global_deterministic_10km": 0.05909649192622192,
+        "dmi_harmonie_arome_europe": 0.04881286444795062,
+        "knmi_harmonie_arome_europe": 0.04968536601276601,
+        "ncep_hrrr_conus": 0.049921664995424955,
+        "gem_regional": 0.058815131071421556
+      },
+      "48-96h": {
+        "icon_eu": 0.14691558441558444,
+        "ecmwf_ifs": 0.14192057942057942,
+        "icon_global": 0.13193056943056944,
+        "ncep_aigfs025": 0.12094155844155845,
+        "gem_global": 0.11794455544455545,
+        "meteofrance_arpege_europe": 0.11644605394605395,
+        "ukmo_global_deterministic_10km": 0.11394855144855146,
+        "gfs_global": 0.10995254745254747
+      },
+      "96-168h": {
+        "ecmwf_ifs": 0.19,
+        "icon_global": 0.187,
+        "gem_global": 0.165,
+        "ncep_aigfs025": 0.162,
+        "ukmo_global_deterministic_10km": 0.161,
+        "gfs_global": 0.135
+      }
+    },
+    "precipitation": {
+      "0-48h": {
+        "ncep_aigfs025": 0.12551464685907082,
+        "meteofrance_arome_france": 0.05765916165131882,
+        "icon_eu": 0.07342258681235414,
+        "meteofrance_arpege_europe": 0.08057997858499027,
+        "meteofrance_arome_france_hd": 0.05852779906080383,
+        "gfs_global": 0.08365771918927366,
+        "dmi_harmonie_arome_europe": 0.04105128818173236,
+        "icon_global": 0.07094344682814996,
+        "ecmwf_ifs": 0.06879919774505026,
+        "gem_global": 0.0893728448765092,
+        "dwd_icon_d2": 0.05208980804905547,
+        "knmi_harmonie_arome_europe": 0.033660562279907734,
+        "ukmo_global_deterministic_10km": 0.06841444337042499,
+        "ncep_hrrr_conus": 0.02507220848444731,
+        "gem_regional": 0.07123430802691103
+      },
+      "48-96h": {
+        "ncep_aigfs025": 0.17636847084274007,
+        "meteofrance_arpege_europe": 0.12227431742362437,
+        "gem_global": 0.12260734534905986,
+        "ecmwf_ifs": 0.12739886736461117,
+        "icon_eu": 0.12127120447752902,
+        "gfs_global": 0.10204011555890556,
+        "icon_global": 0.11558395591825212,
+        "ukmo_global_deterministic_10km": 0.11245572306527785
+      },
+      "96-168h": {
+        "ncep_aigfs025": 0.1938061938061938,
+        "gem_global": 0.1778221778221778,
+        "gfs_global": 0.16683316683316682,
+        "icon_global": 0.15684315684315683,
+        "ecmwf_ifs": 0.1558441558441558,
+        "ukmo_global_deterministic_10km": 0.14885114885114883
+      }
+    },
+    "wind_speed": {
+      "0-48h": {
+        "dwd_icon_d2": 0.0698081074898206,
+        "ecmwf_ifs": 0.07705865130848745,
+        "ukmo_global_deterministic_10km": 0.07364614533716264,
+        "gem_global": 0.07118715169118744,
+        "icon_global": 0.06769146624922587,
+        "ncep_aigfs025": 0.07169572060296198,
+        "icon_eu": 0.06756207493634553,
+        "meteofrance_arome_france_hd": 0.07299754864499748,
+        "meteofrance_arome_france": 0.07232916401294359,
+        "dmi_harmonie_arome_europe": 0.06784767041849381,
+        "gfs_global": 0.059987078329906844,
+        "knmi_harmonie_arome_europe": 0.06707192835860322,
+        "meteofrance_arpege_europe": 0.0579603885212327,
+        "ncep_hrrr_conus": 0.05012341342846062,
+        "gem_regional": 0.053033490670170255
+      },
+      "48-96h": {
+        "icon_eu": 0.12086580019187983,
+        "ecmwf_ifs": 0.1446334767892611,
+        "icon_global": 0.11651823914103626,
+        "gem_global": 0.12942694827038678,
+        "ukmo_global_deterministic_10km": 0.13804865203116518,
+        "ncep_aigfs025": 0.1336487446053909,
+        "gfs_global": 0.10766315659838753,
+        "meteofrance_arpege_europe": 0.10919498237249242
+      },
+      "96-168h": {
+        "ecmwf_ifs": 0.18323343323343325,
+        "ukmo_global_deterministic_10km": 0.17524142524142525,
+        "icon_global": 0.17274392274392275,
+        "gem_global": 0.16874791874791878,
+        "ncep_aigfs025": 0.15626040626040627,
+        "gfs_global": 0.14377289377289376
+      }
+    }
+  }
+}

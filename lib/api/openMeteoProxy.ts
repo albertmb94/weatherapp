@@ -132,10 +132,13 @@ export async function fetchOpenMeteoWithModelFallback(
   requestParams: URLSearchParams,
   signal?: AbortSignal
 ): Promise<{ res: Response; modelsUsed: string[]; modelsRejected: string[] }> {
+  // A model rejection must not restart the 25 s budget and turn one
+  // request into two full retry sequences beyond Vercel's 30 s limit.
+  const budgetSignal = combineSignals(signal, AbortSignal.timeout(TOTAL_BUDGET_MS))
   const requested = (requestParams.get('models') ?? '').split(',').filter(Boolean)
   let url = requestUrl
   const modelsRejected: string[] = []
-  let res = await fetchWithRetry(url, signal)
+  let res = await fetchWithRetry(url, budgetSignal)
   if (res.status !== MODEL_NOT_FOUND_STATUS || requested.length === 0) {
     return { res, modelsUsed: requested, modelsRejected }
   }
@@ -147,7 +150,7 @@ export async function fetchOpenMeteoWithModelFallback(
     const params = new URLSearchParams(requestParams)
     params.delete('models')
     url = `${new URL(requestUrl).origin}${new URL(requestUrl).pathname}?${params.toString()}`
-    res = await fetchWithRetry(url, signal)
+    res = await fetchWithRetry(url, budgetSignal)
     modelsRejected.push(...requested)
     return { res, modelsUsed: [], modelsRejected }
   }
@@ -162,7 +165,7 @@ export async function fetchOpenMeteoWithModelFallback(
     params.delete('models')
   }
   url = `${new URL(requestUrl).origin}${new URL(requestUrl).pathname}?${params.toString()}`
-  res = await fetchWithRetry(url, signal)
+  res = await fetchWithRetry(url, budgetSignal)
   return { res, modelsUsed: params.get('models')?.split(',').filter(Boolean) ?? [], modelsRejected }
 }
 

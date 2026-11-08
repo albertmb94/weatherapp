@@ -17,19 +17,13 @@ const TABLE: BiasTable = {
 }
 
 describe('biasForMetricBucket', () => {
-  it('resolves the bucket from the lead time', () => {
-    expect(biasForMetricBucket(TABLE, 'temperature', 0)).toEqual({
-      ecmwf_ifs: 2,
-      icon_global: -1,
-    })
-    expect(biasForMetricBucket(TABLE, 'temperature', 120)).toEqual({ ecmwf_ifs: 0.5 })
+  it('does not apply corrections absent from the validated release algorithm', () => {
+    expect(biasForMetricBucket(TABLE, 'temperature', 0)).toBeUndefined()
+    expect(biasForMetricBucket(TABLE, 'temperature', 120)).toBeUndefined()
   })
 
-  it('falls back to 0-48h when the higher bucket is unmeasured', () => {
-    expect(biasForMetricBucket(TABLE, 'temperature', 200)).toEqual({
-      ecmwf_ifs: 2,
-      icon_global: -1,
-    })
+  it('does not extrapolate short-lead bias into an unmeasured horizon', () => {
+    expect(biasForMetricBucket(TABLE, 'temperature', 200)).toBeUndefined()
   })
 
   it('returns undefined when the metric or the whole table is missing', () => {
@@ -44,10 +38,7 @@ describe('biasForMetricBucket', () => {
     const windTable: BiasTable = { wind_speed: { '0-48h': { ecmwf_ifs: 2 } } }
     expect(biasForMetricBucket(windTable, 'wind_speed', 0)).toBeUndefined()
     // temperature is on the whitelist, so it still resolves.
-    expect(biasForMetricBucket(TABLE, 'temperature', 0)).toEqual({
-      ecmwf_ifs: 2,
-      icon_global: -1,
-    })
+    expect(biasForMetricBucket(TABLE, 'temperature', 0)).toBeUndefined()
   })
 })
 

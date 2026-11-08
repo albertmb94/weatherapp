@@ -758,7 +758,7 @@ export default function InsightsTable({
         const gEns = ensembleWithFallback(s, 'wind_gusts', i, activeModels, wedaiModels, gWeights, undefined, biasForMetricAt('wind_gusts', i))
         if (gEns !== null && (b.gustsMax === null || gEns > b.gustsMax)) b.gustsMax = gEns
         const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const pEns = ensembleWithFallback(s, 'precipitation', i, activeModels, wedaiModels, pWeights, undefined, biasForMetricAt('precipitation', i))
+        const pEns = ensembleWithFallback(s, 'precipitation', i, activeModels, wedaiModels, pWeights, undefined, biasForMetricAt('precipitation', i), ensembleMode === 'wedai')
         if (pEns !== null) b.precipSum = (b.precipSum ?? 0) + pEns
         const hWeights = getWeightsForMetricAndHour('humidity', i)
         const hEns = ensembleWithFallback(s, 'humidity', i, activeModels, wedaiModels, hWeights, undefined, biasForMetricAt('humidity', i))

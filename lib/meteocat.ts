@@ -35,6 +35,8 @@ export interface StationMeta {
 interface Reading {
   data: string
   valor: number
+  baseHoraria?: string
+  estat?: string
 }
 
 function num(v: unknown): number | null {
@@ -89,7 +91,10 @@ export function parseVariableReadings(json: unknown): Map<string, Reading[]> {
       const valor = num(lr.valor)
       const data = typeof lr.data === 'string' ? lr.data : ''
       if (valor === null) continue
-      readings.push({ data, valor })
+      readings.push({ data, valor,
+        ...(typeof lr.baseHoraria === 'string' ? { baseHoraria: lr.baseHoraria } : {}),
+        ...(typeof lr.estat === 'string' ? { estat: lr.estat } : {}),
+      })
     }
     readings.sort((a, b) => a.data.localeCompare(b.data))
     out.set(code, readings)

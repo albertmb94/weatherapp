@@ -64,7 +64,7 @@ const HEAT_STYLE_CACHE = new Map<string, CSSProperties>()
 const HEAT_STYLE_CACHE_LIMIT = 5000
 
 export function heatStyle(metric: ScaleMetric, value: number | null): CSSProperties {
-  if (value === null || value === undefined) return TRANSPARENT_STYLE
+  if (value === null || value === undefined || !Number.isFinite(value)) return TRANSPARENT_STYLE
   const key = `${metric}|${value}`
   const cached = HEAT_STYLE_CACHE.get(key)
   if (cached) return cached
@@ -77,7 +77,7 @@ export function heatStyle(metric: ScaleMetric, value: number | null): CSSPropert
   const style = {
     ['--heat-rgb-triple' as string]: triple,
     backgroundColor: `rgba(${triple}, ${tintAlpha}%)`,
-    backgroundImage: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid})% 50%, rgba(${triple},0) 92%)`,
+    backgroundImage: `radial-gradient(ellipse var(--heat-cell-bg-size, 32% 60%) at 50% 50%, rgba(${triple},${core}%) 0%, rgba(${triple},${mid}%) 50%, rgba(${triple},0) 92%)`,
   } as CSSProperties
   if (HEAT_STYLE_CACHE.size >= HEAT_STYLE_CACHE_LIMIT) {
     let toDelete = HEAT_STYLE_CACHE.size - HEAT_STYLE_CACHE_LIMIT / 2

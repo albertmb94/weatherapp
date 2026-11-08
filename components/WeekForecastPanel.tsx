@@ -40,6 +40,7 @@ interface WeekForecastPanelProps {
   ensembleMode?: 'wedai' | 'models'
   /** Phase 3: terrain-wide bias table for the day aggregates. */
   biasTable?: BiasTable | null
+  baseLeadTimeHours?: number
 }
 
 function fmtTemp(value: number | null): string {
@@ -59,13 +60,14 @@ export default function WeekForecastPanel({
   onSelectHour,
   ensembleMode = 'models',
   biasTable = null,
+  baseLeadTimeHours = 0,
 }: WeekForecastPanelProps) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
 
   const days = useMemo<DaySummary[]>(
-    () => computeWeekSummaries({ time, series }, models, activeIds, nowIndex, maxHours, locale, weekDays, ensembleMode, biasTable),
-    [models, activeIds, time, series, nowIndex, maxHours, locale, weekDays, ensembleMode, biasTable]
+    () => computeWeekSummaries({ time, series }, models, activeIds, nowIndex, maxHours, locale, weekDays, ensembleMode, biasTable, baseLeadTimeHours),
+    [models, activeIds, time, series, nowIndex, maxHours, locale, weekDays, ensembleMode, biasTable, baseLeadTimeHours]
   )
 
   if (days.length === 0) return null

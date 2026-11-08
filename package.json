@@ -22,6 +22,8 @@
     "backtest": "tsx scripts/runBacktest.ts",
     "migrate": "tsx scripts/migrate.ts",
     "eval:ensemble": "tsx scripts/evalEnsemble.ts",
+    "calibrate:temporal": "tsx scripts/recalibrate.ts",
+    "verify:calibration-stations": "tsx --env-file=.env.local scripts/verifyCalibrationStations.ts",
     "eval:stations": "tsx --env-file=.env.local scripts/evalAgainstStations.ts",
     "archive:stations": "tsx --env-file=.env.local scripts/archiveStations.ts",
     "archive:station-forecasts": "tsx --env-file=.env.local scripts/archiveStationForecasts.ts",

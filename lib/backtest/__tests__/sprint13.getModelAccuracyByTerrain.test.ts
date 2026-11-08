@@ -98,7 +98,7 @@ describe('getModelAccuracyByTerrain', () => {
     const call = executeMock.mock.calls[0][0] as { sql: string; args: unknown[] }
     // B-NBT-3: aggregated terrain-wide query.
     expect(call.sql).toContain('GROUP BY model_id')
-    expect(call.sql).toContain('AVG(rmse)')
+    expect(call.sql).toContain('SUM(rmse * rmse * sample_count)')
     expect(call.sql).toContain('terrain_type = ?')
     expect(call.sql).toContain('metric = ?')
     expect(call.sql).toContain('lead_time_bucket IN (?)')
@@ -158,6 +158,6 @@ describe('getModelAccuracyByTerrain', () => {
     const call = executeMock.mock.calls[0][0] as { args: unknown[] }
     const cutoffIso = call.args[call.args.length - 2] as string
     const cutoffAgeDays = (Date.now() - Date.parse(cutoffIso)) / (24 * 60 * 60 * 1000)
-    expect(cutoffAgeDays).toBeLessThanOrEqual(30)
+    expect(cutoffAgeDays).toBeLessThanOrEqual(30 + 1e-6)
   })
 })

@@ -233,15 +233,16 @@ function parseTodaySunset(daily: Record<string, unknown> | undefined): number | 
   }
   return null
 }
-export async function fetchForecast(
+export const DEFAULT_FORECAST_POSITION: [number, number] = [41.4500, 2.2475]
+export const DEFAULT_FORECAST_DAYS = 16
+
+export function buildForecastRequest(
   lat: number,
   lon: number,
   models: WeatherModel[],
   metrics: Metric[],
-  forecastDays = 7,
-  signal?: AbortSignal,
-  includeMarine = false
-): Promise<ForecastResult> {
+  forecastDays: number,
+) {
   const landModels = models.filter(m => m.id !== 'marine_global')
   // Use region-aware selection: prioritize high-res regional models for the
   // user's location, then cap at MAX_FORECAST_MODELS. The tier-ordered
@@ -311,9 +312,29 @@ export async function fetchForecast(
     v: CACHE_KEY_VERSION,
   })
 
+  return { url: "/api/forecast?" + params.toString(), capped }
+}
+
+export async function fetchForecast(
+  lat: number,
+  lon: number,
+  models: WeatherModel[],
+  metrics: Metric[],
+  forecastDays = 7,
+  signal?: AbortSignal,
+  includeMarine = false
+): Promise<ForecastResult> {
+  const { url, capped } = buildForecastRequest(lat, lon, models, metrics, forecastDays)
   // The proxy has a 25 s upstream budget plus stale-cache lookup. A 20 s
   // client timeout discarded valid responses before that fallback completed.
-  const res = await fetchWithTimeout(`/api/forecast?${params}`, { signal, timeoutMs: 32_000 })
+  const landRequest = fetchWithTimeout(url, { signal, timeoutMs: 32_000 })
+  const marineRequest = includeMarine
+    ? fetchMarine(lat, lon, metrics, computeMarineDays(forecastDays * 24), signal).catch(err => {
+        if (!signal?.aborted) console.warn('[Marine] fetch failed', err)
+        return null
+      })
+    : null
+  const res = await landRequest
   if (!res.ok) throw new Error(`Forecast API error: ${res.status}`)
   const data = await res.json()
 
@@ -339,58 +360,47 @@ export async function fetchForecast(
       const raw = data.hourly[key]
       // Preserve the provider's index exactly: missing/invalid values become
       // null, never zero, another model's best-match, or a shifted array.
-      const arr = Array.from({ length: time.length }, (_, i) =>
-        Array.isArray(raw) && typeof raw[i] === 'number' && Number.isFinite(raw[i]) ? raw[i] as number : null)
-      // Visibility comes back in metres from Open-Meteo; normalize once
-      // here to km so every consumer (table, chart, CSV, map) reads the
-      // same unit. Previously the model was advertised as `km` but the
-      // raw value flowed through unmodified, so 10 000 m rendered/exported
-      // as 10 000 km.
-      if (metric.id === 'visibility' && Array.isArray(arr)) {
-        series[model.id][metric.id] = arr.map((v: number | null) =>
-          v === null || v === undefined ? null : v / 1000)
-      } else {
-        series[model.id][metric.id] = arr ?? null
+      const values = new Array<number | null>(time.length).fill(null)
+      if (Array.isArray(raw)) {
+        const divisor = metric.id === 'visibility' ? 1000 : 1
+        for (let i = 0; i < Math.min(raw.length, values.length); i++) {
+          const value = raw[i]
+          if (typeof value === 'number' && Number.isFinite(value)) values[i] = value / divisor
+        }
       }
+      series[model.id][metric.id] = values
     }
     series[model.id]['wind_direction'] = data.hourly[`wind_direction_10m_${model.id}`] ?? null
   }
 
-  if (includeMarine) {
-    const marineDays = computeMarineDays(forecastDays * 24)
-    try {
-      const marine = await fetchMarine(lat, lon, metrics, marineDays, signal)
-      const marineLen = marine.timeStrings.length
-      if (marineLen > 0) {
-        const landHourIndex = new Map<number, number>()
-        for (let i = 0; i < time.length; i++) {
-          landHourIndex.set(Math.floor(time[i].getTime() / 3600000), i)
-        }
-        // Align marine data by canonical hour key so it works even when
-        // the marine API uses a different timezone than the land API
-        // (e.g. marine may return UTC while land returns local time).
-        // If no marine timestamp aligns with the land series (e.g. the
-        // two APIs were queried across a DST / instant boundary), skip
-        // merging for that metric so we don't silently broadcast nulls.
-        for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
-          const aligned = new Array(timeStrings.length).fill(null) as (number | null)[]
-          let matched = 0
-          for (let j = 0; j < marineLen; j++) {
-            const hourKey = Math.floor(marine.time[j].getTime() / 3600000)
-            const idx = landHourIndex.get(hourKey)
-            if (idx !== undefined) {
-              aligned[idx] = values[j]
-              matched++
-            }
-          }
-          if (matched > 0) {
-            series.marine_global = series.marine_global ?? {}
-            series.marine_global[metricId] = aligned
-          }
+  const marine = marineRequest && await marineRequest
+  if (marine && marine.timeStrings.length > 0) {
+    const marineLen = marine.timeStrings.length
+    const landHourIndex = new Map<number, number>()
+    for (let i = 0; i < time.length; i++) {
+      landHourIndex.set(Math.floor(time[i].getTime() / 3600000), i)
+    }
+    // Align marine data by canonical hour key so it works even when
+    // the marine API uses a different timezone than the land API
+    // (e.g. marine may return UTC while land returns local time).
+    // If no marine timestamp aligns with the land series (e.g. the
+    // two APIs were queried across a DST / instant boundary), skip
+    // merging for that metric so we don't silently broadcast nulls.
+    for (const [metricId, values] of Object.entries(marine.series.marine_global)) {
+      const aligned = new Array(timeStrings.length).fill(null) as (number | null)[]
+      let matched = 0
+      for (let j = 0; j < marineLen; j++) {
+        const hourKey = Math.floor(marine.time[j].getTime() / 3600000)
+        const idx = landHourIndex.get(hourKey)
+        if (idx !== undefined) {
+          aligned[idx] = values[j]
+          matched++
         }
       }
-    } catch (err) {
-      console.warn('[Marine] fetch failed', err)
+      if (matched > 0) {
+        series.marine_global = series.marine_global ?? {}
+        series.marine_global[metricId] = aligned
+      }
     }
   }
 

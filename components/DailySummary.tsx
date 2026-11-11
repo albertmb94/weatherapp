@@ -258,19 +258,10 @@ export default function DailySummary({
 
   if (days.length === 0) return null
 
-  // Always 7 columns max so cards never shrink below the 7-days size.
-  // When there are more than 7 days, the grid overflows horizontally
-  // and the user scrolls; on sm+ the grid switches to the natural
-  // auto-fit layout that wraps to multiple rows.
-  const cols = Math.min(days.length, 7)
-
   return (
     <div className="mb-3">
       <h3 className="text-sm font-semibold text-text-primary mb-2">{STRINGS[locale].dailyTitle}</h3>
-      <div
-        className="grid gap-1 overflow-x-auto scrollbar-none"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(4.5rem, 1fr))` }}
-      >
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
         {days.map((d, i) => {
           // The active state comes from two sources, in priority order:
           //   1. `activeDayStartIndex` is set by the parent when the
@@ -301,28 +292,28 @@ export default function DailySummary({
               aria-label={(onSelectDay
                 ? (locale === 'en' ? `Filter Insights to ${d.label}.` : `Filtrar Insights desde ${d.label}.`)
                 : (locale === 'en' ? `Jump to ${d.label} at 12:00.` : `Ir a ${d.label} a las 12:00.`))}
-              className={`min-w-0 px-1.5 py-1.5 rounded border text-center transition-all cursor-pointer bg-gradient-to-br ${ICON_GRADIENTS[d.icon]} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
+              className={`daily-summary-card min-w-0 px-0.5 py-1.5 sm:px-1.5 rounded border text-center transition-all cursor-pointer bg-gradient-to-br ${ICON_GRADIENTS[d.icon]} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
                 isCurrent ? 'border-accent shadow-[0_0_8px_var(--accent-soft)]' : 'border-border hover:border-border-strong'
               }`}
               title={onSelectDay
                 ? (locale === 'en' ? `Filter Insights from ${d.label} (00:00)` : `Filtrar Insights desde ${d.label} (00:00)`)
                 : `Jump to ${d.label} at 12:00`}
             >
-              <div className="text-[11px] font-semibold text-text-primary truncate">{d.label}</div>
+              <div className="whitespace-nowrap text-[8px] min-[360px]:text-[9px] sm:text-[11px] font-semibold text-text-primary">{d.label}</div>
               <div className="flex justify-center my-0.5"><WeatherConditionIcon icon={d.icon} /></div>
-              <div className="flex items-baseline justify-center gap-0.5 leading-none">
-                <span className="text-[11px] font-bold text-text-primary">{d.tMax !== null ? Math.round(d.tMax) : '–'}°</span>
-                <span className="text-[10px] text-text-tertiary">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
+              <div data-testid="daily-temperatures" className="flex flex-wrap items-baseline justify-center gap-x-0.5 leading-none">
+                <span className="text-[9px] sm:text-[11px] font-bold text-text-primary">{d.tMax !== null ? Math.round(d.tMax) : '–'}°</span>
+                <span className="text-[8px] sm:text-[10px] text-text-tertiary">{d.tMin !== null ? Math.round(d.tMin) : '–'}°</span>
               </div>
-              <div className="mt-0.5 flex items-baseline justify-center gap-0.5 text-[9px] text-text-tertiary leading-none tabular-nums">
-                <span title={STRINGS[locale].precipTotalTitle}>{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>
-                <span className="text-text-muted">·</span>
-                <span title={STRINGS[locale].windMaxTitle}>{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>
+              <div className="mt-0.5 flex flex-wrap items-baseline justify-center gap-x-0.5 text-[8px] sm:text-[9px] text-text-tertiary leading-tight tabular-nums">
+                <span className="[font-size:inherit]" title={STRINGS[locale].precipTotalTitle}>{d.precipTotal !== null ? d.precipTotal.toFixed(1) : '–'}</span>
+                <span className="[font-size:inherit] text-text-muted">·</span>
+                <span className="[font-size:inherit]" title={STRINGS[locale].windMaxTitle}>{d.windMax !== null ? Math.round(d.windMax) : '–'}</span>
               </div>
               {showMarine && d.hasMarineData && (
-                <div className="mt-0.5 flex items-center justify-center text-[9px] text-cyan-300 leading-none tabular-nums" title={STRINGS[locale].waveTitle}>
+                <div className="mt-0.5 flex flex-wrap items-center justify-center text-[8px] sm:text-[9px] text-cyan-300 leading-tight tabular-nums" title={STRINGS[locale].waveTitle}>
                   {d.waveHeightMax !== null ? d.waveHeightMax.toFixed(1) : '–'}
-                  {d.wavePeriodMean !== null && <span className="ml-0.5 text-text-tertiary">/{Math.round(d.wavePeriodMean)}s</span>}
+                  {d.wavePeriodMean !== null && <span className="ml-0.5 [font-size:inherit] text-text-tertiary">/{Math.round(d.wavePeriodMean)}s</span>}
                 </div>
               )}
             </button>

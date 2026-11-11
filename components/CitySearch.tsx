@@ -66,11 +66,9 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (query.length < 2) {
-      debounceRef.current = setTimeout(() => setDebouncedQuery(''), 150)
-      return
-    }
-    debounceRef.current = setTimeout(() => setDebouncedQuery(query), 300)
+    const search = query.trim()
+    if (suppressAutoOpenRef.current || search.length < 2) return
+    debounceRef.current = setTimeout(() => setDebouncedQuery(search), 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query])
 
@@ -88,31 +86,32 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
       const data = await res.json()
       return data.results ?? []
     },
-    enabled: debouncedQuery.length >= 2,
+    enabled: debouncedQuery.length >= 2 && debouncedQuery === query.trim(),
     staleTime: 60 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
   })
 
-  // Open the dropdown when results arrive, unless suppressed after selection.
+  const resultsMatch = debouncedQuery === query.trim() && results.length > 0
+
+  // Open the dropdown when results for the current input arrive.
   useEffect(() => {
-    if (results.length > 0 && !suppressAutoOpenRef.current) {
+    if (resultsMatch && !suppressAutoOpenRef.current) {
       setIsOpen(true)
     }
-  }, [results])
+  }, [resultsMatch])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     setQuery(val)
     // User typed something new → re-enable auto-open.
     suppressAutoOpenRef.current = false
-    if (val.length < 2) {
-      setIsOpen(false)
-    }
+    if (val.trim().length < 2) setDebouncedQuery('')
   }
 
   function handleSelect(r: GeocodeResult) {
     suppressAutoOpenRef.current = true
+    inputRef.current?.focus()
     setQuery(r.name)
     setDebouncedQuery('')
     setIsOpen(false)
@@ -156,7 +155,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         type="text"
         value={query}
         onChange={handleChange}
-        onFocus={() => { if (results.length > 0) setIsOpen(true) }}
+        onFocus={() => { if (resultsMatch) setIsOpen(true) }}
         placeholder={STRINGS[locale].searchPlaceholder}
         // Bump right padding from pr-3 → pr-9 so the typed text
         // never slides under the new clear button (or the
@@ -187,16 +186,18 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
           </svg>
         </button>
       )}
-      {isOpen && results.length > 0 && (
+      {isOpen && resultsMatch && (
         <ul className="absolute z-50 left-0 right-0 mt-1 bg-surface-popover border border-border rounded-lg shadow-lg max-h-48 overflow-auto animate-fadeIn">
           {results.map(r => (
-            <li
-              key={r.id}
-              onClick={() => handleSelect(r)}
-              className="px-3 py-2 cursor-pointer hover:bg-surface text-text-primary text-sm transition-colors"
-            >
-              <span>{r.name}</span>
-              {r.country && <span className="text-text-tertiary">, {r.country}</span>}
+            <li key={r.id}>
+              <button
+                type="button"
+                onClick={() => handleSelect(r)}
+                className="w-full px-3 py-2 text-left cursor-pointer hover:bg-surface focus-visible:bg-surface text-text-primary text-sm transition-colors"
+              >
+                <span>{r.name}</span>
+                {r.country && <span className="text-text-tertiary">, {r.country}</span>}
+              </button>
             </li>
           ))}
         </ul>

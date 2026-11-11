@@ -138,21 +138,20 @@ export async function listAllFeatures(): Promise<
  *  "skipped", hasta que alguien abría /admin/features y pulsaba
  *  guardar. */
 export const ensureFeatureFlagsSchema = memoizeSchema('features', async () => {
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS feature_flags (
-      key TEXT PRIMARY KEY,
-      enabled INTEGER NOT NULL DEFAULT 0,
-      config TEXT,
-      description TEXT,
-      updated_at INTEGER,
-      updated_by TEXT
-    )`,
-  )
-  // Seed catalogue rows (idempotent — INSERT OR IGNORE keeps manual edits)
-  for (const meta of FEATURE_CATALOG) {
-    await db.execute(
-      `INSERT OR IGNORE INTO feature_flags (key, enabled, description) VALUES (?, 0, ?)`,
-      [meta.key, meta.description],
-    )
-  }
+  await db.batchOrThrow([
+    {
+      sql: `CREATE TABLE IF NOT EXISTS feature_flags (
+        key TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 0,
+        config TEXT,
+        description TEXT,
+        updated_at INTEGER,
+        updated_by TEXT
+      )`,
+    },
+    ...FEATURE_CATALOG.map(meta => ({
+      sql: 'INSERT OR IGNORE INTO feature_flags (key, enabled, description) VALUES (?, 0, ?)',
+      args: [meta.key, meta.description],
+    })),
+  ])
 })

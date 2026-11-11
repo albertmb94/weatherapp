@@ -168,6 +168,10 @@ body {
     min-height: var(--min-touch);
     min-width: var(--min-touch);
   }
+
+  .daily-summary-card {
+    min-width: 0;
+  }
 }
 
 /* B-NEW-4: Insights table first-column width.
@@ -220,7 +224,7 @@ body {
      never fired in 844 x 390 landscape (an iPhone rotated), so the
      table there used desktop column widths + radial heatmap even
      though the chrome was identical to portrait. The new query
-     extends the same --when-col-w + --heat-cell-bg-size + solid
+     extends the same --when-col-w and the solid
      background override to all phone-form-factor viewports, both
      portrait and landscape. The (max-width: 932 and max-height: 540
      in landscape) shape catches every iPhone from SE (568 x 320) to
@@ -229,7 +233,7 @@ body {
    :root {
     --when-col-w: 88px;
     --insights-data-col-w: 46px; /* B-NEW-22 (2026-07-27, iPhone 16 portrait fix) */
-    --heat-cell-bg-size: 95% 95%;
+    --insights-cell-tint: 100%;
   }
   /* B-NEW-22 (2026-07-27) + B-NEW-26 (2026-07-28): on the
      smallest phones (iPhone SE at 320 px, for example) the
@@ -253,77 +257,17 @@ body {
       --insights-data-col-w: 32px;
     }
   }
-  [style*='--heat-rgb-triple'] {
-    background: rgb(var(--heat-rgb-triple)) !important;
+  .insights-heat-cell[style*='--insights-cell-color'] {
+    color: #0a0a0a;
   }
 }
 
-/* B-NEW-19 (2026-07-27): heat-cell text colour.
-
-   The app uses `html.light` for light mode and the absence of any
-   class for dark mode (the default). The Insights table wants:
-     - light theme (html.light)                → black text always
-     - dark theme, portrait                    → black text
-     - dark theme, landscape                   → white text
-       (the dark heatmap gradient is too dark to read black on)
-
-   We previously encoded this as Tailwind's `dark:landscape:text-white`
-   but Tailwind v4's `dark:` variant only matches when an ancestor
-   carries a `.dark` class — which this app never sets (it sets
-   `.light` instead). The Tailwind variant also has no
-   `prefers-color-scheme` fallback, so it should be a no-op in this
-   project, but on the deployed build we observed the rule firing in
-   light mode anyway (likely a class collision from another rule
-   higher in the cascade). To be unambiguous we resolve the colour
-   with a single CSS rule that reads from `html` directly, so there
-   is no Tailwind class involved at all.
-
-   The user explicitly asked: "Atencion a modo claro y oscuro,
-   ya que el texto se comportaba de forma distina" — they want
-   the theme-dependent behaviour back, with black text on a
-   light-coloured heatmap (light mode + dark portrait) and
-   white text on a dark heatmap (dark landscape, where the
-   35% alpha tint + soft-glow gradient lands in the lower
-   end of the heatmap and reads too dark for black). */
-:root {
-  --heat-cell-text: #0a0a0a; /* default = dark theme, portrait */
-}
-html.light {
-  --heat-cell-text: #0a0a0a; /* light theme: always black */
-}
-/* Sprint 15: gated to "real-desktop landscape" (>=1024 px AND landscape).
-   Phone landscape (iPhone 390 x 844 rotated) no longer triggers white
-   text — keeps the heatmap text consistent with portrait. */
-@media (min-width: 1024px) and (orientation: landscape) {
-  :root:not(.light) {
-    --heat-cell-text: #f5f5f5; /* dark + real-desktop landscape: white */
-  }
-}
-
-/* B-NEW-7 (2026-07-24) + Sprint 16: heat-cell gradient size.
-
-   The radial gradient inside each InsightsTable cell is a
-   32%×60% ellipse centred in the cell on desktop — the
-   "soft glow that doesn't reach the cell border" character the
-   user has approved multiple times.
-
-   On phone-form-factor viewports (portrait <= 767 px, plus
-   landscape phones up to 932 x 540) the bg-size widens to 95%×95%
-   so the colour reaches the cell border and the solid-colour
-   override below has a uniform fill to draw from. The cell
-   component reads this size via `var(--heat-cell-bg-size)` in
-   the inline background.
-
-   The mobile case is unified in the same media query as the
-   --when-col-w override at the top of the file (Sprint 16).
-   Do not re-introduce a separate (max-width: 639) block here. */
-:root {
-  --heat-cell-bg-size: 32% 60%;
-}
-
-.leaflet-container {
-  background: #1a1a2e;
-  z-index: 1;
+.insights-heat-cell {
+  background-color: color-mix(
+    in srgb,
+    var(--insights-cell-color, transparent) var(--insights-cell-tint, 16%),
+    transparent
+  );
 }
 
 /* MAPA OSCURO SIN SEGUNDO PROVEEDOR.
@@ -497,27 +441,6 @@ html.light .now-slot {
     color-mix(in srgb, var(--accent) 8%, transparent) 45%,
     transparent 90%
   );
-}
-
-/* Insights table cells: a stronger radial so colours diffuminate well
- * inside each cell. The cell component already inlines a
- * `radial-gradient(...)` background via React; CSS here only overrides
- * it on mobile, where the user wants the original solid hue look:
- * black text on a flat heat-coloured background (the heatmap colour
- * is always readable in black, no soft glow required). The cell
- * passes the colour RGB triple as `--heat-rgb-triple`.
- *
- * B-NEW-18 (2026-07-27): restored this override. The user's explicit
- * request was "modo claro y modo oscuro: texto en negro + fondo en
- * escala de color" — solid coloured background based on the metric,
- * with black text in both themes. The radial gradient is kept on
- * desktop via the `lg:` breakpoint, so the desktop still shows
- * the "soft glow around the number" the user asked for separately.
-   */
-@media (max-width: 767px) {
-  [style*='--heat-rgb-triple'] {
-    background: rgb(var(--heat-rgb-triple)) !important;
-  }
 }
 
 .scrollbar-none {

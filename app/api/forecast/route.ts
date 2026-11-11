@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { buildForecastCacheKey, buildUpstreamParams } from '@/lib/cacheKey'
 import { getCachedForecast, getCachedForecastStale, setCachedForecast } from '@/lib/forecastCache'
 import { rateLimit } from '@/lib/rateLimit'
@@ -110,17 +110,14 @@ export async function GET(request: Request) {
     }
     const fetchedAt = Date.now()
     const { parsed, bodyText } = parseOpenMeteoResponse(text)
-    // Await the Turso write so the persistence completes before the
-    // route hands control back to the runtime. On a serverless
-    // function the response lifecycle ends very quickly after this
-    // returns — fire-and-forget writes can be lost on a cold start
-    // or when the runtime trims the event loop. We still wrap in
-    // `try/catch` so a transient Turso outage doesn't 5xx the user.
-    try {
-      await setCachedForecast(cacheKey, bodyText, fetchedAt)
-    } catch (err) {
-      console.warn('forecast_cache write failed', err)
-    }
+    // Keep the function alive for persistence without delaying the response.
+    after(async () => {
+      try {
+        await setCachedForecast(cacheKey, bodyText, fetchedAt)
+      } catch (err) {
+        console.warn('forecast_cache write failed', err)
+      }
+    })
     const headers: Record<string, string> = {
       ...FRESH_CACHE_HEADERS,
       'X-Forecast-Cache': 'miss',
@@ -140,7 +137,9 @@ export async function GET(request: Request) {
       headers['X-Forecast-Models-Empty'] = emptyModels.join(',')
       console.warn(`forecast: provider returned all-null payload for models=${emptyModels.join(',')}`)
     }
-    return NextResponse.json(parsed, { headers })
+    return new NextResponse(bodyText, {
+      headers: { ...headers, 'Content-Type': 'application/json' },
+    })
   } catch {
     const stale = await getCachedForecastStale(cacheKey).catch(() => null)
     if (stale) {

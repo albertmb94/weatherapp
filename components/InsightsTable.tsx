@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useCallback, useRef, useEffect, memo } from 'react'
-import type { WeatherModel, MetricId } from '@/lib/models'
+import { getLeadTimeBucket, type WeatherModel, type MetricId } from '@/lib/models'
 import type { ScaleMetric } from '@/lib/colorScales'
 import { weightedAvg } from '@/lib/ensemble'
 import { resolveActiveModels, weightsForAbsolute, weightsForProfile, ensembleWithFallback, biasForMetricBucket, type BiasTable } from '@/lib/ensemble/central'
@@ -10,7 +10,7 @@ import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import { useClientNow } from '@/lib/hooks/useClientNow'
 import { useInsightPagination } from '@/lib/hooks/useInsightPagination'
-import { heatStyle as heatStyleFn } from './heatStyle'
+import { heatStyle } from './heatStyle'
 import WeatherConditionIcon from './WeatherConditionIcon'
 
 export type BucketHours = 1 | 2 | 3 | 4 | 6 | 12 | 24
@@ -211,20 +211,6 @@ function saveColumnOrder(order: MetricCellId[]) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(order))
   } catch {}
 }
-
-/**
- * Convert an rgb()/hex colour to its raw "r, g, b" triple so it can be
- * dropped into an rgba(...) value. Used to layer translucent gradients on
- * top of the Insights table cells.
- */
-// Sprint 14: heatStyle was extracted to `components/heatStyle.ts` so
-// `MobileInsightsCard` can reuse it without an import cycle through
-// the 1700-line InsightsTable. The helper retains the memoisation
-// cache and the same intensity / colour mapping it had inline. The
-// export below re-exposes it under the legacy local name so the
-// remaining `cellInner` callers (which still live in this file) keep
-// working without renaming.
-const heatStyle = heatStyleFn
 
 function WindArrow({ degrees }: { degrees: number | null }) {
   if (degrees === null) return null
@@ -579,24 +565,18 @@ export default function InsightsTable({
     // every hour.
     const limit = Math.min(tt.length, maxHours)
 
-    // Build per-metric, per-hour weight arrays.
-    // WedAI mode: use ensemble presets (per-metric, per-horizon weights)
-    // Models mode: B-NBT-9b — ALSO the calibrated presets, restricted to
-    // the user's selection. The old branch used the legacy static
-    // `m.weight` values, so the same selection+hour produced different
-    // numbers here than in Resumen diario / the friendly cards. The
-    // preset lookup keeps the lead-time bucketing consistent across
-    // surfaces; `weightedAvg` renormalizes over whichever selected
-    // models have data at that hour.
-
-    const getWeightsForMetricAndHour = (metric: MetricId | string, hourIndex: number): number[] =>
-      // `hourIndex` is the absolute offset in the data series the
-      // caller passed in (the further-trimmed `times` after the
-      // parent's wall-clock slice). Add the `viewStartIndex` to map
-      // it back to the full-series coord the preset classifier uses.
-      // Falls back to `hourIndex` (i.e. adds 0) when the test
-      // fixtures pass the un-trimmed array directly.
-      weightsForAbsolute(metric as MetricId, hourIndex + viewStartIndex, bucket, activeModels)
+    // The model weights only change when the lead-time bucket changes.
+    const weightsByMetricAndLead = new Map<string, number[]>()
+    const getWeightsForMetricAndHour = (metric: MetricId | 'wind_direction', hourIndex: number): number[] => {
+      const absoluteHour = hourIndex + viewStartIndex
+      const lead = getLeadTimeBucket(Math.max(0, absoluteHour) + (bucket - 1) / 2)
+      const key = `${metric}:${lead}`
+      const cached = weightsByMetricAndLead.get(key)
+      if (cached) return cached
+      const weights = weightsForAbsolute(metric as MetricId, absoluteHour, bucket, activeModels)
+      weightsByMetricAndLead.set(key, weights)
+      return weights
+    }
 
     // Phase 3: matching bias lookup, on the SAME absolute lead the
     // weights use (absolute hour + mid-bucket), so the bias bucket can
@@ -1880,7 +1860,7 @@ export default function InsightsTable({
                     ? { top: 'calc(var(--mobile-header-h, 0px) + 44px)' }
                     : {}),
                 }}
-                className={`sticky left-0 z-50 text-center px-1.5 py-1.5 font-medium border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] ${
+                className={`sticky left-0 z-50 text-center px-1.5 py-1.5 font-medium border-b border-r border-border/60 ${
                   isMobilePortrait ? '' : 'top-0'
                 }`}
                 data-col-id="__when__"
@@ -2097,7 +2077,7 @@ export default function InsightsTable({
                     // height (57px on a single line + chip) so the
                     // table doesn't get the "step" between bucket=24
                     // and bucket=1/2/6/12 the user complained about.
-                    className={`sticky left-0 z-20 px-1.5 py-1.5 whitespace-nowrap text-text-primary border-b border-border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.5)] tabular-nums ${whenBg}`}
+                    className={`sticky left-0 z-20 px-1.5 py-1.5 whitespace-nowrap text-text-primary border-b border-r border-border/60 tabular-nums ${whenBg}`}
                   >
                     {/* Sprint 10 / B-10-2: when bucket=24 and the user is
                        on the actual current hour (selectedHour === 0),
@@ -2218,14 +2198,6 @@ function cellInner({ value, metric, suffix = '', emoji = '', icon, decimals = 0,
   }
 }
 
-/**
-  * Memoised wrapper for a single Insights cell. We pass the raw props
-  * (value, format, etc.) rather than a pre-built CellResult so React.memo
-  * can compare the cell primitives and skip the re-render when nothing
-  * actually changed. The radial-gradient inline style is only re-built
-  * when (value, metric) changes, so the parent URL state changes don't
-  * thrash the GPU with 200+ identical gradient strings.
-  */
 const HeatCell = memo(function HeatCell({
   node,
   style,
@@ -2251,7 +2223,7 @@ const HeatCell = memo(function HeatCell({
       // through iPhone 16 Pro Max). No cell should ever display
       // "…". overflow-hidden is kept as a safety net for edge
       // cases (zoomed text, unusual fonts).
-      className={`text-center py-1.5 font-mono tabular-nums whitespace-nowrap overflow-hidden [color:var(--heat-cell-text)] ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint] ${
+      className={`insights-heat-cell text-center py-1.5 font-mono tabular-nums whitespace-nowrap overflow-hidden text-text-primary ${extraClass} ${hideOnCompact ? 'hidden' : ''} [contain:layout_style_paint] ${
         isPortrait
           ? 'px-0.5'
           : 'px-1.5 sm:px-1 real-desktop:px-2.5'

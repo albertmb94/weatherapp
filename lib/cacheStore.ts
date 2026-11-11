@@ -86,7 +86,8 @@ export function createCacheStore({ tableName, ttlMs, purgeOlderThanMs, maxStaleM
     if (!(await ensureSchema())) return
     await db.execute(
       `INSERT INTO ${tableName} (cache_key, body, fetched_at) VALUES (?, ?, ?)
-       ON CONFLICT(cache_key) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at`,
+       ON CONFLICT(cache_key) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at
+       WHERE excluded.fetched_at >= ${tableName}.fetched_at`,
       [cacheKey, body, now],
     )
     try {

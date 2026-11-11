@@ -25,7 +25,7 @@ import DesktopSidebar, { type SidebarSection } from '@/components/DesktopSidebar
 // component file is still in the repo in case we want to
 // re-introduce the 10-tile grid in a future iteration.
 import { MODELS, METRICS, MARINE_METRIC_IDS, type MetricId, type WeatherModel } from '@/lib/models'
-import { fetchForecast, fetchCurrentUv, rotateDailyToToday, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
+import { DEFAULT_FORECAST_DAYS, DEFAULT_FORECAST_POSITION, fetchForecast, fetchCurrentUv, rotateDailyToToday, type CurrentConditions, type ForecastResult } from '@/lib/openMeteo'
 import { fetchAirQuality, type AirQualityResult } from '@/lib/airQuality'
 import { useUrlState } from '@/lib/useUrlState'
 import { setTrackingContext } from '@/lib/analytics/tracker'
@@ -152,7 +152,7 @@ const StationDashboard = dynamic(() => importWithChunkReload(() => import('@/com
 const SettingsPanel = dynamic(() => import('@/components/SettingsPanel'))
 const CitiesList = dynamic(() => import('@/components/CitiesList'))
 
-const DEFAULT_POS: [number, number] = [41.4500, 2.2475]
+const DEFAULT_POS = DEFAULT_FORECAST_POSITION
 const DEFAULT_CITY = 'Badalona'
 const DEFAULT_METRIC: MetricId = 'temperature'
 const DEFAULT_MODELS = MODELS.map(m => m.id)
@@ -160,7 +160,6 @@ const DEFAULT_MODELS = MODELS.map(m => m.id)
 // removed from the UI in favour of a fixed horizon. Bump this constant
 // if we ever re-introduce the user-facing selector.
 const DEFAULT_RANGE = 336
-const OPEN_METEO_MAX_DAYS = 16
 
 export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // M3: keep initial defaults SSR-safe. The `showMap` derivation uses
@@ -181,7 +180,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
     weekDays: 14 as const,
     ensembleMode: 'wedai' as const,
   }))
-  const [urlState, updateUrl] = useUrlState(defaults)
+  const [urlState, updateUrl, urlReady] = useUrlState(defaults)
 
   // Publica la ciudad y la vista actuales para el emisor de analytics.
   // Hace falta porque `buildQuery` (lib/useUrlState.ts) OMITE lat/lon
@@ -270,6 +269,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   const nearbyStations = useNearbyStations({
     lat: urlState.lat,
     lon: urlState.lon,
+    enabled: urlReady,
   })
 
   // S7.5: header collapses on mobile portrait once the user scrolls past the
@@ -511,12 +511,15 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
 
   // Always fetch the maximum days so DailySummary always has enough data
   // for 14 days regardless of range / weekDays state or past_days offset.
-  const forecastDays = OPEN_METEO_MAX_DAYS
+  const forecastDays = DEFAULT_FORECAST_DAYS
 
-  const { data, isLoading, isFetching, error } = useQuery({
+  const { data, isLoading, isFetching, isPlaceholderData, error, refetch } = useQuery({
+    enabled: urlReady,
     queryKey: ['forecast', position[0], position[1], forecastDays, marine],
     queryFn: ({ signal }) => fetchForecast(position[0], position[1], MODELS, METRICS, forecastDays, signal, marine),
     staleTime: 10 * 60 * 1000,
+    // The server already retries transient failures within its request budget.
+    retry: false,
     refetchOnWindowFocus: true,
     // F-5: keep the previous forecast on screen while a new fetch is in
     // flight, so the city-search / range slider don't briefly flash
@@ -598,6 +601,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // query so its lifecycle is independent of the ensemble forecast and
   // so we can show its valid-at timestamp in the UI.
   const { data: liveUv } = useQuery<CurrentConditions>({
+    enabled: urlReady,
     queryKey: ['currentUv', position[0], position[1]],
     queryFn: ({ signal }) => fetchCurrentUv(position[0], position[1], signal),
     // Refresh once an hour or when the user comes back to the tab. The
@@ -616,6 +620,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // is still gated to desktop / mobile landscape, but the
   // headline value must be available everywhere.
   const airQualityQuery = useQuery<AirQualityResult>({
+    enabled: urlReady,
     queryKey: ['air-quality', position[0], position[1]],
     queryFn: ({ signal }) => fetchAirQuality(position[0], position[1], { signal }),
     staleTime: 60 * 60 * 1000, // 1h — air quality changes on the order of hours
@@ -664,7 +669,7 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // user goes offline can jump forward even though the underlying
   // forecast payload is byte-identical.
   useEffect(() => {
-    if (!data) return
+    if (!data || isPlaceholderData) return
     void saveLastForecast({
       position: [position[0], position[1]],
       cityName,
@@ -672,43 +677,29 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
       fetchedAt: data.fetchedAt,
       data,
     })
-  }, [data, position, cityName])
+  }, [data, isPlaceholderData, position, cityName])
 
-  // F-5: when the query has errored (offline, timeout, etc.), hydrate from
-  // IndexedDB so the app stays useful. We now load by exact location so
-  // a snapshot for a different city can no longer be presented under the
-  // current city's name.
-  const [offlineSnapshot, setOfflineSnapshot] = useState<Awaited<ReturnType<typeof loadLastForecast>>>(null)
-  // B-NBT-9: sequence guard for the offline hydration. The load is
-  // keyed to `position` but resolves asynchronously; without the
-  // counter, switching cities while offline let the SLOWER older load
-  // win and presented the previous city's forecast under the new
-  // city's header (same out-of-order class as the geocode counter
-  // above, which does have this guard).
-  const offlineLoadSeqRef = useRef(0)
+  const [lat, lon] = position
+  const locationKey = `${lat}:${lon}`
+  const [storedForecast, setStoredForecast] = useState<{
+    locationKey: string
+    snapshot: Awaited<ReturnType<typeof loadLastForecast>>
+  } | null>(null)
+
+  // Read the local forecast in parallel with the network request.
   useEffect(() => {
-    if (typeof navigator === 'undefined') return
-    if (error || !navigator.onLine) {
-      const seq = ++offlineLoadSeqRef.current
-      // Async hydrate; the cleanup effect below clears it on next success.
-      void loadLastForecast([position[0], position[1]]).then(s => {
-        if (seq !== offlineLoadSeqRef.current) return
-        if (s) setOfflineSnapshot(s)
-      })
-    }
-  }, [error, position])
-  // Clear the offline snapshot when we successfully come back online.
-  const offlineCleanupRef = useRef(false)
-  useEffect(() => {
-    if (error) {
-      offlineCleanupRef.current = true
-      return
-    }
-    if (offlineCleanupRef.current) {
-      offlineCleanupRef.current = false
-      setOfflineSnapshot(null)
-    }
-  }, [error])
+    if (!urlReady) return
+    let cancelled = false
+    void loadLastForecast([lat, lon]).then(snapshot => {
+      if (!cancelled) setStoredForecast({ locationKey, snapshot })
+    })
+    return () => { cancelled = true }
+  }, [lat, lon, locationKey, urlReady])
+
+  const cachedSnapshot = storedForecast?.locationKey === locationKey ? storedForecast.snapshot : null
+  const offlineSnapshot = cachedSnapshot && (
+    !isOnline || (currentTickMs > 0 && currentTickMs - cachedSnapshot.fetchedAt <= 24 * 60 * 60 * 1000)
+  ) ? cachedSnapshot : null
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -1411,9 +1402,24 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                 and produced a hydration mismatch on every load. */}
             {!isOnline && (
               <div className="mx-4 md:mx-6 mt-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs">
-                {offlineSnapshot
-                  ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(offlineSnapshot.fetchedAt).toLocaleString()}`
+                {effectiveData
+                  ? `${STRINGS[locale].offlineBanner ?? 'Offline'} · ${STRINGS[locale].lastSeen ?? 'last seen'} ${new Date(effectiveData.fetchedAt).toLocaleString()}`
                   : (STRINGS[locale].offlineBanner ?? 'Offline — no cached data')}
+              </div>
+            )}
+            {isOnline && error && !data && (
+              <div role="status" className="mx-4 mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+                <span>{offlineSnapshot
+                  ? (locale === 'en' ? 'Showing the saved forecast.' : 'Se muestra el pronóstico guardado.')
+                  : (locale === 'en' ? 'The forecast could not load.' : 'No se pudo cargar el pronóstico.')}</span>
+                <button
+                  type="button"
+                  className="rounded border border-border px-2 py-1 text-text-primary"
+                  disabled={isFetching}
+                  onClick={() => void refetch()}
+                >
+                  {locale === 'en' ? 'Retry' : 'Reintentar'}
+                </button>
               </div>
             )}
 

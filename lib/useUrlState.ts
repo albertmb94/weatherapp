@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { METRICS } from './models'
+import { parseForecastCoordinates } from './cacheKey'
 
 interface UrlState {
   lat: number
@@ -34,15 +35,9 @@ const MODELS_NONE_TOKEN = 'none'
 
 function parseUrlParams(params: URLSearchParams): Partial<UrlState> {
   const result: Partial<UrlState> = {}
-  const lat = params.get('lat')
-  const lon = params.get('lon')
-  if (
-    lat !== null && lon !== null &&
-    !isNaN(Number(lat)) && !isNaN(Number(lon)) &&
-    Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180
-  ) {
-    result.lat = Number(lat)
-    result.lon = Number(lon)
+  const coordinates = parseForecastCoordinates(params.get('lat'), params.get('lon'))
+  if (coordinates) {
+    [result.lat, result.lon] = coordinates
   }
   const metric = params.get('metric')
   if (metric && ALLOWED_METRICS.has(metric)) result.metric = metric
@@ -111,7 +106,7 @@ function buildQuery(state: UrlState, defaults: UrlState): string {
   return params.toString()
 }
 
-export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<UrlState>) => void] {
+export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<UrlState>) => void, boolean] {
   const lastPushedQuery = useRef<string | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -121,6 +116,7 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
   // has no `window`) and trigger React's hydration error #418 on every
   // deep link. The URL state is resynced in a useEffect below.
   const [state, setState] = useState<UrlState>(() => ({ ...defaults }))
+  const [ready, setReady] = useState(false)
 
   // After mount, fold the real URL params into the state. Any defaults
   // not overridden by the URL stay at their current value.
@@ -131,12 +127,13 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const parsed = parseUrlParams(params)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReady(true)
     // Empty URL → keep defaults. The popstate handler in this hook
     // already covers the case where the user navigates back to "/" via
     // the browser, so we only need to layer the URL on top of whatever
     // the current state is.
     if (Object.keys(parsed).length === 0) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(prev => ({ ...prev, ...parsed }))
   }, [])
 
@@ -186,5 +183,5 @@ export function useUrlState(defaults: UrlState): [UrlState, (updates: Partial<Ur
     setState(prev => ({ ...prev, ...updates }))
   }, [])
 
-  return [state, update]
+  return [state, update, ready]
 }

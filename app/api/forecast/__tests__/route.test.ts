@@ -22,6 +22,12 @@ vi.mock('@/lib/rateLimit', () => ({
   rateLimit: vi.fn(() => true),
 }))
 
+vi.mock('next/server', async (importOriginal) => ({
+  ...await importOriginal<typeof import('next/server')>(),
+  after: vi.fn(),
+}))
+
+import { after } from 'next/server'
 import { GET } from '@/app/api/forecast/route'
 import { getCachedForecast, getCachedForecastStale, setCachedForecast } from '@/lib/forecastCache'
 import { rateLimit } from '@/lib/rateLimit'
@@ -81,58 +87,24 @@ describe('/api/forecast GET', () => {
     expect(header).toBe('stale')
   })
 
-  it('stores sanitized response in cache', async () => {
-    vi.mocked(getCachedForecast).mockResolvedValue(null)
-
+  it('sends the forecast before persisting it in the background', async () => {
+    const body = '{"hourly":{"time":["2025-01-01"],"temperature_2m":[10]}}'
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      text: () => Promise.resolve('{"hourly":{"time":["2025-01-01"],"temperature_2m":[10]}}'),
+      text: () => Promise.resolve(body),
     }))
 
     const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&latitude=41.45&longitude=2.25')
-    await GET(req)
-    expect(setCachedForecast).toHaveBeenCalled()
-  })
+    const response = await GET(req)
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe(body)
+    expect(setCachedForecast).not.toHaveBeenCalled()
 
-  it('awaits the Turso write before resolving the response', async () => {
-    // Regression: previously the route called
-    // `setCachedForecast(...).catch(...)` (no `await`) which meant
-    // the response could be returned before the cache write landed.
-    // On a serverless function the lifecycle ends very quickly after
-    // the response resolves, so the fire-and-forget write could be
-    // lost on a cold start or shutdown. The fix awaits the write.
-    let resolveWrite: (() => void) | null = null
-    const writePromise = new Promise<void>((resolve) => {
-      resolveWrite = resolve
-    })
-    vi.mocked(getCachedForecast).mockResolvedValue(null)
-    vi.mocked(setCachedForecast).mockImplementationOnce(async () => {
-      await writePromise
-    })
-
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: () => Promise.resolve('{"hourly":{"time":["2025-01-01"],"temperature_2m":[10]}}'),
-    }))
-
-    const req = createRequest('http://localhost/api/forecast?hourly=temperature_2m&latitude=41.45&longitude=2.25')
-    let response: Response | null = null
-    const responsePromise = GET(req).then((res) => {
-      response = res
-    })
-
-    // Yield once so the route starts but does not finish — the
-    // `setCachedForecast` mock is parked on `writePromise`.
-    await new Promise<void>((r) => setTimeout(r, 0))
-    expect(response, 'response must wait for the Turso write').toBeNull()
-
-    // Unblock the write and let the response resolve.
-    resolveWrite!()
-    await responsePromise
-    expect(response!.status).toBe(200)
-    expect(setCachedForecast).toHaveBeenCalled()
+    const persist = vi.mocked(after).mock.calls[0]?.[0]
+    expect(typeof persist).toBe('function')
+    if (typeof persist === 'function') await persist()
+    expect(setCachedForecast).toHaveBeenCalledWith('test-cache-key', body, expect.any(Number))
   })
 
   // B-NEW-4: the route must strip the `v` cache-bust stamp before

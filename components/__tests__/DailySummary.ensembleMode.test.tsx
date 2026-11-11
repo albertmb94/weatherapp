@@ -58,14 +58,9 @@ function wrap(node: React.ReactNode) {
 }
 
 function extractHighLow(container: HTMLElement): { high: string; low: string } | null {
-  // Each daily chip renders two temperature spans inside a flex
-  // row: the first (text-[11px] font-bold) is the daily high, the
-  // second (text-[10px]) is the daily low. The title attribute on
-  // the button starts with "Jump to ".
-  const chip = container.querySelector('button[title^="Jump to"]')
-  if (!chip) return null
-  const highSpan = chip.querySelector('span.text-\\[11px\\].font-bold')
-  const lowSpan = chip.querySelector('span.text-\\[10px\\].text-text-tertiary')
+  const temperatures = container.querySelector('[data-testid="daily-temperatures"]')
+  if (!temperatures) return null
+  const [highSpan, lowSpan] = temperatures.querySelectorAll('span')
   return {
     high: highSpan?.textContent ?? '',
     low: lowSpan?.textContent ?? '',

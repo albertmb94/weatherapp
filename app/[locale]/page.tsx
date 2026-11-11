@@ -8,6 +8,9 @@ import { DEFAULT_LOCALE, isLocale } from '@/lib/locale/routing'
 import { grafoPortada, serializarJsonLd } from '@/lib/locale/datosEstructurados'
 import { appOrigin } from '@/lib/appUrl'
 import type { Locale } from '@/lib/i18n'
+import { MODELS, METRICS } from '@/lib/models'
+import { parseForecastCoordinates } from '@/lib/cacheKey'
+import { buildForecastRequest, DEFAULT_FORECAST_DAYS, DEFAULT_FORECAST_POSITION } from '@/lib/openMeteo'
 
 const COPY = {
   title: { es: 'Weather Model Comparison', en: 'Weather Model Comparison' },
@@ -21,24 +24,20 @@ export const generateMetadata: (args: {
   params: Promise<{ locale: string }>
 }) => Promise<Metadata> = makeGenerateMetadata('/', COPY)
 
-export const DEFAULT_KOFI_URL = 'https://ko-fi.com/F8C225NYMV'
+const DEFAULT_KOFI_URL = 'https://ko-fi.com/F8C225NYMV'
 
-export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale: rawLocale } = await params
+export default async function Home({ params, searchParams }: PageProps<'/[locale]'>) {
+  const [{ locale: rawLocale }, query] = await Promise.all([params, searchParams])
   const locale: Locale = isLocale(rawLocale) ? rawLocale : DEFAULT_LOCALE
   const origin = appOrigin()
-
-  // Ko-fi URL single source of truth: feature.kofi.url (admin-editable),
-  // con fallback al perfil por defecto. Se pasa como prop para que el
-  // header móvil y el overlay de escritorio usen la misma fuente.
-  const kofi = await getFeature('feature.kofi')
-  const kofiUrl =
-    typeof kofi.config.url === 'string' && kofi.config.url.trim()
-      ? kofi.config.url.trim()
-      : DEFAULT_KOFI_URL
+  const lat = Array.isArray(query.lat) ? query.lat[0] : query.lat
+  const lon = Array.isArray(query.lon) ? query.lon[0] : query.lon
+  const [latitude, longitude] = parseForecastCoordinates(lat ?? null, lon ?? null) ?? DEFAULT_FORECAST_POSITION
+  const { url: forecastUrl } = buildForecastRequest(latitude, longitude, MODELS, METRICS, DEFAULT_FORECAST_DAYS)
 
   return (
     <>
+      <link rel="preload" href={forecastUrl} as="fetch" crossOrigin="anonymous" />
       {/* Sólo la portada declara ser la aplicación. Ponerlo en el
           layout haría que /cookies y /terms dijeran serlo también. */}
       {origin ? (
@@ -48,10 +47,16 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         />
       ) : null}
       <Suspense fallback={<LoadingShell />}>
-        <HomeContent kofiUrl={kofiUrl} />
+        <HomeWithDonationLink />
       </Suspense>
     </>
   )
+}
+
+async function HomeWithDonationLink() {
+  const { config } = await getFeature('feature.kofi')
+  const url = typeof config.url === 'string' ? config.url.trim() : ''
+  return <HomeContent kofiUrl={url || DEFAULT_KOFI_URL} />
 }
 
 function LoadingShell() {

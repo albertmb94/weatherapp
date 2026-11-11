@@ -104,8 +104,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   // Read once at request time so feature toggles in the admin are picked
   // up on the next page render. Both scripts are gated; default OFF.
-  const plausible = await getFeature('feature.plausible')
-  const cookiebot = await getFeature('feature.cookiebot')
+  const [plausible, cookiebot] = await Promise.all([
+    getFeature('feature.plausible'),
+    getFeature('feature.cookiebot'),
+  ])
   const plausibleDomain = typeof plausible.config.domain === 'string' ? plausible.config.domain : null
   const cookiebotId = typeof cookiebot.config.cbid === 'string' ? cookiebot.config.cbid : null
 

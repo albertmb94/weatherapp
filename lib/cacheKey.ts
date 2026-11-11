@@ -13,6 +13,13 @@
  * - All other params are sorted alphabetically.
  */
 const LATLON_DECIMALS = 2
+
+export function parseForecastCoordinates(lat: string | null, lon: string | null): [number, number] | null {
+  if (lat === null || lon === null) return null
+  const latitude = Number(lat)
+  const longitude = Number(lon)
+  return Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? [latitude, longitude] : null
+}
 /** Params stripped from the upstream URL only (the cache key keeps them
  *  so the version stamp acts as a cache-buster).
  *

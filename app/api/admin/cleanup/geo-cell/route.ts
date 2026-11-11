@@ -40,7 +40,7 @@ export const dynamic = 'force-dynamic'
  */
 
 /** La celda del bug de Null Island. Es la que se limpia por defecto. */
-export const CELDA_NULL_ISLAND = '0.00,0.00'
+const CELDA_NULL_ISLAND = '0.00,0.00'
 
 // El validador vive en lib/analytics/geoCell.ts: lo comparten esta ruta,
 // la de nombrado de zonas y el panel. Duplicarlo es cómo acaban

@@ -2,10 +2,11 @@
 
 import { useMemo } from 'react'
 import type { WeatherModel } from '@/lib/models'
-import type { MetricId } from '@/lib/models'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
-import { ensembleWithFallback, resolveActiveModels, weightsForAbsolute, biasForMetricBucket, type BiasTable } from '@/lib/ensemble/central'
+import { ensembleWithFallback, resolveActiveModels, weightsFor, biasForMetricBucket, type BiasTable } from '@/lib/ensemble/central'
 import { useLocale } from '@/lib/LocaleContext'
+import { forecastLeadAtHour } from '@/lib/ensemble/forecastLead'
+import { sumPrecipitationForDay } from '@/lib/ensemble/precipitationDay'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
 import WeatherConditionIcon from './WeatherConditionIcon'
 
@@ -124,16 +125,6 @@ export default function DailySummary({
   const days = useMemo<DayBucket[]>(() => {
     if (activeModels.length === 0 || times.length === 0) return []
 
-    // Build per-metric, per-hour weight arrays using ensemble presets.
-    // B-NBT-9b (2026-08-22): the preset lookup now runs on the
-    // hours-since-now lead (`hourIndex − startIndex`) so today's chips
-    // land in '0-48h' exactly like the InsightsTable row for the same
-    // hour — previously the absolute index over fullTimes (which starts
-    // past_days=3 days ago) pushed today into '48-96h' and tomorrow
-    // into '96-168h', diverging from every other surface.
-    const getWeightsForMetricAndHour = (metric: MetricId, hourIndex: number): number[] =>
-      weightsForAbsolute(metric, Math.max(0, hourIndex - startIndex), 1, activeModels)
-
     const limit = Math.min(times.length, maxHours)
     const buckets: DayBucket[] = []
     let current: DayBucket | null = null
@@ -202,20 +193,17 @@ export default function DailySummary({
         // B-NBT-9b: the WedAI fallback must use the SAME relative lead
         // as the primary weights, otherwise a null hour silently swaps
         // the preset bucket for the fallback mean.
-        const lead = Math.max(0, i - startIndex)
-        const tWeights = getWeightsForMetricAndHour('temperature', i)
+        const lead = forecastLeadAtHour(series, i, i - startIndex)
+        const tWeights = weightsFor('temperature', lead, 1, activeModels)
         const t = ensembleWithFallback(series, 'temperature', i, activeModels, wedaiModels, tWeights, lead, biasForMetricBucket(biasTable, 'temperature', lead))
         if (t !== null) {
           if (bucket.tMin === null || t < bucket.tMin) bucket.tMin = t
           if (bucket.tMax === null || t > bucket.tMax) bucket.tMax = t
         }
-        const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const p = ensembleWithFallback(series, 'precipitation', i, activeModels, wedaiModels, pWeights, lead, biasForMetricBucket(biasTable, 'precipitation', lead), ensembleMode === 'wedai')
-        if (p !== null) bucket.precipTotal = (bucket.precipTotal ?? 0) + p
-        const wWeights = getWeightsForMetricAndHour('wind_gusts', i)
+        const wWeights = weightsFor('wind_gusts', lead, 1, activeModels)
         const w = ensembleWithFallback(series, 'wind_gusts', i, activeModels, wedaiModels, wWeights, lead, biasForMetricBucket(biasTable, 'wind_gusts', lead))
         if (w !== null && (bucket.windMax === null || w > bucket.windMax)) bucket.windMax = w
-        const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
+        const cWeights = weightsFor('cloud_cover', lead, 1, activeModels)
         const c = ensembleWithFallback(series, 'cloud_cover', i, activeModels, wedaiModels, cWeights, lead, biasForMetricBucket(biasTable, 'cloud_cover', lead))
         if (c !== null) {
           cloudSum += c
@@ -232,6 +220,12 @@ export default function DailySummary({
           waveCount += 1
         }
       }
+      bucket.precipTotal = sumPrecipitationForDay(times, bucket.startIndex, bucket.endIndex, index => {
+        const lead = forecastLeadAtHour(series, index, index - startIndex)
+        const weights = weightsFor('precipitation', lead, 1, activeModels)
+        return ensembleWithFallback(series, 'precipitation', index, activeModels, wedaiModels, weights, lead,
+          biasForMetricBucket(biasTable, 'precipitation', lead), ensembleMode === 'wedai')
+      })
       bucket.cloudAvg = cloudCount > 0 ? cloudSum / cloudCount : null
       bucket.wavePeriodMean = waveCount > 0 ? waveSum / waveCount : null
       bucket.icon = pickWeatherIcon({

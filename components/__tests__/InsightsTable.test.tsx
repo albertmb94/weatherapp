@@ -1,13 +1,12 @@
 /**
  * Test for B-10-2: the active row of the InsightsTable in bucket=24
  * must show a small "↳ Ahora · XX°" annotation above the day label so
- * the user understands that the tempMean shown is the CURRENT hour's
- * temperature (WedAI-forced, after B-10-1), not the daily average.
+ * the current temperature is visible alongside the daily average.
  *
  * The chip must NOT appear when:
  *   - bucket != 24 (bucket=1 already labels the row by hour, so the
  *     chip would be redundant)
- *   - the row is not active (only the active row has tempMean = Ahora)
+ *   - the row is not active
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -113,6 +112,26 @@ describe('InsightsTable — "↳ Ahora" annotation on active row', () => {
     expect(chip).toBeInTheDocument()
     // The chip should contain a degree value.
     expect(chip.textContent).toMatch(/\d+°/)
+  })
+
+  it('keeps the daily mean separate from the current reading', () => {
+    const oneModel = [MODELS[0]]
+    render(wrap(
+      <InsightsTable
+        models={oneModel}
+        activeModelIds={[oneModel[0].id]}
+        times={fakeTimes(0, 24)}
+        series={rampSeries(oneModel[0].id, 24, 10, 1)}
+        bucket={24}
+        onBucketChange={() => {}}
+        selectedHour={0}
+        onSelectHour={() => {}}
+        maxHours={24}
+        utcOffsetSeconds={0}
+      />
+    ))
+    const current = screen.getByText(/Ahora · 10°/)
+    expect(current.closest('tr')).toHaveTextContent('22')
   })
 
   it('does NOT show the chip on bucket=1 (the row label is already hourly)', () => {

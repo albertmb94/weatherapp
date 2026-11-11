@@ -5,6 +5,7 @@
 // surfacing the snapshot of a different city under the wrong name.
 
 import type { ForecastResult } from './openMeteo'
+import { attachForecastLead } from './ensemble/forecastLead'
 
 const DB_NAME = 'weather-offline'
 const STORE_NAME = 'forecasts'
@@ -102,6 +103,9 @@ export async function loadLastForecast(position?: [number, number]): Promise<For
             !Array.isArray(snapshot.data.dailyTime)) {
           resolve(null)
           return
+        }
+        if (snapshot.data.series) {
+          attachForecastLead(snapshot.data.series, snapshot.data.time, snapshot.utcOffsetSeconds, snapshot.fetchedAt)
         }
         resolve(snapshot)
       }

@@ -24,7 +24,9 @@
  */
 
 import { createClient } from '@libsql/client'
-import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket } from '../lib/models'
+import { ENSEMBLE_PRESETS, MODELS, getLeadTimeBucket } from '../lib/models'
+import { ensemblePresetWeights } from '../lib/ensemble/central'
+import { VERIFIED_ACCURACY } from '../lib/backtest/db'
 import { BACKTEST_BUCKET_TO_UI } from '../lib/backtest/config'
 import {
   assignFolds,
@@ -134,7 +136,7 @@ async function main() {
 
   const acc = await db.execute({
     sql: `SELECT model_id, lat, lon, lead_time_bucket, rmse, bias, sample_count
-          FROM model_accuracy WHERE metric = ?`,
+          FROM model_accuracy WHERE metric = ? AND ${VERIFIED_ACCURACY}`,
     args: [metric],
   })
   const accRows: (AccuracySample & { uiBucket: string })[] = []
@@ -154,8 +156,6 @@ async function main() {
   const locations = [...new Set(accRows.map((r) => locationKey(r.lat, r.lon)))]
   const foldOf = assignFolds(locations, folds)
 
-  const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
-  const preset = ENSEMBLE_PRESETS.find((p) => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
   const altPreset = ENSEMBLE_PRESETS.find((p) => p.id === (metric === 'wind_speed' ? 'precipitation' : 'temperature'))!
 
   console.log(`\nmetric=${metric}  folds=${folds}  locations=${locations.length}`)
@@ -224,7 +224,8 @@ async function main() {
         ? samples.filter((s) => s.byModel[bestModel] !== undefined)
         : []
 
-      const presetWeights = preset.weights[bucket] ?? preset.weights['0-48h'] ?? {}
+      const preset = ensemblePresetWeights(metric, bucket)
+      const presetWeights = Object.fromEntries(MODELS.filter(m => m.id !== 'marine_global').map(m => [m.id, preset[m.id] ?? 0.01]))
       const altWeights = altPreset.weights[bucket] ?? altPreset.weights['0-48h'] ?? {}
       const borda = bordaByBucket[bucket] ?? {}
       const bias = biasByBucket[bucket] ?? {}

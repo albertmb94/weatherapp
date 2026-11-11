@@ -18,7 +18,8 @@
 
 import { getModelAccuracyByTerrain, getStationForecastArchive, getStationObservations, type StationObservationRow } from './db'
 import { fetchPreviousRuns } from './fetchPreviousRuns'
-import { ENSEMBLE_PRESETS, METRIC_TO_ENSEMBLE, getLeadTimeBucket, type EnsemblePreset } from '../models'
+import { MODELS, getLeadTimeBucket } from '../models'
+import { ensemblePresetWeights } from '../ensemble/central'
 import type { BacktestLocation } from './config'
 import {
   bordaWeights,
@@ -154,7 +155,7 @@ export async function runStationTruth(opts: RunStationTruthOptions): Promise<Sta
       const observed = station.byTime.get(row.valid_time)
       if (observed === undefined) continue
       const bucket = getLeadTimeBucket(row.lead_time_hours)
-      const instanceKey = `${key}|${row.valid_time}`
+      const instanceKey = `${key}|${row.valid_time}|${row.lead_time_hours}`
       let instances = byBucket.get(bucket)
       if (!instances) {
         instances = new Map()
@@ -219,17 +220,16 @@ export async function runStationTruth(opts: RunStationTruthOptions): Promise<Sta
   }
   const era5Weights = bordaWeights(era5Rows)
 
-  const presetId: EnsemblePreset = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
-  const preset = ENSEMBLE_PRESETS.find((p) => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
-
   const perBucket: StationTruthResult['perBucket'] = []
   for (const bucket of ['0-48h', '48-96h', '96-168h']) {
     const instances = byBucket.get(bucket)
     if (!instances || instances.size === 0) continue
     const samples = [...instances.values()]
+    const preset = ensemblePresetWeights(metric, bucket)
+    const weights = Object.fromEntries(MODELS.filter(m => m.id !== 'marine_global').map(m => [m.id, preset[m.id] ?? 0.01]))
     perBucket.push({
       bucket,
-      preset: ensembleError(samples, preset.weights[bucket] ?? {}),
+      preset: ensembleError(samples, weights),
       era5borda: ensembleError(samples, era5Weights),
       stationCsi: ensembleError(samples, stationWeights),
     })

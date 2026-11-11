@@ -3,8 +3,9 @@
 import { useMemo, useState, useCallback, useRef, useEffect, memo } from 'react'
 import { getLeadTimeBucket, type WeatherModel, type MetricId } from '@/lib/models'
 import type { ScaleMetric } from '@/lib/colorScales'
-import { weightedAvg } from '@/lib/ensemble'
-import { resolveActiveModels, weightsForAbsolute, weightsForProfile, ensembleWithFallback, biasForMetricBucket, type BiasTable } from '@/lib/ensemble/central'
+import { forecastLeadAtHour } from '@/lib/ensemble/forecastLead'
+import { sumPrecipitationForDay } from '@/lib/ensemble/precipitationDay'
+import { weightsFor, weightsForProfile, meanAtHour, ensembleWithFallback, biasForMetricBucket, WIND_CALIBRATION_MIN_LEAD_HOURS, type BiasTable } from '@/lib/ensemble/central'
 import { pickWeatherIcon, type WeatherIconId } from '@/lib/weatherIcon'
 import { useLocale } from '@/lib/LocaleContext'
 import { DAY_NAMES, STRINGS } from '@/lib/i18n'
@@ -92,6 +93,7 @@ interface Row {
   endIdx: number
   centerIdx: number
   tempMean: number | null
+  currentTemperature?: number
   tempMin: number | null
   tempMax: number | null
   cloudMean: number | null
@@ -567,22 +569,15 @@ export default function InsightsTable({
 
     // The model weights only change when the lead-time bucket changes.
     const weightsByMetricAndLead = new Map<string, number[]>()
-    const getWeightsForMetricAndHour = (metric: MetricId | 'wind_direction', hourIndex: number): number[] => {
-      const absoluteHour = hourIndex + viewStartIndex
-      const lead = getLeadTimeBucket(Math.max(0, absoluteHour) + (bucket - 1) / 2)
-      const key = `${metric}:${lead}`
+    const weightsAtLead = (metric: MetricId | 'wind_direction', hours: number): number[] => {
+      const lead = getLeadTimeBucket(hours)
+      const key = metric === 'wind_speed' && hours < WIND_CALIBRATION_MIN_LEAD_HOURS ? 'wind_speed:short' : `${metric}:${lead}`
       const cached = weightsByMetricAndLead.get(key)
       if (cached) return cached
-      const weights = weightsForAbsolute(metric as MetricId, absoluteHour, bucket, activeModels)
+      const weights = weightsFor(metric as MetricId, hours, 1, activeModels)
       weightsByMetricAndLead.set(key, weights)
       return weights
     }
-
-    // Phase 3: matching bias lookup, on the SAME absolute lead the
-    // weights use (absolute hour + mid-bucket), so the bias bucket can
-    // never diverge from the weights' bucket.
-    const biasForMetricAt = (metric: MetricId, hourIndex: number) =>
-      biasForMetricBucket(biasTable, metric, hourIndex + viewStartIndex + (bucket - 1) / 2)
 
     const buckets: Row[] = []
     let cursor = 0
@@ -693,6 +688,9 @@ export default function InsightsTable({
       }
     }
 
+    const precipitationAt = (index: number, lead: number) =>
+      ensembleWithFallback(s, 'precipitation', index, activeModels, allModels, weightsAtLead('precipitation', lead), lead,
+        biasForMetricBucket(biasTable, 'precipitation', lead), ensembleMode === 'wedai')
     for (const b of buckets) {
       let tSum = 0, tCount = 0
       let cSum = 0, cCount = 0
@@ -719,40 +717,41 @@ export default function InsightsTable({
       const wedaiModels = allModels
       // B-NEW-9 (2026-07-24): the per-row temperature spread. For
       for (let i = b.startIdx; i <= b.endIdx; i++) {
-        // Use per-metric, per-hour weights for proper ensemble selection
-        const tWeights = getWeightsForMetricAndHour('temperature', i)
-        const tEns = ensembleWithFallback(s, 'temperature', i, activeModels, wedaiModels, tWeights, undefined, biasForMetricAt('temperature', i))
+        const lead = forecastLeadAtHour(s, i, i + viewStartIndex)
+        const tWeights = weightsAtLead('temperature', lead)
+        const tEns = ensembleWithFallback(s, 'temperature', i, activeModels, wedaiModels, tWeights, lead, biasForMetricBucket(biasTable, 'temperature', lead))
         if (tEns !== null) {
           tSum += tEns
           tCount += 1
           if (b.tempMin === null || tEns < b.tempMin) b.tempMin = tEns
           if (b.tempMax === null || tEns > b.tempMax) b.tempMax = tEns
         }
-        const cWeights = getWeightsForMetricAndHour('cloud_cover', i)
-        const cEns = ensembleWithFallback(s, 'cloud_cover', i, activeModels, wedaiModels, cWeights, undefined, biasForMetricAt('cloud_cover', i))
+        const cWeights = weightsAtLead('cloud_cover', lead)
+        const cEns = ensembleWithFallback(s, 'cloud_cover', i, activeModels, wedaiModels, cWeights, lead, biasForMetricBucket(biasTable, 'cloud_cover', lead))
         if (cEns !== null) { cSum += cEns; cCount += 1 }
-        const wWeights = getWeightsForMetricAndHour('wind_speed', i)
-        const wEns = ensembleWithFallback(s, 'wind_speed', i, activeModels, wedaiModels, wWeights, undefined, biasForMetricAt('wind_speed', i))
+        const wWeights = weightsAtLead('wind_speed', lead)
+        const wEns = ensembleWithFallback(s, 'wind_speed', i, activeModels, wedaiModels, wWeights, lead, biasForMetricBucket(biasTable, 'wind_speed', lead))
         if (wEns !== null) { wSum += wEns; wCount += 1 }
-        const gWeights = getWeightsForMetricAndHour('wind_gusts', i)
-        const gEns = ensembleWithFallback(s, 'wind_gusts', i, activeModels, wedaiModels, gWeights, undefined, biasForMetricAt('wind_gusts', i))
+        const gWeights = weightsAtLead('wind_gusts', lead)
+        const gEns = ensembleWithFallback(s, 'wind_gusts', i, activeModels, wedaiModels, gWeights, lead, biasForMetricBucket(biasTable, 'wind_gusts', lead))
         if (gEns !== null && (b.gustsMax === null || gEns > b.gustsMax)) b.gustsMax = gEns
-        const pWeights = getWeightsForMetricAndHour('precipitation', i)
-        const pEns = ensembleWithFallback(s, 'precipitation', i, activeModels, wedaiModels, pWeights, undefined, biasForMetricAt('precipitation', i), ensembleMode === 'wedai')
-        if (pEns !== null) b.precipSum = (b.precipSum ?? 0) + pEns
-        const hWeights = getWeightsForMetricAndHour('humidity', i)
-        const hEns = ensembleWithFallback(s, 'humidity', i, activeModels, wedaiModels, hWeights, undefined, biasForMetricAt('humidity', i))
+        if (bucket !== 24) {
+          const precip = precipitationAt(i, lead)
+          if (precip !== null) b.precipSum = (b.precipSum ?? 0) + precip
+        }
+        const hWeights = weightsAtLead('humidity', lead)
+        const hEns = ensembleWithFallback(s, 'humidity', i, activeModels, wedaiModels, hWeights, lead, biasForMetricBucket(biasTable, 'humidity', lead))
         if (hEns !== null) { hSum += hEns; hCount += 1 }
-        const uWeights = getWeightsForMetricAndHour('uv_index', i)
-        const uEns = ensembleWithFallback(s, 'uv_index', i, activeModels, wedaiModels, uWeights, undefined, biasForMetricAt('uv_index', i))
+        const uWeights = weightsAtLead('uv_index', lead)
+        const uEns = ensembleWithFallback(s, 'uv_index', i, activeModels, wedaiModels, uWeights, lead, biasForMetricBucket(biasTable, 'uv_index', lead))
         if (uEns !== null) { uSum += uEns; uCount += 1 }
-        const prWeights = getWeightsForMetricAndHour('pressure', i)
-        const prEns = ensembleWithFallback(s, 'pressure', i, activeModels, wedaiModels, prWeights, undefined, biasForMetricAt('pressure', i))
+        const prWeights = weightsAtLead('pressure', lead)
+        const prEns = ensembleWithFallback(s, 'pressure', i, activeModels, wedaiModels, prWeights, lead, biasForMetricBucket(biasTable, 'pressure', lead))
         if (prEns !== null) { prSum += prEns; prCount += 1 }
-        const dpWeights = getWeightsForMetricAndHour('dewpoint', i)
-        const dpEns = ensembleWithFallback(s, 'dewpoint', i, activeModels, wedaiModels, dpWeights, undefined, biasForMetricAt('dewpoint', i))
+        const dpWeights = weightsAtLead('dewpoint', lead)
+        const dpEns = ensembleWithFallback(s, 'dewpoint', i, activeModels, wedaiModels, dpWeights, lead, biasForMetricBucket(biasTable, 'dewpoint', lead))
         if (dpEns !== null) { dpSum += dpEns; dpCount += 1 }
-        const visWeights = getWeightsForMetricAndHour('visibility', i)
+        const visWeights = weightsAtLead('visibility', lead)
         // Visibility values in `series[modelId]['visibility']` are
         // already in **kilometres** — `lib/openMeteo.ts` converts the
         // raw Open-Meteo metres to km once at fetch time so every
@@ -761,9 +760,9 @@ export default function InsightsTable({
         // divided by 1000 here, which double-converted 10 km → 0.01
         // km → 0.0 on screen (rounded to 1 decimal). We now just
         // call `ensembleWithFallback` like every other metric.
-        const visEns = ensembleWithFallback(s, 'visibility', i, activeModels, wedaiModels, visWeights, undefined, biasForMetricAt('visibility', i))
+        const visEns = ensembleWithFallback(s, 'visibility', i, activeModels, wedaiModels, visWeights, lead, biasForMetricBucket(biasTable, 'visibility', lead))
         if (visEns !== null) { visSum += visEns; visCount += 1 }
-        const dirWeights = getWeightsForMetricAndHour('wind_direction', i)
+        const dirWeights = weightsAtLead('wind_direction', lead)
         let hCos = 0, hSin = 0, hW = 0
         for (let j = 0; j < activeModels.length; j++) {
           const d = s[activeModels[j].id]?.['wind_direction']?.[i]
@@ -823,6 +822,10 @@ export default function InsightsTable({
           }
         }
       }
+      if (bucket === 24) {
+        b.precipSum = sumPrecipitationForDay(tt, b.startIdx, b.endIdx, index =>
+          precipitationAt(index, forecastLeadAtHour(s, index, index + viewStartIndex)))
+      }
       b.tempMean = tCount > 0 ? tSum / tCount : null
       b.cloudMean = cCount > 0 ? cSum / cCount : null
       b.windMean = wCount > 0 ? wSum / wCount : null
@@ -846,87 +849,28 @@ export default function InsightsTable({
       })
     }
 
-    // Sprint 10 / B-10-1: the active row (the one covering the
-    // currently selected hour) must show the same temperature the
-    // big "Tiempo actual" card and the "AHORA" slot of the hourly
-    // strip use. Those callers force `currentHourMode='wedai'`
-    // regardless of the user's `ensembleMode` toggle, so the active
-    // row's `tempMean` is recomputed here with the same model set
-    // and weights. Other metrics (cloud, wind, min, max, ...) keep
-    // their existing ensembleMode-based values so the row still
-    // reads as a coherent daily summary.
-    if (currentHourMode === 'wedai') {
-      const wedaiModels = resolveActiveModels(models, activeModelIds, 'wedai')
-      if (wedaiModels.length > 0) {
-        // Use the same backing array the rest of the aggregation
-        // loop used so index spaces match.
-        const activeSeries = s as Record<string, Record<string, (number | null)[]>>
-        // Compute the series length per-model (they're aligned) for
-        // a defensive bounds check.
-        const seriesLen = activeSeries[wedaiModels[0].id]?.['temperature']?.length ?? 0
-        for (const b of buckets) {
-          // `selectedHour` is already in the further-trimmed-series
-          // coords (the parent converts it from the URL state). Rows
-          // are built over the same array, so a direct comparison
-          // works for every bucket. The old `startIndex` shift only
-          // made sense when the bucket=24 branch was iterating
-          // `fullTimes` separately — that no longer happens in
-          // production, and the test fixtures pass `startIndex=0` so
-          // the `startIndex - startIndex` shift was a no-op anyway.
-          if (selectedHour < b.startIdx || selectedHour > b.endIdx) continue
-          if (selectedHour < 0 || selectedHour >= seriesLen) continue
-          // B-NBT-9 fix (2026-08-22): the DATA lookup must use plain
-          // `selectedHour` — `s` is the same further-trimmed array the
-          // aggregation rows iterate, so its valid index for the
-          // highlighted hour IS `selectedHour`. Adding `viewStartIndex`
-          // here read a value Δ hours away whenever the day filter was
-          // active (`viewStartIndex = dayFilter.startIndex −
-          // startIndex ≠ 0`). Only the PRESET lead time maps back to
-          // full-series coordinates, and it must go through
-          // `weightsForAbsolute`: `weightsFor(hourIndex, bucket)`
-          // multiplies lead by the bucket size, which sent today's
-          // row (bucket=24) to the '240-360h' preset.
-          //
-          // B-NBT-9b: weights go through `weightsForProfile` so the
-          // Sprint-13 boost applies here exactly like on the big card
-          // and the AHORA slot (B-10-1 invariant). The mid-bucket lead
-          // mirrors `weightsForAbsolute`'s math.
-          const activeLead = selectedHour + viewStartIndex + (bucket - 1) / 2
-          const tWeights = weightsForProfile('temperature', activeLead, 1, wedaiModels, recommendedRef, usageProfile)
-          const tVals = wedaiModels.map(
-            m => activeSeries[m.id]?.['temperature']?.[selectedHour] ?? null
-          )
-          const tEns = weightedAvg(
-            tVals,
-            tWeights,
-            null,
-            wedaiModels.map(m => m.id),
-            biasForMetricBucket(biasTable, 'temperature', activeLead)
-          )
-          if (tEns !== null) {
-            b.tempMean = tEns
-            // For bucket=1 the row covers exactly one hour so
-            // tempMin/tempMax must agree with the mean to avoid
-            // contradicting the cell display.
-            if (bucket === 1) {
-              b.tempMin = tEns
-              b.tempMax = tEns
-            }
+    // Keep the live reading in its annotation. Multi-hour means always
+    // aggregate their entire bucket, including when a row is selected.
+    if (currentHourMode === 'wedai' && selectedHour + viewStartIndex === 0) {
+      const row = buckets.find(b => selectedHour >= b.startIdx && selectedHour <= b.endIdx)
+      if (row) {
+        const lead = forecastLeadAtHour(s, selectedHour, 0)
+        const weights = weightsForProfile('temperature', lead, 1, allModels, recommendedRef, usageProfile)
+        const current = meanAtHour({ time: tt, series: s }, 'temperature', selectedHour, allModels, weights,
+          biasForMetricBucket(biasTable, 'temperature', lead))
+        if (current !== null) {
+          row.currentTemperature = current
+          if (bucket === 1) {
+            row.tempMean = current
+            row.tempMin = current
+            row.tempMax = current
           }
-          break // only one row is active
         }
       }
     }
 
     return buckets
-    // `ensembleMode` NO se usa directamente aquí: llega a través de
-    // `activeModels`. Se mantiene a propósito y no se quita para callar
-    // al linter — es una dependencia de MÁS, que como mucho recalcula de
-    // sobra, mientras que quitarla ataría la corrección de este memo a
-    // cómo esté memoizado otro. Una variable "sobrante" que en realidad
-    // sostenía una decisión ya costó una regresión en este repo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModels, models, activeModelIds, allModels, currentHourMode, ensembleMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, viewStartIndex, weekDays, selectedHour, dayFilter, nowMs, usageProfile, recommendedRef])
+  }, [activeModels, allModels, currentHourMode, ensembleMode, fullTimes, fullSeries, times, series, bucket, maxHours, locale, utcOffsetSeconds, startIndex, viewStartIndex, weekDays, selectedHour, dayFilter, nowMs, usageProfile, recommendedRef, biasTable])
 
   const marineColIds = useMemo(
     () => new Set<MetricCellId>([
@@ -2079,33 +2023,13 @@ export default function InsightsTable({
                     // and bucket=1/2/6/12 the user complained about.
                     className={`sticky left-0 z-20 px-1.5 py-1.5 whitespace-nowrap text-text-primary border-b border-r border-border/60 tabular-nums ${whenBg}`}
                   >
-                    {/* Sprint 10 / B-10-2: when bucket=24 and the user is
-                       on the actual current hour (selectedHour === 0),
-                       the active row's tempMean is the CURRENT hour's
-                       temperature (B-10-1 forced WedAI for the current
-                       hour). The chip clarifies that so the user
-                       doesn't read it as a daily average. For any
-                       other selectedHour (e.g. tomorrow) we do not
-                       show "Ahora" — the value is a forecast for that
-                       future hour.
-
-                       B-NEW-21 (2026-07-27): the chip div is now
-                       always rendered (with an empty string when
-                       the conditions don't hold) so the cell
-                       height stays the same across all rows.
-                       Previously the active row was taller than
-                       the others, which broke row-height
-                       consistency. The wrapper has min-h-[14px]
-                       (= 11 px font × 1.25 leading-tight + small
-                       breathing room) so the chip area is
-                       reserved even when empty. */}
                     <div
                       className="text-[9px] uppercase tracking-wider font-semibold text-accent mb-0.5 leading-tight min-h-[14px]"
                       aria-label={STRINGS[locale].currentHour}
                       data-testid="ahora-chip"
                     >
-                      {isActive && bucket === 24 && selectedHour === 0 && r.tempMean !== null
-                        ? `↳ Ahora · ${Math.round(r.tempMean)}°`
+                      {isActive && bucket === 24 && r.currentTemperature !== undefined
+                        ? `↳ ${locale === 'en' ? 'Now' : 'Ahora'} · ${Math.round(r.currentTemperature)}°`
                         : ''}
                     </div>
                     {r.label}

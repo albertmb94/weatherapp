@@ -19,23 +19,27 @@ export async function fetchPreviousRuns(
   startDate: string, // YYYY-MM-DD
   endDate: string,   // YYYY-MM-DD
   signal?: AbortSignal,
-  options: { metrics?: readonly string[]; modelIds?: readonly string[] } = {},
+  options: { metrics?: readonly string[]; modelIds?: readonly string[]; leadDays?: readonly number[] } = {},
 ): Promise<ForecastArchiveRow[]> {
   const rows: ForecastArchiveRow[] = []
   const modelIds = options.modelIds ?? BACKTEST_MODEL_IDS
   const metrics = options.metrics ?? BACKTEST_METRICS
   const models = modelIds.join(',')
-  const hourlyParams = metrics.map(m => BACKTEST_METRIC_TO_PARAM[m]).join(',')
+  const leadDays = [...new Set(options.leadDays ?? [1, 2, 3, 4, 5, 6, 7])]
+  if (!leadDays.length || leadDays.some(day => !Number.isInteger(day) || day < 1 || day > 7)) {
+    throw new Error('Previous Runs offsets must be integer days from 1 to 7')
+  }
+  const currentModels = options.leadDays ? [] : modelIds
+  const currentParams = options.leadDays ? [] : metrics.map(m => BACKTEST_METRIC_TO_PARAM[m])
 
-  // Build previous-day params: _previous_day1 through _previous_day7
-  const previousParams = Array.from({ length: 7 }, (_, i) =>
-    metrics.map(m => `${BACKTEST_METRIC_TO_PARAM[m]}_previous_day${i + 1}`).join(',')
-  ).join(',')
+  // Ask the provider only for the offsets used by this evaluation.
+  const previousParams = leadDays.flatMap(day =>
+    metrics.map(m => `${BACKTEST_METRIC_TO_PARAM[m]}_previous_day${day}`))
 
   const params = new URLSearchParams({
     latitude: location.lat.toString(),
     longitude: location.lon.toString(),
-    hourly: `${hourlyParams},${previousParams}`,
+    hourly: [...currentParams, ...previousParams].join(','),
     models,
     start_date: startDate,
     end_date: endDate,
@@ -71,7 +75,7 @@ export async function fetchPreviousRuns(
       // per-model entry was missing, which produced RMSE=0 cells
       // and over-weighted models with sparse coverage (HRRR outside
       // CONUS, AIGFS over polar regions, …).
-      for (const modelId of modelIds) {
+      for (const modelId of currentModels) {
         const modelKey = `${param}_${modelId}`
         const value = hourly[modelKey]?.[i]
         if (typeof value !== 'number' || !Number.isFinite(value)) continue
@@ -88,7 +92,7 @@ export async function fetchPreviousRuns(
       }
 
       // Previous day forecasts (lead time 1-7 days)
-      for (let day = 1; day <= 7; day++) {
+      for (const day of leadDays) {
         const prevParam = `${param}_previous_day${day}`
         for (const modelId of modelIds) {
           const modelKey = `${prevParam}_${modelId}`

@@ -1,0 +1,6159 @@
+{
+  "fitEnd": "2026-10-01",
+  "refitEnd": "2026-10-11",
+  "validationStart": "2026-10-14",
+  "validationEnd": "2026-10-18",
+  "evaluationStart": "2026-10-24",
+  "observationDelayDays": 5,
+  "coverage": {
+    "training": [
+      "Valladolid",
+      "Paris",
+      "Sevilla",
+      "Bilbao",
+      "London",
+      "Madrid",
+      "Toronto",
+      "Palma",
+      "Berlin",
+      "Valencia",
+      "New York",
+      "Los Angeles",
+      "Amsterdam",
+      "Granada",
+      "Chicago",
+      "Zurich",
+      "Barcelona",
+      "Rome"
+    ],
+    "spatial": [
+      "Málaga",
+      "Zaragoza",
+      "Cuenca",
+      "Lisbon",
+      "Munich",
+      "Copenhagen",
+      "Denver",
+      "Phoenix",
+      "Seattle",
+      "Vancouver",
+      "Montreal",
+      "Mexico City"
+    ],
+    "recent": [
+      "Barcelona",
+      "Madrid",
+      "Valencia",
+      "Bilbao",
+      "Granada",
+      "Palma",
+      "Sevilla",
+      "Valladolid",
+      "Paris",
+      "London",
+      "Berlin",
+      "Amsterdam",
+      "Rome",
+      "Zurich",
+      "New York",
+      "Chicago",
+      "Los Angeles",
+      "Toronto"
+    ],
+    "stations": [
+      "C6",
+      "CW",
+      "DJ",
+      "MS",
+      "UJ",
+      "V8",
+      "VY",
+      "WM",
+      "X4",
+      "XJ",
+      "XZ",
+      "YL"
+    ]
+  },
+  "profiles": {
+    "Barcelona": "coastal",
+    "Madrid": "urban",
+    "Valencia": "plain",
+    "Sevilla": "plain",
+    "Málaga": "plain",
+    "Bilbao": "coastal",
+    "Zaragoza": "plain",
+    "Palma": "coastal",
+    "Granada": "plain",
+    "Valladolid": "plain",
+    "Cuenca": "plain",
+    "Paris": "urban",
+    "London": "urban",
+    "Berlin": "urban",
+    "Munich": "urban",
+    "Rome": "urban",
+    "Amsterdam": "urban",
+    "Copenhagen": "coastal",
+    "Lisbon": "coastal",
+    "Zurich": "plain",
+    "New York": "coastal",
+    "Los Angeles": "coastal",
+    "Chicago": "urban",
+    "Phoenix": "plain",
+    "Seattle": "plain",
+    "Denver": "mountain",
+    "Toronto": "plain",
+    "Vancouver": "coastal",
+    "Montreal": "plain",
+    "Mexico City": "mountain"
+  },
+  "results": {
+    "temperature/0-48h": {
+      "penalty": 0.015,
+      "rainSlope": null,
+      "fit": 10368,
+      "validation": 4320,
+      "refit": 19008,
+      "internal": {
+        "current": {
+          "rmse": 1.2049279241874609,
+          "mae": 0.9136877035536701,
+          "n": 4320,
+          "hits": 4320,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 1.2162328351447,
+          "mae": 0.9238080039173755,
+          "n": 4320,
+          "hits": 4320,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        }
+      },
+      "accepted": false,
+      "temporal": {
+        "current": {
+          "rmse": 1.2598282307168345,
+          "mae": 0.9527109202323053,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 1.2536655052659877,
+          "mae": 0.9521716309881788,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 1.239753753786681,
+          "mae": 0.9327329339010861,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.025550641654674022,
+          "high": -0.012709910510049882
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 1.4670335715313414,
+            "mae": 1.0969521604938286,
+            "n": 7776,
+            "hits": 7776,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "current": {
+            "rmse": 1.2598282307168345,
+            "mae": 0.9527109202323053,
+            "n": 7776,
+            "hits": 7776,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 1.239753753786681,
+            "mae": 0.9327329339010861,
+            "n": 7776,
+            "hits": 7776,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 1.2149459198403236,
+              "mae": 0.9159036196543268,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.1935181636097574,
+              "mae": 0.8953606138419112,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 1.3031656662472162,
+              "mae": 0.9895182208102861,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.2843259450738822,
+              "mae": 0.9701052539602636,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 1.3539914560224204,
+          "mae": 1.036277891556143,
+          "n": 5184,
+          "hits": 5180,
+          "misses": 0,
+          "falseAlarms": 4,
+          "pod": 1,
+          "far": 0.0007716049382716049,
+          "csi": 0.9992283950617284
+        },
+        "equal": {
+          "rmse": 1.3110604895219253,
+          "mae": 1.0108064276901083,
+          "n": 5184,
+          "hits": 5180,
+          "misses": 0,
+          "falseAlarms": 4,
+          "pod": 1,
+          "far": 0.0007716049382716049,
+          "csi": 0.9992283950617284
+        },
+        "candidate": {
+          "rmse": 1.3656668327712538,
+          "mae": 1.046404251610915,
+          "n": 5184,
+          "hits": 5180,
+          "misses": 0,
+          "falseAlarms": 4,
+          "pod": 1,
+          "far": 0.0007716049382716049,
+          "csi": 0.9992283950617284
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.008414688348404642,
+          "high": 0.0219946800330848
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 1.7767678337884194,
+            "mae": 1.360513117283953,
+            "n": 5184,
+            "hits": 5180,
+            "misses": 0,
+            "falseAlarms": 4,
+            "pod": 1,
+            "far": 0.0007716049382716049,
+            "csi": 0.9992283950617284
+          },
+          "current": {
+            "rmse": 1.3539914560224204,
+            "mae": 1.036277891556143,
+            "n": 5184,
+            "hits": 5180,
+            "misses": 0,
+            "falseAlarms": 4,
+            "pod": 1,
+            "far": 0.0007716049382716049,
+            "csi": 0.9992283950617284
+          },
+          "candidate": {
+            "rmse": 1.3656668327712538,
+            "mae": 1.046404251610915,
+            "n": 5184,
+            "hits": 5180,
+            "misses": 0,
+            "falseAlarms": 4,
+            "pod": 1,
+            "far": 0.0007716049382716049,
+            "csi": 0.9992283950617284
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 1.3409903707694846,
+              "mae": 1.026932417507967,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 2,
+              "pod": 1,
+              "far": 0.0007716049382716049,
+              "csi": 0.9992283950617284
+            },
+            "candidate": {
+              "rmse": 1.3588550677503228,
+              "mae": 1.0405247394310337,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 2,
+              "pod": 1,
+              "far": 0.0007716049382716049,
+              "csi": 0.9992283950617284
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 1.3668688859824645,
+              "mae": 1.0456233656043217,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 2,
+              "pod": 1,
+              "far": 0.0007716049382716049,
+              "csi": 0.9992283950617284
+            },
+            "candidate": {
+              "rmse": 1.3724447898229595,
+              "mae": 1.0522837637907942,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 2,
+              "pod": 1,
+              "far": 0.0007716049382716049,
+              "csi": 0.9992283950617284
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 1.2280514315124644,
+          "mae": 0.926084689072146,
+          "n": 3456,
+          "hits": 3452,
+          "misses": 4,
+          "falseAlarms": 0,
+          "pod": 0.9988425925925926,
+          "far": 0,
+          "csi": 0.9988425925925926
+        },
+        "equal": {
+          "rmse": 1.225595615887937,
+          "mae": 0.9280260427265643,
+          "n": 3456,
+          "hits": 3453,
+          "misses": 3,
+          "falseAlarms": 0,
+          "pod": 0.9991319444444444,
+          "far": 0,
+          "csi": 0.9991319444444444
+        },
+        "candidate": {
+          "rmse": 1.2257505351469853,
+          "mae": 0.9221614693334798,
+          "n": 3456,
+          "hits": 3452,
+          "misses": 4,
+          "falseAlarms": 0,
+          "pod": 0.9988425925925926,
+          "far": 0,
+          "csi": 0.9988425925925926
+        },
+        "rmseDelta95": null,
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 1.4450936708714064,
+            "mae": 1.076533564814812,
+            "n": 3456,
+            "hits": 3451,
+            "misses": 5,
+            "falseAlarms": 0,
+            "pod": 0.9985532407407407,
+            "far": 0,
+            "csi": 0.9985532407407407
+          },
+          "current": {
+            "rmse": 1.2280514315124644,
+            "mae": 0.926084689072146,
+            "n": 3456,
+            "hits": 3452,
+            "misses": 4,
+            "falseAlarms": 0,
+            "pod": 0.9988425925925926,
+            "far": 0,
+            "csi": 0.9988425925925926
+          },
+          "candidate": {
+            "rmse": 1.2257505351469853,
+            "mae": 0.9221614693334798,
+            "n": 3456,
+            "hits": 3452,
+            "misses": 4,
+            "falseAlarms": 0,
+            "pod": 0.9988425925925926,
+            "far": 0,
+            "csi": 0.9988425925925926
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 1.1702147070736904,
+              "mae": 0.8832487686239742,
+              "n": 1728,
+              "hits": 1726,
+              "misses": 2,
+              "falseAlarms": 0,
+              "pod": 0.9988425925925926,
+              "far": 0,
+              "csi": 0.9988425925925926
+            },
+            "candidate": {
+              "rmse": 1.1736012510998581,
+              "mae": 0.8797777900517099,
+              "n": 1728,
+              "hits": 1726,
+              "misses": 2,
+              "falseAlarms": 0,
+              "pod": 0.9988425925925926,
+              "far": 0,
+              "csi": 0.9988425925925926
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 1.2832841369813845,
+              "mae": 0.9689206095203159,
+              "n": 1728,
+              "hits": 1726,
+              "misses": 2,
+              "falseAlarms": 0,
+              "pod": 0.9988425925925926,
+              "far": 0,
+              "csi": 0.9988425925925926
+            },
+            "candidate": {
+              "rmse": 1.2757699056816991,
+              "mae": 0.9645451486152494,
+              "n": 1728,
+              "hits": 1726,
+              "misses": 2,
+              "falseAlarms": 0,
+              "pod": 0.9988425925925926,
+              "far": 0,
+              "csi": 0.9988425925925926
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 1.846933179551556,
+          "mae": 1.436009739082462,
+          "n": 4752,
+          "hits": 4752,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 1.8209078708592266,
+          "mae": 1.4156381523568968,
+          "n": 4752,
+          "hits": 4752,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 1.8794104206434603,
+          "mae": 1.4658758752571939,
+          "n": 4752,
+          "hits": 4752,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0.023714190803881596,
+          "high": 0.03630637617167265
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 2.341721035351436,
+            "mae": 1.8315867003367017,
+            "n": 4752,
+            "hits": 4752,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "current": {
+            "rmse": 1.846933179551556,
+            "mae": 1.436009739082462,
+            "n": 4752,
+            "hits": 4752,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 1.8794104206434603,
+            "mae": 1.4658758752571939,
+            "n": 4752,
+            "hits": 4752,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 1.7549440779727838,
+              "mae": 1.3618251737364058,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.7932403582308307,
+              "mae": 1.3951089392460454,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 1.9345530808548788,
+              "mae": 1.5101943044285158,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.9617991936124903,
+              "mae": 1.5366428112683395,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      }
+    },
+    "temperature/48-96h": {
+      "penalty": 0.06,
+      "rainSlope": null,
+      "fit": 10368,
+      "validation": 4320,
+      "refit": 19008,
+      "internal": {
+        "current": {
+          "rmse": 1.3795173903651097,
+          "mae": 1.0519700996772097,
+          "n": 4320,
+          "hits": 4320,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 1.3803795079241143,
+          "mae": 1.0530521108906525,
+          "n": 4320,
+          "hits": 4320,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        }
+      },
+      "accepted": false,
+      "temporal": {
+        "current": {
+          "rmse": 1.4027176931750318,
+          "mae": 1.081640341291608,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 1.4024975192594902,
+          "mae": 1.0839709790809342,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 1.3944025830580826,
+          "mae": 1.071864762271473,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.01299295988367799,
+          "high": -0.0008539049439606483
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 1.6364408112750588,
+            "mae": 1.2469264403292224,
+            "n": 7776,
+            "hits": 7776,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "current": {
+            "rmse": 1.4027176931750318,
+            "mae": 1.081640341291608,
+            "n": 7776,
+            "hits": 7776,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 1.3944025830580826,
+            "mae": 1.071864762271473,
+            "n": 7776,
+            "hits": 7776,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 1.3372135923157966,
+              "mae": 1.0243461977771626,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.3271399140587512,
+              "mae": 1.0125496860150804,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 1.4652964416862708,
+              "mae": 1.1389344848060554,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.4585666854107875,
+              "mae": 1.1311798385278573,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 1.5816560258351486,
+          "mae": 1.209696741535626,
+          "n": 5184,
+          "hits": 5179,
+          "misses": 1,
+          "falseAlarms": 2,
+          "pod": 0.9998069498069498,
+          "far": 0.0003860258637328701,
+          "csi": 0.999421072944809
+        },
+        "equal": {
+          "rmse": 1.595056047720605,
+          "mae": 1.2203338569224027,
+          "n": 5184,
+          "hits": 5179,
+          "misses": 1,
+          "falseAlarms": 2,
+          "pod": 0.9998069498069498,
+          "far": 0.0003860258637328701,
+          "csi": 0.999421072944809
+        },
+        "candidate": {
+          "rmse": 1.5881131432554225,
+          "mae": 1.2120447838504782,
+          "n": 5184,
+          "hits": 5180,
+          "misses": 0,
+          "falseAlarms": 2,
+          "pod": 1,
+          "far": 0.00038595137012736397,
+          "csi": 0.9996140486298727
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.004654828830496172,
+          "high": 0.010253717203404067
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 1.7969474287603395,
+            "mae": 1.3691743827160545,
+            "n": 5184,
+            "hits": 5180,
+            "misses": 0,
+            "falseAlarms": 4,
+            "pod": 1,
+            "far": 0.0007716049382716049,
+            "csi": 0.9992283950617284
+          },
+          "current": {
+            "rmse": 1.5816560258351486,
+            "mae": 1.209696741535626,
+            "n": 5184,
+            "hits": 5179,
+            "misses": 1,
+            "falseAlarms": 2,
+            "pod": 0.9998069498069498,
+            "far": 0.0003860258637328701,
+            "csi": 0.999421072944809
+          },
+          "candidate": {
+            "rmse": 1.5881131432554225,
+            "mae": 1.2120447838504782,
+            "n": 5184,
+            "hits": 5180,
+            "misses": 0,
+            "falseAlarms": 2,
+            "pod": 1,
+            "far": 0.00038595137012736397,
+            "csi": 0.9996140486298727
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 1.5524635272888336,
+              "mae": 1.1836800315788196,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 2,
+              "pod": 1,
+              "far": 0.0007716049382716049,
+              "csi": 0.9992283950617284
+            },
+            "candidate": {
+              "rmse": 1.5633100892991543,
+              "mae": 1.187091448400311,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 2,
+              "pod": 1,
+              "far": 0.0007716049382716049,
+              "csi": 0.9992283950617284
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 1.610319398305563,
+              "mae": 1.2357134514924324,
+              "n": 2592,
+              "hits": 2589,
+              "misses": 1,
+              "falseAlarms": 0,
+              "pod": 0.9996138996138996,
+              "far": 0,
+              "csi": 0.9996138996138996
+            },
+            "candidate": {
+              "rmse": 1.6125347364496334,
+              "mae": 1.2369981193006405,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 1.407253751274511,
+          "mae": 1.059356536326417,
+          "n": 3456,
+          "hits": 3453,
+          "misses": 3,
+          "falseAlarms": 0,
+          "pod": 0.9991319444444444,
+          "far": 0,
+          "csi": 0.9991319444444444
+        },
+        "equal": {
+          "rmse": 1.4154040759627988,
+          "mae": 1.0639114514440031,
+          "n": 3456,
+          "hits": 3453,
+          "misses": 3,
+          "falseAlarms": 0,
+          "pod": 0.9991319444444444,
+          "far": 0,
+          "csi": 0.9991319444444444
+        },
+        "candidate": {
+          "rmse": 1.3977123483483955,
+          "mae": 1.0526990022048852,
+          "n": 3456,
+          "hits": 3453,
+          "misses": 3,
+          "falseAlarms": 0,
+          "pod": 0.9991319444444444,
+          "far": 0,
+          "csi": 0.9991319444444444
+        },
+        "rmseDelta95": null,
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 1.5840842517576752,
+            "mae": 1.22042824074074,
+            "n": 3456,
+            "hits": 3453,
+            "misses": 3,
+            "falseAlarms": 0,
+            "pod": 0.9991319444444444,
+            "far": 0,
+            "csi": 0.9991319444444444
+          },
+          "current": {
+            "rmse": 1.407253751274511,
+            "mae": 1.059356536326417,
+            "n": 3456,
+            "hits": 3453,
+            "misses": 3,
+            "falseAlarms": 0,
+            "pod": 0.9991319444444444,
+            "far": 0,
+            "csi": 0.9991319444444444
+          },
+          "candidate": {
+            "rmse": 1.3977123483483955,
+            "mae": 1.0526990022048852,
+            "n": 3456,
+            "hits": 3453,
+            "misses": 3,
+            "falseAlarms": 0,
+            "pod": 0.9991319444444444,
+            "far": 0,
+            "csi": 0.9991319444444444
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 1.3605797102727613,
+              "mae": 1.0194015176053133,
+              "n": 1728,
+              "hits": 1726,
+              "misses": 2,
+              "falseAlarms": 0,
+              "pod": 0.9988425925925926,
+              "far": 0,
+              "csi": 0.9988425925925926
+            },
+            "candidate": {
+              "rmse": 1.3563531951257592,
+              "mae": 1.0162283259777107,
+              "n": 1728,
+              "hits": 1726,
+              "misses": 2,
+              "falseAlarms": 0,
+              "pod": 0.9988425925925926,
+              "far": 0,
+              "csi": 0.9988425925925926
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 1.4524286877318473,
+              "mae": 1.099311555047515,
+              "n": 1728,
+              "hits": 1727,
+              "misses": 1,
+              "falseAlarms": 0,
+              "pod": 0.9994212962962963,
+              "far": 0,
+              "csi": 0.9994212962962963
+            },
+            "candidate": {
+              "rmse": 1.4378823413350992,
+              "mae": 1.0891696784320613,
+              "n": 1728,
+              "hits": 1727,
+              "misses": 1,
+              "falseAlarms": 0,
+              "pod": 0.9994212962962963,
+              "far": 0,
+              "csi": 0.9994212962962963
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 2.030619964337212,
+          "mae": 1.591545529533253,
+          "n": 4752,
+          "hits": 4752,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 2.029597863172088,
+          "mae": 1.5921957671957614,
+          "n": 4752,
+          "hits": 4752,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 2.053047244349906,
+          "mae": 1.6119023471592127,
+          "n": 4752,
+          "hits": 4752,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0.012897832262886544,
+          "high": 0.029299094959474026
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 2.513210885745359,
+            "mae": 1.960206228956229,
+            "n": 4752,
+            "hits": 4752,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "current": {
+            "rmse": 2.030619964337212,
+            "mae": 1.591545529533253,
+            "n": 4752,
+            "hits": 4752,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 2.053047244349906,
+            "mae": 1.6119023471592127,
+            "n": 4752,
+            "hits": 4752,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 1.968478097151571,
+              "mae": 1.538712986298215,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.9860483953596497,
+              "mae": 1.553895421883088,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 2.0909157946135153,
+              "mae": 1.6443780727682922,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.1179277009272175,
+              "mae": 1.669909272435331,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      }
+    },
+    "temperature/96-168h": {
+      "penalty": null,
+      "rainSlope": null,
+      "fit": 15552,
+      "validation": 6480,
+      "refit": 28512,
+      "internal": {
+        "current": {
+          "rmse": 2.0610320744456287,
+          "mae": 1.556411785389678,
+          "n": 6480,
+          "hits": 6480,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 2.0693785074216664,
+          "mae": 1.5632008744855963,
+          "n": 6480,
+          "hits": 6480,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        }
+      },
+      "accepted": false,
+      "temporal": {
+        "current": {
+          "rmse": 1.7676384010792143,
+          "mae": 1.3661446896538687,
+          "n": 11664,
+          "hits": 11664,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 1.7774738620271595,
+          "mae": 1.3756544352994982,
+          "n": 11664,
+          "hits": 11664,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 1.7676384010792143,
+          "mae": 1.3661446896538687,
+          "n": 11664,
+          "hits": 11664,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0,
+          "high": 0
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 2.2412264166032196,
+            "mae": 1.7367541152263415,
+            "n": 11664,
+            "hits": 11664,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "current": {
+            "rmse": 1.7676384010792143,
+            "mae": 1.3661446896538687,
+            "n": 11664,
+            "hits": 11664,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 1.7676384010792143,
+            "mae": 1.3661446896538687,
+            "n": 11664,
+            "hits": 11664,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 1.62647667379324,
+              "mae": 1.2610043981481527,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.62647667379324,
+              "mae": 1.2610043981481527,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 1.7758828055681641,
+              "mae": 1.3844910236625478,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.7758828055681641,
+              "mae": 1.3844910236625478,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 1.8906217076410294,
+              "mae": 1.4529386471509018,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.8906217076410294,
+              "mae": 1.4529386471509018,
+              "n": 3888,
+              "hits": 3888,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 1.8348767356924338,
+          "mae": 1.401437340787451,
+          "n": 7776,
+          "hits": 7769,
+          "misses": 1,
+          "falseAlarms": 3,
+          "pod": 0.9998712998712999,
+          "far": 0.00038600102933607824,
+          "csi": 0.9994853981731635
+        },
+        "equal": {
+          "rmse": 1.8615988857760468,
+          "mae": 1.418608539094652,
+          "n": 7776,
+          "hits": 7769,
+          "misses": 1,
+          "falseAlarms": 4,
+          "pod": 0.9998712998712999,
+          "far": 0.0005146018268364853,
+          "csi": 0.9993568304605094
+        },
+        "candidate": {
+          "rmse": 1.8348767356924338,
+          "mae": 1.401437340787451,
+          "n": 7776,
+          "hits": 7769,
+          "misses": 1,
+          "falseAlarms": 3,
+          "pod": 0.9998712998712999,
+          "far": 0.00038600102933607824,
+          "csi": 0.9994853981731635
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0,
+          "high": 0
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 2.369695722857694,
+            "mae": 1.8078189300411671,
+            "n": 7776,
+            "hits": 7770,
+            "misses": 0,
+            "falseAlarms": 6,
+            "pod": 1,
+            "far": 0.0007716049382716049,
+            "csi": 0.9992283950617284
+          },
+          "current": {
+            "rmse": 1.8348767356924338,
+            "mae": 1.401437340787451,
+            "n": 7776,
+            "hits": 7769,
+            "misses": 1,
+            "falseAlarms": 3,
+            "pod": 0.9998712998712999,
+            "far": 0.00038600102933607824,
+            "csi": 0.9994853981731635
+          },
+          "candidate": {
+            "rmse": 1.8348767356924338,
+            "mae": 1.401437340787451,
+            "n": 7776,
+            "hits": 7769,
+            "misses": 1,
+            "falseAlarms": 3,
+            "pod": 0.9998712998712999,
+            "far": 0.00038600102933607824,
+            "csi": 0.9994853981731635
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 1.735835275139602,
+              "mae": 1.3316878472222218,
+              "n": 2592,
+              "hits": 2589,
+              "misses": 1,
+              "falseAlarms": 0,
+              "pod": 0.9996138996138996,
+              "far": 0,
+              "csi": 0.9996138996138996
+            },
+            "candidate": {
+              "rmse": 1.735835275139602,
+              "mae": 1.3316878472222218,
+              "n": 2592,
+              "hits": 2589,
+              "misses": 1,
+              "falseAlarms": 0,
+              "pod": 0.9996138996138996,
+              "far": 0,
+              "csi": 0.9996138996138996
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 1.8044485615577595,
+              "mae": 1.388342785493829,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 2,
+              "pod": 1,
+              "far": 0.0007716049382716049,
+              "csi": 0.9992283950617284
+            },
+            "candidate": {
+              "rmse": 1.8044485615577595,
+              "mae": 1.388342785493829,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 2,
+              "pod": 1,
+              "far": 0.0007716049382716049,
+              "csi": 0.9992283950617284
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 1.9573347163500534,
+              "mae": 1.4842813896462896,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.00038595137012736397,
+              "csi": 0.9996140486298727
+            },
+            "candidate": {
+              "rmse": 1.9573347163500534,
+              "mae": 1.4842813896462896,
+              "n": 2592,
+              "hits": 2590,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.00038595137012736397,
+              "csi": 0.9996140486298727
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 1.7524056123918286,
+          "mae": 1.349960295718778,
+          "n": 5184,
+          "hits": 5178,
+          "misses": 6,
+          "falseAlarms": 0,
+          "pod": 0.9988425925925926,
+          "far": 0,
+          "csi": 0.9988425925925926
+        },
+        "equal": {
+          "rmse": 1.7649466463977008,
+          "mae": 1.3553224665637937,
+          "n": 5184,
+          "hits": 5179,
+          "misses": 5,
+          "falseAlarms": 0,
+          "pod": 0.9990354938271605,
+          "far": 0,
+          "csi": 0.9990354938271605
+        },
+        "candidate": {
+          "rmse": 1.7524056123918286,
+          "mae": 1.349960295718778,
+          "n": 5184,
+          "hits": 5178,
+          "misses": 6,
+          "falseAlarms": 0,
+          "pod": 0.9988425925925926,
+          "far": 0,
+          "csi": 0.9988425925925926
+        },
+        "rmseDelta95": null,
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 2.1165272263781536,
+            "mae": 1.622800925925924,
+            "n": 5184,
+            "hits": 5179,
+            "misses": 5,
+            "falseAlarms": 0,
+            "pod": 0.9990354938271605,
+            "far": 0,
+            "csi": 0.9990354938271605
+          },
+          "current": {
+            "rmse": 1.7524056123918286,
+            "mae": 1.349960295718778,
+            "n": 5184,
+            "hits": 5178,
+            "misses": 6,
+            "falseAlarms": 0,
+            "pod": 0.9988425925925926,
+            "far": 0,
+            "csi": 0.9988425925925926
+          },
+          "candidate": {
+            "rmse": 1.7524056123918286,
+            "mae": 1.349960295718778,
+            "n": 5184,
+            "hits": 5178,
+            "misses": 6,
+            "falseAlarms": 0,
+            "pod": 0.9988425925925926,
+            "far": 0,
+            "csi": 0.9988425925925926
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 1.5974861769347763,
+              "mae": 1.2037524305555576,
+              "n": 1728,
+              "hits": 1725,
+              "misses": 3,
+              "falseAlarms": 0,
+              "pod": 0.9982638888888888,
+              "far": 0,
+              "csi": 0.9982638888888888
+            },
+            "candidate": {
+              "rmse": 1.5974861769347763,
+              "mae": 1.2037524305555576,
+              "n": 1728,
+              "hits": 1725,
+              "misses": 3,
+              "falseAlarms": 0,
+              "pod": 0.9982638888888888,
+              "far": 0,
+              "csi": 0.9982638888888888
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 1.757826961143809,
+              "mae": 1.351684722222221,
+              "n": 1728,
+              "hits": 1725,
+              "misses": 3,
+              "falseAlarms": 0,
+              "pod": 0.9982638888888888,
+              "far": 0,
+              "csi": 0.9982638888888888
+            },
+            "candidate": {
+              "rmse": 1.757826961143809,
+              "mae": 1.351684722222221,
+              "n": 1728,
+              "hits": 1725,
+              "misses": 3,
+              "falseAlarms": 0,
+              "pod": 0.9982638888888888,
+              "far": 0,
+              "csi": 0.9982638888888888
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 1.8896715535260056,
+              "mae": 1.494443734378548,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 1.8896715535260056,
+              "mae": 1.494443734378548,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 2.220169942241483,
+          "mae": 1.7454596198866674,
+          "n": 7128,
+          "hits": 7128,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 2.2138416543163055,
+          "mae": 1.738632856341188,
+          "n": 7128,
+          "hits": 7128,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 2.220169942241483,
+          "mae": 1.7454596198866674,
+          "n": 7128,
+          "hits": 7128,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0,
+          "high": 0
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 2.694593872769971,
+            "mae": 2.134287317620655,
+            "n": 7128,
+            "hits": 7126,
+            "misses": 2,
+            "falseAlarms": 0,
+            "pod": 0.9997194163860831,
+            "far": 0,
+            "csi": 0.9997194163860831
+          },
+          "current": {
+            "rmse": 2.220169942241483,
+            "mae": 1.7454596198866674,
+            "n": 7128,
+            "hits": 7128,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 2.220169942241483,
+            "mae": 1.7454596198866674,
+            "n": 7128,
+            "hits": 7128,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 2.136806403144703,
+              "mae": 1.6720792087542096,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.136806403144703,
+              "mae": 1.6720792087542096,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 2.1807930280643797,
+              "mae": 1.7090536195286194,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.1807930280643797,
+              "mae": 1.7090536195286194,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 2.337875933732007,
+              "mae": 1.8552460313771653,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.337875933732007,
+              "mae": 1.8552460313771653,
+              "n": 2376,
+              "hits": 2376,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      }
+    },
+    "precipitation/0-48h": {
+      "penalty": 0.015,
+      "rainSlope": 0.8444497449595169,
+      "fit": 10368,
+      "validation": 4320,
+      "refit": 19008,
+      "internal": {
+        "current": {
+          "rmse": 0.33532178614019265,
+          "mae": 0.0930276061164273,
+          "n": 4320,
+          "hits": 492,
+          "misses": 294,
+          "falseAlarms": 219,
+          "pod": 0.6259541984732825,
+          "far": 0.3080168776371308,
+          "csi": 0.48955223880597015
+        },
+        "equal": {
+          "rmse": 0.33887994767255236,
+          "mae": 0.09369530296092789,
+          "n": 4320,
+          "hits": 492,
+          "misses": 294,
+          "falseAlarms": 209,
+          "pod": 0.6259541984732825,
+          "far": 0.29814550641940085,
+          "csi": 0.49447236180904525
+        }
+      },
+      "accepted": false,
+      "temporal": {
+        "current": {
+          "rmse": 0.11814982318006659,
+          "mae": 0.028086606712069397,
+          "n": 7776,
+          "hits": 369,
+          "misses": 303,
+          "falseAlarms": 120,
+          "pod": 0.5491071428571429,
+          "far": 0.24539877300613497,
+          "csi": 0.4659090909090909
+        },
+        "equal": {
+          "rmse": 0.12373817772335062,
+          "mae": 0.028772214261218846,
+          "n": 7776,
+          "hits": 369,
+          "misses": 303,
+          "falseAlarms": 118,
+          "pod": 0.5491071428571429,
+          "far": 0.24229979466119098,
+          "csi": 0.4670886075949367
+        },
+        "candidate": {
+          "rmse": 0.1161992707060805,
+          "mae": 0.027582362822652008,
+          "n": 7776,
+          "hits": 365,
+          "misses": 307,
+          "falseAlarms": 120,
+          "pod": 0.5431547619047619,
+          "far": 0.24742268041237114,
+          "csi": 0.46085858585858586
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.004563377107974234,
+          "high": 0.002856188732329623
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 298.567838785004,
+            "observed": 310.3999999999997,
+            "wet": 672
+          },
+          "candidate": {
+            "forecast": 289.12277273555594,
+            "observed": 310.3999999999997,
+            "wet": 672
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.11545408217494417,
+          "mae": 0.02689367395739746,
+          "n": 7776,
+          "hits": 350,
+          "misses": 322,
+          "falseAlarms": 101,
+          "pod": 0.5208333333333334,
+          "far": 0.22394678492239467,
+          "csi": 0.45278137128072443
+        },
+        "singleModel": {
+          "id": "ncep_aigfs025",
+          "raw": {
+            "rmse": 0.1554066747855482,
+            "mae": 0.03204732510288044,
+            "n": 7776,
+            "hits": 401,
+            "misses": 271,
+            "falseAlarms": 168,
+            "pod": 0.5967261904761905,
+            "far": 0.29525483304042177,
+            "csi": 0.4773809523809524
+          },
+          "current": {
+            "rmse": 0.11814982318006659,
+            "mae": 0.028086606712069397,
+            "n": 7776,
+            "hits": 369,
+            "misses": 303,
+            "falseAlarms": 120,
+            "pod": 0.5491071428571429,
+            "far": 0.24539877300613497,
+            "csi": 0.4659090909090909
+          },
+          "candidate": {
+            "rmse": 0.1161992707060805,
+            "mae": 0.027582362822652008,
+            "n": 7776,
+            "hits": 365,
+            "misses": 307,
+            "falseAlarms": 120,
+            "pod": 0.5431547619047619,
+            "far": 0.24742268041237114,
+            "csi": 0.46085858585858586
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 0.11381345855162665,
+              "mae": 0.02701898248558452,
+              "n": 3888,
+              "hits": 196,
+              "misses": 140,
+              "falseAlarms": 59,
+              "pod": 0.5833333333333334,
+              "far": 0.23137254901960785,
+              "csi": 0.4962025316455696
+            },
+            "candidate": {
+              "rmse": 0.10866616672748608,
+              "mae": 0.02619756387263462,
+              "n": 3888,
+              "hits": 195,
+              "misses": 141,
+              "falseAlarms": 56,
+              "pod": 0.5803571428571429,
+              "far": 0.22310756972111553,
+              "csi": 0.49744897959183676
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 0.122332571653992,
+              "mae": 0.029154230938554154,
+              "n": 3888,
+              "hits": 173,
+              "misses": 163,
+              "falseAlarms": 61,
+              "pod": 0.5148809523809523,
+              "far": 0.2606837606837607,
+              "csi": 0.4357682619647355
+            },
+            "candidate": {
+              "rmse": 0.12327288929040352,
+              "mae": 0.02896716177266941,
+              "n": 3888,
+              "hits": 170,
+              "misses": 166,
+              "falseAlarms": 64,
+              "pod": 0.5059523809523809,
+              "far": 0.27350427350427353,
+              "csi": 0.425
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 0.24985053951374486,
+          "mae": 0.06833923356023283,
+          "n": 5184,
+          "hits": 485,
+          "misses": 399,
+          "falseAlarms": 155,
+          "pod": 0.5486425339366516,
+          "far": 0.2421875,
+          "csi": 0.4667949951876805
+        },
+        "equal": {
+          "rmse": 0.2495933453481406,
+          "mae": 0.0677521986115738,
+          "n": 5184,
+          "hits": 477,
+          "misses": 407,
+          "falseAlarms": 149,
+          "pod": 0.5395927601809954,
+          "far": 0.2380191693290735,
+          "csi": 0.4617618586640852
+        },
+        "candidate": {
+          "rmse": 0.2497852542615674,
+          "mae": 0.06935820249936234,
+          "n": 5184,
+          "hits": 489,
+          "misses": 395,
+          "falseAlarms": 161,
+          "pod": 0.5531674208144797,
+          "far": 0.24769230769230768,
+          "csi": 0.46794258373205744
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.0012174572690382968,
+          "high": 0.008957497132463743
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 362.6878456009859,
+            "observed": 478.40000000000265,
+            "wet": 884
+          },
+          "candidate": {
+            "forecast": 362.4636142248009,
+            "observed": 478.40000000000265,
+            "wet": 884
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.2538902101952549,
+          "mae": 0.06842285063624134,
+          "n": 5184,
+          "hits": 452,
+          "misses": 432,
+          "falseAlarms": 131,
+          "pod": 0.5113122171945701,
+          "far": 0.22469982847341338,
+          "csi": 0.44532019704433495
+        },
+        "singleModel": {
+          "id": "ncep_aigfs025",
+          "raw": {
+            "rmse": 0.29589853219984813,
+            "mae": 0.0834683641975314,
+            "n": 5184,
+            "hits": 493,
+            "misses": 391,
+            "falseAlarms": 268,
+            "pod": 0.5576923076923077,
+            "far": 0.35216819973718794,
+            "csi": 0.4279513888888889
+          },
+          "current": {
+            "rmse": 0.24985053951374486,
+            "mae": 0.06833923356023283,
+            "n": 5184,
+            "hits": 485,
+            "misses": 399,
+            "falseAlarms": 155,
+            "pod": 0.5486425339366516,
+            "far": 0.2421875,
+            "csi": 0.4667949951876805
+          },
+          "candidate": {
+            "rmse": 0.2497852542615674,
+            "mae": 0.06935820249936234,
+            "n": 5184,
+            "hits": 489,
+            "misses": 395,
+            "falseAlarms": 161,
+            "pod": 0.5531674208144797,
+            "far": 0.24769230769230768,
+            "csi": 0.46794258373205744
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 0.22141899746662344,
+              "mae": 0.06395333200962484,
+              "n": 2592,
+              "hits": 250,
+              "misses": 192,
+              "falseAlarms": 67,
+              "pod": 0.5656108597285068,
+              "far": 0.2113564668769716,
+              "csi": 0.4911591355599214
+            },
+            "candidate": {
+              "rmse": 0.22188139568930423,
+              "mae": 0.0642220745292048,
+              "n": 2592,
+              "hits": 253,
+              "misses": 189,
+              "falseAlarms": 69,
+              "pod": 0.5723981900452488,
+              "far": 0.21428571428571427,
+              "csi": 0.49510763209393344
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 0.27536196496882825,
+              "mae": 0.07272513511084042,
+              "n": 2592,
+              "hits": 235,
+              "misses": 207,
+              "falseAlarms": 88,
+              "pod": 0.5316742081447964,
+              "far": 0.2724458204334365,
+              "csi": 0.44339622641509435
+            },
+            "candidate": {
+              "rmse": 0.2748708655714504,
+              "mae": 0.0744943304695201,
+              "n": 2592,
+              "hits": 236,
+              "misses": 206,
+              "falseAlarms": 92,
+              "pod": 0.5339366515837104,
+              "far": 0.2804878048780488,
+              "csi": 0.4419475655430712
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 0.19523718065867618,
+          "mae": 0.05104216188294518,
+          "n": 3456,
+          "hits": 176,
+          "misses": 266,
+          "falseAlarms": 97,
+          "pod": 0.39819004524886875,
+          "far": 0.3553113553113553,
+          "csi": 0.32653061224489793
+        },
+        "equal": {
+          "rmse": 0.19794903368585973,
+          "mae": 0.05142017439543495,
+          "n": 3456,
+          "hits": 166,
+          "misses": 276,
+          "falseAlarms": 98,
+          "pod": 0.3755656108597285,
+          "far": 0.3712121212121212,
+          "csi": 0.3074074074074074
+        },
+        "candidate": {
+          "rmse": 0.19167201727189492,
+          "mae": 0.05063723946226171,
+          "n": 3456,
+          "hits": 190,
+          "misses": 252,
+          "falseAlarms": 91,
+          "pod": 0.4298642533936652,
+          "far": 0.3238434163701068,
+          "csi": 0.35647279549718575
+        },
+        "rmseDelta95": null,
+        "rainTotals": {
+          "current": {
+            "forecast": 153.6741341097987,
+            "observed": 154.59999999999937,
+            "wet": 442
+          },
+          "candidate": {
+            "forecast": 151.94852859604998,
+            "observed": 154.59999999999937,
+            "wet": 442
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.18231377062347415,
+          "mae": 0.047349803587355375,
+          "n": 3456,
+          "hits": 158,
+          "misses": 284,
+          "falseAlarms": 78,
+          "pod": 0.3574660633484163,
+          "far": 0.3305084745762712,
+          "csi": 0.3038461538461538
+        },
+        "singleModel": {
+          "id": "ncep_aigfs025",
+          "raw": {
+            "rmse": 0.18878418258051338,
+            "mae": 0.048755787037036716,
+            "n": 3456,
+            "hits": 210,
+            "misses": 232,
+            "falseAlarms": 162,
+            "pod": 0.4751131221719457,
+            "far": 0.43548387096774194,
+            "csi": 0.347682119205298
+          },
+          "current": {
+            "rmse": 0.19523718065867618,
+            "mae": 0.05104216188294518,
+            "n": 3456,
+            "hits": 176,
+            "misses": 266,
+            "falseAlarms": 97,
+            "pod": 0.39819004524886875,
+            "far": 0.3553113553113553,
+            "csi": 0.32653061224489793
+          },
+          "candidate": {
+            "rmse": 0.19167201727189492,
+            "mae": 0.05063723946226171,
+            "n": 3456,
+            "hits": 190,
+            "misses": 252,
+            "falseAlarms": 91,
+            "pod": 0.4298642533936652,
+            "far": 0.3238434163701068,
+            "csi": 0.35647279549718575
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 0.19393294152781262,
+              "mae": 0.04802095271932352,
+              "n": 1728,
+              "hits": 93,
+              "misses": 128,
+              "falseAlarms": 37,
+              "pod": 0.42081447963800905,
+              "far": 0.2846153846153846,
+              "csi": 0.36046511627906974
+            },
+            "candidate": {
+              "rmse": 0.18639848742149126,
+              "mae": 0.04719569733720784,
+              "n": 1728,
+              "hits": 100,
+              "misses": 121,
+              "falseAlarms": 35,
+              "pod": 0.45248868778280543,
+              "far": 0.25925925925925924,
+              "csi": 0.390625
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 0.19653276473266976,
+              "mae": 0.054063371046566985,
+              "n": 1728,
+              "hits": 83,
+              "misses": 138,
+              "falseAlarms": 60,
+              "pod": 0.3755656108597285,
+              "far": 0.4195804195804196,
+              "csi": 0.29537366548042704
+            },
+            "candidate": {
+              "rmse": 0.19680428932605915,
+              "mae": 0.05407878158731586,
+              "n": 1728,
+              "hits": 90,
+              "misses": 131,
+              "falseAlarms": 56,
+              "pod": 0.4072398190045249,
+              "far": 0.3835616438356164,
+              "csi": 0.3249097472924188
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 0.018479920503875175,
+          "mae": 0.004128791944964712,
+          "n": 4752,
+          "hits": 0,
+          "misses": 48,
+          "falseAlarms": 16,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "equal": {
+          "rmse": 0.02004989115402045,
+          "mae": 0.00404654180695846,
+          "n": 4752,
+          "hits": 0,
+          "misses": 48,
+          "falseAlarms": 14,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "candidate": {
+          "rmse": 0.017754733292026134,
+          "mae": 0.004330558408207075,
+          "n": 4752,
+          "hits": 0,
+          "misses": 48,
+          "falseAlarms": 17,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.0019850190526892464,
+          "high": 0.0005225137679848724
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 14.928349522197776,
+            "observed": 4.999999999999998,
+            "wet": 48
+          },
+          "candidate": {
+            "forecast": 15.898276961926694,
+            "observed": 4.999999999999998,
+            "wet": 48
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.016591501000321626,
+          "mae": 0.00365022550255998,
+          "n": 4752,
+          "hits": 0,
+          "misses": 48,
+          "falseAlarms": 12,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "singleModel": {
+          "id": "ncep_aigfs025",
+          "raw": {
+            "rmse": 0.024099960182707353,
+            "mae": 0.004882154882154886,
+            "n": 4752,
+            "hits": 2,
+            "misses": 46,
+            "falseAlarms": 164,
+            "pod": 0.041666666666666664,
+            "far": 0.9879518072289156,
+            "csi": 0.009433962264150943
+          },
+          "current": {
+            "rmse": 0.018479920503875175,
+            "mae": 0.004128791944964712,
+            "n": 4752,
+            "hits": 0,
+            "misses": 48,
+            "falseAlarms": 16,
+            "pod": 0,
+            "far": 1,
+            "csi": 0
+          },
+          "candidate": {
+            "rmse": 0.017754733292026134,
+            "mae": 0.004330558408207075,
+            "n": 4752,
+            "hits": 0,
+            "misses": 48,
+            "falseAlarms": 17,
+            "pod": 0,
+            "far": 1,
+            "csi": 0
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 0.020747708990993603,
+              "mae": 0.0042799289981602364,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 10,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            },
+            "candidate": {
+              "rmse": 0.019498017363022025,
+              "mae": 0.004588389335819846,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 13,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 0.01589174299075262,
+              "mae": 0.003977654891769205,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 6,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            },
+            "candidate": {
+              "rmse": 0.01582050654856712,
+              "mae": 0.004072727480594282,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 4,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            }
+          }
+        }
+      }
+    },
+    "precipitation/48-96h": {
+      "penalty": 0.015,
+      "rainSlope": 1.0385608027272608,
+      "fit": 10368,
+      "validation": 4320,
+      "refit": 19008,
+      "internal": {
+        "current": {
+          "rmse": 0.3804397509516951,
+          "mae": 0.11420264413658923,
+          "n": 4320,
+          "hits": 490,
+          "misses": 296,
+          "falseAlarms": 305,
+          "pod": 0.6234096692111959,
+          "far": 0.3836477987421384,
+          "csi": 0.44912923923006415
+        },
+        "equal": {
+          "rmse": 0.3850150836088088,
+          "mae": 0.11467496141975345,
+          "n": 4320,
+          "hits": 471,
+          "misses": 315,
+          "falseAlarms": 301,
+          "pod": 0.5992366412213741,
+          "far": 0.3898963730569948,
+          "csi": 0.43330266789328425
+        }
+      },
+      "accepted": false,
+      "temporal": {
+        "current": {
+          "rmse": 0.15557868174558634,
+          "mae": 0.03660718774175012,
+          "n": 7776,
+          "hits": 367,
+          "misses": 305,
+          "falseAlarms": 188,
+          "pod": 0.5461309523809523,
+          "far": 0.3387387387387387,
+          "csi": 0.42674418604651165
+        },
+        "equal": {
+          "rmse": 0.15617655473050138,
+          "mae": 0.03690346058690979,
+          "n": 7776,
+          "hits": 364,
+          "misses": 308,
+          "falseAlarms": 190,
+          "pod": 0.5416666666666666,
+          "far": 0.34296028880866425,
+          "csi": 0.4222737819025522
+        },
+        "candidate": {
+          "rmse": 0.15671819296948503,
+          "mae": 0.03677497926081766,
+          "n": 7776,
+          "hits": 359,
+          "misses": 313,
+          "falseAlarms": 180,
+          "pod": 0.5342261904761905,
+          "far": 0.3339517625231911,
+          "csi": 0.4213615023474178
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0.000022996067298997058,
+          "high": 0.0015466168541157788
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 314.9319002513295,
+            "observed": 310.3999999999997,
+            "wet": 672
+          },
+          "candidate": {
+            "forecast": 314.6637715160773,
+            "observed": 310.3999999999997,
+            "wet": 672
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.1576284170600934,
+          "mae": 0.03724273562542292,
+          "n": 7776,
+          "hits": 368,
+          "misses": 304,
+          "falseAlarms": 198,
+          "pod": 0.5476190476190477,
+          "far": 0.3498233215547703,
+          "csi": 0.42298850574712643
+        },
+        "singleModel": {
+          "id": "ncep_aigfs025",
+          "raw": {
+            "rmse": 0.19514094832180717,
+            "mae": 0.039776234567901206,
+            "n": 7776,
+            "hits": 332,
+            "misses": 340,
+            "falseAlarms": 187,
+            "pod": 0.49404761904761907,
+            "far": 0.3603082851637765,
+            "csi": 0.38649592549476136
+          },
+          "current": {
+            "rmse": 0.15557868174558634,
+            "mae": 0.03660718774175012,
+            "n": 7776,
+            "hits": 367,
+            "misses": 305,
+            "falseAlarms": 188,
+            "pod": 0.5461309523809523,
+            "far": 0.3387387387387387,
+            "csi": 0.42674418604651165
+          },
+          "candidate": {
+            "rmse": 0.15671819296948503,
+            "mae": 0.03677497926081766,
+            "n": 7776,
+            "hits": 359,
+            "misses": 313,
+            "falseAlarms": 180,
+            "pod": 0.5342261904761905,
+            "far": 0.3339517625231911,
+            "csi": 0.4213615023474178
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 0.13442503208985376,
+              "mae": 0.03223704979312216,
+              "n": 3888,
+              "hits": 186,
+              "misses": 150,
+              "falseAlarms": 85,
+              "pod": 0.5535714285714286,
+              "far": 0.31365313653136534,
+              "csi": 0.4418052256532066
+            },
+            "candidate": {
+              "rmse": 0.13396929389962312,
+              "mae": 0.03227190133966928,
+              "n": 3888,
+              "hits": 182,
+              "misses": 154,
+              "falseAlarms": 81,
+              "pod": 0.5416666666666666,
+              "far": 0.30798479087452474,
+              "csi": 0.4364508393285372
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 0.17418198292312226,
+              "mae": 0.040977325690378014,
+              "n": 3888,
+              "hits": 181,
+              "misses": 155,
+              "falseAlarms": 103,
+              "pod": 0.5386904761904762,
+              "far": 0.3626760563380282,
+              "csi": 0.4123006833712984
+            },
+            "candidate": {
+              "rmse": 0.17655993970116274,
+              "mae": 0.041278057181966095,
+              "n": 3888,
+              "hits": 177,
+              "misses": 159,
+              "falseAlarms": 99,
+              "pod": 0.5267857142857143,
+              "far": 0.358695652173913,
+              "csi": 0.4068965517241379
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 0.28797859312517116,
+          "mae": 0.07894682510953463,
+          "n": 5184,
+          "hits": 482,
+          "misses": 402,
+          "falseAlarms": 229,
+          "pod": 0.5452488687782805,
+          "far": 0.32208157524613223,
+          "csi": 0.4330637915543576
+        },
+        "equal": {
+          "rmse": 0.29118445127873116,
+          "mae": 0.07940664498824238,
+          "n": 5184,
+          "hits": 479,
+          "misses": 405,
+          "falseAlarms": 223,
+          "pod": 0.5418552036199095,
+          "far": 0.3176638176638177,
+          "csi": 0.4327009936766034
+        },
+        "candidate": {
+          "rmse": 0.2856601670279127,
+          "mae": 0.07887577153390048,
+          "n": 5184,
+          "hits": 479,
+          "misses": 405,
+          "falseAlarms": 231,
+          "pod": 0.5418552036199095,
+          "far": 0.32535211267605635,
+          "csi": 0.4295964125560538
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.00460238600309032,
+          "high": 0.0013449725026716819
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 352.5534276770131,
+            "observed": 478.40000000000265,
+            "wet": 884
+          },
+          "candidate": {
+            "forecast": 355.12460848346814,
+            "observed": 478.40000000000265,
+            "wet": 884
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.2879573613062142,
+          "mae": 0.07942656049289822,
+          "n": 5184,
+          "hits": 485,
+          "misses": 399,
+          "falseAlarms": 236,
+          "pod": 0.5486425339366516,
+          "far": 0.3273231622746186,
+          "csi": 0.4330357142857143
+        },
+        "singleModel": {
+          "id": "ncep_aigfs025",
+          "raw": {
+            "rmse": 0.31108630853514685,
+            "mae": 0.08530092592592652,
+            "n": 5184,
+            "hits": 415,
+            "misses": 469,
+            "falseAlarms": 266,
+            "pod": 0.46945701357466063,
+            "far": 0.39060205580029367,
+            "csi": 0.36086956521739133
+          },
+          "current": {
+            "rmse": 0.28797859312517116,
+            "mae": 0.07894682510953463,
+            "n": 5184,
+            "hits": 482,
+            "misses": 402,
+            "falseAlarms": 229,
+            "pod": 0.5452488687782805,
+            "far": 0.32208157524613223,
+            "csi": 0.4330637915543576
+          },
+          "candidate": {
+            "rmse": 0.2856601670279127,
+            "mae": 0.07887577153390048,
+            "n": 5184,
+            "hits": 479,
+            "misses": 405,
+            "falseAlarms": 231,
+            "pod": 0.5418552036199095,
+            "far": 0.32535211267605635,
+            "csi": 0.4295964125560538
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 0.2769847123722379,
+              "mae": 0.07471357301813375,
+              "n": 2592,
+              "hits": 245,
+              "misses": 197,
+              "falseAlarms": 95,
+              "pod": 0.5542986425339367,
+              "far": 0.27941176470588236,
+              "csi": 0.45623836126629425
+            },
+            "candidate": {
+              "rmse": 0.2712740910888941,
+              "mae": 0.07416588725278403,
+              "n": 2592,
+              "hits": 241,
+              "misses": 201,
+              "falseAlarms": 94,
+              "pod": 0.5452488687782805,
+              "far": 0.28059701492537314,
+              "csi": 0.4496268656716418
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 0.29856793081102007,
+              "mae": 0.08318007720093484,
+              "n": 2592,
+              "hits": 237,
+              "misses": 205,
+              "falseAlarms": 134,
+              "pod": 0.5361990950226244,
+              "far": 0.3611859838274933,
+              "csi": 0.4114583333333333
+            },
+            "candidate": {
+              "rmse": 0.29935569070375884,
+              "mae": 0.0835856558150165,
+              "n": 2592,
+              "hits": 238,
+              "misses": 204,
+              "falseAlarms": 137,
+              "pod": 0.5384615384615384,
+              "far": 0.36533333333333334,
+              "csi": 0.4110535405872193
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 0.18990729975890389,
+          "mae": 0.0566817376439741,
+          "n": 3456,
+          "hits": 180,
+          "misses": 262,
+          "falseAlarms": 163,
+          "pod": 0.4072398190045249,
+          "far": 0.4752186588921283,
+          "csi": 0.2975206611570248
+        },
+        "equal": {
+          "rmse": 0.1880207057430117,
+          "mae": 0.05665371472663197,
+          "n": 3456,
+          "hits": 170,
+          "misses": 272,
+          "falseAlarms": 164,
+          "pod": 0.38461538461538464,
+          "far": 0.49101796407185627,
+          "csi": 0.28052805280528054
+        },
+        "candidate": {
+          "rmse": 0.19417526109055627,
+          "mae": 0.05721596167152149,
+          "n": 3456,
+          "hits": 185,
+          "misses": 257,
+          "falseAlarms": 156,
+          "pod": 0.41855203619909503,
+          "far": 0.4574780058651026,
+          "csi": 0.3093645484949833
+        },
+        "rmseDelta95": null,
+        "rainTotals": {
+          "current": {
+            "forecast": 174.1253578787557,
+            "observed": 154.59999999999937,
+            "wet": 442
+          },
+          "candidate": {
+            "forecast": 175.81982621434452,
+            "observed": 154.59999999999937,
+            "wet": 442
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.19328236653478742,
+          "mae": 0.05781444887268913,
+          "n": 3456,
+          "hits": 181,
+          "misses": 261,
+          "falseAlarms": 165,
+          "pod": 0.4095022624434389,
+          "far": 0.476878612716763,
+          "csi": 0.2981878088962109
+        },
+        "singleModel": {
+          "id": "ncep_aigfs025",
+          "raw": {
+            "rmse": 0.3136691093894724,
+            "mae": 0.06785300925925884,
+            "n": 3456,
+            "hits": 200,
+            "misses": 242,
+            "falseAlarms": 196,
+            "pod": 0.45248868778280543,
+            "far": 0.494949494949495,
+            "csi": 0.31347962382445144
+          },
+          "current": {
+            "rmse": 0.18990729975890389,
+            "mae": 0.0566817376439741,
+            "n": 3456,
+            "hits": 180,
+            "misses": 262,
+            "falseAlarms": 163,
+            "pod": 0.4072398190045249,
+            "far": 0.4752186588921283,
+            "csi": 0.2975206611570248
+          },
+          "candidate": {
+            "rmse": 0.19417526109055627,
+            "mae": 0.05721596167152149,
+            "n": 3456,
+            "hits": 185,
+            "misses": 257,
+            "falseAlarms": 156,
+            "pod": 0.41855203619909503,
+            "far": 0.4574780058651026,
+            "csi": 0.3093645484949833
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 0.1942161962469933,
+              "mae": 0.05512643906019274,
+              "n": 1728,
+              "hits": 95,
+              "misses": 126,
+              "falseAlarms": 65,
+              "pod": 0.4298642533936652,
+              "far": 0.40625,
+              "csi": 0.3321678321678322
+            },
+            "candidate": {
+              "rmse": 0.19939644528427106,
+              "mae": 0.0560348338951511,
+              "n": 1728,
+              "hits": 98,
+              "misses": 123,
+              "falseAlarms": 66,
+              "pod": 0.4434389140271493,
+              "far": 0.4024390243902439,
+              "csi": 0.34146341463414637
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 0.18549833993538983,
+              "mae": 0.058237036227755605,
+              "n": 1728,
+              "hits": 85,
+              "misses": 136,
+              "falseAlarms": 98,
+              "pod": 0.38461538461538464,
+              "far": 0.5355191256830601,
+              "csi": 0.2664576802507837
+            },
+            "candidate": {
+              "rmse": 0.18880974987316718,
+              "mae": 0.05839708944789227,
+              "n": 1728,
+              "hits": 87,
+              "misses": 134,
+              "falseAlarms": 90,
+              "pod": 0.3936651583710407,
+              "far": 0.5084745762711864,
+              "csi": 0.2797427652733119
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 0.024484858905167533,
+          "mae": 0.0052272837054361965,
+          "n": 4752,
+          "hits": 0,
+          "misses": 48,
+          "falseAlarms": 34,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "equal": {
+          "rmse": 0.02592107721850827,
+          "mae": 0.0053364748677248814,
+          "n": 4752,
+          "hits": 0,
+          "misses": 48,
+          "falseAlarms": 39,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "candidate": {
+          "rmse": 0.024316601306406428,
+          "mae": 0.005437266901326979,
+          "n": 4752,
+          "hits": 0,
+          "misses": 48,
+          "falseAlarms": 45,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.0021009965719474624,
+          "high": 0.0025585037614278723
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 20.33216531466843,
+            "observed": 4.999999999999998,
+            "wet": 48
+          },
+          "candidate": {
+            "forecast": 21.32475043304477,
+            "observed": 4.999999999999998,
+            "wet": 48
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.025260972504494272,
+          "mae": 0.005388278726008117,
+          "n": 4752,
+          "hits": 0,
+          "misses": 48,
+          "falseAlarms": 38,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "singleModel": {
+          "id": "ncep_aigfs025",
+          "raw": {
+            "rmse": 0.020463896104384524,
+            "mae": 0.003514309764309758,
+            "n": 4752,
+            "hits": 2,
+            "misses": 46,
+            "falseAlarms": 107,
+            "pod": 0.041666666666666664,
+            "far": 0.981651376146789,
+            "csi": 0.012903225806451613
+          },
+          "current": {
+            "rmse": 0.024484858905167533,
+            "mae": 0.0052272837054361965,
+            "n": 4752,
+            "hits": 0,
+            "misses": 48,
+            "falseAlarms": 34,
+            "pod": 0,
+            "far": 1,
+            "csi": 0
+          },
+          "candidate": {
+            "rmse": 0.024316601306406428,
+            "mae": 0.005437266901326979,
+            "n": 4752,
+            "hits": 0,
+            "misses": 48,
+            "falseAlarms": 45,
+            "pod": 0,
+            "far": 1,
+            "csi": 0
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 0.02031091362694798,
+              "mae": 0.005015633546390613,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 21,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            },
+            "candidate": {
+              "rmse": 0.021862021349956254,
+              "mae": 0.00541538005221466,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 33,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 0.028044311702207683,
+              "mae": 0.00543893386448178,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 13,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            },
+            "candidate": {
+              "rmse": 0.0265451732087683,
+              "mae": 0.005459153750439289,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 12,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            }
+          }
+        }
+      }
+    },
+    "precipitation/96-168h": {
+      "penalty": null,
+      "rainSlope": 0.8439466837876287,
+      "fit": 15552,
+      "validation": 6480,
+      "refit": 28512,
+      "internal": {
+        "current": {
+          "rmse": 0.4101853515259183,
+          "mae": 0.12798164270226653,
+          "n": 6480,
+          "hits": 619,
+          "misses": 560,
+          "falseAlarms": 646,
+          "pod": 0.5250212044105174,
+          "far": 0.5106719367588933,
+          "csi": 0.3391780821917808
+        },
+        "equal": {
+          "rmse": 0.40970659365464007,
+          "mae": 0.1276710390946502,
+          "n": 6480,
+          "hits": 632,
+          "misses": 547,
+          "falseAlarms": 651,
+          "pod": 0.536047497879559,
+          "far": 0.5074045206547155,
+          "csi": 0.3453551912568306
+        }
+      },
+      "accepted": false,
+      "temporal": {
+        "current": {
+          "rmse": 0.20002562718306927,
+          "mae": 0.05242297133051206,
+          "n": 11664,
+          "hits": 428,
+          "misses": 580,
+          "falseAlarms": 552,
+          "pod": 0.4246031746031746,
+          "far": 0.563265306122449,
+          "csi": 0.2743589743589744
+        },
+        "equal": {
+          "rmse": 0.19942415863301804,
+          "mae": 0.052433413351623104,
+          "n": 11664,
+          "hits": 418,
+          "misses": 590,
+          "falseAlarms": 557,
+          "pod": 0.4146825396825397,
+          "far": 0.5712820512820512,
+          "csi": 0.2670926517571885
+        },
+        "candidate": {
+          "rmse": 0.20002562718306927,
+          "mae": 0.05242297133051206,
+          "n": 11664,
+          "hits": 428,
+          "misses": 580,
+          "falseAlarms": 552,
+          "pod": 0.4246031746031746,
+          "far": 0.563265306122449,
+          "csi": 0.2743589743589744
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0,
+          "high": 0
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 428.3783577573521,
+            "observed": 465.60000000000093,
+            "wet": 1008
+          },
+          "candidate": {
+            "forecast": 428.3783577573521,
+            "observed": 465.60000000000093,
+            "wet": 1008
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.1961988529393002,
+          "mae": 0.04940759638408095,
+          "n": 11664,
+          "hits": 393,
+          "misses": 615,
+          "falseAlarms": 475,
+          "pod": 0.3898809523809524,
+          "far": 0.5472350230414746,
+          "csi": 0.26500337154416725
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 0.2579131721909027,
+            "mae": 0.06196844993141348,
+            "n": 11664,
+            "hits": 442,
+            "misses": 566,
+            "falseAlarms": 787,
+            "pod": 0.4384920634920635,
+            "far": 0.6403580146460537,
+            "csi": 0.24623955431754874
+          },
+          "current": {
+            "rmse": 0.20002562718306927,
+            "mae": 0.05242297133051206,
+            "n": 11664,
+            "hits": 428,
+            "misses": 580,
+            "falseAlarms": 552,
+            "pod": 0.4246031746031746,
+            "far": 0.563265306122449,
+            "csi": 0.2743589743589744
+          },
+          "candidate": {
+            "rmse": 0.20002562718306927,
+            "mae": 0.05242297133051206,
+            "n": 11664,
+            "hits": 428,
+            "misses": 580,
+            "falseAlarms": 552,
+            "pod": 0.4246031746031746,
+            "far": 0.563265306122449,
+            "csi": 0.2743589743589744
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 0.18619821530661174,
+              "mae": 0.047070110958999885,
+              "n": 3888,
+              "hits": 162,
+              "misses": 174,
+              "falseAlarms": 151,
+              "pod": 0.48214285714285715,
+              "far": 0.48242811501597443,
+              "csi": 0.3326488706365503
+            },
+            "candidate": {
+              "rmse": 0.18619821530661174,
+              "mae": 0.047070110958999885,
+              "n": 3888,
+              "hits": 162,
+              "misses": 174,
+              "falseAlarms": 151,
+              "pod": 0.48214285714285715,
+              "far": 0.48242811501597443,
+              "csi": 0.3326488706365503
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 0.18881778738248858,
+              "mae": 0.05000958403736184,
+              "n": 3888,
+              "hits": 146,
+              "misses": 190,
+              "falseAlarms": 169,
+              "pod": 0.43452380952380953,
+              "far": 0.5365079365079365,
+              "csi": 0.2891089108910891
+            },
+            "candidate": {
+              "rmse": 0.18881778738248858,
+              "mae": 0.05000958403736184,
+              "n": 3888,
+              "hits": 146,
+              "misses": 190,
+              "falseAlarms": 169,
+              "pod": 0.43452380952380953,
+              "far": 0.5365079365079365,
+              "csi": 0.2891089108910891
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 0.22295475409722562,
+              "mae": 0.06018921899517422,
+              "n": 3888,
+              "hits": 120,
+              "misses": 216,
+              "falseAlarms": 232,
+              "pod": 0.35714285714285715,
+              "far": 0.6590909090909091,
+              "csi": 0.2112676056338028
+            },
+            "candidate": {
+              "rmse": 0.22295475409722562,
+              "mae": 0.06018921899517422,
+              "n": 3888,
+              "hits": 120,
+              "misses": 216,
+              "falseAlarms": 232,
+              "pod": 0.35714285714285715,
+              "far": 0.6590909090909091,
+              "csi": 0.2112676056338028
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 0.3362566018541003,
+          "mae": 0.09985428397948454,
+          "n": 7776,
+          "hits": 585,
+          "misses": 741,
+          "falseAlarms": 553,
+          "pod": 0.4411764705882353,
+          "far": 0.4859402460456942,
+          "csi": 0.31133581692389567
+        },
+        "equal": {
+          "rmse": 0.3361822458777621,
+          "mae": 0.0999624914266113,
+          "n": 7776,
+          "hits": 587,
+          "misses": 739,
+          "falseAlarms": 557,
+          "pod": 0.44268476621417796,
+          "far": 0.4868881118881119,
+          "csi": 0.3117365905469995
+        },
+        "candidate": {
+          "rmse": 0.3362566018541003,
+          "mae": 0.09985428397948454,
+          "n": 7776,
+          "hits": 585,
+          "misses": 741,
+          "falseAlarms": 553,
+          "pod": 0.4411764705882353,
+          "far": 0.4859402460456942,
+          "csi": 0.31133581692389567
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0,
+          "high": 0
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 465.8872403855167,
+            "observed": 717.6000000000042,
+            "wet": 1326
+          },
+          "candidate": {
+            "forecast": 465.8872403855167,
+            "observed": 717.6000000000042,
+            "wet": 1326
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.3359179650001162,
+          "mae": 0.09678059919987207,
+          "n": 7776,
+          "hits": 546,
+          "misses": 780,
+          "falseAlarms": 468,
+          "pod": 0.4117647058823529,
+          "far": 0.46153846153846156,
+          "csi": 0.30434782608695654
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 0.3778764849260678,
+            "mae": 0.11041666666666766,
+            "n": 7776,
+            "hits": 503,
+            "misses": 823,
+            "falseAlarms": 605,
+            "pod": 0.3793363499245852,
+            "far": 0.546028880866426,
+            "csi": 0.260486794407043
+          },
+          "current": {
+            "rmse": 0.3362566018541003,
+            "mae": 0.09985428397948454,
+            "n": 7776,
+            "hits": 585,
+            "misses": 741,
+            "falseAlarms": 553,
+            "pod": 0.4411764705882353,
+            "far": 0.4859402460456942,
+            "csi": 0.31133581692389567
+          },
+          "candidate": {
+            "rmse": 0.3362566018541003,
+            "mae": 0.09985428397948454,
+            "n": 7776,
+            "hits": 585,
+            "misses": 741,
+            "falseAlarms": 553,
+            "pod": 0.4411764705882353,
+            "far": 0.4859402460456942,
+            "csi": 0.31133581692389567
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 0.33370991837845093,
+              "mae": 0.09741674220840879,
+              "n": 2592,
+              "hits": 216,
+              "misses": 226,
+              "falseAlarms": 184,
+              "pod": 0.48868778280542985,
+              "far": 0.46,
+              "csi": 0.3450479233226837
+            },
+            "candidate": {
+              "rmse": 0.33370991837845093,
+              "mae": 0.09741674220840879,
+              "n": 2592,
+              "hits": 216,
+              "misses": 226,
+              "falseAlarms": 184,
+              "pod": 0.48868778280542985,
+              "far": 0.46,
+              "csi": 0.3450479233226837
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 0.3260823245741085,
+              "mae": 0.09474036765703434,
+              "n": 2592,
+              "hits": 222,
+              "misses": 220,
+              "falseAlarms": 176,
+              "pod": 0.502262443438914,
+              "far": 0.44221105527638194,
+              "csi": 0.3592233009708738
+            },
+            "candidate": {
+              "rmse": 0.3260823245741085,
+              "mae": 0.09474036765703434,
+              "n": 2592,
+              "hits": 222,
+              "misses": 220,
+              "falseAlarms": 176,
+              "pod": 0.502262443438914,
+              "far": 0.44221105527638194,
+              "csi": 0.3592233009708738
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 0.34858788683428776,
+              "mae": 0.10740574207300845,
+              "n": 2592,
+              "hits": 147,
+              "misses": 295,
+              "falseAlarms": 193,
+              "pod": 0.332579185520362,
+              "far": 0.5676470588235294,
+              "csi": 0.231496062992126
+            },
+            "candidate": {
+              "rmse": 0.34858788683428776,
+              "mae": 0.10740574207300845,
+              "n": 2592,
+              "hits": 147,
+              "misses": 295,
+              "falseAlarms": 193,
+              "pod": 0.332579185520362,
+              "far": 0.5676470588235294,
+              "csi": 0.231496062992126
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 0.23853117507269075,
+          "mae": 0.08688824564723863,
+          "n": 5184,
+          "hits": 254,
+          "misses": 409,
+          "falseAlarms": 589,
+          "pod": 0.38310708898944196,
+          "far": 0.6986951364175563,
+          "csi": 0.20287539936102236
+        },
+        "equal": {
+          "rmse": 0.2377216202109235,
+          "mae": 0.0869341563786016,
+          "n": 5184,
+          "hits": 253,
+          "misses": 410,
+          "falseAlarms": 596,
+          "pod": 0.3815987933634992,
+          "far": 0.702002355712603,
+          "csi": 0.20095313741064336
+        },
+        "candidate": {
+          "rmse": 0.23853117507269075,
+          "mae": 0.08688824564723863,
+          "n": 5184,
+          "hits": 254,
+          "misses": 409,
+          "falseAlarms": 589,
+          "pod": 0.38310708898944196,
+          "far": 0.6986951364175563,
+          "csi": 0.20287539936102236
+        },
+        "rmseDelta95": null,
+        "rainTotals": {
+          "current": {
+            "forecast": 341.93465052932754,
+            "observed": 231.8999999999983,
+            "wet": 663
+          },
+          "candidate": {
+            "forecast": 341.93465052932754,
+            "observed": 231.8999999999983,
+            "wet": 663
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.221768443940752,
+          "mae": 0.07880542585882182,
+          "n": 5184,
+          "hits": 220,
+          "misses": 443,
+          "falseAlarms": 531,
+          "pod": 0.33182503770739064,
+          "far": 0.7070572569906791,
+          "csi": 0.18425460636515914
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 0.3743538672182164,
+            "mae": 0.1040702160493838,
+            "n": 5184,
+            "hits": 171,
+            "misses": 492,
+            "falseAlarms": 621,
+            "pod": 0.2579185520361991,
+            "far": 0.7840909090909091,
+            "csi": 0.13317757009345793
+          },
+          "current": {
+            "rmse": 0.23853117507269075,
+            "mae": 0.08688824564723863,
+            "n": 5184,
+            "hits": 254,
+            "misses": 409,
+            "falseAlarms": 589,
+            "pod": 0.38310708898944196,
+            "far": 0.6986951364175563,
+            "csi": 0.20287539936102236
+          },
+          "candidate": {
+            "rmse": 0.23853117507269075,
+            "mae": 0.08688824564723863,
+            "n": 5184,
+            "hits": 254,
+            "misses": 409,
+            "falseAlarms": 589,
+            "pod": 0.38310708898944196,
+            "far": 0.6986951364175563,
+            "csi": 0.20287539936102236
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 0.212988591179933,
+              "mae": 0.06834525428275436,
+              "n": 1728,
+              "hits": 99,
+              "misses": 122,
+              "falseAlarms": 135,
+              "pod": 0.4479638009049774,
+              "far": 0.5769230769230769,
+              "csi": 0.27808988764044945
+            },
+            "candidate": {
+              "rmse": 0.212988591179933,
+              "mae": 0.06834525428275436,
+              "n": 1728,
+              "hits": 99,
+              "misses": 122,
+              "falseAlarms": 135,
+              "pod": 0.4479638009049774,
+              "far": 0.5769230769230769,
+              "csi": 0.27808988764044945
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 0.2320386957373247,
+              "mae": 0.08509118196618184,
+              "n": 1728,
+              "hits": 79,
+              "misses": 142,
+              "falseAlarms": 193,
+              "pod": 0.3574660633484163,
+              "far": 0.7095588235294118,
+              "csi": 0.19082125603864733
+            },
+            "candidate": {
+              "rmse": 0.2320386957373247,
+              "mae": 0.08509118196618184,
+              "n": 1728,
+              "hits": 79,
+              "misses": 142,
+              "falseAlarms": 193,
+              "pod": 0.3574660633484163,
+              "far": 0.7095588235294118,
+              "csi": 0.19082125603864733
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 0.2673672907301574,
+              "mae": 0.10722830069277876,
+              "n": 1728,
+              "hits": 76,
+              "misses": 145,
+              "falseAlarms": 261,
+              "pod": 0.3438914027149321,
+              "far": 0.7744807121661721,
+              "csi": 0.15767634854771784
+            },
+            "candidate": {
+              "rmse": 0.2673672907301574,
+              "mae": 0.10722830069277876,
+              "n": 1728,
+              "hits": 76,
+              "misses": 145,
+              "falseAlarms": 261,
+              "pod": 0.3438914027149321,
+              "far": 0.7744807121661721,
+              "csi": 0.15767634854771784
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 0.02437796603496371,
+          "mae": 0.005833615431391776,
+          "n": 7128,
+          "hits": 1,
+          "misses": 71,
+          "falseAlarms": 83,
+          "pod": 0.013888888888888888,
+          "far": 0.9880952380952381,
+          "csi": 0.0064516129032258064
+        },
+        "equal": {
+          "rmse": 0.023724721715992977,
+          "mae": 0.005744949494949484,
+          "n": 7128,
+          "hits": 0,
+          "misses": 72,
+          "falseAlarms": 66,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "candidate": {
+          "rmse": 0.02437796603496371,
+          "mae": 0.005833615431391776,
+          "n": 7128,
+          "hits": 1,
+          "misses": 71,
+          "falseAlarms": 83,
+          "pod": 0.013888888888888888,
+          "far": 0.9880952380952381,
+          "csi": 0.0064516129032258064
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": 0,
+          "high": 0
+        },
+        "rainTotals": {
+          "current": {
+            "forecast": 35.04726827129713,
+            "observed": 7.499999999999992,
+            "wet": 72
+          },
+          "candidate": {
+            "forecast": 35.04726827129713,
+            "observed": 7.499999999999992,
+            "wet": 72
+          }
+        },
+        "scaledRain": {
+          "rmse": 0.021311227153995926,
+          "mae": 0.005085872951633855,
+          "n": 7128,
+          "hits": 0,
+          "misses": 72,
+          "falseAlarms": 56,
+          "pod": 0,
+          "far": 1,
+          "csi": 0
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 0.02827831854377654,
+            "mae": 0.004433221099887777,
+            "n": 7128,
+            "hits": 1,
+            "misses": 71,
+            "falseAlarms": 163,
+            "pod": 0.013888888888888888,
+            "far": 0.9939024390243902,
+            "csi": 0.00425531914893617
+          },
+          "current": {
+            "rmse": 0.02437796603496371,
+            "mae": 0.005833615431391776,
+            "n": 7128,
+            "hits": 1,
+            "misses": 71,
+            "falseAlarms": 83,
+            "pod": 0.013888888888888888,
+            "far": 0.9880952380952381,
+            "csi": 0.0064516129032258064
+          },
+          "candidate": {
+            "rmse": 0.02437796603496371,
+            "mae": 0.005833615431391776,
+            "n": 7128,
+            "hits": 1,
+            "misses": 71,
+            "falseAlarms": 83,
+            "pod": 0.013888888888888888,
+            "far": 0.9880952380952381,
+            "csi": 0.0064516129032258064
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 0.017309209337372906,
+              "mae": 0.003973677837314199,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 13,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            },
+            "candidate": {
+              "rmse": 0.017309209337372906,
+              "mae": 0.003973677837314199,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 13,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 0.03509776740877935,
+              "mae": 0.009712341530523347,
+              "n": 2376,
+              "hits": 1,
+              "misses": 23,
+              "falseAlarms": 67,
+              "pod": 0.041666666666666664,
+              "far": 0.9852941176470589,
+              "csi": 0.01098901098901099
+            },
+            "candidate": {
+              "rmse": 0.03509776740877935,
+              "mae": 0.009712341530523347,
+              "n": 2376,
+              "hits": 1,
+              "misses": 23,
+              "falseAlarms": 67,
+              "pod": 0.041666666666666664,
+              "far": 0.9852941176470589,
+              "csi": 0.01098901098901099
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 0.015855399050158408,
+              "mae": 0.0038148269263377204,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 3,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            },
+            "candidate": {
+              "rmse": 0.015855399050158408,
+              "mae": 0.0038148269263377204,
+              "n": 2376,
+              "hits": 0,
+              "misses": 24,
+              "falseAlarms": 3,
+              "pod": 0,
+              "far": 1,
+              "csi": 0
+            }
+          }
+        }
+      }
+    },
+    "wind_speed/0-48h": {
+      "penalty": 0.06,
+      "rainSlope": null,
+      "fit": 10368,
+      "validation": 4320,
+      "refit": 19008,
+      "internal": {
+        "current": {
+          "rmse": 3.288476979149229,
+          "mae": 2.410327834410468,
+          "n": 4320,
+          "hits": 4320,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 3.288991184849059,
+          "mae": 2.4116418905168913,
+          "n": 4320,
+          "hits": 4320,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        }
+      },
+      "accepted": true,
+      "temporal": {
+        "current": {
+          "rmse": 2.6781715862867714,
+          "mae": 2.0457699005578602,
+          "n": 7776,
+          "hits": 7774,
+          "misses": 0,
+          "falseAlarms": 2,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "equal": {
+          "rmse": 2.664877556894981,
+          "mae": 2.036764669444063,
+          "n": 7776,
+          "hits": 7774,
+          "misses": 0,
+          "falseAlarms": 2,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "candidate": {
+          "rmse": 2.6200934822657356,
+          "mae": 2.0005584361228452,
+          "n": 7776,
+          "hits": 7774,
+          "misses": 0,
+          "falseAlarms": 2,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.07515736522050886,
+          "high": -0.04156511379546268
+        },
+        "singleModel": {
+          "id": "ukmo_global_deterministic_10km",
+          "raw": {
+            "rmse": 3.5118860490339254,
+            "mae": 2.726080246913583,
+            "n": 7776,
+            "hits": 7774,
+            "misses": 0,
+            "falseAlarms": 2,
+            "pod": 1,
+            "far": 0.000257201646090535,
+            "csi": 0.9997427983539094
+          },
+          "current": {
+            "rmse": 2.6781715862867714,
+            "mae": 2.0457699005578602,
+            "n": 7776,
+            "hits": 7774,
+            "misses": 0,
+            "falseAlarms": 2,
+            "pod": 1,
+            "far": 0.000257201646090535,
+            "csi": 0.9997427983539094
+          },
+          "candidate": {
+            "rmse": 2.6200934822657356,
+            "mae": 2.0005584361228452,
+            "n": 7776,
+            "hits": 7774,
+            "misses": 0,
+            "falseAlarms": 2,
+            "pod": 1,
+            "far": 0.000257201646090535,
+            "csi": 0.9997427983539094
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 2.5970359167681907,
+              "mae": 1.9791856102011356,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            },
+            "candidate": {
+              "rmse": 2.548326283507236,
+              "mae": 1.9435303278260905,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 2.7569204809358445,
+              "mae": 2.1123541909145964,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            },
+            "candidate": {
+              "rmse": 2.689946628542833,
+              "mae": 2.057586544419615,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 2.9598218804677665,
+          "mae": 2.255718637448222,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 2.9598261982512026,
+          "mae": 2.2552503026808655,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 2.9363885855218044,
+          "mae": 2.2432213021957157,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.03978121534271706,
+          "high": -0.0061984344777341605
+        },
+        "singleModel": {
+          "id": "ukmo_global_deterministic_10km",
+          "raw": {
+            "rmse": 3.922022047929414,
+            "mae": 2.9888888888889005,
+            "n": 5184,
+            "hits": 5182,
+            "misses": 2,
+            "falseAlarms": 0,
+            "pod": 0.9996141975308642,
+            "far": 0,
+            "csi": 0.9996141975308642
+          },
+          "current": {
+            "rmse": 2.9598218804677665,
+            "mae": 2.255718637448222,
+            "n": 5184,
+            "hits": 5184,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 2.9363885855218044,
+            "mae": 2.2432213021957157,
+            "n": 5184,
+            "hits": 5184,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 2.9099419494404626,
+              "mae": 2.2166008443432905,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.887590858585927,
+              "mae": 2.2034170148034584,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 3.0088750354705804,
+              "mae": 2.294836430553168,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.9843885276177655,
+              "mae": 2.283025589587957,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 2.898654893540452,
+          "mae": 2.1930629278175506,
+          "n": 3456,
+          "hits": 3456,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 2.891604866473353,
+          "mae": 2.1860096922271435,
+          "n": 3456,
+          "hits": 3456,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 2.8453747076281846,
+          "mae": 2.14975308956379,
+          "n": 3456,
+          "hits": 3456,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": null,
+        "singleModel": {
+          "id": "ukmo_global_deterministic_10km",
+          "raw": {
+            "rmse": 3.697506823923783,
+            "mae": 2.8439814814814817,
+            "n": 3456,
+            "hits": 3456,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "current": {
+            "rmse": 2.898654893540452,
+            "mae": 2.1930629278175506,
+            "n": 3456,
+            "hits": 3456,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 2.8453747076281846,
+            "mae": 2.14975308956379,
+            "n": 3456,
+            "hits": 3456,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 2.8251039323751503,
+              "mae": 2.143491906970311,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.7768952371678512,
+              "mae": 2.1067067399527133,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 2.970385186296633,
+              "mae": 2.2426339486647797,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.9122443742610056,
+              "mae": 2.192799439174863,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 2.6708163214806624,
+          "mae": 2.079438604706811,
+          "n": 2974,
+          "hits": 2964,
+          "misses": 0,
+          "falseAlarms": 10,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "equal": {
+          "rmse": 2.6846734051223144,
+          "mae": 2.0888884218784995,
+          "n": 2974,
+          "hits": 2964,
+          "misses": 0,
+          "falseAlarms": 10,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "candidate": {
+          "rmse": 2.676110623471719,
+          "mae": 2.0771404849901987,
+          "n": 2974,
+          "hits": 2964,
+          "misses": 0,
+          "falseAlarms": 10,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.007716611381259675,
+          "high": 0.01299185450732221
+        },
+        "singleModel": {
+          "id": "ukmo_global_deterministic_10km",
+          "raw": {
+            "rmse": 3.3371998377725816,
+            "mae": 2.641896435776736,
+            "n": 2974,
+            "hits": 2964,
+            "misses": 0,
+            "falseAlarms": 10,
+            "pod": 1,
+            "far": 0.0033624747814391394,
+            "csi": 0.9966375252185609
+          },
+          "current": {
+            "rmse": 2.6708163214806624,
+            "mae": 2.079438604706811,
+            "n": 2974,
+            "hits": 2964,
+            "misses": 0,
+            "falseAlarms": 10,
+            "pod": 1,
+            "far": 0.0033624747814391394,
+            "csi": 0.9966375252185609
+          },
+          "candidate": {
+            "rmse": 2.676110623471719,
+            "mae": 2.0771404849901987,
+            "n": 2974,
+            "hits": 2964,
+            "misses": 0,
+            "falseAlarms": 10,
+            "pod": 1,
+            "far": 0.0033624747814391394,
+            "csi": 0.9966375252185609
+          }
+        },
+        "byLead": {
+          "24": {
+            "current": {
+              "rmse": 2.6555729619456776,
+              "mae": 2.0819905904000198,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            },
+            "candidate": {
+              "rmse": 2.654878073732704,
+              "mae": 2.0787514072997504,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            }
+          },
+          "48": {
+            "current": {
+              "rmse": 2.6859731737227075,
+              "mae": 2.0768866190136,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            },
+            "candidate": {
+              "rmse": 2.69717603276644,
+              "mae": 2.0755295626806376,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            }
+          }
+        }
+      }
+    },
+    "wind_speed/48-96h": {
+      "penalty": 0.015,
+      "rainSlope": null,
+      "fit": 10368,
+      "validation": 4320,
+      "refit": 19008,
+      "internal": {
+        "current": {
+          "rmse": 3.8142077473206477,
+          "mae": 2.8062624323097496,
+          "n": 4320,
+          "hits": 4320,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 3.8277939970263195,
+          "mae": 2.815703676146383,
+          "n": 4320,
+          "hits": 4320,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        }
+      },
+      "accepted": true,
+      "temporal": {
+        "current": {
+          "rmse": 3.2656000680299204,
+          "mae": 2.4473662666048925,
+          "n": 7776,
+          "hits": 7774,
+          "misses": 0,
+          "falseAlarms": 2,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "equal": {
+          "rmse": 3.272698102614786,
+          "mae": 2.4513430365716355,
+          "n": 7776,
+          "hits": 7774,
+          "misses": 0,
+          "falseAlarms": 2,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "candidate": {
+          "rmse": 3.2022905947759983,
+          "mae": 2.4008834024292027,
+          "n": 7776,
+          "hits": 7774,
+          "misses": 0,
+          "falseAlarms": 2,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.08135606799242412,
+          "high": -0.04727951422303933
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 4.040594550432854,
+            "mae": 3.0776748971193375,
+            "n": 7776,
+            "hits": 7772,
+            "misses": 2,
+            "falseAlarms": 2,
+            "pod": 0.9997427321842037,
+            "far": 0.0002572678157962439,
+            "csi": 0.9994855967078189
+          },
+          "current": {
+            "rmse": 3.2656000680299204,
+            "mae": 2.4473662666048925,
+            "n": 7776,
+            "hits": 7774,
+            "misses": 0,
+            "falseAlarms": 2,
+            "pod": 1,
+            "far": 0.000257201646090535,
+            "csi": 0.9997427983539094
+          },
+          "candidate": {
+            "rmse": 3.2022905947759983,
+            "mae": 2.4008834024292027,
+            "n": 7776,
+            "hits": 7774,
+            "misses": 0,
+            "falseAlarms": 2,
+            "pod": 1,
+            "far": 0.000257201646090535,
+            "csi": 0.9997427983539094
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 2.9403232460231714,
+              "mae": 2.2465521025499964,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            },
+            "candidate": {
+              "rmse": 2.8718337081321126,
+              "mae": 2.1935959563743386,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 3.561290049621046,
+              "mae": 2.6481804306597723,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            },
+            "candidate": {
+              "rmse": 3.501699767201316,
+              "mae": 2.608170848484052,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 3.3919471112608917,
+          "mae": 2.5385872584491023,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 3.411244323571725,
+          "mae": 2.5506361147854166,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 3.346276201796231,
+          "mae": 2.5096358057748165,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.06509838256823741,
+          "high": -0.023364450284176552
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 4.003812322934718,
+            "mae": 3.131442901234571,
+            "n": 5184,
+            "hits": 5179,
+            "misses": 5,
+            "falseAlarms": 0,
+            "pod": 0.9990354938271605,
+            "far": 0,
+            "csi": 0.9990354938271605
+          },
+          "current": {
+            "rmse": 3.3919471112608917,
+            "mae": 2.5385872584491023,
+            "n": 5184,
+            "hits": 5184,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 3.346276201796231,
+            "mae": 2.5096358057748165,
+            "n": 5184,
+            "hits": 5184,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 3.143621426204996,
+              "mae": 2.390271929031066,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 3.080968628334685,
+              "mae": 2.3530165225393405,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 3.623293355482969,
+              "mae": 2.686902587867133,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 3.5920413623221497,
+              "mae": 2.6662550890103076,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 3.261393768595943,
+          "mae": 2.4629834765913188,
+          "n": 3456,
+          "hits": 3456,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 3.266067451886376,
+          "mae": 2.466070395171957,
+          "n": 3456,
+          "hits": 3456,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 3.1926254059555967,
+          "mae": 2.4053830379912973,
+          "n": 3456,
+          "hits": 3456,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": null,
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 4.077471345018193,
+            "mae": 3.196383101851847,
+            "n": 3456,
+            "hits": 3456,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "current": {
+            "rmse": 3.261393768595943,
+            "mae": 2.4629834765913188,
+            "n": 3456,
+            "hits": 3456,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 3.1926254059555967,
+            "mae": 2.4053830379912973,
+            "n": 3456,
+            "hits": 3456,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 2.9781562404880333,
+              "mae": 2.261550549423758,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 2.913965506810874,
+              "mae": 2.2054606105303383,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 3.5219261824909207,
+              "mae": 2.664416403758879,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 3.4488431380134927,
+              "mae": 2.6053054654522403,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 3.2421021986197416,
+          "mae": 2.3323452565550613,
+          "n": 2974,
+          "hits": 2964,
+          "misses": 0,
+          "falseAlarms": 10,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "equal": {
+          "rmse": 3.2482809313577006,
+          "mae": 2.3368321884907273,
+          "n": 2974,
+          "hits": 2964,
+          "misses": 0,
+          "falseAlarms": 10,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "candidate": {
+          "rmse": 3.2399518283942395,
+          "mae": 2.3400711590018926,
+          "n": 2974,
+          "hits": 2964,
+          "misses": 0,
+          "falseAlarms": 10,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.025166292364041,
+          "high": 0.03582539369539273
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 4.019163108342249,
+            "mae": 2.9208876933423036,
+            "n": 2974,
+            "hits": 2962,
+            "misses": 2,
+            "falseAlarms": 10,
+            "pod": 0.9993252361673415,
+            "far": 0.0033647375504710633,
+            "csi": 0.995965030262273
+          },
+          "current": {
+            "rmse": 3.2421021986197416,
+            "mae": 2.3323452565550613,
+            "n": 2974,
+            "hits": 2964,
+            "misses": 0,
+            "falseAlarms": 10,
+            "pod": 1,
+            "far": 0.0033624747814391394,
+            "csi": 0.9966375252185609
+          },
+          "candidate": {
+            "rmse": 3.2399518283942395,
+            "mae": 2.3400711590018926,
+            "n": 2974,
+            "hits": 2964,
+            "misses": 0,
+            "falseAlarms": 10,
+            "pod": 1,
+            "far": 0.0033624747814391394,
+            "csi": 0.9966375252185609
+          }
+        },
+        "byLead": {
+          "72": {
+            "current": {
+              "rmse": 3.022270333111066,
+              "mae": 2.2182130741954826,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            },
+            "candidate": {
+              "rmse": 3.0418085620887623,
+              "mae": 2.2297001708927593,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            }
+          },
+          "96": {
+            "current": {
+              "rmse": 3.4479465434061836,
+              "mae": 2.4464774389146395,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            },
+            "candidate": {
+              "rmse": 3.426656733936714,
+              "mae": 2.450442147111022,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            }
+          }
+        }
+      }
+    },
+    "wind_speed/96-168h": {
+      "penalty": 0.015,
+      "rainSlope": null,
+      "fit": 15552,
+      "validation": 6480,
+      "refit": 28512,
+      "internal": {
+        "current": {
+          "rmse": 4.553528790848055,
+          "mae": 3.3585998879830905,
+          "n": 6480,
+          "hits": 6480,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 4.560347120644229,
+          "mae": 3.364825102880659,
+          "n": 6480,
+          "hits": 6480,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        }
+      },
+      "accepted": true,
+      "temporal": {
+        "current": {
+          "rmse": 4.209214468403728,
+          "mae": 3.063515116231452,
+          "n": 11664,
+          "hits": 11661,
+          "misses": 0,
+          "falseAlarms": 3,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "equal": {
+          "rmse": 4.203653528546804,
+          "mae": 3.0625107167352588,
+          "n": 11664,
+          "hits": 11661,
+          "misses": 0,
+          "falseAlarms": 3,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "candidate": {
+          "rmse": 4.198763031918684,
+          "mae": 3.0526888027482526,
+          "n": 11664,
+          "hits": 11661,
+          "misses": 0,
+          "falseAlarms": 3,
+          "pod": 1,
+          "far": 0.000257201646090535,
+          "csi": 0.9997427983539094
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.014697443048270031,
+          "high": -0.00465881709902316
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 5.467302654839573,
+            "mae": 4.020653292181059,
+            "n": 11664,
+            "hits": 11658,
+            "misses": 3,
+            "falseAlarms": 3,
+            "pod": 0.9997427321842037,
+            "far": 0.0002572678157962439,
+            "csi": 0.9994855967078189
+          },
+          "current": {
+            "rmse": 4.209214468403728,
+            "mae": 3.063515116231452,
+            "n": 11664,
+            "hits": 11661,
+            "misses": 0,
+            "falseAlarms": 3,
+            "pod": 1,
+            "far": 0.000257201646090535,
+            "csi": 0.9997427983539094
+          },
+          "candidate": {
+            "rmse": 4.198763031918684,
+            "mae": 3.0526888027482526,
+            "n": 11664,
+            "hits": 11661,
+            "misses": 0,
+            "falseAlarms": 3,
+            "pod": 1,
+            "far": 0.000257201646090535,
+            "csi": 0.9997427983539094
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 3.9262981382319557,
+              "mae": 2.868366612811051,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            },
+            "candidate": {
+              "rmse": 3.90526117944503,
+              "mae": 2.8472452970810815,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 4.181146278835204,
+              "mae": 3.0564328097314224,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            },
+            "candidate": {
+              "rmse": 4.176774541879638,
+              "mae": 3.0519813491305308,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 4.500517531102029,
+              "mae": 3.265745926151864,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            },
+            "candidate": {
+              "rmse": 4.493586823601709,
+              "mae": 3.258839762033148,
+              "n": 3888,
+              "hits": 3887,
+              "misses": 0,
+              "falseAlarms": 1,
+              "pod": 1,
+              "far": 0.000257201646090535,
+              "csi": 0.9997427983539094
+            }
+          }
+        }
+      },
+      "spatial": {
+        "current": {
+          "rmse": 4.456759214126501,
+          "mae": 3.2533543730974213,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 4.47060146131499,
+          "mae": 3.2593996484910845,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 4.445713432966434,
+          "mae": 3.244279829511278,
+          "n": 7776,
+          "hits": 7776,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.02093337564271014,
+          "high": -0.004754018254187642
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 5.598338736173277,
+            "mae": 4.2296810699588345,
+            "n": 7776,
+            "hits": 7770,
+            "misses": 6,
+            "falseAlarms": 0,
+            "pod": 0.9992283950617284,
+            "far": 0,
+            "csi": 0.9992283950617284
+          },
+          "current": {
+            "rmse": 4.456759214126501,
+            "mae": 3.2533543730974213,
+            "n": 7776,
+            "hits": 7776,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 4.445713432966434,
+            "mae": 3.244279829511278,
+            "n": 7776,
+            "hits": 7776,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 4.107955083772355,
+              "mae": 3.0257973251028827,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 4.089681920495963,
+              "mae": 3.0110627735954476,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 4.56984983565956,
+              "mae": 3.2947544835565696,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 4.563219476011947,
+              "mae": 3.2891543930018887,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 4.672182101260144,
+              "mae": 3.4395113106328505,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 4.66311415119642,
+              "mae": 3.4326223219364618,
+              "n": 2592,
+              "hits": 2592,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "fresh": {
+        "current": {
+          "rmse": 4.66559985467585,
+          "mae": 3.5465605968697735,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "equal": {
+          "rmse": 4.675489941170465,
+          "mae": 3.5572112911522744,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "candidate": {
+          "rmse": 4.658727965390609,
+          "mae": 3.5406689149180313,
+          "n": 5184,
+          "hits": 5184,
+          "misses": 0,
+          "falseAlarms": 0,
+          "pod": 1,
+          "far": 0,
+          "csi": 1
+        },
+        "rmseDelta95": null,
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 5.954255597656367,
+            "mae": 4.481249999999998,
+            "n": 5184,
+            "hits": 5182,
+            "misses": 2,
+            "falseAlarms": 0,
+            "pod": 0.9996141975308642,
+            "far": 0,
+            "csi": 0.9996141975308642
+          },
+          "current": {
+            "rmse": 4.66559985467585,
+            "mae": 3.5465605968697735,
+            "n": 5184,
+            "hits": 5184,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          },
+          "candidate": {
+            "rmse": 4.658727965390609,
+            "mae": 3.5406689149180313,
+            "n": 5184,
+            "hits": 5184,
+            "misses": 0,
+            "falseAlarms": 0,
+            "pod": 1,
+            "far": 0,
+            "csi": 1
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 4.078478480461763,
+              "mae": 3.0733723982421886,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 4.063724441801413,
+              "mae": 3.0608223691284895,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 4.381499031866003,
+              "mae": 3.3672580024142524,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 4.381346835324234,
+              "mae": 3.3711755141311475,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 5.428807007991855,
+              "mae": 4.199051389952904,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            },
+            "candidate": {
+              "rmse": 5.422285711417086,
+              "mae": 4.1900088614944355,
+              "n": 1728,
+              "hits": 1728,
+              "misses": 0,
+              "falseAlarms": 0,
+              "pod": 1,
+              "far": 0,
+              "csi": 1
+            }
+          }
+        }
+      },
+      "station": {
+        "current": {
+          "rmse": 3.5430672514680794,
+          "mae": 2.5905671578530036,
+          "n": 4461,
+          "hits": 4446,
+          "misses": 0,
+          "falseAlarms": 15,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "equal": {
+          "rmse": 3.530408864685413,
+          "mae": 2.584436225061638,
+          "n": 4461,
+          "hits": 4446,
+          "misses": 0,
+          "falseAlarms": 15,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "candidate": {
+          "rmse": 3.5478867507243845,
+          "mae": 2.5926573801301878,
+          "n": 4461,
+          "hits": 4446,
+          "misses": 0,
+          "falseAlarms": 15,
+          "pod": 1,
+          "far": 0.0033624747814391394,
+          "csi": 0.9966375252185609
+        },
+        "rmseDelta95": {
+          "days": 9,
+          "blockDays": 3,
+          "low": -0.008734063063454478,
+          "high": 0.010476017882067534
+        },
+        "singleModel": {
+          "id": "ecmwf_ifs",
+          "raw": {
+            "rmse": 4.58358525606282,
+            "mae": 3.257821116341635,
+            "n": 4461,
+            "hits": 4446,
+            "misses": 0,
+            "falseAlarms": 15,
+            "pod": 1,
+            "far": 0.0033624747814391394,
+            "csi": 0.9966375252185609
+          },
+          "current": {
+            "rmse": 3.5430672514680794,
+            "mae": 2.5905671578530036,
+            "n": 4461,
+            "hits": 4446,
+            "misses": 0,
+            "falseAlarms": 15,
+            "pod": 1,
+            "far": 0.0033624747814391394,
+            "csi": 0.9966375252185609
+          },
+          "candidate": {
+            "rmse": 3.5478867507243845,
+            "mae": 2.5926573801301878,
+            "n": 4461,
+            "hits": 4446,
+            "misses": 0,
+            "falseAlarms": 15,
+            "pod": 1,
+            "far": 0.0033624747814391394,
+            "csi": 0.9966375252185609
+          }
+        },
+        "byLead": {
+          "120": {
+            "current": {
+              "rmse": 3.521988660508839,
+              "mae": 2.561720242322122,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            },
+            "candidate": {
+              "rmse": 3.522197842912051,
+              "mae": 2.563338022799633,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            }
+          },
+          "144": {
+            "current": {
+              "rmse": 3.6546764680542347,
+              "mae": 2.624750608055922,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            },
+            "candidate": {
+              "rmse": 3.6631427974106425,
+              "mae": 2.629239586360323,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            }
+          },
+          "168": {
+            "current": {
+              "rmse": 3.449480023768,
+              "mae": 2.5852306231809488,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            },
+            "candidate": {
+              "rmse": 3.4551423109708694,
+              "mae": 2.585394531230612,
+              "n": 1487,
+              "hits": 1482,
+              "misses": 0,
+              "falseAlarms": 5,
+              "pod": 1,
+              "far": 0.0033624747814391394,
+              "csi": 0.9966375252185609
+            }
+          }
+        }
+      }
+    }
+  },
+  "profilesTested": {
+    "temperature/0-48h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 0.7777988182071678,
+        "mae": 0.594222662791319,
+        "n": 1296,
+        "hits": 1296,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 0.7829688270017768,
+        "mae": 0.5968041559152206,
+        "n": 1296,
+        "hits": 1296,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": 0.001950281479052185,
+        "high": 0.008310953688516864
+      }
+    },
+    "temperature/0-48h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "temperature/0-48h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "temperature/0-48h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 1.418649531071087,
+        "mae": 1.1144312541253993,
+        "n": 2592,
+        "hits": 2588,
+        "misses": 0,
+        "falseAlarms": 4,
+        "pod": 1,
+        "far": 0.0015432098765432098,
+        "csi": 0.9984567901234568
+      },
+      "local": {
+        "rmse": 1.4419048173326952,
+        "mae": 1.1279017675109686,
+        "n": 2592,
+        "hits": 2588,
+        "misses": 0,
+        "falseAlarms": 4,
+        "pod": 1,
+        "far": 0.0015432098765432098,
+        "csi": 0.9984567901234568
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": 0.010014122474537146,
+        "high": 0.0363043608627589
+      }
+    },
+    "temperature/48-96h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 0.8755913380544613,
+        "mae": 0.6793440903080198,
+        "n": 1296,
+        "hits": 1296,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 0.8761288102802913,
+        "mae": 0.6798540310998499,
+        "n": 1296,
+        "hits": 1296,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.002321141735431076,
+        "high": 0.004192379417064518
+      }
+    },
+    "temperature/48-96h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "temperature/48-96h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "temperature/48-96h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 1.713866256781843,
+        "mae": 1.3325546531445045,
+        "n": 2592,
+        "hits": 2587,
+        "misses": 1,
+        "falseAlarms": 2,
+        "pod": 0.999613601236476,
+        "far": 0.000772499034376207,
+        "csi": 0.9988416988416988
+      },
+      "local": {
+        "rmse": 1.762780350825554,
+        "mae": 1.3611525636475301,
+        "n": 2592,
+        "hits": 2588,
+        "misses": 0,
+        "falseAlarms": 3,
+        "pod": 1,
+        "far": 0.0011578541103820917,
+        "csi": 0.998842145889618
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": 0.020892433796353194,
+        "high": 0.07824615040546923
+      }
+    },
+    "temperature/96-168h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 1.282568184927316,
+        "mae": 0.9871762692822338,
+        "n": 1944,
+        "hits": 1944,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 1.2844496539949823,
+        "mae": 0.9884352306554315,
+        "n": 1944,
+        "hits": 1944,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": 0.001084658299736807,
+        "high": 0.003103771062638705
+      }
+    },
+    "temperature/96-168h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "temperature/96-168h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "temperature/96-168h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 1.9015914276315984,
+        "mae": 1.4757680527152899,
+        "n": 3888,
+        "hits": 3881,
+        "misses": 1,
+        "falseAlarms": 3,
+        "pod": 0.9997424008243173,
+        "far": 0.000772399588053553,
+        "csi": 0.998970398970399
+      },
+      "local": {
+        "rmse": 1.968943501290443,
+        "mae": 1.5250444145435667,
+        "n": 3888,
+        "hits": 3881,
+        "misses": 1,
+        "falseAlarms": 5,
+        "pod": 0.9997424008243173,
+        "far": 0.0012866700977869274,
+        "csi": 0.9984563931052225
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": 0.04531181132564677,
+        "high": 0.11080860410773896
+      }
+    },
+    "precipitation/0-48h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 0.2123399921148519,
+        "mae": 0.08516058907932314,
+        "n": 1296,
+        "hits": 227,
+        "misses": 81,
+        "falseAlarms": 40,
+        "pod": 0.737012987012987,
+        "far": 0.149812734082397,
+        "csi": 0.6522988505747126
+      },
+      "local": {
+        "rmse": 0.2122547213758983,
+        "mae": 0.08544424155972039,
+        "n": 1296,
+        "hits": 224,
+        "misses": 84,
+        "falseAlarms": 41,
+        "pod": 0.7272727272727273,
+        "far": 0.15471698113207547,
+        "csi": 0.6418338108882522
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.002056445549858482,
+        "high": 0.0014126007149903308
+      }
+    },
+    "precipitation/0-48h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "precipitation/0-48h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "precipitation/0-48h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 0.3027913210569506,
+        "mae": 0.06880697232801962,
+        "n": 2592,
+        "hits": 171,
+        "misses": 171,
+        "falseAlarms": 60,
+        "pod": 0.5,
+        "far": 0.2597402597402597,
+        "csi": 0.4253731343283582
+      },
+      "local": {
+        "rmse": 0.30241017776132717,
+        "mae": 0.0689820914654014,
+        "n": 2592,
+        "hits": 171,
+        "misses": 171,
+        "falseAlarms": 59,
+        "pod": 0.5,
+        "far": 0.2565217391304348,
+        "csi": 0.42643391521197005
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.0005882642648884495,
+        "high": 0.002845718391612073
+      }
+    },
+    "precipitation/48-96h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 0.2399876759466601,
+        "mae": 0.09661829342445319,
+        "n": 1296,
+        "hits": 209,
+        "misses": 99,
+        "falseAlarms": 68,
+        "pod": 0.6785714285714286,
+        "far": 0.24548736462093862,
+        "csi": 0.5558510638297872
+      },
+      "local": {
+        "rmse": 0.24001092596553958,
+        "mae": 0.09660155627568999,
+        "n": 1296,
+        "hits": 206,
+        "misses": 102,
+        "falseAlarms": 68,
+        "pod": 0.6688311688311688,
+        "far": 0.24817518248175183,
+        "csi": 0.5478723404255319
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.0001261976014239885,
+        "high": 0.00019251482042476065
+      }
+    },
+    "precipitation/48-96h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "precipitation/48-96h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "precipitation/48-96h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 0.3565643668363234,
+        "mae": 0.08349954373387042,
+        "n": 2592,
+        "hits": 180,
+        "misses": 162,
+        "falseAlarms": 90,
+        "pod": 0.5263157894736842,
+        "far": 0.3333333333333333,
+        "csi": 0.4166666666666667
+      },
+      "local": {
+        "rmse": 0.35598841286568983,
+        "mae": 0.08345086846110888,
+        "n": 2592,
+        "hits": 180,
+        "misses": 162,
+        "falseAlarms": 90,
+        "pod": 0.5263157894736842,
+        "far": 0.3333333333333333,
+        "csi": 0.4166666666666667
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.0008329833480626436,
+        "high": 0.00011937723515570431
+      }
+    },
+    "precipitation/96-168h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 0.3424920159881602,
+        "mae": 0.13640703968441759,
+        "n": 1944,
+        "hits": 236,
+        "misses": 226,
+        "falseAlarms": 154,
+        "pod": 0.5108225108225108,
+        "far": 0.39487179487179486,
+        "csi": 0.38311688311688313
+      },
+      "local": {
+        "rmse": 0.343792086560899,
+        "mae": 0.13676647870731418,
+        "n": 1944,
+        "hits": 228,
+        "misses": 234,
+        "falseAlarms": 147,
+        "pod": 0.4935064935064935,
+        "far": 0.392,
+        "csi": 0.37438423645320196
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.00042685883438248196,
+        "high": 0.0038414229068082784
+      }
+    },
+    "precipitation/96-168h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "precipitation/96-168h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "precipitation/96-168h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 0.38479329258414174,
+        "mae": 0.09237348242544112,
+        "n": 3888,
+        "hits": 225,
+        "misses": 288,
+        "falseAlarms": 218,
+        "pod": 0.43859649122807015,
+        "far": 0.49209932279909707,
+        "csi": 0.307797537619699
+      },
+      "local": {
+        "rmse": 0.38372916006201063,
+        "mae": 0.09219191864792496,
+        "n": 3888,
+        "hits": 226,
+        "misses": 287,
+        "falseAlarms": 212,
+        "pod": 0.4405458089668616,
+        "far": 0.4840182648401826,
+        "csi": 0.3117241379310345
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.0020155377403808794,
+        "high": 0.0006832528068695387
+      }
+    },
+    "wind_speed/0-48h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 3.9563597727729705,
+        "mae": 3.1883903881435325,
+        "n": 1296,
+        "hits": 1296,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 3.929441922064139,
+        "mae": 3.159714647663994,
+        "n": 1296,
+        "hits": 1296,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.035035023671389,
+        "high": -0.01695102792753511
+      }
+    },
+    "wind_speed/0-48h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "wind_speed/0-48h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "wind_speed/0-48h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 2.446889399002943,
+        "mae": 1.9057933383197472,
+        "n": 2592,
+        "hits": 2592,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 2.4490105486776788,
+        "mae": 1.907922492905443,
+        "n": 2592,
+        "hits": 2592,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.003170418051674062,
+        "high": 0.00813205481866408
+      }
+    },
+    "wind_speed/48-96h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 4.426134768619336,
+        "mae": 3.575705448457423,
+        "n": 1296,
+        "hits": 1296,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 4.412047469098984,
+        "mae": 3.563604359462954,
+        "n": 1296,
+        "hits": 1296,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.023768644440258502,
+        "high": -0.004190908568117102
+      }
+    },
+    "wind_speed/48-96h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "wind_speed/48-96h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "wind_speed/48-96h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 2.819715636919475,
+        "mae": 2.096008922076634,
+        "n": 2592,
+        "hits": 2592,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 2.817041636409379,
+        "mae": 2.09715309409309,
+        "n": 2592,
+        "hits": 2592,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.006402030683305249,
+        "high": 0.0027772643227144123
+      }
+    },
+    "wind_speed/96-168h/coastal": {
+      "nFit": 5,
+      "nTest": 3,
+      "global": {
+        "rmse": 5.514741914110125,
+        "mae": 4.286929124481908,
+        "n": 1944,
+        "hits": 1944,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 5.51110359476039,
+        "mae": 4.278588031502668,
+        "n": 1944,
+        "hits": 1944,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.022454582141460122,
+        "high": 0.03456201397521941
+      }
+    },
+    "wind_speed/96-168h/urban": {
+      "nFit": 7,
+      "nTest": 1,
+      "reason": "Insufficient distinct locations"
+    },
+    "wind_speed/96-168h/mountain": {
+      "nFit": 0,
+      "nTest": 2,
+      "reason": "Insufficient distinct locations"
+    },
+    "wind_speed/96-168h/plain": {
+      "nFit": 6,
+      "nTest": 6,
+      "global": {
+        "rmse": 4.274240882682094,
+        "mae": 3.0562071423224153,
+        "n": 3888,
+        "hits": 3888,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "local": {
+        "rmse": 4.271837746508211,
+        "mae": 3.057056155605997,
+        "n": 3888,
+        "hits": 3888,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "rmseDelta95": {
+        "days": 9,
+        "blockDays": 3,
+        "low": -0.015373169892896943,
+        "high": 0.009157587594010863
+      }
+    }
+  }
+}

@@ -43,17 +43,13 @@ import { saveLastForecast, loadLastForecast } from '@/lib/forecastIndexedDB'
 import { useHourSlider } from '@/lib/hooks/useHourSlider'
 import { useSavedLocations } from '@/lib/hooks/useSavedLocations'
 import { useClientNow } from '@/lib/hooks/useClientNow'
-import { useEffectiveProfile } from '@/lib/hooks/useEffectiveProfile'
 import { useEntitlements } from '@/lib/hooks/useEntitlements'
 import { useNearbyStations } from '@/lib/hooks/useNearbyStations'
 import KoFiWidgets from '@/components/KoFiWidgets'
-import { getLeadTimeBucket } from '@/lib/models'
-import { uiBucketToBacktestBuckets } from '@/lib/backtest/config'
 import { REFRESH_WINDOW_MS } from '@/lib/refreshWindow'
 import { shouldAutoRefresh } from '@/lib/autoRefresh'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { computeInsightsStartIndex } from '@/lib/insightsTime'
-import type { BiasTable } from '@/lib/ensemble/central'
 
 // Maximum age (ms) before we silently re-fetch the location's weather
 // in the background. The user asked for this to kick in at 2h for
@@ -236,10 +232,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // 2026-08-18 because the auto-refresh is reliable enough that the
   // manual button wasn't pulling its weight.
   const { refresh } = useRefresh()
-  // Sprint 13: the auto-derived profile for the current location.
-  // Resolved asynchronously from `classifyTerrain`; `null` until
-  // the elevation API replies (or forever, if it never does).
-  const effectiveProfile = useEffectiveProfile(position[0], position[1])
   const queryClient = useQueryClient()
   // BUG FIX (2026-08-18): this hook was added so the nowcast
   // (closest-station blend) actually receives a non-empty list of
@@ -921,130 +913,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
   // Use live data if available, otherwise fall back to offline snapshot
   const effectiveData = data ?? offlineSnapshot?.data ?? null
 
-  // Sprint 13: profile-driven backtest recommendation. The TerrainType
-  // is the raw output of `classifyTerrain` and feeds
-  // `getModelAccuracyByTerrain` (terrain-wide, topN). The result is a
-  // Set<string> of recommended model ids, intersected with the user's
-  // active set so the chip in FriendlyHome reflects what the boost
-  // actually affected. While the backtest hasn't produced rows for
-  // the current terrain (the weekly job has not yet run, or this
-  // terrain is new), `recommendedSet` is empty and the ensemble is
-  // computed exactly as before.
-  //
-  // We initialise the state with an empty Set and update it via
-  // setState inside the effect — the cascading-update lint that
-  // synchronous setState-in-effect would trigger is intentional
-  // here because the alternative (deriving `recommendedSet` from
-  // props) is impossible: the backtest result is async by design.
-  const [recommendedSet, setRecommendedSet] = useState<Set<string>>(() => new Set())
-  // Phase 3: terrain-wide bias correction table. Same reason as the
-  // recommendation above — `model_accuracy` is server-only, so the client
-  // reads the aggregated map from `/api/model-bias` instead of the DB.
-  // `null` (default) means "no correction", i.e. today's behaviour.
-  const [biasTable, setBiasTable] = useState<BiasTable | null>(null)
-  // The setState calls below are inside a useEffect that synchronises
-  // the backtest result (async by design) with the React state. The
-  // `react-hooks/set-state-in-effect` rule flags this pattern but
-  // it is correct here because the alternative — deriving
-  // `recommendedSet` from props — is impossible: the backtest is
-  // async, runs once per terrain, and the result must be cached.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    const terrain = effectiveProfile.terrain
-    if (!terrain) {
-      setRecommendedSet(new Set())
-      return
-    }
-    // The lead-time bucket for the recommendation comes from the
-    // current "now" hour (lead time 0). B-NBT-3: `model_accuracy`
-    // stores the FINE backtest buckets ('0-24h', '24-48h', ...), so
-    // the UI preset bucket must be mapped before querying — querying
-    // with '0-48h' verbatim never matched and silently disabled the
-    // profile boost forever.
-    const backtestBuckets = uiBucketToBacktestBuckets(getLeadTimeBucket(0))
-    if (backtestBuckets.length === 0) {
-      setRecommendedSet(new Set())
-      return
-    }
-    let cancelled = false
-    // POR HTTP, NO CONTRA LA BASE DE DATOS.
-    //
-    // Este componente es `'use client'`. Importar aquí
-    // `getModelAccuracyByTerrain` metía `@/lib/backtest/db` →
-    // `@/lib/db` → `@libsql/client` en el paquete del navegador: 493
-    // KB crudos, el 36% del JS de primera carga.
-    //
-    // Y no servía para nada, que es lo peor: en el navegador
-    // `NODE_ENV` es 'production' y `TURSO_DATABASE_URL` no existe (no
-    // lleva prefijo `NEXT_PUBLIC_`, así que nunca se inlinea), luego
-    // `getDb()` devolvía null SIEMPRE y la función salía por su
-    // `if (!db) return []`. `recommendedSet` quedaba vacío en
-    // producción de forma permanente y el ajuste del ensemble por
-    // perfil llevaba desactivado desde que se escribió. No se notó
-    // porque el conjunto vacío es también el modo degradado legítimo
-    // —"el backtest aún no ha escrito filas para este terreno"—, así
-    // que la avería y el funcionamiento normal se veían igual.
-    const params = new URLSearchParams({
-      terrain: terrain.type,
-      metric: selectedMetric,
-      buckets: backtestBuckets.join(','),
-    })
-    void fetch(`/api/model-accuracy?${params.toString()}`)
-      .then(r => (r.ok ? r.json() : { models: [] }))
-      .then((data: { models?: unknown }) => {
-        if (cancelled) return
-        const models = Array.isArray(data?.models)
-          ? data.models.filter((m): m is string => typeof m === 'string')
-          : []
-        setRecommendedSet(new Set(models))
-      })
-      .catch(() => {
-        if (cancelled) return
-        setRecommendedSet(new Set())
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [effectiveProfile.terrain, selectedMetric])
-
-  useEffect(() => {
-    const terrain = effectiveProfile.terrain
-    if (!terrain) {
-      setBiasTable(null)
-      return
-    }
-    let cancelled = false
-    void fetch(`/api/model-bias?terrain=${encodeURIComponent(terrain.type)}`)
-      .then(r => (r.ok ? r.json() : { bias: {} }))
-      .then((data: { bias?: BiasTable }) => {
-        if (cancelled) return
-        const table = data?.bias
-        setBiasTable(table && Object.keys(table).length > 0 ? table : null)
-      })
-      .catch(() => {
-        if (!cancelled) setBiasTable(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [effectiveProfile.terrain])
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  // The number of recommendation entries that actually overlap with
-  // the user's active model selection — surfaced in the chip so the
-  // user can see whether the boost is taking effect (a coastal city
-  // The number of recommendation entries that overlap with
-  // the user's active model selection used to be surfaced in
-  // a chip on FriendlyHome so the user could see whether the
-  // boost was taking effect (a coastal city with no marine-
-  // aware models active would show 0 even if the backtest
-  // returned a marine recommendation). The chip was dropped
-  // in F5 (the user reported it was an "FYI with no
-  // follow-up"), so the computation no longer needs to run
-  // here. The math is still in `useMemo` block of the parent
-  // so the recommendation set keeps driving the snapshot's
-  // `meanAcrossModels` via `usageProfileRecommended` below.
-
   const viewData = useMemo(() => {
     if (!effectiveData) return null
     if (startIndex === 0) return effectiveData
@@ -1468,14 +1336,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                   // "Previsión de hoy" to follow whatever the Avanzado
                   // toggle says.
                   ensembleMode={ensembleMode}
-                  // Sprint 13: the auto-derived profile (or null
-                  // while the classifier is in flight) and the
-                  // backtest recommendation set. Empty set means
-                  // no boost is applied — the snapshot degrades
-                  // to the pre-Sprint-13 behaviour byte-for-byte.
-                  usageProfile={effectiveProfile.profile}
-                  usageProfileRecommended={recommendedSet}
-                  biasTable={biasTable}
                   // F5 (revised): the EU AQI value is rendered
                   // inside the Métricas block (via AirConditionsGrid)
                   // so it shows on every viewport including mobile
@@ -1550,9 +1410,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                   // a fresh /api/forecast that re-issues the same cell
                   // doesn't reset the user's day filter.
                   locationKey={`${position[0].toFixed(2)}:${position[1].toFixed(2)}`}
-                  usageProfile={effectiveProfile.profile}
-                  usageProfileRecommended={recommendedSet}
-                  biasTable={biasTable}
                 />
               )}
 
@@ -1665,7 +1522,6 @@ export default function HomeContent({ kofiUrl }: { kofiUrl: string }) {
                 // use the calibrated ensemble when the Avanzado
                 // toggle is on WedAI.
                 ensembleMode={ensembleMode}
-                biasTable={biasTable}
               />
             </div>
           </aside>
@@ -1743,9 +1599,6 @@ const AdvancedSection = memo(function AdvancedSection({
   onEnsembleModeChange,
   weekDays,
   locationKey,
-  usageProfile,
-  usageProfileRecommended,
-  biasTable,
 }: {
   expanded: boolean
   onToggle: () => void
@@ -1779,10 +1632,7 @@ const AdvancedSection = memo(function AdvancedSection({
    *  re-issued by a fresh forecast doesn't destroy the filter. */
   locationKey: string
   /** B-NBT-9b: Sprint-13 boost threading for the InsightsTable active row. */
-  usageProfile: import('@/lib/profiles').UsageProfile | null
-  usageProfileRecommended: ReadonlySet<string>
   /** Phase 3: bias correction table, threaded to DailySummary/InsightsTable. */
-  biasTable: BiasTable | null
 }) {
   const { locale } = useLocale()
   const s = STRINGS[locale]
@@ -1965,7 +1815,6 @@ const AdvancedSection = memo(function AdvancedSection({
             // Resumen diario uses the calibrated full ensemble when
             // the Avanzado toggle is on WedAI.
             ensembleMode={ensembleMode}
-            biasTable={biasTable}
           />
           <ModelSelector
             models={displayModels}
@@ -2004,11 +1853,6 @@ const AdvancedSection = memo(function AdvancedSection({
             ensembleMode={ensembleMode}
             dayFilter={dayFilter}
             onClearDayFilter={handleClearDayFilter}
-            // B-NBT-9b: the Sprint-13 boost applies to the active row
-            // too, so card / AHORA / active row always agree.
-            usageProfile={usageProfile}
-            usageProfileRecommended={usageProfileRecommended}
-            biasTable={biasTable}
           />
         </div>
       ) : null}

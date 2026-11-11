@@ -276,6 +276,17 @@ describe('computeAccuracyFromRaw pairing (B-NBT-2)', () => {
     expect(rowB.sample_count).toBe(1)
     expect(rowB.mae).toBeCloseTo(95, 9)
   })
+
+  it('keeps stitched day zero out of the verified 24-hour skill', () => {
+    const valid = '2026-08-15T00:00:00.000Z'
+    const forecast = { model_id: 'a', valid_time: valid, metric: 'temperature' }
+    const rows = computeAccuracyFromRaw(location, [
+      { ...forecast, init_time: valid, predicted_value: 20, lead_time_hours: 0 },
+      { ...forecast, init_time: '2026-08-14T00:00:00.000Z', predicted_value: 25, lead_time_hours: 24 },
+    ], [{ valid_time: valid, metric: 'temperature', observed_value: 20 }], '2026-08-15', '2026-08-15')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ sample_count: 1, rmse: 5, verification_version: 3 })
+  })
 })
 
 describe('uiBucketToBacktestBuckets (B-NBT-3)', () => {

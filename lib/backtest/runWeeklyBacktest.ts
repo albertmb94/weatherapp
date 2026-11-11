@@ -130,7 +130,9 @@ export function computeAccuracyFromRaw(
   // Group forecasts by model, metric, and lead time bucket.
   const grouped = new Map<string, { predicted: number[]; observed: number[] }>()
   for (const row of forecastRows) {
-    if (row.predicted_value === null) continue
+    // Day zero is stitched from the latest runs. It cannot measure the
+    // same forecast skill as the archived 24-hour offset.
+    if (row.predicted_value === null || row.lead_time_hours <= 0) continue
     const bucket = leadTimeBucket(row.lead_time_hours)
     const key = `${row.model_id}|${row.metric}|${bucket}`
     const obsKey = `${row.valid_time}|${row.metric}`
@@ -164,7 +166,7 @@ export function computeAccuracyFromRaw(
       window_start: windowStart,
       window_end: windowEnd,
       computed_at: new Date().toISOString(),
-      verification_version: 2,
+      verification_version: 3,
     })
   }
 

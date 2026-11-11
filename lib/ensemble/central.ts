@@ -36,6 +36,9 @@ import {
   getLeadTimeBucket,
 } from '../models'
 import { weightedAvg } from '../ensemble'
+import windCalibration from './wind-calibration.generated.json'
+
+export const WIND_CALIBRATION_MIN_LEAD_HOURS = 24
 import { adjustedEnsembleValue } from './rainCalibration'
 
 export type EnsembleMode = 'wedai' | 'models'
@@ -131,12 +134,19 @@ export function weightsFor(
   bucketHours: number,
   activeModels: WeatherModel[]
 ): number[] {
+  const leadTimeHours = Math.max(0, hourIndex) * Math.max(1, bucketHours)
+  const bucketWeights = ensemblePresetWeights(metric, getLeadTimeBucket(leadTimeHours), leadTimeHours)
+  return activeModels.map(m => bucketWeights[m.id] ?? 0.01)
+}
+
+export function ensemblePresetWeights(metric: string, leadBucket: string, leadHours = WIND_CALIBRATION_MIN_LEAD_HOURS): Record<string, number> {
+  if (metric === 'wind_speed' && leadHours >= WIND_CALIBRATION_MIN_LEAD_HOURS) {
+    const calibrated = (windCalibration.weights as Record<string, Record<string, number>>)[leadBucket]
+    if (calibrated) return calibrated
+  }
   const presetId = METRIC_TO_ENSEMBLE[metric] ?? 'temperature'
   const preset = ENSEMBLE_PRESETS.find(p => p.id === presetId) ?? ENSEMBLE_PRESETS[0]
-  const leadTimeHours = Math.max(0, hourIndex) * Math.max(1, bucketHours)
-  const leadBucket = getLeadTimeBucket(leadTimeHours)
-  const bucketWeights = preset.weights[leadBucket] ?? preset.weights['0-48h']
-  return activeModels.map(m => bucketWeights[m.id] ?? 0.01)
+  return preset.weights[leadBucket] ?? preset.weights['0-48h']
 }
 
 /** Compatibility entry point. The released calibration was verified without

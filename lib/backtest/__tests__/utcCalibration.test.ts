@@ -48,6 +48,19 @@ describe('UTC verification archive', () => {
     expect(rows[0].valid_time).toBe('2026-10-25T01:00:00.000Z')
     expect(rows[0].observed_value).toBe(3)
   })
+
+  it('requests only the selected offsets and omits stitched day zero', async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ hourly: {
+      time: [1792886400], precipitation_a: [2], precipitation_previous_day2_a: [0.5], precipitation_previous_day7_a: [1.5],
+    } })))
+    vi.stubGlobal('fetch', fetch)
+    const location = { name: 'Test', lat: 41, lon: 2, terrain: 'coastal' as const, country: 'ES' }
+    const rows = await fetchPreviousRuns(location, '2026-10-25', '2026-10-25', undefined, {
+      metrics: ['precipitation'], modelIds: ['a'], leadDays: [2, 7, 2],
+    })
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('hourly=precipitation_previous_day2%2Cprecipitation_previous_day7'), expect.anything())
+    expect(rows.map(row => row.lead_time_hours)).toEqual([48, 168])
+  })
 })
 
 describe('chronological calibration', () => {

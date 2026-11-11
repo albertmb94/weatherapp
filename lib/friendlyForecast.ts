@@ -11,6 +11,8 @@ import {
   type SeriesBag,
 } from './ensemble/central'
 import type { UsageProfile } from './profiles'
+import { forecastLeadAtHour } from './ensemble/forecastLead'
+import { sumPrecipitationForDay } from './ensemble/precipitationDay'
 
 export type { SeriesBag }
 
@@ -59,12 +61,13 @@ function meanAcrossModels(
    *  the friendly cards stay consistent with the InsightsTable. */
   biasTable: BiasTable | null = null
 ): number | null {
+  const lead = forecastLeadAtHour(bag.series, index, leadTimeHours)
   const active = resolveActiveModels(models, selectedIds, mode)
   if (active.length === 0) {
-    return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended, biasTable)
+    return fallbackToWedai(bag, metric, index, models, lead, profile, recommended, biasTable)
   }
-  const weights = weightsForProfile(metric, leadTimeHours, 1, active, recommended, profile)
-  const v = meanAtHour(bag, metric, index, active, weights, biasForMetricBucket(biasTable, metric, leadTimeHours), mode === 'wedai')
+  const weights = weightsForProfile(metric, lead, 1, active, recommended, profile)
+  const v = meanAtHour(bag, metric, index, active, weights, biasForMetricBucket(biasTable, metric, lead), mode === 'wedai')
   if (v !== null) return v
   // B-NEW-5: user's selection returned no data for this hour —
   // surface the WedAI value instead of an em-dash. We only do this
@@ -73,7 +76,7 @@ function meanAcrossModels(
   // selection (so the user can still see "no model I selected has
   // data" if that's the point they want to inspect).
   if (mode === 'models') {
-    return fallbackToWedai(bag, metric, index, models, leadTimeHours, profile, recommended, biasTable)
+    return fallbackToWedai(bag, metric, index, models, lead, profile, recommended, biasTable)
   }
   return null
 }
@@ -140,7 +143,7 @@ export function ensembleSpread(
     if (typeof v === 'number' && Number.isFinite(v)) vals.push(v)
   }
   if (vals.length < 2) return null
-  const weights = weightsFor(metric, leadTimeHours, 1, active)
+  const weights = weightsFor(metric, forecastLeadAtHour(bag.series, index, leadTimeHours), 1, active)
   // Weighted mean using only the contributing models.
   let sum = 0
   let wSum = 0
@@ -596,7 +599,6 @@ export function computeWeekSummaries(
   return buckets.map(b => {
     let high: number | null = null
     let low: number | null = null
-    let precip = 0
     let cloudSum = 0
     let cloudCount = 0
     let gustsMax: number | null = null
@@ -618,8 +620,6 @@ export function computeWeekSummaries(
         if (high === null || t > high) high = t
         if (low === null || t < low) low = t
       }
-      const p = meanAcrossModels(bag, 'precipitation', i, models, activeIds, weekMode, leadHours, null, undefined, biasTable)
-      if (p !== null) precip += p
       const c = meanAcrossModels(bag, 'cloud_cover', i, models, activeIds, weekMode, leadHours, null, undefined, biasTable)
       if (c !== null) { cloudSum += c; cloudCount++ }
       const g = meanAcrossModels(bag, 'wind_gusts', i, models, activeIds, weekMode, leadHours, null, undefined, biasTable)
@@ -627,6 +627,8 @@ export function computeWeekSummaries(
       const ti = bag.time[i]
       if (ti instanceof Date && ti.getUTCHours() === 12) noonIndex = i
     }
+    const precip = sumPrecipitationForDay(bag.time, b.start, b.end, index =>
+      meanAcrossModels(bag, 'precipitation', index, models, activeIds, weekMode, baseLeadTimeHours + index - nowIndex, null, undefined, biasTable))
     const cloudAvg = cloudCount > 0 ? cloudSum / cloudCount : null
     const icon = pickWeatherIcon({
       cloudCoverPct: cloudAvg,

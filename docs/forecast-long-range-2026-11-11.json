@@ -1,0 +1,358 @@
+{
+  "sites": [
+    "Barcelona",
+    "Madrid",
+    "London",
+    "Berlin",
+    "Chicago",
+    "Los Angeles"
+  ],
+  "runs": [
+    "2026-10-09T00:00",
+    "2026-10-12T00:00",
+    "2026-10-15T00:00",
+    "2026-10-18T00:00",
+    "2026-10-21T00:00",
+    "2026-10-24T00:00"
+  ],
+  "pairedRuns": [
+    "2026-10-21T00:00",
+    "2026-10-24T00:00"
+  ],
+  "models": [
+    "ecmwf_ifs",
+    "icon_global",
+    "gfs_global",
+    "gem_global",
+    "ecmwf_aifs025",
+    "gfs_graphcast025",
+    "ncep_aigfs025"
+  ],
+  "availability": {
+    "ecmwf_ifs": {
+      "amount": 3024,
+      "probability": 0
+    },
+    "gfs_global": {
+      "amount": 4032,
+      "probability": 0
+    },
+    "gem_global": {
+      "amount": 1728,
+      "probability": 0
+    },
+    "icon_global": {
+      "amount": 216,
+      "probability": 0
+    },
+    "ncep_aigfs025": {
+      "amount": 3024,
+      "probability": 0
+    }
+  },
+  "errors": [
+    "2026-10-09T00:00/icon_global: Request timed out after 12000ms",
+    "2026-10-09T00:00/gfs_global: Request timed out after 12000ms",
+    "2026-10-09T00:00/gem_global: Request timed out after 12000ms",
+    "2026-10-09T00:00/ecmwf_aifs025: Request timed out after 12000ms",
+    "2026-10-09T00:00/gfs_graphcast025: Request timed out after 12000ms",
+    "2026-10-09T00:00/ncep_aigfs025: Request timed out after 12000ms",
+    "2026-10-12T00:00/ecmwf_ifs: Request timed out after 12000ms",
+    "2026-10-12T00:00/icon_global: Request timed out after 12000ms",
+    "2026-10-12T00:00/gfs_global: Request timed out after 12000ms",
+    "2026-10-12T00:00/gem_global: Request timed out after 12000ms",
+    "2026-10-12T00:00/ecmwf_aifs025: Request timed out after 12000ms",
+    "2026-10-12T00:00/gfs_graphcast025: Single Runs 400",
+    "2026-10-12T00:00/ncep_aigfs025: Request timed out after 12000ms",
+    "2026-10-15T00:00/ecmwf_ifs: Request timed out after 12000ms",
+    "2026-10-15T00:00/icon_global: Request timed out after 12000ms",
+    "2026-10-15T00:00/ecmwf_aifs025: Single Runs 400",
+    "2026-10-15T00:00/gfs_graphcast025: Single Runs 400",
+    "2026-10-15T00:00/ncep_aigfs025: Request timed out after 12000ms",
+    "2026-10-18T00:00/ecmwf_ifs: Request timed out after 12000ms",
+    "2026-10-18T00:00/ecmwf_aifs025: Single Runs 400",
+    "2026-10-18T00:00/gfs_graphcast025: Single Runs 400",
+    "2026-10-21T00:00/ecmwf_aifs025: Single Runs 400",
+    "2026-10-21T00:00/gfs_graphcast025: Single Runs 400",
+    "2026-10-24T00:00/ecmwf_aifs025: Single Runs 400",
+    "2026-10-24T00:00/gfs_graphcast025: Single Runs 400"
+  ],
+  "cells": {
+    "temperature/168-240h": {
+      "current": {
+        "rmse": 2.1020835142560395,
+        "mae": 1.680657874577413,
+        "n": 864,
+        "hits": 864,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "equal": {
+        "rmse": 2.1419379624428214,
+        "mae": 1.6903298611111117,
+        "n": 864,
+        "hits": 864,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "ifs": {
+        "rmse": 2.2840707446720345,
+        "mae": 1.8133101851851838,
+        "n": 864,
+        "hits": 864,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "gfs": {
+        "rmse": 3.751959364661888,
+        "mae": 3.0032407407407367,
+        "n": 864,
+        "hits": 864,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      }
+    },
+    "temperature/240-360h": {
+      "current": {
+        "rmse": 3.142976908615526,
+        "mae": 2.433511238392782,
+        "n": 1002,
+        "hits": 1002,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "equal": {
+        "rmse": 3.3083431164394463,
+        "mae": 2.5833000665335972,
+        "n": 1002,
+        "hits": 1002,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "ifs": {
+        "rmse": 3.2388100005342815,
+        "mae": 2.5446107784431145,
+        "n": 1002,
+        "hits": 1002,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "gfs": {
+        "rmse": 4.803593548380619,
+        "mae": 4.0944111776447105,
+        "n": 1002,
+        "hits": 1002,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      }
+    },
+    "precipitation/168-240h": {
+      "current": {
+        "rmse": 0.2505362978960482,
+        "mae": 0.0856081471242362,
+        "n": 864,
+        "hits": 10,
+        "misses": 77,
+        "falseAlarms": 95,
+        "pod": 0.11494252873563218,
+        "far": 0.9047619047619048,
+        "csi": 0.054945054945054944
+      },
+      "equal": {
+        "rmse": 0.23889190808815605,
+        "mae": 0.0861666666666667,
+        "n": 864,
+        "hits": 15,
+        "misses": 72,
+        "falseAlarms": 126,
+        "pod": 0.1724137931034483,
+        "far": 0.8936170212765957,
+        "csi": 0.07042253521126761
+      },
+      "ifs": {
+        "rmse": 0.33784139112245476,
+        "mae": 0.1006712962962964,
+        "n": 864,
+        "hits": 11,
+        "misses": 76,
+        "falseAlarms": 79,
+        "pod": 0.12643678160919541,
+        "far": 0.8777777777777778,
+        "csi": 0.06626506024096386
+      },
+      "gfs": {
+        "rmse": 0.3428583553770447,
+        "mae": 0.08395833333333337,
+        "n": 864,
+        "hits": 0,
+        "misses": 87,
+        "falseAlarms": 42,
+        "pod": 0,
+        "far": 1,
+        "csi": 0
+      }
+    },
+    "precipitation/240-360h": {
+      "current": {
+        "rmse": 0.5098661833062035,
+        "mae": 0.18713680331644358,
+        "n": 1002,
+        "hits": 38,
+        "misses": 103,
+        "falseAlarms": 198,
+        "pod": 0.2695035460992908,
+        "far": 0.8389830508474576,
+        "csi": 0.11209439528023599
+      },
+      "equal": {
+        "rmse": 0.4139835366245148,
+        "mae": 0.16672654690618754,
+        "n": 1002,
+        "hits": 34,
+        "misses": 107,
+        "falseAlarms": 201,
+        "pod": 0.24113475177304963,
+        "far": 0.8553191489361702,
+        "csi": 0.09941520467836257
+      },
+      "ifs": {
+        "rmse": 0.6366676594447331,
+        "mae": 0.2330738522954093,
+        "n": 1002,
+        "hits": 23,
+        "misses": 118,
+        "falseAlarms": 192,
+        "pod": 0.16312056737588654,
+        "far": 0.8930232558139535,
+        "csi": 0.06906906906906907
+      },
+      "gfs": {
+        "rmse": 0.641053742052569,
+        "mae": 0.1601796407185625,
+        "n": 1002,
+        "hits": 35,
+        "misses": 106,
+        "falseAlarms": 108,
+        "pod": 0.24822695035460993,
+        "far": 0.7552447552447552,
+        "csi": 0.14056224899598393
+      }
+    },
+    "wind_speed/168-240h": {
+      "current": {
+        "rmse": 4.062501774437495,
+        "mae": 3.005497740127893,
+        "n": 864,
+        "hits": 864,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "equal": {
+        "rmse": 3.961454646549254,
+        "mae": 2.864502314814813,
+        "n": 864,
+        "hits": 864,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "ifs": {
+        "rmse": 4.829229579687979,
+        "mae": 3.6391203703703687,
+        "n": 864,
+        "hits": 863,
+        "misses": 1,
+        "falseAlarms": 0,
+        "pod": 0.9988425925925926,
+        "far": 0,
+        "csi": 0.9988425925925926
+      },
+      "gfs": {
+        "rmse": 4.395146734161989,
+        "mae": 3.3900462962962963,
+        "n": 864,
+        "hits": 863,
+        "misses": 1,
+        "falseAlarms": 0,
+        "pod": 0.9988425925925926,
+        "far": 0,
+        "csi": 0.9988425925925926
+      }
+    },
+    "wind_speed/240-360h": {
+      "current": {
+        "rmse": 6.132980167617795,
+        "mae": 4.820425815036594,
+        "n": 1002,
+        "hits": 1002,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "equal": {
+        "rmse": 6.203144435454867,
+        "mae": 4.832035928143705,
+        "n": 1002,
+        "hits": 1002,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "ifs": {
+        "rmse": 7.169354274867636,
+        "mae": 5.618163672654687,
+        "n": 1002,
+        "hits": 1002,
+        "misses": 0,
+        "falseAlarms": 0,
+        "pod": 1,
+        "far": 0,
+        "csi": 1
+      },
+      "gfs": {
+        "rmse": 8.435535163403328,
+        "mae": 6.557185628742511,
+        "n": 1002,
+        "hits": 1001,
+        "misses": 1,
+        "falseAlarms": 0,
+        "pod": 0.999001996007984,
+        "far": 0,
+        "csi": 0.999001996007984
+      }
+    }
+  }
+}

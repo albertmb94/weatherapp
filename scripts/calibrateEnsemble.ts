@@ -35,6 +35,7 @@
 import { createClient } from '@libsql/client'
 import { writeFileSync } from 'node:fs'
 import { uiBucketToBacktestBuckets } from '../lib/backtest/config'
+import { VERIFIED_ACCURACY } from '../lib/backtest/db'
 
 const DB_URL = process.env.BACKTEST_DB_URL ?? 'file:local.db'
 const MIN_MODELS_PER_LOCATION = 3
@@ -91,6 +92,7 @@ async function main() {
                      SQRT(SUM(rmse * rmse * sample_count) / SUM(sample_count)) AS rmse
               FROM model_accuracy
               WHERE metric = ?
+                AND ${VERIFIED_ACCURACY}
                 AND lead_time_bucket IN (${placeholders})
                 AND rmse IS NOT NULL
                 AND rmse >= 0 AND sample_count > 0

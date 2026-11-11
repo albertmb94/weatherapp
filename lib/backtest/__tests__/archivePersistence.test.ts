@@ -29,11 +29,12 @@ describe('UTC archive persistence in real SQLite', () => {
     const columns = await db.execute('PRAGMA table_info(model_accuracy)')
     expect(columns.rows.some(r => r.name === 'verification_version')).toBe(true)
     const base = { lat: 41, lon: 2, metric: 'temperature', terrain_type: 'coastal', lead_time_bucket: '0-24h',
-      mae: 1, rmse: 2, window_start: '2026-11-01', window_end: '2026-11-02', computed_at: new Date().toISOString(), verification_version: 2 }
+      mae: 1, rmse: 2, window_start: '2026-11-01', window_end: '2026-11-02', computed_at: new Date().toISOString(), verification_version: 3 }
     await archive.insertModelAccuracy([
       { ...base, model_id: 'a', bias: 2, sample_count: 10 },
       { ...base, model_id: 'b', bias: 4, sample_count: 20 },
       { ...base, model_id: 'legacy', bias: 100, sample_count: 1000, verification_version: 1 },
+      { ...base, model_id: 'stitched', bias: 100, sample_count: 1000, verification_version: 2 },
     ])
     const table = await archive.getBiasByTerrain('coastal', ['temperature'], ['0-24h'])
     expect(table.temperature['0-48h']).toEqual({ a: 2, b: 4 })

@@ -7,6 +7,8 @@ import { selectModelsForLocation } from './regionDetection'
 import { weightedAvg } from './ensemble'
 import { weightsFor, meanAtHour } from './ensemble/central'
 import { attachRainCalibration } from './ensemble/rainCalibration'
+import { attachForecastLead, forecastLeadAtHour } from './ensemble/forecastLead'
+import { precipitationDayKey } from './ensemble/precipitationDay'
 import { detectModelsWithNoData } from './api/openMeteoProxy'
 
 // v4-mixed-models: the previous cap of 10 dropped European regional
@@ -415,6 +417,7 @@ export async function fetchForecast(
   const dailyTimeStrings: string[] = Array.isArray(daily.time) ? (daily.time as string[]) : []
   const dailyTime = parseOpenMeteoTimes(dailyTimeStrings)
   const modelsWithNoData = detectModelsWithNoData(data, capped.map(m => m.id))
+  attachForecastLead(series, time, data.utc_offset_seconds ?? 0, fetchedAt)
   const calibratedRain = attachRainCalibration(series, time, lat, lon, data.utc_offset_seconds ?? 0, fetchedAt)
   const rainDaily = aggregateDailySeries(daily, 'precipitation_sum', capped, dailyWeight('precipitation', capped, dailyTime, data.utc_offset_seconds ?? 0, fetchedAt))
   const rainHours = aggregateDailySeries(daily, 'precipitation_hours', capped, dailyWeight('precipitation', capped, dailyTime, data.utc_offset_seconds ?? 0, fetchedAt))
@@ -422,12 +425,11 @@ export async function fetchForecast(
     // Derive the adjusted daily amount from the SAME hourly ensemble used
     // by cards and tables. Raw model columns and provider probabilities stay raw.
     const byDate = new Map<string, { sum: number; wet: number; n: number }>()
-    const localReference = fetchedAt + (data.utc_offset_seconds ?? 0) * 1000
     for (let i = 0; i < time.length; i++) {
-      const lead = Math.max(0, (time[i].getTime() - localReference) / 3600_000)
+      const lead = forecastLeadAtHour(series, i, 0)
       const value = meanAtHour({ time, series }, 'precipitation', i, capped, weightsFor('precipitation', lead, 1, capped))
       if (value === null) continue
-      const date = timeStrings[i].slice(0, 10)
+      const date = precipitationDayKey(time[i])
       const cell = byDate.get(date) ?? { sum: 0, wet: 0, n: 0 }
       cell.sum += value; cell.wet += value >= 0.1 ? 1 : 0; cell.n++
       byDate.set(date, cell)

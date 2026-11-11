@@ -1,6 +1,10 @@
 import { getDb } from '@/lib/db'
 import { BACKTEST_BUCKET_TO_UI } from './config'
 
+// Version 2 used UTC, but mixed stitched day-zero values with the
+// 24-hour forecasts. Its longer buckets remain comparable.
+export const VERIFIED_ACCURACY = "(verification_version = 3 OR (verification_version = 2 AND lead_time_bucket <> '0-24h'))"
+
 let initPromise: Promise<void> | null = null
 
 export function ensureBacktestSchema(): Promise<void> {
@@ -264,7 +268,7 @@ export async function getModelAccuracy(
   const result = await db.execute({
     sql: `SELECT * FROM model_accuracy
           WHERE lat = ? AND lon = ? AND terrain_type = ? AND metric = ? AND lead_time_bucket = ?
-            AND verification_version = 2
+            AND ${VERIFIED_ACCURACY}
           ORDER BY computed_at DESC`,
     args: [lat, lon, terrainType, metric, leadTimeBucket],
   })
@@ -381,7 +385,7 @@ export async function getModelAccuracyByTerrain(
             AND metric = ?
             AND lead_time_bucket IN (${placeholders})
             AND computed_at >= ?
-            AND verification_version = 2
+            AND ${VERIFIED_ACCURACY}
             AND rmse IS NOT NULL
           GROUP BY model_id
           ORDER BY rmse ASC
@@ -435,7 +439,7 @@ export async function getBiasByTerrain(
             AND lead_time_bucket IN (${bucketPh})
             AND computed_at >= ?
             AND bias IS NOT NULL
-            AND verification_version = 2
+            AND ${VERIFIED_ACCURACY}
             AND sample_count > 0
           GROUP BY metric, lead_time_bucket, model_id`,
     args: [terrainType, ...metrics, ...buckets, cutoff],

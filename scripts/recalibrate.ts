@@ -65,6 +65,7 @@ async function main() {
     }
     console.log(`[aligned] ${location.name}: ${grouped.size} metric/time/lead points, ${Object.keys(coverage[location.name]).length} models with data`)
   }
+  if (process.argv.includes('--download-only')) return
   const report: Record<string, unknown> = { version: 2, from, to, trainEnd, innerEnd, locations: locations.map(l => l.name), coverage, buckets: {} }
   const weights: Record<string, Record<string, Record<string, number>>> = {}
   const results: Record<string, unknown> = {}

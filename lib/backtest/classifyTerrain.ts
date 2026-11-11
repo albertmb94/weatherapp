@@ -28,10 +28,11 @@ async function fetchElevation(lat: number, lon: number): Promise<number> {
   const res = await fetchWithTimeout(`${ELEVATION_API}?${params}`, {
     timeoutMs: 5000,
   })
-  if (!res.ok) return 0
+  if (!res.ok) throw new Error(`Elevation API: ${res.status}`)
   const data = await res.json()
-  const elevations = data.elevation
-  return Array.isArray(elevations) ? (elevations[0] ?? 0) : 0
+  const elevation: unknown = data.elevation?.[0]
+  if (typeof elevation !== 'number' || !Number.isFinite(elevation)) throw new Error('Elevation unavailable')
+  return elevation
 }
 
 /**
@@ -207,7 +208,10 @@ export async function classifyTerrain(
   lat: number,
   lon: number
 ): Promise<TerrainClassification> {
-  const elevation = await fetchElevation(lat, lon)
+  return classifyTerrainAtElevation(lat, lon, await fetchElevation(lat, lon))
+}
+
+export function classifyTerrainAtElevation(lat: number, lon: number, elevation: number): TerrainClassification {
   const distanceToCoast = estimateDistanceToCoast(lat, lon)
 
   // Island check (highest priority for island classification)
